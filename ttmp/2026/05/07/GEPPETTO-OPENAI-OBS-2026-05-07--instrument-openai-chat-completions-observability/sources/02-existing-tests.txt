@@ -1,0 +1,49 @@
+# Existing OpenAI tests
+pkg/inference/engine/factory/factory_test.go:135:func TestStandardEngineFactory_CreateEngine_DefaultsToOpenAI(t *testing.T) {
+pkg/inference/engine/factory/factory_test.go:46:func TestStandardEngineFactory_CreateEngine_OpenAI_Success(t *testing.T) {
+pkg/inference/engine/factory/factory_test.go:84:func TestStandardEngineFactory_CreateEngine_LegacyOpenAIResponsesAlias_Success(t *testing.T) {
+pkg/steps/ai/openai/chat_stream.go:131:func chatCompletionEndpointHint(statusCode int, cfg chatStreamConfig) string {
+pkg/steps/ai/openai/chat_stream.go:181:func (s *chatCompletionStream) Recv() (chatStreamEvent, error) {
+pkg/steps/ai/openai/chat_stream.go:185:			return chatStreamEvent{}, err
+pkg/steps/ai/openai/chat_stream.go:191:			return chatStreamEvent{}, io.EOF
+pkg/steps/ai/openai/chat_stream.go:196:			return chatStreamEvent{}, errors.Wrap(err, "decode chat stream event")
+pkg/steps/ai/openai/chat_stream.go:21:type chatStreamConfig struct {
+pkg/steps/ai/openai/chat_stream.go:247:func normalizeChatStreamEvent(raw map[string]any) chatStreamEvent {
+pkg/steps/ai/openai/chat_stream.go:248:	ret := chatStreamEvent{RawPayload: raw}
+pkg/steps/ai/openai/chat_stream.go:28:type chatStreamUsage struct {
+pkg/steps/ai/openai/chat_stream.go:318:func normalizeChatUsage(v any) *chatStreamUsage {
+pkg/steps/ai/openai/chat_stream.go:323:	ret := &chatStreamUsage{}
+pkg/steps/ai/openai/chat_stream.go:35:type chatStreamEvent struct {
+pkg/steps/ai/openai/chat_stream.go:39:	Usage          *chatStreamUsage
+pkg/steps/ai/openai/chat_stream.go:58:) (chatStreamConfig, error) {
+pkg/steps/ai/openai/chat_stream.go:61:		return chatStreamConfig{}, errors.Errorf("no API key for %s", apiType)
+pkg/steps/ai/openai/chat_stream.go:65:		return chatStreamConfig{}, errors.Errorf("no base URL for %s", apiType)
+pkg/steps/ai/openai/chat_stream.go:71:		return chatStreamConfig{}, errors.Wrap(err, "invalid chat completion URL")
+pkg/steps/ai/openai/chat_stream.go:75:		return chatStreamConfig{}, err
+pkg/steps/ai/openai/chat_stream.go:77:	return chatStreamConfig{
+pkg/steps/ai/openai/chat_stream.go:87:	cfg chatStreamConfig,
+pkg/steps/ai/openai/chat_stream_test.go:11:func TestOpenChatCompletionStream_404HintsWhenBaseURLLooksLikeChatEndpoint(t *testing.T) {
+pkg/steps/ai/openai/chat_stream_test.go:15:	_, err := openChatCompletionStream(t.Context(), chatStreamConfig{
+pkg/steps/ai/openai/engine_openai.go:407:	log.Debug().Msg("OpenAI RunInference completed (streaming)")
+pkg/steps/ai/openai/engine_openai.go:42:// RunInference processes a Turn using OpenAI API and appends result blocks.
+pkg/steps/ai/openai/engine_openai.go:43:func (e *OpenAIEngine) RunInference(
+pkg/steps/ai/openai/engine_openai.go:472:// NOTE: RunInferenceStream has been removed in the simplified tool calling architecture.
+pkg/steps/ai/openai/engine_openai.go:48:	log.Debug().Int("num_blocks", len(t.Blocks)).Bool("stream", true).Msg("OpenAI RunInference started")
+pkg/steps/ai/openai/engine_openai.go:65:	// RunInference always executes through the streaming path, regardless of the
+pkg/steps/ai/openai/engine_openai_test.go:106:func TestRunInference_StreamTogetherReasoningPublishesEventsAndPersistsBlock(t *testing.T) {
+pkg/steps/ai/openai/engine_openai_test.go:116:		out, err := eng.RunInference(ctx, turn)
+pkg/steps/ai/openai/engine_openai_test.go:118:			t.Fatalf("RunInference: %v", err)
+pkg/steps/ai/openai/engine_openai_test.go:166:func TestRunInference_StreamDeepSeekReasoningContentPublishesEvents(t *testing.T) {
+pkg/steps/ai/openai/engine_openai_test.go:175:		out, err := eng.RunInference(ctx, turn)
+pkg/steps/ai/openai/engine_openai_test.go:177:			t.Fatalf("RunInference: %v", err)
+pkg/steps/ai/openai/engine_openai_test.go:200:func TestRunInference_StreamTextOnlyBehaviorIsUnchanged(t *testing.T) {
+pkg/steps/ai/openai/engine_openai_test.go:209:		out, err := eng.RunInference(ctx, turn)
+pkg/steps/ai/openai/engine_openai_test.go:211:			t.Fatalf("RunInference: %v", err)
+pkg/steps/ai/openai/engine_openai_test.go:243:func TestRunInference_ForcesStreamingRequestBodyEvenWhenProfileStreamDisabled(t *testing.T) {
+pkg/steps/ai/openai/engine_openai_test.go:297:	out, err := eng.RunInference(ctx, turn)
+pkg/steps/ai/openai/engine_openai_test.go:299:		t.Fatalf("RunInference: %v", err)
+pkg/steps/ai/openai/engine_openai_test.go:306:func TestRunInference_StreamToolCallsAreMergedAndUsagePreserved(t *testing.T) {
+pkg/steps/ai/openai/engine_openai_test.go:315:		out, err := eng.RunInference(ctx, turn)
+pkg/steps/ai/openai/engine_openai_test.go:317:			t.Fatalf("RunInference: %v", err)
+pkg/steps/ai/openai/engine_openai_test.go:57:func newStreamingTestEngine(t *testing.T) *OpenAIEngine {
+pkg/steps/ai/openai/helpers_test.go:14:func newTestEngine(st *aisettings.InferenceSettings) *OpenAIEngine {

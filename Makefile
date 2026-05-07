@@ -24,17 +24,17 @@ linttool-build:
 
 linttool:
 	$(MAKE) linttool-build
-	GOWORK=off go vet -vettool=$(LINTTOOL_BIN) $(LINT_DIRS)
+	go vet -vettool=$(LINTTOOL_BIN) $(LINT_DIRS)
 
 lint: linttool-build golangci-lint-install
-	GOWORK=off $(GOLANGCI_LINT_BIN) config verify
-	GOWORK=off $(GOLANGCI_LINT_BIN) run -v $(GOLANGCI_LINT_ARGS)
-	GOWORK=off go vet -vettool=$(LINTTOOL_BIN) $(LINT_DIRS)
+	$(GOLANGCI_LINT_BIN) config verify
+	$(GOLANGCI_LINT_BIN) run -v $(GOLANGCI_LINT_ARGS)
+	go vet -vettool=$(LINTTOOL_BIN) $(LINT_DIRS)
 
 lintmax: linttool-build golangci-lint-install
-	GOWORK=off $(GOLANGCI_LINT_BIN) config verify
-	GOWORK=off $(GOLANGCI_LINT_BIN) run -v --max-same-issues=100 $(GOLANGCI_LINT_ARGS)
-	GOWORK=off go vet -vettool=$(LINTTOOL_BIN) $(LINT_DIRS)
+	$(GOLANGCI_LINT_BIN) config verify
+	$(GOLANGCI_LINT_BIN) run -v --max-same-issues=100 $(GOLANGCI_LINT_ARGS)
+	go vet -vettool=$(LINTTOOL_BIN) $(LINT_DIRS)
 
 TURNSDATALINT_BIN ?= /tmp/turnsdatalint
 
@@ -43,7 +43,7 @@ turnsdatalint-build:
 
 turnsdatalint:
 	$(MAKE) turnsdatalint-build
-	GOWORK=off go vet -vettool=$(TURNSDATALINT_BIN) $(LINT_DIRS)
+	go vet -vettool=$(TURNSDATALINT_BIN) $(LINT_DIRS)
 
 test:
 	go test ./...
@@ -79,6 +79,7 @@ bump-glazed:
 	go get github.com/go-go-golems/clay@latest
 	go get github.com/go-go-golems/go-emrichen@latest
 	go get github.com/go-go-golems/go-go-goja@latest
+	go get github.com/go-go-golems/sessionstream@latest
 	go mod tidy
 
 gosec:

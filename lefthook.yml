@@ -13,7 +13,7 @@ pre-push:
     # release:
     #   run: make goreleaser
     lint:
-      run: make lintmax gosec govulncheck
+      run: GOWORK=off make lintmax gosec govulncheck
     test:
-      run: make test
+      run: GOWORK=off make test
   parallel: true

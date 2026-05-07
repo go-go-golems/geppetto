@@ -37,6 +37,37 @@ type EngineFactory interface {
 // It supports creating engines for OpenAI, Claude, and other configured providers.
 // Provider selection is based on settings.Chat.ApiType with fallback to OpenAI.
 type StandardEngineFactory struct {
+	openAIResponsesOptions []openai_responses.EngineOption
+	openAIOptions          []openai.EngineOption
+	claudeOptions          []claude.EngineOption
+}
+
+// StandardEngineFactoryOption configures StandardEngineFactory.
+type StandardEngineFactoryOption func(*StandardEngineFactory)
+
+// WithOpenAIResponsesOptions passes options to OpenAI Responses engines created
+// by the factory. This keeps generic factory callers compatible while allowing
+// apps to attach observer hooks when they explicitly need them.
+func WithOpenAIResponsesOptions(opts ...openai_responses.EngineOption) StandardEngineFactoryOption {
+	return func(f *StandardEngineFactory) {
+		f.openAIResponsesOptions = append(f.openAIResponsesOptions, opts...)
+	}
+}
+
+// WithOpenAIOptions passes options to OpenAI Chat Completions engines created
+// by the factory. This mirrors WithOpenAIResponsesOptions for apps that want
+// provider-agnostic construction plus provider-specific observability hooks.
+func WithOpenAIOptions(opts ...openai.EngineOption) StandardEngineFactoryOption {
+	return func(f *StandardEngineFactory) {
+		f.openAIOptions = append(f.openAIOptions, opts...)
+	}
+}
+
+// WithClaudeOptions passes options to Claude engines created by the factory.
+func WithClaudeOptions(opts ...claude.EngineOption) StandardEngineFactoryOption {
+	return func(f *StandardEngineFactory) {
+		f.claudeOptions = append(f.claudeOptions, opts...)
+	}
 }
 
 func isResponsesProvider(provider string) bool {
@@ -44,8 +75,14 @@ func isResponsesProvider(provider string) bool {
 }
 
 // NewStandardEngineFactory creates a new StandardEngineFactory.
-func NewStandardEngineFactory() *StandardEngineFactory {
-	return &StandardEngineFactory{}
+func NewStandardEngineFactory(opts ...StandardEngineFactoryOption) *StandardEngineFactory {
+	f := &StandardEngineFactory{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(f)
+		}
+	}
+	return f
 }
 
 // CreateEngine creates an Engine instance based on the provider specified in settings.Chat.ApiType.
@@ -80,13 +117,13 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSetting
 	// Create engine based on provider
 	switch provider {
 	case string(types.ApiTypeOpenAI), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
-		return openai.NewOpenAIEngine(settings)
+		return openai.NewOpenAIEngine(settings, f.openAIOptions...)
 
 	case string(types.ApiTypeOpenResponses), string(types.ApiTypeOpenAIResponses):
-		return openai_responses.NewEngine(settings)
+		return openai_responses.NewEngine(settings, f.openAIResponsesOptions...)
 
 	case string(types.ApiTypeClaude), "anthropic":
-		return claude.NewClaudeEngine(settings)
+		return claude.NewClaudeEngine(settings, f.claudeOptions...)
 
 	case string(types.ApiTypeGemini):
 		return gemini.NewGeminiEngine(settings)

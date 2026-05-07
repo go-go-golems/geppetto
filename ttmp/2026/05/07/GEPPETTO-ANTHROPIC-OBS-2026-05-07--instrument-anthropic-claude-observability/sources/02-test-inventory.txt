@@ -1,0 +1,14 @@
+# Claude tests inventory
+pkg/steps/ai/claude/content-block-merger_test.go:13:func TestContentBlockMerger(t *testing.T) {
+pkg/steps/ai/claude/content-block-merger_test.go:222:			merger := NewContentBlockMerger(metadata)
+pkg/steps/ai/claude/content-block-merger_test.go:24:			name: "Test NewContentBlockMerger initialization",
+pkg/steps/ai/claude/helpers_test.go:163:func TestClaudeRunInference_UsesConfiguredHTTPClient(t *testing.T) {
+pkg/steps/ai/claude/helpers_test.go:173:			"event: message_start",
+pkg/steps/ai/claude/helpers_test.go:174:			`data: {"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","content":[],"model":"claude-sonnet-4-20250514","stop_reason":"","stop_sequence":"","usage":{"input_tokens":1,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}`,
+pkg/steps/ai/claude/helpers_test.go:176:			"event: content_block_start",
+pkg/steps/ai/claude/helpers_test.go:177:			`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+pkg/steps/ai/claude/helpers_test.go:179:			"event: content_block_delta",
+pkg/steps/ai/claude/helpers_test.go:180:			`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}`,
+pkg/steps/ai/claude/helpers_test.go:182:			"event: content_block_stop",
+pkg/steps/ai/claude/helpers_test.go:183:			`data: {"type":"content_block_stop","index":0}`,
+pkg/steps/ai/claude/token_count_test.go:39:func TestClaudeTokenCounterCountTurn(t *testing.T) {

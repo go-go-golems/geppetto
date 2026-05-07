@@ -1,0 +1,2037 @@
+{
+  "sid": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+  "profile": {
+    "profile": "haiku",
+    "registry": "default"
+  },
+  "frontend": [],
+  "records": {
+    "status": 200,
+    "json": {
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "records": [
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.905912246Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "client_frame_decoded",
+            "direction": "client_to_server",
+            "frameType": "subscribe",
+            "rawBytes": 93
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.905913213Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "subscribe_received",
+            "direction": "client_to_server",
+            "frameType": "subscribe"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.90591775Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "subscription_registered"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.905925095Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "snapshot_load_started"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.906086365Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "snapshot_loaded"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.906108166Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "snapshot_sent"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.906110628Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "subscription_live"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.906116759Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "subscribed"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.909261285Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "1",
+          "transport": {
+            "stage": "fanout_started",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.909309119Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "ordinal": "1",
+          "transport": {
+            "stage": "ui_event_sent",
+            "direction": "server_to_client",
+            "eventName": "ChatMessageAccepted",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.909310116Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "1",
+          "transport": {
+            "stage": "fanout_completed",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "pipeline",
+          "timestamp": "2026-05-07T20:38:31.909313896Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "1",
+          "pipeline": {
+            "mode": "live",
+            "event": "ChatUserMessageAccepted",
+            "eventType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "content": "Say exactly: pong",
+              "messageId": "chat-msg-3-user",
+              "role": "user",
+              "text": "Say exactly: pong"
+            },
+            "eventAppended": true,
+            "timelineCursorAdvanced": true,
+            "uiEvents": [
+              {
+                "name": "ChatMessageAccepted",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "content": "Say exactly: pong",
+                  "messageId": "chat-msg-3-user",
+                  "role": "user",
+                  "text": "Say exactly: pong"
+                }
+              }
+            ],
+            "timelineEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3-user",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "Say exactly: pong",
+                  "messageId": "chat-msg-3-user",
+                  "role": "user",
+                  "text": "Say exactly: pong"
+                }
+              }
+            ],
+            "appliedEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3-user",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "Say exactly: pong",
+                  "messageId": "chat-msg-3-user",
+                  "role": "user",
+                  "text": "Say exactly: pong"
+                }
+              }
+            ],
+            "fanoutEvents": [
+              {
+                "name": "ChatMessageAccepted",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "content": "Say exactly: pong",
+                  "messageId": "chat-msg-3-user",
+                  "role": "user",
+                  "text": "Say exactly: pong"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.909645039Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "2",
+          "transport": {
+            "stage": "fanout_started",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.909699879Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "ordinal": "2",
+          "transport": {
+            "stage": "ui_event_sent",
+            "direction": "server_to_client",
+            "eventName": "ChatMessageStarted",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.909700748Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "2",
+          "transport": {
+            "stage": "fanout_completed",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "pipeline",
+          "timestamp": "2026-05-07T20:38:31.909703348Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "2",
+          "pipeline": {
+            "mode": "live",
+            "event": "ChatInferenceStarted",
+            "eventType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "messageId": "chat-msg-3",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "status": "streaming",
+              "streaming": true
+            },
+            "eventAppended": true,
+            "viewOrdinal": "1",
+            "timelineCursorAdvanced": true,
+            "uiEvents": [
+              {
+                "name": "ChatMessageStarted",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "messageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "status": "streaming",
+                  "streaming": true
+                }
+              }
+            ],
+            "fanoutEvents": [
+              {
+                "name": "ChatMessageStarted",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "messageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "status": "streaming",
+                  "streaming": true
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.498091168Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "message_start",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "responseId": "msg_019bApVeJMUXFQdQmggqXVN8",
+            "objectJson": {
+              "message": {
+                "content": [],
+                "id": "msg_019bApVeJMUXFQdQmggqXVN8",
+                "model": "claude-haiku-4-5-20251001",
+                "role": "assistant",
+                "type": "message",
+                "usage": {
+                  "cache_creation_input_tokens": 0,
+                  "cache_read_input_tokens": 0,
+                  "input_tokens": 273,
+                  "output_tokens": 1
+                }
+              },
+              "type": "message_start"
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.498130231Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "geppetto_publish_started",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "start",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111"
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.498145299Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "content_block_start",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "outputIndex": 0,
+            "objectJson": {
+              "content_block": {
+                "type": "text"
+              },
+              "type": "content_block_start"
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.498178136Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "ping",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "objectJson": {
+              "type": "ping"
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.498184261Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "content_block_delta",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "outputIndex": 0,
+            "deltaLen": 1,
+            "objectJson": {
+              "delta": {
+                "partial_json": "",
+                "text": "p",
+                "type": "text_delta"
+              },
+              "type": "content_block_delta"
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.49819397Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "geppetto_publish_started",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "partial",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.499046174Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "3",
+          "transport": {
+            "stage": "fanout_started",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.499208953Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "ordinal": "3",
+          "transport": {
+            "stage": "ui_event_sent",
+            "direction": "server_to_client",
+            "eventName": "ChatMessageAppended",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.499211014Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "3",
+          "transport": {
+            "stage": "fanout_completed",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "pipeline",
+          "timestamp": "2026-05-07T20:38:32.499217197Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "3",
+          "pipeline": {
+            "mode": "live",
+            "event": "ChatTokensDelta",
+            "eventType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "chunk": "p",
+              "content": "p",
+              "messageId": "chat-msg-3:text:1",
+              "parentMessageId": "chat-msg-3",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "streaming",
+              "streaming": true,
+              "text": "p"
+            },
+            "eventAppended": true,
+            "viewOrdinal": "2",
+            "timelineCursorAdvanced": true,
+            "uiEvents": [
+              {
+                "name": "ChatMessageAppended",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "chunk": "p",
+                  "content": "p",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "p"
+                }
+              }
+            ],
+            "timelineEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3:text:1",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "p",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "p"
+                }
+              }
+            ],
+            "appliedEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3:text:1",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "p",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "p"
+                }
+              }
+            ],
+            "fanoutEvents": [
+              {
+                "name": "ChatMessageAppended",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "chunk": "p",
+                  "content": "p",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "p"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.533897733Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "content_block_delta",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "outputIndex": 0,
+            "deltaLen": 3,
+            "objectJson": {
+              "delta": {
+                "partial_json": "",
+                "text": "ong",
+                "type": "text_delta"
+              },
+              "type": "content_block_delta"
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.533917057Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "geppetto_publish_started",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "partial",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.5346693Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "4",
+          "transport": {
+            "stage": "fanout_started",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.534734013Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "ordinal": "4",
+          "transport": {
+            "stage": "ui_event_sent",
+            "direction": "server_to_client",
+            "eventName": "ChatMessageAppended",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.534735689Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "4",
+          "transport": {
+            "stage": "fanout_completed",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "pipeline",
+          "timestamp": "2026-05-07T20:38:32.534741462Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "4",
+          "pipeline": {
+            "mode": "live",
+            "event": "ChatTokensDelta",
+            "eventType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "chunk": "ong",
+              "content": "pong",
+              "messageId": "chat-msg-3:text:1",
+              "parentMessageId": "chat-msg-3",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "streaming",
+              "streaming": true,
+              "text": "pong"
+            },
+            "eventAppended": true,
+            "viewOrdinal": "3",
+            "timelineCursorAdvanced": true,
+            "uiEvents": [
+              {
+                "name": "ChatMessageAppended",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "chunk": "ong",
+                  "content": "pong",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "pong"
+                }
+              }
+            ],
+            "timelineEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3:text:1",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "pong",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "pong"
+                }
+              }
+            ],
+            "appliedEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3:text:1",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "pong",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "pong"
+                }
+              }
+            ],
+            "fanoutEvents": [
+              {
+                "name": "ChatMessageAppended",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "chunk": "ong",
+                  "content": "pong",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "pong"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.556443765Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "content_block_stop",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "outputIndex": 0,
+            "objectJson": {
+              "type": "content_block_stop"
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.556468883Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "geppetto_publish_started",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "partial",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111"
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.556605788Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "message_delta",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "objectJson": {
+              "delta": {
+                "partial_json": "",
+                "stop_reason": "end_turn",
+                "type": ""
+              },
+              "type": "message_delta",
+              "usage": {
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "input_tokens": 273,
+                "output_tokens": 5
+              }
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.55663735Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "geppetto_publish_started",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "partial",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111"
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.55708222Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "message_stop",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "objectJson": {
+              "type": "message_stop"
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.557095062Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "geppetto_publish_started",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "final",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.558083402Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "5",
+          "transport": {
+            "stage": "fanout_started",
+            "fanoutEventCount": 2,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.558225551Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "ordinal": "5",
+          "transport": {
+            "stage": "ui_event_sent",
+            "direction": "server_to_client",
+            "eventName": "ChatMessageFinished",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.558255413Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "ordinal": "5",
+          "transport": {
+            "stage": "ui_event_sent",
+            "direction": "server_to_client",
+            "eventName": "ChatAgentModePreviewCleared",
+            "payloadType": "pinocchio.chatapp.v1.AgentModePreviewCleared"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.558263319Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "5",
+          "transport": {
+            "stage": "fanout_completed",
+            "fanoutEventCount": 2,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "pipeline",
+          "timestamp": "2026-05-07T20:38:32.558268003Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "5",
+          "pipeline": {
+            "mode": "live",
+            "event": "ChatInferenceFinished",
+            "eventType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "content": "pong",
+              "final": true,
+              "messageId": "chat-msg-3:text:1",
+              "parentMessageId": "chat-msg-3",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "finished",
+              "text": "pong"
+            },
+            "eventAppended": true,
+            "viewOrdinal": "4",
+            "timelineCursorAdvanced": true,
+            "uiEvents": [
+              {
+                "name": "ChatMessageFinished",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "content": "pong",
+                  "final": true,
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "finished",
+                  "text": "pong"
+                }
+              },
+              {
+                "name": "ChatAgentModePreviewCleared",
+                "payloadType": "pinocchio.chatapp.v1.AgentModePreviewCleared",
+                "payload": {
+                  "messageId": "chat-msg-3:text:1"
+                }
+              }
+            ],
+            "timelineEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3:text:1",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "pong",
+                  "final": true,
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "finished",
+                  "text": "pong"
+                }
+              }
+            ],
+            "appliedEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3:text:1",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "pong",
+                  "final": true,
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "finished",
+                  "text": "pong"
+                }
+              }
+            ],
+            "fanoutEvents": [
+              {
+                "name": "ChatMessageFinished",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "content": "pong",
+                  "final": true,
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "finished",
+                  "text": "pong"
+                }
+              },
+              {
+                "name": "ChatAgentModePreviewCleared",
+                "payloadType": "pinocchio.chatapp.v1.AgentModePreviewCleared",
+                "payload": {
+                  "messageId": "chat-msg-3:text:1"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "pipeline": {
+    "status": 200,
+    "json": {
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "kind": "pipeline",
+      "records": [
+        {
+          "kind": "pipeline",
+          "timestamp": "2026-05-07T20:38:31.909313896Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "1",
+          "pipeline": {
+            "mode": "live",
+            "event": "ChatUserMessageAccepted",
+            "eventType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "content": "Say exactly: pong",
+              "messageId": "chat-msg-3-user",
+              "role": "user",
+              "text": "Say exactly: pong"
+            },
+            "eventAppended": true,
+            "timelineCursorAdvanced": true,
+            "uiEvents": [
+              {
+                "name": "ChatMessageAccepted",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "content": "Say exactly: pong",
+                  "messageId": "chat-msg-3-user",
+                  "role": "user",
+                  "text": "Say exactly: pong"
+                }
+              }
+            ],
+            "timelineEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3-user",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "Say exactly: pong",
+                  "messageId": "chat-msg-3-user",
+                  "role": "user",
+                  "text": "Say exactly: pong"
+                }
+              }
+            ],
+            "appliedEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3-user",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "Say exactly: pong",
+                  "messageId": "chat-msg-3-user",
+                  "role": "user",
+                  "text": "Say exactly: pong"
+                }
+              }
+            ],
+            "fanoutEvents": [
+              {
+                "name": "ChatMessageAccepted",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "content": "Say exactly: pong",
+                  "messageId": "chat-msg-3-user",
+                  "role": "user",
+                  "text": "Say exactly: pong"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "pipeline",
+          "timestamp": "2026-05-07T20:38:31.909703348Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "2",
+          "pipeline": {
+            "mode": "live",
+            "event": "ChatInferenceStarted",
+            "eventType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "messageId": "chat-msg-3",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "status": "streaming",
+              "streaming": true
+            },
+            "eventAppended": true,
+            "viewOrdinal": "1",
+            "timelineCursorAdvanced": true,
+            "uiEvents": [
+              {
+                "name": "ChatMessageStarted",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "messageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "status": "streaming",
+                  "streaming": true
+                }
+              }
+            ],
+            "fanoutEvents": [
+              {
+                "name": "ChatMessageStarted",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "messageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "status": "streaming",
+                  "streaming": true
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "pipeline",
+          "timestamp": "2026-05-07T20:38:32.499217197Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "3",
+          "pipeline": {
+            "mode": "live",
+            "event": "ChatTokensDelta",
+            "eventType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "chunk": "p",
+              "content": "p",
+              "messageId": "chat-msg-3:text:1",
+              "parentMessageId": "chat-msg-3",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "streaming",
+              "streaming": true,
+              "text": "p"
+            },
+            "eventAppended": true,
+            "viewOrdinal": "2",
+            "timelineCursorAdvanced": true,
+            "uiEvents": [
+              {
+                "name": "ChatMessageAppended",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "chunk": "p",
+                  "content": "p",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "p"
+                }
+              }
+            ],
+            "timelineEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3:text:1",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "p",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "p"
+                }
+              }
+            ],
+            "appliedEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3:text:1",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "p",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "p"
+                }
+              }
+            ],
+            "fanoutEvents": [
+              {
+                "name": "ChatMessageAppended",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "chunk": "p",
+                  "content": "p",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "p"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "pipeline",
+          "timestamp": "2026-05-07T20:38:32.534741462Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "4",
+          "pipeline": {
+            "mode": "live",
+            "event": "ChatTokensDelta",
+            "eventType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "chunk": "ong",
+              "content": "pong",
+              "messageId": "chat-msg-3:text:1",
+              "parentMessageId": "chat-msg-3",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "streaming",
+              "streaming": true,
+              "text": "pong"
+            },
+            "eventAppended": true,
+            "viewOrdinal": "3",
+            "timelineCursorAdvanced": true,
+            "uiEvents": [
+              {
+                "name": "ChatMessageAppended",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "chunk": "ong",
+                  "content": "pong",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "pong"
+                }
+              }
+            ],
+            "timelineEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3:text:1",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "pong",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "pong"
+                }
+              }
+            ],
+            "appliedEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3:text:1",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "pong",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "pong"
+                }
+              }
+            ],
+            "fanoutEvents": [
+              {
+                "name": "ChatMessageAppended",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "chunk": "ong",
+                  "content": "pong",
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "streaming",
+                  "streaming": true,
+                  "text": "pong"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "pipeline",
+          "timestamp": "2026-05-07T20:38:32.558268003Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "5",
+          "pipeline": {
+            "mode": "live",
+            "event": "ChatInferenceFinished",
+            "eventType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "content": "pong",
+              "final": true,
+              "messageId": "chat-msg-3:text:1",
+              "parentMessageId": "chat-msg-3",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "finished",
+              "text": "pong"
+            },
+            "eventAppended": true,
+            "viewOrdinal": "4",
+            "timelineCursorAdvanced": true,
+            "uiEvents": [
+              {
+                "name": "ChatMessageFinished",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "content": "pong",
+                  "final": true,
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "finished",
+                  "text": "pong"
+                }
+              },
+              {
+                "name": "ChatAgentModePreviewCleared",
+                "payloadType": "pinocchio.chatapp.v1.AgentModePreviewCleared",
+                "payload": {
+                  "messageId": "chat-msg-3:text:1"
+                }
+              }
+            ],
+            "timelineEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3:text:1",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "pong",
+                  "final": true,
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "finished",
+                  "text": "pong"
+                }
+              }
+            ],
+            "appliedEntities": [
+              {
+                "kind": "ChatMessage",
+                "id": "chat-msg-3:text:1",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+                "payload": {
+                  "content": "pong",
+                  "final": true,
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "finished",
+                  "text": "pong"
+                }
+              }
+            ],
+            "fanoutEvents": [
+              {
+                "name": "ChatMessageFinished",
+                "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+                "payload": {
+                  "content": "pong",
+                  "final": true,
+                  "messageId": "chat-msg-3:text:1",
+                  "parentMessageId": "chat-msg-3",
+                  "prompt": "Say exactly: pong",
+                  "role": "assistant",
+                  "segment": 1,
+                  "segmentType": "text",
+                  "status": "finished",
+                  "text": "pong"
+                }
+              },
+              {
+                "name": "ChatAgentModePreviewCleared",
+                "payloadType": "pinocchio.chatapp.v1.AgentModePreviewCleared",
+                "payload": {
+                  "messageId": "chat-msg-3:text:1"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "transport": {
+    "status": 200,
+    "json": {
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "kind": "transport",
+      "records": [
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.905912246Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "client_frame_decoded",
+            "direction": "client_to_server",
+            "frameType": "subscribe",
+            "rawBytes": 93
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.905913213Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "subscribe_received",
+            "direction": "client_to_server",
+            "frameType": "subscribe"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.90591775Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "subscription_registered"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.905925095Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "snapshot_load_started"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.906086365Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "snapshot_loaded"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.906108166Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "snapshot_sent"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.906110628Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "subscription_live"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.906116759Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "transport": {
+            "stage": "subscribed"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.909261285Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "1",
+          "transport": {
+            "stage": "fanout_started",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.909309119Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "ordinal": "1",
+          "transport": {
+            "stage": "ui_event_sent",
+            "direction": "server_to_client",
+            "eventName": "ChatMessageAccepted",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.909310116Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "1",
+          "transport": {
+            "stage": "fanout_completed",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.909645039Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "2",
+          "transport": {
+            "stage": "fanout_started",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.909699879Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "ordinal": "2",
+          "transport": {
+            "stage": "ui_event_sent",
+            "direction": "server_to_client",
+            "eventName": "ChatMessageStarted",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:31.909700748Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "2",
+          "transport": {
+            "stage": "fanout_completed",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.499046174Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "3",
+          "transport": {
+            "stage": "fanout_started",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.499208953Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "ordinal": "3",
+          "transport": {
+            "stage": "ui_event_sent",
+            "direction": "server_to_client",
+            "eventName": "ChatMessageAppended",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.499211014Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "3",
+          "transport": {
+            "stage": "fanout_completed",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.5346693Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "4",
+          "transport": {
+            "stage": "fanout_started",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.534734013Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "ordinal": "4",
+          "transport": {
+            "stage": "ui_event_sent",
+            "direction": "server_to_client",
+            "eventName": "ChatMessageAppended",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.534735689Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "4",
+          "transport": {
+            "stage": "fanout_completed",
+            "fanoutEventCount": 1,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.558083402Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "5",
+          "transport": {
+            "stage": "fanout_started",
+            "fanoutEventCount": 2,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.558225551Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "ordinal": "5",
+          "transport": {
+            "stage": "ui_event_sent",
+            "direction": "server_to_client",
+            "eventName": "ChatMessageFinished",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.558255413Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "connectionId": "conn-3",
+          "ordinal": "5",
+          "transport": {
+            "stage": "ui_event_sent",
+            "direction": "server_to_client",
+            "eventName": "ChatAgentModePreviewCleared",
+            "payloadType": "pinocchio.chatapp.v1.AgentModePreviewCleared"
+          }
+        },
+        {
+          "kind": "transport",
+          "timestamp": "2026-05-07T20:38:32.558263319Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "ordinal": "5",
+          "transport": {
+            "stage": "fanout_completed",
+            "fanoutEventCount": 2,
+            "fanoutTargetIds": [
+              "conn-3"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "geppetto": {
+    "status": 200,
+    "json": {
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "kind": "geppetto",
+      "records": [
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.498091168Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "message_start",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "responseId": "msg_019bApVeJMUXFQdQmggqXVN8",
+            "objectJson": {
+              "message": {
+                "content": [],
+                "id": "msg_019bApVeJMUXFQdQmggqXVN8",
+                "model": "claude-haiku-4-5-20251001",
+                "role": "assistant",
+                "type": "message",
+                "usage": {
+                  "cache_creation_input_tokens": 0,
+                  "cache_read_input_tokens": 0,
+                  "input_tokens": 273,
+                  "output_tokens": 1
+                }
+              },
+              "type": "message_start"
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.498130231Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "geppetto_publish_started",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "start",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111"
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.498145299Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "content_block_start",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "outputIndex": 0,
+            "objectJson": {
+              "content_block": {
+                "type": "text"
+              },
+              "type": "content_block_start"
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.498178136Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "ping",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "objectJson": {
+              "type": "ping"
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.498184261Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "content_block_delta",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "outputIndex": 0,
+            "deltaLen": 1,
+            "objectJson": {
+              "delta": {
+                "partial_json": "",
+                "text": "p",
+                "type": "text_delta"
+              },
+              "type": "content_block_delta"
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.49819397Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "geppetto_publish_started",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "partial",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111"
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.533897733Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "content_block_delta",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "outputIndex": 0,
+            "deltaLen": 3,
+            "objectJson": {
+              "delta": {
+                "partial_json": "",
+                "text": "ong",
+                "type": "text_delta"
+              },
+              "type": "content_block_delta"
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.533917057Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "geppetto_publish_started",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "partial",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111"
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.556443765Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "content_block_stop",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "outputIndex": 0,
+            "objectJson": {
+              "type": "content_block_stop"
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.556468883Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "geppetto_publish_started",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "partial",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111"
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.556605788Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "message_delta",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "objectJson": {
+              "delta": {
+                "partial_json": "",
+                "stop_reason": "end_turn",
+                "type": ""
+              },
+              "type": "message_delta",
+              "usage": {
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "input_tokens": 273,
+                "output_tokens": 5
+              }
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.55663735Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "geppetto_publish_started",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "partial",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111"
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.55708222Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "provider_routed_event",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "message_stop",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111",
+            "objectJson": {
+              "type": "message_stop"
+            }
+          }
+        },
+        {
+          "kind": "geppetto",
+          "timestamp": "2026-05-07T20:38:32.557095062Z",
+          "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+          "geppetto": {
+            "stage": "geppetto_publish_started",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
+            "eventType": "final",
+            "messageId": "6a01094e-d279-4aac-8b01-068c69c353af",
+            "inferenceId": "3e6cd98a-0b45-442b-ae98-b640c4843543",
+            "turnId": "dd3c6825-f31c-490f-8998-a298bd697111"
+          }
+        }
+      ]
+    }
+  },
+  "reconcile": {
+    "status": 200,
+    "json": {
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "pipelineFanoutOrdinals": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "transportFanoutOrdinals": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "missingTransportFanout": [],
+      "extraTransportFanout": [],
+      "pipelineRecordCount": 5,
+      "transportRecordCount": 24
+    }
+  }
+}

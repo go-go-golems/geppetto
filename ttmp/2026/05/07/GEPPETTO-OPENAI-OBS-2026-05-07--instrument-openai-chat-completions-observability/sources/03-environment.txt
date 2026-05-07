@@ -1,0 +1,5 @@
+# Current git status
+?? ttmp/2026/05/07/GEPPETTO-OPENAI-OBS-2026-05-07--instrument-openai-chat-completions-observability/
+
+# Go version
+go version go1.26.1 linux/amd64
