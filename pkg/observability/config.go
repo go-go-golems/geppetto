@@ -16,29 +16,18 @@ const (
 	TraceProvider TraceLevel = "provider"
 )
 
-const DefaultMaxPayloadBytes = 8192
-
-// Config controls Geppetto observer emission and JSON payload capture.
+// Config controls Geppetto observer emission.
 type Config struct {
-	Level              TraceLevel
-	MaxPayloadBytes    int
-	RedactProviderData bool
+	Level TraceLevel
 }
 
 func DefaultConfig() Config {
-	return Config{
-		Level:              TraceOff,
-		MaxPayloadBytes:    DefaultMaxPayloadBytes,
-		RedactProviderData: true,
-	}
+	return Config{Level: TraceOff}
 }
 
 func (c Config) Normalized() Config {
 	if c.Level == "" {
 		c.Level = TraceOff
-	}
-	if c.MaxPayloadBytes <= 0 {
-		c.MaxPayloadBytes = DefaultMaxPayloadBytes
 	}
 	return c
 }

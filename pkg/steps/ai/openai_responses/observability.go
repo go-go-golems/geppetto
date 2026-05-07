@@ -35,7 +35,7 @@ func (e *Engine) observeProviderEvent(ctx context.Context, metadata events.Event
 	}
 	rec := providerRecordBase(metadata, model, currentResponseID, eventType, m)
 	rec.Stage = geppettoobs.StageProviderRoutedEvent
-	rec.ObjectJSON = geppettoobs.MarshalEvidenceJSON(m, e.observabilityConfig)
+	rec.ObjectJSON = mustMarshalJSON(m)
 	e.observe(ctx, rec)
 }
 
@@ -48,7 +48,7 @@ func (e *Engine) observeProviderNormalizeDelta(ctx context.Context, metadata eve
 	rec.DeltaLen = deltaLen
 	rec.NormalizedDeltaLen = normalizedDeltaLen
 	rec.BufferLen = bufferLen
-	rec.ObjectJSON = geppettoobs.MarshalEvidenceJSON(m, e.observabilityConfig)
+	rec.ObjectJSON = mustMarshalJSON(m)
 	e.observe(ctx, rec)
 }
 
@@ -66,8 +66,8 @@ func (e *Engine) observePublish(ctx context.Context, event events.Event, stage g
 		MessageID:    metadata.ID.String(),
 		Stage:        stage,
 		EventType:    string(event.Type()),
-		EventJSON:    geppettoobs.MarshalEvidenceJSON(event, e.observabilityConfig),
-		MetadataJSON: geppettoobs.MarshalEvidenceJSON(metadata, e.observabilityConfig),
+		EventJSON:    mustMarshalJSON(event),
+		MetadataJSON: mustMarshalJSON(metadata),
 	}
 	if err != nil {
 		rec.Error = err.Error()

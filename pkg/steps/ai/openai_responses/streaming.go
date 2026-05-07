@@ -91,45 +91,6 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	var latestMessageOutputIndex *int
 	var latestMessageStatus string
 	log.Trace().Msg("Responses: starting SSE read loop")
-	// Redact helper for sensitive fields when logging SSE payloads
-	redactString := func(s string) string {
-		if len(s) <= 12 {
-			return "****"
-		}
-		// keep small prefix/suffix, hide middle
-		pre := 6
-		suf := 6
-		if len(s) < pre+suf+1 {
-			pre = len(s) / 2
-			suf = len(s) - pre
-		}
-		return s[:pre] + "-****-" + s[len(s)-suf:]
-	}
-	var redact func(v any) any
-	redact = func(v any) any {
-		switch tv := v.(type) {
-		case map[string]any:
-			m2 := make(map[string]any, len(tv))
-			for k, val := range tv {
-				if k == "encrypted_content" {
-					if s, ok := val.(string); ok {
-						m2[k] = redactString(s)
-						continue
-					}
-				}
-				m2[k] = redact(val)
-			}
-			return m2
-		case []any:
-			arr := make([]any, len(tv))
-			for i, el := range tv {
-				arr[i] = redact(el)
-			}
-			return arr
-		default:
-			return v
-		}
-	}
 	flush := func() error {
 		if dataBuf.Len() == 0 {
 			return nil

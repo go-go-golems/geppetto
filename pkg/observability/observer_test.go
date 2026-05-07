@@ -2,8 +2,6 @@ package observability
 
 import (
 	"context"
-	"encoding/json"
-	"strings"
 	"testing"
 )
 
@@ -61,36 +59,5 @@ func TestNotifySetsTimestamp(t *testing.T) {
 	}
 	if obs.records[0].Timestamp.IsZero() {
 		t.Fatalf("expected timestamp to be set")
-	}
-}
-
-func TestMarshalEvidenceJSONRedactsAndCaps(t *testing.T) {
-	payload := map[string]any{
-		"type":              "response.test",
-		"authorization":     "Bearer secret-token",
-		"encrypted_content": "abcdef",
-		"nested": map[string]any{
-			"text": strings.Repeat("x", 20),
-		},
-	}
-	b := MarshalEvidenceJSON(payload, Config{Level: TraceProvider, MaxPayloadBytes: 8, RedactProviderData: true})
-
-	var decoded map[string]any
-	if err := json.Unmarshal(b, &decoded); err != nil {
-		t.Fatalf("expected valid JSON, got %s: %v", string(b), err)
-	}
-	if decoded["authorization"] == "Bearer secret-token" {
-		t.Fatalf("authorization was not redacted: %s", string(b))
-	}
-	if decoded["encrypted_content"] == "abcdef" {
-		t.Fatalf("encrypted content was not redacted: %s", string(b))
-	}
-	nested, ok := decoded["nested"].(map[string]any)
-	if !ok {
-		t.Fatalf("missing nested object: %s", string(b))
-	}
-	text, _ := nested["text"].(string)
-	if !strings.Contains(text, "<truncated:") {
-		t.Fatalf("expected capped string marker, got %q in %s", text, string(b))
 	}
 }

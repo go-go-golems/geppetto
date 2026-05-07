@@ -73,11 +73,7 @@ func TestResponsesObservabilityCapturesObjectEventAndMetadataJSON(t *testing.T) 
 			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{Engine: ptr("gpt-5-mini"), Stream: true},
-	}, WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{
-		Level:              geppettoobs.TraceProvider,
-		MaxPayloadBytes:    4096,
-		RedactProviderData: true,
-	}))
+	}, WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}

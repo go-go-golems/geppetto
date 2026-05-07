@@ -9,10 +9,8 @@ import (
 const InferenceObservabilitySectionSlug = "observability-settings"
 
 type InferenceObservabilitySettings struct {
-	TraceLevel         string `glazed:"geppetto-trace-level"`
-	MaxRecords         int    `glazed:"geppetto-trace-max-records"`
-	MaxPayloadBytes    int    `glazed:"geppetto-trace-max-payload-bytes"`
-	RedactProviderData bool   `glazed:"geppetto-trace-redact-provider-data"`
+	TraceLevel string `glazed:"geppetto-trace-level"`
+	MaxRecords int    `glazed:"geppetto-trace-max-records"`
 }
 
 func (s InferenceObservabilitySettings) Config() (observability.Config, error) {
@@ -22,10 +20,6 @@ func (s InferenceObservabilitySettings) Config() (observability.Config, error) {
 	}
 	cfg := observability.DefaultConfig()
 	cfg.Level = level
-	if s.MaxPayloadBytes > 0 {
-		cfg.MaxPayloadBytes = s.MaxPayloadBytes
-	}
-	cfg.RedactProviderData = s.RedactProviderData
 	return cfg.Normalized(), nil
 }
 
@@ -45,18 +39,6 @@ func NewInferenceObservabilitySection() (schema.Section, error) {
 				fields.TypeInteger,
 				fields.WithDefault(100000),
 				fields.WithHelp("Maximum Geppetto observer records retained by app recorders"),
-			),
-			fields.New(
-				"geppetto-trace-max-payload-bytes",
-				fields.TypeInteger,
-				fields.WithDefault(observability.DefaultMaxPayloadBytes),
-				fields.WithHelp("Maximum string bytes retained inside provider object_json, event_json, and metadata_json payload fields"),
-			),
-			fields.New(
-				"geppetto-trace-redact-provider-data",
-				fields.TypeBool,
-				fields.WithDefault(true),
-				fields.WithHelp("Redact sensitive provider fields in object_json/event_json/metadata_json"),
 			),
 		),
 	)
