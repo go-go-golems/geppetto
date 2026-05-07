@@ -69,3 +69,17 @@ Removed the custom observability evidence JSON transform layer in commit 1e55df3
 - /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/steps/ai/openai_responses/observability.go — Plain JSON evidence capture
 - /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/reference/01-diary.md — Recorded Step 5
 
+
+## 2026-05-07
+
+Split pkg/events/chat-events.go into domain-focused files in commit ce1149f: core contract/metadata/decoder stayed in chat-events.go; text, tool, log/info, and built-in provider events moved to separate files. Focused tests and full pre-commit test/lint passed.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/events/builtin_events.go — Built-in provider event definitions after split
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/events/chat-events.go — Core event contract/metadata/decoder after split
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/events/log_info_events.go — Log/info event definitions after split
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/events/text_events.go — Text event definitions after split
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/events/tool_events.go — Tool event definitions after split
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/reference/01-diary.md — Recorded Step 6 event definition split
+

@@ -10,3 +10,4 @@
 - [x] Split OpenAI Responses engine helpers into smaller files without changing stream behavior
 - [x] Validate OpenAI Responses split with focused package tests and commit code plus diary updates
 - [x] Remove custom observability evidence JSON redaction/capping helpers and simplify trace configuration
+- [x] Split pkg/events chat event definitions into domain-focused files without API changes

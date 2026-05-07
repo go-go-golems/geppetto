@@ -17,8 +17,18 @@ RelatedFiles:
       Note: Repository orientation source inspected during review
     - Path: pkg/cli/bootstrap/inference_observability.go
       Note: Removed payload/redaction trace flags (commit 1e55df3)
+    - Path: pkg/events/builtin_events.go
+      Note: Extracted provider built-in event definitions (commit ce1149f)
     - Path: pkg/events/chat-events.go
-      Note: Large event taxonomy and stale TODO markers inspected during review
+      Note: |-
+        Large event taxonomy and stale TODO markers inspected during review
+        Reduced to core event contract
+    - Path: pkg/events/log_info_events.go
+      Note: Extracted log/info/agent-mode event definitions (commit ce1149f)
+    - Path: pkg/events/text_events.go
+      Note: Extracted text/partial/thinking/final/error event definitions (commit ce1149f)
+    - Path: pkg/events/tool_events.go
+      Note: Extracted tool event definitions (commit ce1149f)
     - Path: pkg/observability/config.go
       Note: Config simplified to trace level only (commit 1e55df3)
     - Path: pkg/observability/json.go
@@ -53,6 +63,7 @@ LastUpdated: 2026-05-07T13:03:35.340510159-04:00
 WhatFor: Record investigation commands, evidence, writing decisions, validation, and upload steps for GP-CODE-REVIEW.
 WhenToUse: Read before resuming or reviewing the GP-CODE-REVIEW ticket.
 ---
+
 
 
 
@@ -455,3 +466,79 @@ The code now records provider `object_json`, emitted `event_json`, and `metadata
   - `pkg/steps/ai/openai_responses/observability_test.go`
   - `pkg/steps/ai/openai_responses/streaming.go`
   - `ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/design-doc/01-geppetto-code-review-and-intern-onboarding-guide.md`
+
+## Step 6: Split event definitions by domain
+
+I split the oversized `pkg/events/chat-events.go` file into domain-focused files while preserving the public `events` package API. This is a mechanical organization change: event types, constructors, decoder behavior, and zerolog marshal methods remain in the same package, but related definitions are now easier to find and review.
+
+The new layout keeps `chat-events.go` as the core event contract/metadata/decoder file and moves textual, tool, log/info, and provider built-in events into separate files. This addresses one of the GP-CODE-REVIEW cleanup findings without changing downstream import paths.
+
+### Prompt Context
+
+**User prompt (verbatim):** "split up events definitions"
+
+**Assistant interpretation:** Refactor the large `pkg/events/chat-events.go` file into smaller source files grouped by event domain while keeping behavior and public API stable.
+
+**Inferred user intent:** Continue the maintainability cleanup by making the event taxonomy easier to navigate and less centralized.
+
+**Commit (code):** `ce1149fc19316d3883b129db1e67bfd18db9da57` — "Split event definitions by domain"
+
+### What I did
+- Kept core event contract, metadata, decoder, and generic conversion helpers in `pkg/events/chat-events.go`.
+- Added `pkg/events/text_events.go` for start/interrupt/final/error/text/partial/thinking events and their zerolog methods.
+- Added `pkg/events/tool_events.go` for tool call/result/execute events and tool zerolog methods.
+- Added `pkg/events/log_info_events.go` for log, info, and agent-mode switch events.
+- Added `pkg/events/builtin_events.go` for web search, citation, file search, code interpreter, MCP, image generation, and normalized search result events.
+- Ran focused tests before commit:
+  - `go test ./pkg/events ./pkg/events/structuredsink ./pkg/steps/ai/openai_responses -count=1`
+- Committed the split; the Geppetto pre-commit hook then ran full `go test ./...` and lint successfully.
+
+### Why
+- `chat-events.go` had grown past 1,100 lines and mixed event contract, metadata, decoder, text events, tool events, log/info events, and many provider built-in event families.
+- Grouping by domain makes future cleanup easier without forcing a package split or import path migration.
+- Keeping everything in package `events` avoids breaking downstream users.
+
+### What worked
+- Focused tests passed after the split.
+- Full pre-commit validation passed after the code commit.
+- File sizes after split:
+  - `chat-events.go`: 516 lines
+  - `text_events.go`: 169 lines
+  - `tool_events.go`: 115 lines
+  - `log_info_events.go`: 85 lines
+  - `builtin_events.go`: 264 lines
+
+### What didn't work
+- No test or lint failures occurred. The split was mechanical and kept all symbols in the same package.
+
+### What I learned
+- The file had a clean enough structure to split by contiguous sections plus marshal methods without changing runtime logic.
+- The central decoder still lives in `chat-events.go`; that is appropriate for now because it references all event domains.
+
+### What was tricky to build
+- The tricky part was keeping marshal methods with the event types they belong to. Some marshal methods were previously grouped after the decoder, so the split needed to move those methods into the same domain files as their types.
+- `MetadataToolCallsSlug` is declared near tool concepts but was physically between partial events and metadata in the old file; it now lives with tool events.
+
+### What warrants a second pair of eyes
+- Review that maintainers agree with the chosen domain names: `text_events.go`, `tool_events.go`, `log_info_events.go`, and `builtin_events.go`.
+- Review whether `builtin_events.go` should later be split further into `search_events.go`, `code_interpreter_events.go`, `mcp_events.go`, and `image_events.go`.
+
+### What should be done in the future
+- Consider a follow-up to replace the central `NewEventFromJson` switch with a registration map, once file organization has settled.
+- Add explicit deprecation comments or cleanup tickets for stale event concepts identified in the guide, such as `EventText` and some old tool-call TODOs.
+
+### Code review instructions
+- Start with `pkg/events/chat-events.go` to confirm core event contracts/decoder stayed intact.
+- Then review each domain file and verify no public symbols were renamed.
+- Validate with:
+  - `cd geppetto && go test ./pkg/events ./pkg/events/structuredsink ./pkg/steps/ai/openai_responses -count=1`
+  - `cd geppetto && go test ./...`
+
+### Technical details
+- Modified file:
+  - `pkg/events/chat-events.go`
+- New files:
+  - `pkg/events/text_events.go`
+  - `pkg/events/tool_events.go`
+  - `pkg/events/log_info_events.go`
+  - `pkg/events/builtin_events.go`
