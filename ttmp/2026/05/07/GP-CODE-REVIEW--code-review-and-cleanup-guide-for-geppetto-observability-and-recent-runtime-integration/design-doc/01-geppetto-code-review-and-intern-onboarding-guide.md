@@ -32,7 +32,7 @@ RelatedFiles:
     - Path: pkg/observability/config.go
       Note: Trace level and observability config API review
     - Path: pkg/observability/json.go
-      Note: Evidence JSON redaction/capping review and sanitizer issue
+      Note: Removed custom evidence JSON transform helper after simplification decision
     - Path: pkg/observability/observer.go
       Note: Neutral Record/Observer/Notify API review
     - Path: pkg/steps/ai/openai_responses/engine.go
@@ -66,12 +66,12 @@ This review has two goals:
 1. Onboard a new intern into the system with enough architecture, API, and flow knowledge to work safely.
 2. Identify concrete cleanup opportunities, not only correctness bugs: unclear code, deprecated concepts, too-large files, overgrown packages, coupling, duplicated logic, overengineered pieces, and missing validation.
 
-The main conclusion is that the recent observability architecture is directionally good: Geppetto emits neutral records, applications decide whether/how to store them, and Pinocchio owns debug endpoints and SQLite exports. The design preserves the correct ownership boundary. The highest-risk implementation details are not the public observer interface; they are the large OpenAI Responses stream loop, evidence JSON sanitization semantics, high-frequency retention volume, and cross-repository dependency alignment.
+The main conclusion is that the recent observability architecture is directionally good: Geppetto emits neutral records, applications decide whether/how to store them, and Pinocchio owns debug endpoints and SQLite exports. The design preserves the correct ownership boundary. After follow-up cleanup, the custom evidence JSON transform layer has been removed; observability now stores the same decoded/event data the runtime already forwards. The highest-risk implementation details are now the large OpenAI Responses streaming path, high-frequency retention volume, and cross-repository dependency alignment.
 
 The most important cleanup recommendations are:
 
 - Split `pkg/steps/ai/openai_responses/engine.go` into a small request runner plus a stream processor/state machine. At 1,283 lines, it currently mixes HTTP transport, SSE parsing, provider event normalization, reasoning state, tool-call accumulation, event publishing, debug taps, turn mutation, and observability.
-- Fix `observability.MarshalEvidenceJSON` so struct payloads such as Geppetto events and metadata are actually sanitized recursively. The current helper sanitizes `map[string]any`, `[]any`, and `string`, but structs pass through the default branch before `json.Marshal`.
+- Keep observability payload handling simple: the custom `MarshalEvidenceJSON` JSON transform layer has been removed, so provider/event/metadata evidence is ordinary JSON marshaled from the decoded/runtime values.
 - Decide whether both `geppetto_publish_started` and `geppetto_publish_done` need full `event_json` and `metadata_json`. The latest browser smoke produced a 25 MB SQLite artifact for one small prompt, which is a clear retention/cost signal.
 - Turn the existing direct-provider-ID follow-up into a real schema/API task: carry `response_id`, `item_id`, `output_index`, and `summary_index` into Pinocchio/Sessionstream `ReasoningUpdate` so SQL correlation no longer depends on row order and exact chunk matching.
 - Review old event types and TODOs in `pkg/events/chat-events.go`. This 1,139-line file contains explicit comments such as “This might be possible to delete” and “This needs to deleted once we have a good way to do tool calling.” Some of those concepts should be deprecated, moved, or given stronger contracts.
@@ -136,7 +136,7 @@ Key file-size evidence:
 | `pkg/inference/middlewarecfg/resolver.go` | 795 | Important config resolution code; needs docs but less directly tied to recent work. |
 | `pkg/steps/ai/openai_responses/helpers.go` | 756 | Request/payload helpers; likely belongs next to provider-specific codec subpackage. |
 | `pkg/cli/bootstrap/inference_debug.go` | 540 | Large CLI section code; possible section split. |
-| `pkg/observability/*.go` | 336 total | Small package; good boundary, but sanitizer semantics need review. |
+| `pkg/observability/*.go` | small | Small package and good boundary; custom JSON transform helper was removed in a simplification follow-up. |
 
 Package line totals from `pkg/`:
 
@@ -381,7 +381,6 @@ Files:
 
 - `pkg/observability/config.go`
 - `pkg/observability/observer.go`
-- `pkg/observability/json.go`
 
 The new package defines:
 
@@ -394,9 +393,7 @@ const (
 )
 
 type Config struct {
-    Level              TraceLevel
-    MaxPayloadBytes    int
-    RedactProviderData bool
+    Level TraceLevel
 }
 
 type Record struct {
@@ -611,69 +608,37 @@ func (p *streamProcessor) Finalize() (*turns.Turn, error) {
 
 Start with extraction only; do not change behavior. Move code into structs while preserving existing tests.
 
-### 6.2 Evidence JSON sanitizer likely does not cap/redact struct payloads
+### 6.2 Custom evidence JSON transforms were removed for simplicity
 
-Problem: `observability.MarshalEvidenceJSON` recursively sanitizes `map[string]any`, `[]any`, and `string`. For other values it returns the value unchanged and then calls `json.Marshal`. That means struct payloads such as Geppetto event structs and `events.EventMetadata` are not recursively capped/redacted before marshaling.
+Problem: The first implementation introduced a custom `observability.MarshalEvidenceJSON` helper plus payload-size and key-transform settings. That layer added code and policy complexity even though the same provider/event data is already forwarded through the runtime and application debug pipeline.
 
 Where to look:
 
-- `pkg/observability/json.go:21` — `MarshalEvidenceJSON`.
-- `pkg/observability/json.go:31` — `sanitizeValue` cases.
-- `pkg/steps/ai/openai_responses/observability.go:69` — `EventJSON: MarshalEvidenceJSON(event, ...)`.
-- `pkg/steps/ai/openai_responses/observability.go:70` — `MetadataJSON: MarshalEvidenceJSON(metadata, ...)`.
-
-Example:
-
-```go
-func sanitizeValue(v any, cfg Config) any {
-    switch tv := v.(type) {
-    case map[string]any:
-        // recurse
-    case []any:
-        // recurse
-    case string:
-        return capString(tv, cfg.MaxPayloadBytes)
-    default:
-        return v
-    }
-}
-```
+- `pkg/observability/config.go` — `Config` now only controls trace level.
+- `pkg/cli/bootstrap/inference_observability.go` — only trace level and app recorder max-records remain.
+- `pkg/steps/ai/openai_responses/observability.go` — records use plain JSON marshaling via the package helper.
 
 Why it matters:
 
-- Provider `object_json` is usually a decoded map and is sanitized as intended.
-- `event_json` and `metadata_json` are passed as structs and may bypass string capping/redaction.
-- This undermines the stated first-slice privacy/retention contract: object/event/metadata JSON should all be capped/redacted.
+- The observability package is simpler and no longer carries a partial payload transformation policy.
+- The JSON evidence fields now mean exactly what they say: decoded provider object, emitted event, and metadata as ordinary JSON.
+- Retention/size is still a real concern, but it should be handled at recorder/export retention boundaries rather than via per-string transformations in Geppetto.
 
 Cleanup sketch:
 
-Option A: marshal first, decode to generic JSON, sanitize generic value, marshal again.
+Keep the simplified shape:
 
 ```go
-func MarshalEvidenceJSON(v any, cfg Config) json.RawMessage {
-    cfg = cfg.Normalized()
-
-    b, err := json.Marshal(v)
-    if err != nil { return marshalError(err) }
-
-    var generic any
-    if err := json.Unmarshal(b, &generic); err != nil { return marshalError(err) }
-
-    clean := sanitizeValue(generic, cfg)
-    out, err := json.Marshal(clean)
-    if err != nil { return marshalError(err) }
-    return out
+type Config struct {
+    Level TraceLevel
 }
+
+rec.ObjectJSON = mustMarshalJSON(providerObject)
+rec.EventJSON = mustMarshalJSON(event)
+rec.MetadataJSON = mustMarshalJSON(metadata)
 ```
 
-Option B: implement reflection-based struct traversal. Option A is simpler and safer for debug payloads.
-
-Add tests:
-
-```go
-func TestMarshalEvidenceJSONCapsEventStructStringFields(t *testing.T) { ... }
-func TestMarshalEvidenceJSONRedactsNestedMetadataStructMaps(t *testing.T) { ... }
-```
+Future work should focus on record-count/retention controls, not custom per-key payload transforms.
 
 ### 6.3 High-frequency publish-started and publish-done records double event JSON volume
 
@@ -724,7 +689,7 @@ Acceptance criteria:
 
 ### 6.4 `MaxRecords` lives in CLI settings but not in Geppetto `Config`
 
-Problem: `InferenceObservabilitySettings` includes `MaxRecords`, but `observability.Config` contains only `Level`, `MaxPayloadBytes`, and `RedactProviderData`. This is architecturally defensible because record retention is app-owned, but the API shape is easy to misread.
+Problem: `InferenceObservabilitySettings` includes `MaxRecords`, but `observability.Config` now contains only `Level`. This is architecturally defensible because record retention is app-owned, but the API shape is easy to misread.
 
 Where to look:
 
@@ -746,8 +711,6 @@ Make the split explicit:
 type InferenceObservabilitySettings struct {
     TraceLevel         string
     MaxRecords         int
-    MaxPayloadBytes    int
-    RedactProviderData bool
 }
 
 func (s InferenceObservabilitySettings) EmissionConfig() (observability.Config, error)
@@ -860,72 +823,7 @@ type EventText struct { ... }
 
 If a concept is truly unused, remove it in a hard-cut ticket with search evidence.
 
-### 6.7 Redaction keys are useful but incomplete as a privacy policy
-
-Problem: `pkg/observability/json.go` redacts a fixed set of sensitive key names. This is a good start, but the project still needs a documented privacy/retention policy for provider traces.
-
-Where to look:
-
-- `pkg/observability/json.go:8` — `sensitiveKeys`.
-- GP-OBSERVABILITY tasks include “Document provider trace privacy policy” but it is unchecked.
-
-Why it matters:
-
-- Provider object JSON may contain user content, reasoning content, tool arguments, URLs, file IDs, or vendor-specific sensitive fields that do not match the fixed key list.
-- Capping is not the same as redaction.
-- Users need to understand that `provider` trace level captures decoded model content.
-
-Cleanup sketch:
-
-Add a policy doc and code comments:
-
-```text
-Trace mode privacy policy:
-- off: no debug payload capture.
-- events: captures emitted Geppetto events/metadata; may include user/model content.
-- provider: captures decoded provider objects; may include user/model/provider content.
-- raw: not implemented.
-- redaction: key-based secret redaction only; content is capped, not removed.
-- retention: app-owned recorder cap; dropped-record count required.
-```
-
-Add tests for likely provider secret fields:
-
-```go
-api_key, api-key, authorization, bearer, token, access_token,
-refresh_token, encrypted_content, client_secret, secret, password
-```
-
-### 6.8 Byte slicing can break UTF-8 in capped strings
-
-Problem: `capString` slices by byte index: `s[:limit]`. If a multi-byte UTF-8 rune crosses the limit, the resulting JSON string can contain replacement characters after marshaling or display oddly.
-
-Where to look:
-
-- `pkg/observability/json.go:83` — `capString`.
-
-Why it matters:
-
-- Debug payloads can contain international text.
-- Byte-based limits are good for storage; slicing must still preserve valid UTF-8.
-
-Cleanup sketch:
-
-```go
-func capString(s string, limit int) string {
-    if limit <= 0 || len(s) <= limit { return s }
-    cut := limit
-    for cut > 0 && !utf8.ValidString(s[:cut]) {
-        cut--
-    }
-    if cut == 0 { return fmt.Sprintf("<truncated:%d bytes>", len(s)) }
-    return fmt.Sprintf("%s<truncated:%d bytes>", s[:cut], len(s)-cut)
-}
-```
-
-Add a test with emoji or non-Latin text at the boundary.
-
-### 6.9 Numeric parsing should reject partial strings
+### 6.7 Numeric parsing should reject partial strings
 
 Problem: `intFromAny` uses `fmt.Sscanf(tv, "%d", &i)` for string parsing. `fmt.Sscanf` can parse a leading integer from a string with trailing junk depending on format behavior. Provider indexes should be exact integers.
 
@@ -948,7 +846,7 @@ case string:
 
 Add tests for `"1"`, `" 1 "`, `"1x"`, `"x1"`, and empty strings.
 
-### 6.10 Cross-repository dependency alignment is currently a release risk
+### 6.8 Cross-repository dependency alignment is currently a release risk
 
 Problem: The Pinocchio commit that consumes the new Geppetto observability package had to use `--no-verify` because Pinocchio `make lintmax` runs with `GOWORK=off`. In that mode, its pinned module graph does not yet contain `github.com/go-go-golems/geppetto/pkg/observability` or local Sessionstream observer APIs.
 
@@ -1025,7 +923,7 @@ Low risk, high clarity.
 
 Tasks:
 
-- Add provider trace privacy/retention policy.
+- Keep trace-mode documentation clear that provider/event/metadata JSON is recorded without custom payload transforms.
 - Document that `MaxRecords` is app-recorder retention, not Geppetto emission config.
 - Add release/dependency alignment notes for Geppetto + Pinocchio + Sessionstream.
 - Mark stale/possibly-deleted event concepts with explicit `Deprecated:` comments or cleanup tickets.
@@ -1037,27 +935,22 @@ cd geppetto
 go test ./pkg/observability ./pkg/cli/bootstrap ./pkg/steps/ai/openai_responses -count=1
 ```
 
-### Phase 1: Fix evidence JSON sanitizer semantics
+### Phase 1: Keep evidence payloads simple and verify raw JSON behavior
 
-Risk: medium-low. Behavior changes only affect observability payload shape/size.
+Risk: low. The custom sanitizer has already been removed; this phase is about locking the simplified contract with tests/docs.
 
 Tasks:
 
-- Change `MarshalEvidenceJSON` to sanitize structs by JSON round-tripping into generic maps.
-- Add tests for event structs, metadata structs, nested maps, UTF-8 capping, and redaction.
-- Add a test proving `event_json` long strings are capped.
+- Keep `observability.Config` limited to trace-level emission config.
+- Keep object/event/metadata evidence as plain JSON marshaled from decoded/runtime values.
+- Add a regression test that provider objects containing fields such as `authorization` and `encrypted_content` are preserved exactly in `object_json`.
 
 Pseudocode:
 
 ```go
-func MarshalEvidenceJSON(v any, cfg Config) json.RawMessage {
-    cfg = cfg.Normalized()
-    b, err := json.Marshal(v)
-    if err != nil { return marshalError(err) }
-    var decoded any
-    if err := json.Unmarshal(b, &decoded); err != nil { return marshalError(err) }
-    return mustMarshal(sanitizeValue(decoded, cfg))
-}
+rec.ObjectJSON = mustMarshalJSON(providerObject)
+rec.EventJSON = mustMarshalJSON(event)
+rec.MetadataJSON = mustMarshalJSON(metadata)
 ```
 
 ### Phase 2: Add payload retention knobs
@@ -1145,16 +1038,15 @@ When an intern starts on this area, use this checklist.
 
 - Do not add Pinocchio or SQLite imports to Geppetto observability.
 - Do not make inference correctness depend on observer records.
-- Do not store raw SSE strings unless a separate privacy/retention design is approved.
+- Do not add custom payload transforms back into Geppetto observability unless a separate retention design requires it.
 - Do not add another provider-specific option field to `StandardEngineFactory` without considering a generic options container.
 - Do not refactor `openai_responses/engine.go` and change stream behavior in the same commit.
 
 ### Safe starter tasks
 
-- Add tests for `MarshalEvidenceJSON` struct sanitization.
-- Add UTF-8-safe string capping.
+- Add tests proving provider object JSON preserves decoded fields without key transforms.
 - Add exact integer parsing tests for provider indexes.
-- Add documentation clarifying trace modes and privacy.
+- Add documentation clarifying trace modes and retention ownership.
 - Add file-splitting-only refactor for `pkg/events/chat-events.go` if public API remains unchanged.
 
 ## 10. Testing and validation strategy
@@ -1172,7 +1064,7 @@ Add or maintain tests for:
 
 - trace-level parsing,
 - observer panic safety,
-- redaction and capping,
+- plain object/event/metadata JSON capture,
 - no raw stream string capture,
 - provider object JSON capture,
 - event/metadata JSON capture,
@@ -1243,7 +1135,6 @@ SELECT * FROM geppetto_reasoning_to_frontend LIMIT 10;
 
 1. Should `TraceEvents` include full event JSON for both publish-started and publish-done, or only publish-done?
 2. Should `MaxRecords` remain in the Geppetto CLI section, or move to app-specific debug-recorder configuration?
-3. How strict should provider object JSON redaction be: secret-key redaction only, or content-class redaction as well?
 4. Should `pkg/events/chat-events.go` be split before or after downstream Pinocchio event schema cleanup?
 5. What release order should be enforced for Sessionstream, Geppetto, and Pinocchio so `GOWORK=off` validation passes?
 6. Should OpenAI Responses stream processing use a handler map or a typed state-machine switch? A handler map improves modularity; a switch keeps event order easier to audit in one place.
@@ -1260,10 +1151,9 @@ SELECT * FROM geppetto_reasoning_to_frontend LIMIT 10;
 | `pkg/inference/session/session.go` | Long-lived session lifecycle and active inference invariant. |
 | `pkg/events/chat-events.go` | Streaming event taxonomy and constructors. |
 | `pkg/inference/engine/factory/factory.go` | Provider selection and OpenAI Responses option injection. |
-| `pkg/cli/bootstrap/inference_observability.go` | Glazed flags for trace level, payload size, record cap, redaction. |
+| `pkg/cli/bootstrap/inference_observability.go` | Glazed flags for trace level and app recorder max-records. |
 | `pkg/observability/config.go` | Trace-level config and parsing. |
 | `pkg/observability/observer.go` | Neutral record and observer interface. |
-| `pkg/observability/json.go` | Evidence JSON sanitizer/capper. |
 | `pkg/steps/ai/openai_responses/engine.go` | OpenAI Responses request/stream handling and event publishing. |
 | `pkg/steps/ai/openai_responses/observability.go` | Provider/event observability helpers. |
 | `pkg/steps/ai/openai_responses/observability_test.go` | Tests for provider object/event/metadata capture and provider IDs. |
@@ -1275,7 +1165,7 @@ SELECT * FROM geppetto_reasoning_to_frontend LIMIT 10;
 | `GP-OBSERVABILITY/reference/01-diary.md` | Chronological implementation diary with smoke evidence and commit caveats. |
 | `GP-OBSERVABILITY/playbook/01-provider-to-browser-correlation-playbook.md` | Repeatable provider-to-browser validation procedure. |
 | `GP-OBSERVABILITY/analysis/01-textbook-report-geppetto-provider-event-observability-design-assessment.md` | Design rationale and tradeoffs for observability. |
-| `GP-OBSERVABILITY/tasks.md` | Remaining follow-ups: retention/privacy and direct provider IDs in `ReasoningUpdate`. |
+| `GP-OBSERVABILITY/tasks.md` | Remaining follow-ups: retention/size and direct provider IDs in `ReasoningUpdate`. |
 
 ### Downstream Pinocchio files
 
@@ -1291,9 +1181,9 @@ SELECT * FROM geppetto_reasoning_to_frontend LIMIT 10;
 The recent observability work should be kept, but it should be hardened before it becomes a template for more provider instrumentation. The next best engineering slice is not a new feature; it is a quality slice:
 
 1. Fix evidence JSON sanitization for structs.
-2. Clarify trace privacy/retention policy.
+2. Clarify trace retention and artifact-size policy.
 3. Reduce duplicated event JSON volume or add retention accounting.
 4. Start extracting OpenAI Responses stream state into a testable processor.
 5. Align downstream dependencies so Pinocchio validates with `GOWORK=off`.
 
-That sequence improves correctness, privacy, runtime cost, and maintainability without changing the user-visible feature set.
+That sequence improves correctness, runtime cost, and maintainability without changing the user-visible feature set.

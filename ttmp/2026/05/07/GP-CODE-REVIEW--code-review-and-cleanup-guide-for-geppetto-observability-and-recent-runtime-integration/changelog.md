@@ -56,3 +56,16 @@ Split OpenAI Responses engine into focused files across commits 5f28ea1, a79abcb
 - /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/steps/ai/openai_responses/streaming.go — Extracted streaming implementation
 - /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/reference/01-diary.md — Recorded split work
 
+
+## 2026-05-07
+
+Removed the custom observability evidence JSON transform layer in commit 1e55df3: deleted observability/json.go, simplified Config to trace level only, removed payload/redaction flags, and changed OpenAI Responses records to plain JSON for object/event/metadata evidence. Updated the guide and diary to record the simplification decision.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/cli/bootstrap/inference_observability.go — Removed payload/redaction CLI flags
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/observability/config.go — Config simplified to trace level only
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/observability/json.go — Deleted custom evidence JSON transform helper
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/steps/ai/openai_responses/observability.go — Plain JSON evidence capture
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/reference/01-diary.md — Recorded Step 5
+

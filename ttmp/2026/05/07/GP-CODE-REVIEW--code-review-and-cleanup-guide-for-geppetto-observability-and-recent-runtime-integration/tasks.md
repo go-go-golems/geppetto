@@ -9,3 +9,4 @@
 - [x] Upload final guide bundle to reMarkable under /ai/2026/05/07/GP-CODE-REVIEW
 - [x] Split OpenAI Responses engine helpers into smaller files without changing stream behavior
 - [x] Validate OpenAI Responses split with focused package tests and commit code plus diary updates
+- [x] Remove custom observability evidence JSON redaction/capping helpers and simplify trace configuration

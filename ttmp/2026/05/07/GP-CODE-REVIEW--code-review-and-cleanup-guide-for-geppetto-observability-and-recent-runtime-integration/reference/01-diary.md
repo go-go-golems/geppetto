@@ -15,16 +15,24 @@ Owners:
 RelatedFiles:
     - Path: README.md
       Note: Repository orientation source inspected during review
+    - Path: pkg/cli/bootstrap/inference_observability.go
+      Note: Removed payload/redaction trace flags (commit 1e55df3)
     - Path: pkg/events/chat-events.go
       Note: Large event taxonomy and stale TODO markers inspected during review
+    - Path: pkg/observability/config.go
+      Note: Config simplified to trace level only (commit 1e55df3)
     - Path: pkg/observability/json.go
-      Note: Evidence sanitizer issue recorded in guide
+      Note: |-
+        Evidence sanitizer issue recorded in guide
+        Deleted custom evidence JSON transform helper (commit 1e55df3)
     - Path: pkg/steps/ai/openai_responses/engine.go
       Note: |-
         Large OpenAI Responses stream loop inspected during review
         Reduced to high-level orchestration after split (commits 5f28ea1
     - Path: pkg/steps/ai/openai_responses/nonstreaming.go
       Note: Extracted non-streaming response handling from RunInference (commit 0e49aed)
+    - Path: pkg/steps/ai/openai_responses/observability.go
+      Note: Records plain JSON for object/event/metadata evidence (commit 1e55df3)
     - Path: pkg/steps/ai/openai_responses/request_tools.go
       Note: Extracted Responses request tool attachment helper (commit 5f28ea1)
     - Path: pkg/steps/ai/openai_responses/stream_events.go
@@ -34,7 +42,9 @@ RelatedFiles:
     - Path: pkg/steps/ai/openai_responses/usage.go
       Note: Extracted usage parsing helpers (commit 5f28ea1)
     - Path: ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/design-doc/01-geppetto-code-review-and-intern-onboarding-guide.md
-      Note: Primary code review and onboarding deliverable
+      Note: |-
+        Primary code review and onboarding deliverable
+        Updated recommendations to reflect removal of custom evidence transforms
     - Path: ttmp/2026/05/07/GP-OBSERVABILITY--add-geppetto-provider-and-event-observability-hooks-for-high-frequency-inference-debugging/reference/01-diary.md
       Note: Prior diary evidence read for latest smoke and commit caveats
 ExternalSources: []
@@ -43,6 +53,7 @@ LastUpdated: 2026-05-07T13:03:35.340510159-04:00
 WhatFor: Record investigation commands, evidence, writing decisions, validation, and upload steps for GP-CODE-REVIEW.
 WhenToUse: Read before resuming or reviewing the GP-CODE-REVIEW ticket.
 ---
+
 
 
 
@@ -364,3 +375,83 @@ The result is a more navigable package. `engine.go` now holds the engine type, c
   - `pkg/steps/ai/openai_responses/nonstreaming.go`
 - Modified file:
   - `pkg/steps/ai/openai_responses/engine.go`
+
+## Step 5: Remove custom observability evidence JSON transforms
+
+I simplified the observability payload path based on the user's clarification that we do not need Geppetto to carry a custom privacy/redaction/capping policy for evidence JSON. The runtime already forwards the underlying provider/event data onward, so a partial transform layer inside `pkg/observability` made the code more complex without being an actual boundary.
+
+The code now records provider `object_json`, emitted `event_json`, and `metadata_json` using plain JSON marshaling. `observability.Config` only controls trace level; the CLI section keeps trace level and app recorder max-records, and no longer exposes max payload bytes or redaction flags.
+
+### Prompt Context
+
+**User prompt (verbatim):** "also just remove evidence marshalling altogether, no need to be conscious of privacy here since we already pass the data onwards anyway. remove it entirely, that way we have more code simplicity."
+
+**User prompt (verbatim, follow-up):** "in fact remove the entire privacy policy stuff, including key redactions in json.go etc..."
+
+**Assistant interpretation:** Remove the custom evidence JSON helper and all associated payload-size/redaction config, keeping observability JSON capture as straightforward marshaling of the decoded/runtime values.
+
+**Inferred user intent:** Prefer simpler, more transparent observability code over a partial privacy abstraction that does not match the actual data flow.
+
+**Commit (code):** `1e55df3fb7e4c3ad9e66eea6ef7cf8c6b3b7d69d` — "Remove observability evidence redaction"
+
+### What I did
+- Deleted `pkg/observability/json.go`.
+- Removed `MaxPayloadBytes`, `RedactProviderData`, and `DefaultMaxPayloadBytes` from `pkg/observability/config.go`.
+- Removed `--geppetto-trace-max-payload-bytes` and `--geppetto-trace-redact-provider-data` from `pkg/cli/bootstrap/inference_observability.go`.
+- Changed OpenAI Responses observability records to use plain JSON marshaling via the package's `mustMarshalJSON` helper.
+- Removed the redaction/capping test from `pkg/observability/observer_test.go`.
+- Simplified `pkg/steps/ai/openai_responses/observability_test.go` to pass only a trace level config.
+- Removed an unused local redaction closure from `pkg/steps/ai/openai_responses/streaming.go`.
+- Updated the GP-CODE-REVIEW guide so it no longer recommends fixing the deleted sanitizer and instead records the simplification decision.
+
+### Why
+- The custom evidence JSON helper was doing partial payload transformation in a layer that is not a true privacy boundary.
+- Keeping it would force more tests and policy decisions while still forwarding the same underlying data through provider/event flows.
+- Plain JSON capture is easier to reason about: the recorded object/event/metadata JSON is exactly the decoded/runtime value marshaled to JSON.
+
+### What worked
+- Focused validation passed before commit:
+  - `go test ./pkg/observability ./pkg/cli/bootstrap ./pkg/steps/ai/openai_responses -count=1`
+- The Geppetto pre-commit hook passed full `go test ./...` and lint.
+- Search confirmed the removed symbols no longer appear in source packages:
+  - `MarshalEvidenceJSON`
+  - `MaxPayloadBytes`
+  - `RedactProviderData`
+  - `DefaultMaxPayloadBytes`
+  - `geppetto-trace-max-payload-bytes`
+  - `geppetto-trace-redact-provider-data`
+
+### What didn't work
+- No failures during the code change. The main adjustment was ensuring tests no longer referenced the removed config fields and helper.
+
+### What I learned
+- The observability API is much clearer with `Config{Level TraceLevel}` only.
+- App recorder limits remain the right place for retention. Geppetto does not need to know how much debug data an application wants to keep.
+
+### What was tricky to build
+- The tricky part was scope control: removing privacy/payload transform code should not remove the actual evidence fields. The final implementation still preserves `object_json`, `event_json`, and `metadata_json`; it only removes custom transformation before storing them.
+
+### What warrants a second pair of eyes
+- Check downstream CLIs/scripts for use of the removed flags. The Go packages compile, but external operator scripts may still mention `--geppetto-trace-max-payload-bytes` or `--geppetto-trace-redact-provider-data`.
+- Confirm whether the GP-OBSERVABILITY ticket docs should also be updated to remove old references to payload caps/redaction flags.
+
+### What should be done in the future
+- If artifact size remains a problem, address it with recorder/export retention policy or by deciding which stages get full JSON, not by reintroducing per-key/per-string transforms in Geppetto.
+
+### Code review instructions
+- Start with `pkg/observability/config.go` and confirm the config is now trace-level only.
+- Review `pkg/steps/ai/openai_responses/observability.go` to confirm records still capture object/event/metadata JSON.
+- Validate with:
+  - `cd geppetto && go test ./pkg/observability ./pkg/cli/bootstrap ./pkg/steps/ai/openai_responses -count=1`
+
+### Technical details
+- Removed file:
+  - `pkg/observability/json.go`
+- Modified files:
+  - `pkg/observability/config.go`
+  - `pkg/observability/observer_test.go`
+  - `pkg/cli/bootstrap/inference_observability.go`
+  - `pkg/steps/ai/openai_responses/observability.go`
+  - `pkg/steps/ai/openai_responses/observability_test.go`
+  - `pkg/steps/ai/openai_responses/streaming.go`
+  - `ttmp/2026/05/07/GP-CODE-REVIEW--code-review-and-cleanup-guide-for-geppetto-observability-and-recent-runtime-integration/design-doc/01-geppetto-code-review-and-intern-onboarding-guide.md`
