@@ -19,3 +19,4 @@
 - [x] Align OpenAI Chat Completions and Responses publish observability to started-only records
 - [x] Update OpenAI observability design guide for publish-started-only policy
 - [x] Re-upload updated OpenAI observability design doc to reMarkable
+- [x] Run Playwright web-chat runthrough with OpenAI Responses profile and capture event-size analysis

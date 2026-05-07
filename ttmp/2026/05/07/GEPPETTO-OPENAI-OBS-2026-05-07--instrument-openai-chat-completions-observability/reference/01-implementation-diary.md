@@ -391,3 +391,66 @@ Upload result:
 ```text
 OK: uploaded GEPPETTO-OPENAI-OBS-2026-05-07 OpenAI Completions Observability Design Doc Started Only.pdf -> /ai/2026/05/07/GEPPETTO-OPENAI-OBS-2026-05-07
 ```
+
+### 2026-05-07 15:15 — Playwright runthrough with OpenAI Responses profile and event-size analysis
+
+Ran a full browser runthrough against Pinocchio `cmd/web-chat` using the profile registry from `~/.config/pinocchio/profiles.yaml`.
+
+Server command:
+
+```bash
+go run ./cmd/web-chat web-chat \
+  --addr :18080 \
+  --debug-api \
+  --geppetto-trace-level provider \
+  --geppetto-trace-max-records 200000 \
+  --profile-registries ~/.config/pinocchio/profiles.yaml \
+  --profile gpt-5-nano-low \
+  --log-level debug
+```
+
+Browser steps:
+
+1. Opened `http://127.0.0.1:18080/`.
+2. Selected `gpt-5-nano-low` from the profile dropdown. This profile inherits `openai-responses-base` and therefore uses the OpenAI Responses provider path.
+3. Submitted prompt: `Say exactly: pong`.
+4. Verified visible assistant output: `pong`.
+5. Opened the Stream Debug panel and verified frontend stream debug entries were present.
+6. Downloaded backend debug records, Geppetto records, frontend debug entries, and a reconcile SQLite export for size analysis.
+
+Observed browser/network state:
+
+- UI header showed `Web Chat (gpt-5-nano-low)`.
+- WebSocket status reached `ws: connected`.
+- Sequence reached `seq: 6`.
+- Runtime status reached `finished`.
+- Playwright console warnings/errors: none.
+- API requests used during the run all returned 200:
+  - `GET /api/chat/profile`
+  - `GET /api/chat/profiles`
+  - `POST /api/chat/profile`
+  - `POST /api/chat/sessions`
+  - `POST /api/chat/sessions/:sessionId/messages`
+
+Captured artifacts:
+
+- `sources/06-openai-responses-webchat-runthrough.png`
+- `sources/07-openai-responses-debug-records.json`
+- `sources/08-openai-responses-geppetto-records.json`
+- `sources/09-openai-responses-frontend-debug-entries.json`
+- `sources/10-openai-responses-event-size-analysis.md`
+
+Size highlights from the run:
+
+- Backend debug `/records`: 52 records, 34,462 bytes.
+- Backend Geppetto `/geppetto`: 19 records, 18,578 bytes.
+- Frontend stream debug entries: 30 records, 15,217 bytes.
+- Reconcile SQLite export: 260 KiB.
+- Geppetto stage distribution:
+  - `provider_routed_event`: 12 records, about 15.3 KiB serialized total.
+  - `geppetto_publish_started`: 7 records, about 3.1 KiB serialized total.
+- The largest Geppetto record was `response.completed` at about 3.3 KiB serialized, with about 2.86 KiB of `objectJson`.
+- The biggest space users are provider `objectJson` payloads, especially `response.completed`, `response.output_item.done`, `response.output_item.added`, and the top-level `response.created` / `response.in_progress` envelopes.
+- Publish-started records are comparatively small and do not carry full `eventJson` or `metadataJson`, which confirms the started-only policy avoids the largest publish-side payload duplication.
+
+One follow-up observation: the reconcile SQLite schema still has legacy columns/tables/views for `geppetto_publish_done` and `event_json` / `metadata_json`. They remain harmless for this run, but some old views such as `geppetto_reasoning_to_frontend` are less useful under the new started-only policy because they previously correlated via publish-done event JSON. A future Pinocchio cleanup should update those views to correlate provider records directly to backend/frontend payloads or mark publish-done-specific views as legacy.

@@ -70,3 +70,13 @@ Updated the design guide for the publish-started-only policy and re-uploaded the
 
 - ttmp/2026/05/07/GEPPETTO-OPENAI-OBS-2026-05-07--instrument-openai-chat-completions-observability/design-doc/01-openai-chat-completions-observability-analysis-and-implementation-guide.md — Updated publish observability policy and implementation/test guidance
 
+
+## 2026-05-07
+
+Ran Playwright web-chat runthrough with gpt-5-nano-low OpenAI Responses profile, captured debug artifacts, and documented event-size analysis.
+
+### Related Files
+
+- ttmp/2026/05/07/GEPPETTO-OPENAI-OBS-2026-05-07--instrument-openai-chat-completions-observability/sources/06-openai-responses-webchat-runthrough.png — Browser runthrough screenshot
+- ttmp/2026/05/07/GEPPETTO-OPENAI-OBS-2026-05-07--instrument-openai-chat-completions-observability/sources/10-openai-responses-event-size-analysis.md — Runthrough event-size breakdown
+
