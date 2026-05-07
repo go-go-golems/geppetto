@@ -101,6 +101,14 @@ func TestResponsesObservabilityCapturesObjectEventAndMetadataJSON(t *testing.T) 
 		t.Fatalf("object_json missing decoded provider fields: %s", string(providerRec.ObjectJSON))
 	}
 
+	publishStartedRec := findRecord(records, geppettoobs.StageGeppettoPublishStarted, string(events.EventTypeInfo), "reasoning-summary")
+	if publishStartedRec == nil {
+		t.Fatalf("missing publish started reasoning-summary record in %#v", records)
+	}
+	if len(publishStartedRec.EventJSON) != 0 || len(publishStartedRec.MetadataJSON) != 0 {
+		t.Fatalf("publish started should not carry full payload JSON: %#v", publishStartedRec)
+	}
+
 	publishRec := findRecord(records, geppettoobs.StageGeppettoPublishDone, string(events.EventTypeInfo), "reasoning-summary")
 	if publishRec == nil {
 		t.Fatalf("missing publish done reasoning-summary record in %#v", records)

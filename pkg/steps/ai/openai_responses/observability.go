@@ -58,16 +58,18 @@ func (e *Engine) observePublish(ctx context.Context, event events.Event, stage g
 	}
 	metadata := event.Metadata()
 	rec := geppettoobs.Record{
-		Provider:     "openai_responses",
-		Model:        metadata.Model,
-		SessionID:    metadata.SessionID,
-		InferenceID:  metadata.InferenceID,
-		TurnID:       metadata.TurnID,
-		MessageID:    metadata.ID.String(),
-		Stage:        stage,
-		EventType:    string(event.Type()),
-		EventJSON:    mustMarshalJSON(event),
-		MetadataJSON: mustMarshalJSON(metadata),
+		Provider:    "openai_responses",
+		Model:       metadata.Model,
+		SessionID:   metadata.SessionID,
+		InferenceID: metadata.InferenceID,
+		TurnID:      metadata.TurnID,
+		MessageID:   metadata.ID.String(),
+		Stage:       stage,
+		EventType:   string(event.Type()),
+	}
+	if stage == geppettoobs.StageGeppettoPublishDone || stage == geppettoobs.StageGeppettoPublishError {
+		rec.EventJSON = mustMarshalJSON(event)
+		rec.MetadataJSON = mustMarshalJSON(metadata)
 	}
 	if err != nil {
 		rec.Error = err.Error()
