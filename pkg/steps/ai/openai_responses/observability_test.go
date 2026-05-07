@@ -109,33 +109,8 @@ func TestResponsesObservabilityCapturesObjectEventAndMetadataJSON(t *testing.T) 
 		t.Fatalf("publish started should not carry full payload JSON: %#v", publishStartedRec)
 	}
 
-	publishRec := findRecord(records, geppettoobs.StageGeppettoPublishDone, string(events.EventTypeInfo), "reasoning-summary")
-	if publishRec == nil {
-		t.Fatalf("missing publish done reasoning-summary record in %#v", records)
-	}
-	if publishRec.ItemID != "rs_1" || publishRec.ResponseID != "resp_1" {
-		t.Fatalf("publish record did not preserve provider IDs: %#v", publishRec)
-	}
-	if len(publishRec.EventJSON) == 0 || len(publishRec.MetadataJSON) == 0 {
-		t.Fatalf("expected event_json and metadata_json: %#v", publishRec)
-	}
-	var eventJSON map[string]any
-	if err := json.Unmarshal(publishRec.EventJSON, &eventJSON); err != nil {
-		t.Fatalf("event_json invalid: %s: %v", string(publishRec.EventJSON), err)
-	}
-	if eventJSON["message"] != "reasoning-summary" {
-		t.Fatalf("event_json missing info message: %s", string(publishRec.EventJSON))
-	}
-	data, ok := eventJSON["data"].(map[string]any)
-	if !ok || data["item_id"] != "rs_1" || data["response_id"] != "resp_1" {
-		t.Fatalf("event_json missing enriched provider data: %s", string(publishRec.EventJSON))
-	}
-	var metadataJSON map[string]any
-	if err := json.Unmarshal(publishRec.MetadataJSON, &metadataJSON); err != nil {
-		t.Fatalf("metadata_json invalid: %s: %v", string(publishRec.MetadataJSON), err)
-	}
-	if metadataJSON["turn_id"] != "turn_1" {
-		t.Fatalf("metadata_json missing turn_id: %s", string(publishRec.MetadataJSON))
+	if publishDoneRec := findRecord(records, geppettoobs.StageGeppettoPublishDone, string(events.EventTypeInfo), "reasoning-summary"); publishDoneRec != nil {
+		t.Fatalf("did not expect publish done reasoning-summary record: %#v", publishDoneRec)
 	}
 
 	var finalSummary *events.EventInfo

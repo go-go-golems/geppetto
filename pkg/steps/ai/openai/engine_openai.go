@@ -425,6 +425,7 @@ streamingComplete:
 
 // publishEvent publishes an event to all configured sinks and any sinks carried in context.
 func (e *OpenAIEngine) publishEvent(ctx context.Context, event events.Event) {
+	e.observePublishStarted(ctx, event)
 	events.PublishEventToContext(ctx, event)
 }
 

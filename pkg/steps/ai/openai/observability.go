@@ -35,6 +35,27 @@ func (e *OpenAIEngine) observe(ctx context.Context, rec geppettoobs.Record) {
 	geppettoobs.Notify(ctx, e.observer, rec)
 }
 
+func (e *OpenAIEngine) observePublishStarted(ctx context.Context, event events.Event) {
+	if e == nil || !e.observabilityConfig.RecordsEvents() || event == nil {
+		return
+	}
+	metadata := event.Metadata()
+	rec := geppettoobs.Record{
+		Provider:    e.inferenceProvider(),
+		Model:       metadata.Model,
+		SessionID:   metadata.SessionID,
+		InferenceID: metadata.InferenceID,
+		TurnID:      metadata.TurnID,
+		MessageID:   metadata.ID.String(),
+		Stage:       geppettoobs.StageGeppettoPublishStarted,
+		EventType:   string(event.Type()),
+	}
+	if info, ok := event.(*events.EventInfo); ok {
+		rec.InfoMessage = info.Message
+	}
+	e.observe(ctx, rec)
+}
+
 func (e *OpenAIEngine) observeProviderEvent(ctx context.Context, metadata events.EventMetadata, model string, ev chatStreamEvent) {
 	if e == nil || !e.observabilityConfig.RecordsProvider() {
 		return

@@ -40,7 +40,6 @@ func NewEngine(s *settings.InferenceSettings, opts ...EngineOption) (*Engine, er
 func (e *Engine) publishEvent(ctx context.Context, event events.Event) {
 	e.observePublish(ctx, event, geppettoobs.StageGeppettoPublishStarted, nil)
 	events.PublishEventToContext(ctx, event)
-	e.observePublish(ctx, event, geppettoobs.StageGeppettoPublishDone, nil)
 }
 
 func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {

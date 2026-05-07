@@ -68,10 +68,9 @@ func (e *Engine) observePublish(ctx context.Context, event events.Event, stage g
 		Stage:       stage,
 		EventType:   string(event.Type()),
 	}
-	if stage == geppettoobs.StageGeppettoPublishDone || stage == geppettoobs.StageGeppettoPublishError {
-		rec.EventJSON = mustMarshalJSON(event)
-		rec.MetadataJSON = mustMarshalJSON(metadata)
-	}
+	// Publish observation is intentionally emitted only before event fan-out and
+	// kept compact. Full event/metadata JSON on every streamed partial can make
+	// traces grow very quickly.
 	if err != nil {
 		rec.Error = err.Error()
 	}

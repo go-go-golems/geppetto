@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/go-go-golems/geppetto/pkg/events"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	openaisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
@@ -87,7 +88,7 @@ func TestOpenAIObservabilityOffEmitsNoRecords(t *testing.T) {
 	}
 }
 
-func TestOpenAIObservabilityCapturesProviderRecords(t *testing.T) {
+func TestOpenAIObservabilityCapturesPublishStartedAndProviderRecords(t *testing.T) {
 	body := chatCompletionSSE(
 		`data: {"id":"chatcmpl-1","object":"chat.completion.chunk","model":"gpt-test","choices":[{"delta":{"content":"hel"}}]}`,
 		``,
@@ -122,9 +123,23 @@ func TestOpenAIObservabilityCapturesProviderRecords(t *testing.T) {
 	if providerObject["id"] != "chatcmpl-1" || providerObject["object"] != "chat.completion.chunk" {
 		t.Fatalf("provider ObjectJSON missing raw fields: %s", string(providerRec.ObjectJSON))
 	}
+
+	partialStarted := findGeppettoRecord(records, geppettoobs.StageGeppettoPublishStarted, string(events.EventTypePartialCompletion), "")
+	if partialStarted == nil {
+		t.Fatalf("missing partial publish-started record in %#v", records)
+	}
+	if len(partialStarted.EventJSON) != 0 || len(partialStarted.MetadataJSON) != 0 {
+		t.Fatalf("publish-started should stay compact and omit full JSON payloads: %#v", partialStarted)
+	}
+	if partialStarted.Provider != "openai" || partialStarted.Model != "gpt-test" || partialStarted.TurnID != "turn_1" {
+		t.Fatalf("publish-started record did not capture expected scalar fields: %#v", partialStarted)
+	}
+	if done := findGeppettoRecord(records, geppettoobs.StageGeppettoPublishDone, "", ""); done != nil {
+		t.Fatalf("did not expect publish-done records: %#v", done)
+	}
 }
 
-func TestOpenAIObservabilityEventsLevelEmitsNoRecords(t *testing.T) {
+func TestOpenAIObservabilityEventsLevelEmitsPublishStartedOnly(t *testing.T) {
 	body := chatCompletionSSE(
 		`data: {"id":"chatcmpl-1","object":"chat.completion.chunk","model":"gpt-test","choices":[{"delta":{"content":"hi"},"finish_reason":"stop"}]}`,
 		``,
@@ -141,8 +156,15 @@ func TestOpenAIObservabilityEventsLevelEmitsNoRecords(t *testing.T) {
 		t.Fatalf("RunInference: %v", err)
 	}
 
-	if records := obs.snapshot(); len(records) != 0 {
-		t.Fatalf("expected no records at events trace level now that publish-boundary records are intentionally omitted, got %#v", records)
+	records := obs.snapshot()
+	if rec := findGeppettoRecord(records, geppettoobs.StageProviderRoutedEvent, "chat.completion.chunk", ""); rec != nil {
+		t.Fatalf("did not expect provider record at events trace level: %#v", rec)
+	}
+	if rec := findGeppettoRecord(records, geppettoobs.StageGeppettoPublishStarted, string(events.EventTypeFinal), ""); rec == nil {
+		t.Fatalf("expected final publish-started record at events trace level in %#v", records)
+	}
+	if rec := findGeppettoRecord(records, geppettoobs.StageGeppettoPublishDone, "", ""); rec != nil {
+		t.Fatalf("did not expect publish-done records: %#v", rec)
 	}
 }
 
