@@ -177,6 +177,7 @@ func TestIntFromAnyStringParsingRequiresExactInteger(t *testing.T) {
 		{name: "leading junk", in: "x1", ok: false},
 		{name: "empty", in: "", ok: false},
 		{name: "spaces", in: "   ", ok: false},
+		{name: "uint64 overflow", in: uint64(^uint(0)>>1) + 1, ok: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -184,18 +184,39 @@ func intFromAny(v any) (int, bool) {
 	}
 	switch tv := v.(type) {
 	case int32:
-		return int(tv), true
+		return intFromSigned64(int64(tv))
 	case uint:
-		return int(tv), true
+		return intFromUnsigned64(uint64(tv))
 	case uint32:
-		return int(tv), true
+		return intFromUnsigned64(uint64(tv))
 	case uint64:
-		return int(tv), true
+		return intFromUnsigned64(tv)
 	case string:
-		i64, err := strconv.ParseInt(strings.TrimSpace(tv), 10, 0)
-		if err == nil {
-			return int(i64), true
-		}
+		return intFromString(tv)
 	}
 	return 0, false
+}
+
+func intFromString(v string) (int, bool) {
+	i, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil {
+		return 0, false
+	}
+	return i, true
+}
+
+func intFromSigned64(v int64) (int, bool) {
+	i, err := strconv.Atoi(strconv.FormatInt(v, 10))
+	if err != nil {
+		return 0, false
+	}
+	return i, true
+}
+
+func intFromUnsigned64(v uint64) (int, bool) {
+	i, err := strconv.Atoi(strconv.FormatUint(v, 10))
+	if err != nil {
+		return 0, false
+	}
+	return i, true
 }
