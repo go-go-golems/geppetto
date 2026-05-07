@@ -239,3 +239,76 @@ OK: uploaded GEPPETTO-OPENAI-OBS-2026-05-07 OpenAI Completions Observability Gui
 - Evidence: `../sources/01-key-symbols.txt`
 - Evidence: `../sources/02-existing-tests.txt`
 - Evidence: `../sources/03-environment.txt`
+
+### 2026-05-07 14:45 — Uploaded standalone design doc to reMarkable
+
+The earlier upload bundled the design doc and diary together. The user then asked for the design doc itself to be uploaded, so I uploaded the standalone guide:
+
+```bash
+remarquee upload md "$DESIGN" \
+  --name "GEPPETTO-OPENAI-OBS-2026-05-07 OpenAI Completions Observability Design Doc" \
+  --remote-dir "/ai/2026/05/07/GEPPETTO-OPENAI-OBS-2026-05-07" \
+  --non-interactive
+```
+
+Result:
+
+```text
+OK: uploaded GEPPETTO-OPENAI-OBS-2026-05-07 OpenAI Completions Observability Design Doc.pdf -> /ai/2026/05/07/GEPPETTO-OPENAI-OBS-2026-05-07
+```
+
+I also searched existing docs for Anthropic/Claude observability design coverage. I found older Anthropic/unified-events notes, but not a matching docmgr ticket/design doc specifically for instrumenting the Claude/Anthropic API with the current `pkg/observability` observer/config pattern.
+
+### 2026-05-07 14:52 — Started OpenAI Chat Completions implementation
+
+The user confirmed we should continue with the OpenAI completions work before tackling Anthropic. I checked the working tree and ticket tasks. Only ticket documentation files were modified from the previous upload/task setup; no source code changes existed yet.
+
+Planned implementation order:
+
+1. Add OpenAI engine observer/config options and publish-event records.
+2. Add provider routed and reasoning-normalization records in the stream loop.
+3. Wire `StandardEngineFactory` OpenAI options.
+4. Add focused tests and run validation.
+5. Commit source changes first, then ticket diary/changelog/task updates separately if needed.
+
+### 2026-05-07 15:05 — Implemented and committed OpenAI Chat Completions observability
+
+Implemented the source changes planned in the design guide:
+
+- Added `pkg/steps/ai/openai/observability.go` with:
+  - `EngineOption`
+  - `WithObserver`
+  - `WithObservabilityConfig`
+  - event publish records
+  - provider routed records
+  - reasoning-normalization records
+  - provider identity derived from `settings.Chat.ApiType`
+- Extended `OpenAIEngine` with observer/config fields and a variadic constructor.
+- Wrapped `OpenAIEngine.publishEvent` with `StageGeppettoPublishStarted` and `StageGeppettoPublishDone` records.
+- Emitted `StageProviderRoutedEvent` for every successfully decoded chat completion chunk using `chatStreamEvent.RawPayload`.
+- Emitted `StageProviderNormalizeDelta` around `streamhelpers.NormalizeReasoningDelta` for reasoning deltas.
+- Added `factory.WithOpenAIOptions(...)` and passed options into OpenAI-compatible engines from `StandardEngineFactory`.
+- Added focused tests in:
+  - `pkg/steps/ai/openai/observability_test.go`
+  - `pkg/inference/engine/factory/factory_observability_test.go`
+
+Validation before the source commit:
+
+```bash
+go test ./pkg/steps/ai/openai ./pkg/inference/engine/factory
+```
+
+The commit pre-commit hook also ran:
+
+```bash
+go test ./...
+make lint
+```
+
+Both passed. The source commit is:
+
+```text
+1c2c9dfdada18163afde41a7024d7468982a0662 feat(openai): add chat completions observability
+```
+
+One small hiccup: `observability_test.go` initially redeclared `roundTripperFunc`, which already existed in `engine_openai_test.go`. I removed the duplicate and reused the package-level test helper. After that, the targeted tests passed.

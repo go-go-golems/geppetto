@@ -17,6 +17,8 @@ RelatedFiles:
       Note: Context EventSink publish mechanism wrapped by observability
     - Path: pkg/inference/engine/factory/factory.go
       Note: Factory option plumbing for provider engines
+    - Path: pkg/inference/engine/factory/factory_observability_test.go
+      Note: Factory OpenAI option plumbing regression test
     - Path: pkg/observability/config.go
       Note: Trace level policy for off/events/provider
     - Path: pkg/observability/observer.go
@@ -25,6 +27,10 @@ RelatedFiles:
       Note: Streaming SSE decoder; chatStreamEvent.RawPayload source for provider records
     - Path: pkg/steps/ai/openai/engine_openai.go
       Note: OpenAI Chat Completions RunInference loop and publishEvent wrapper target
+    - Path: pkg/steps/ai/openai/observability.go
+      Note: OpenAI Chat Completions observability options and record helpers
+    - Path: pkg/steps/ai/openai/observability_test.go
+      Note: OpenAI Chat Completions observability trace-level and panic-safety tests
     - Path: pkg/steps/ai/openai_responses/engine.go
       Note: Responses constructor and publishEvent wrapper pattern
     - Path: pkg/steps/ai/openai_responses/observability.go
@@ -35,6 +41,7 @@ LastUpdated: 2026-05-07T14:23:57.755401723-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Instrument OpenAI chat completions observability
