@@ -1,0 +1,32 @@
+# Claude observability source inventory
+pkg/inference/engine/factory/factory.go:47:// WithOpenAIResponsesOptions passes options to OpenAI Responses engines created
+pkg/inference/engine/factory/factory.go:50:func WithOpenAIResponsesOptions(opts ...openai_responses.EngineOption) StandardEngineFactoryOption {
+pkg/inference/engine/factory/factory.go:56:// WithOpenAIOptions passes options to OpenAI Chat Completions engines created
+pkg/inference/engine/factory/factory.go:57:// by the factory. This mirrors WithOpenAIResponsesOptions for apps that want
+pkg/inference/engine/factory/factory.go:59:func WithOpenAIOptions(opts ...openai.EngineOption) StandardEngineFactoryOption {
+pkg/inference/engine/factory/factory_observability_test.go:41:func TestStandardEngineFactory_WithOpenAIOptionsPassesObservabilityOptions(t *testing.T) {
+pkg/inference/engine/factory/factory_observability_test.go:44:		WithOpenAIOptions(
+pkg/inference/engine/factory/factory_observability_test.go:79:		if rec.Stage == geppettoobs.StageProviderRoutedEvent {
+pkg/inference/engine/factory/factory_observability_test.go:82:		if rec.Stage == geppettoobs.StageGeppettoPublishStarted && rec.EventType == "final" && rec.TurnID == "turn_factory" {
+pkg/observability/config.go:16:	TraceProvider TraceLevel = "provider"
+pkg/observability/config.go:41:	case TraceEvents, TraceProvider:
+pkg/observability/config.go:51:	return c.Normalized().Level == TraceProvider
+pkg/observability/config.go:61:		return TraceProvider, nil
+pkg/observability/observer.go:13:	StageProviderRoutedEvent    Stage = "provider_routed_event"
+pkg/observability/observer.go:16:	StageGeppettoPublishStarted Stage = "geppetto_publish_started"
+pkg/observability/observer_test.go:30:		{"provider", TraceProvider},
+pkg/observability/observer_test.go:31:		{" PROVIDER ", TraceProvider},
+pkg/observability/observer_test.go:51:	Notify(context.Background(), panicObserver{}, Record{Stage: StageProviderRoutedEvent})
+pkg/observability/observer_test.go:56:	Notify(context.Background(), obs, Record{Stage: StageProviderRoutedEvent})
+pkg/steps/ai/claude/api/messages.go:218:// StreamMessage sends a message request and returns a channel of Events for streaming responses.
+pkg/steps/ai/claude/api/messages.go:219:func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan StreamingEvent, error) {
+pkg/steps/ai/claude/api/streaming.go:133:func streamEvents(ctx context.Context, resp *http.Response, events chan StreamingEvent) {
+pkg/steps/ai/claude/api/streaming.go:17:type StreamingEventType string
+pkg/steps/ai/claude/api/streaming.go:37:type StreamingEvent struct {
+pkg/steps/ai/claude/content-block-merger.go:127:func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, error) {
+pkg/steps/ai/claude/content-block-merger.go:29:type ContentBlockMerger struct {
+pkg/steps/ai/claude/engine_claude.go:144:	eventCh, err := client.StreamMessage(ctx, req)
+pkg/steps/ai/claude/engine_claude.go:247:func (e *ClaudeEngine) publishEvent(ctx context.Context, event events.Event) {
+pkg/steps/ai/claude/engine_claude.go:24:type ClaudeEngine struct {
+pkg/steps/ai/claude/engine_claude.go:30:func NewClaudeEngine(settings *settings.InferenceSettings) (*ClaudeEngine, error) {
+pkg/steps/ai/claude/engine_claude.go:41:func (e *ClaudeEngine) RunInference(
