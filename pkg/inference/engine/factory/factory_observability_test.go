@@ -43,7 +43,7 @@ func TestStandardEngineFactory_WithOpenAIOptionsPassesObservabilityOptions(t *te
 	factory := NewStandardEngineFactory(
 		WithOpenAIOptions(
 			openai.WithObserver(obs),
-			openai.WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceEvents}),
+			openai.WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}),
 		),
 	)
 	settings := createValidOpenAISettings()
@@ -74,16 +74,13 @@ func TestStandardEngineFactory_WithOpenAIOptionsPassesObservabilityOptions(t *te
 	}
 
 	records := obs.snapshot()
-	var sawFinal bool
+	var sawProvider bool
 	for _, rec := range records {
-		if rec.Stage == geppettoobs.StageProviderRoutedEvent {
-			t.Fatalf("TraceEvents should not emit provider records: %#v", rec)
-		}
-		if rec.Stage == geppettoobs.StageGeppettoPublishDone && rec.EventType == "final" && rec.TurnID == "turn_factory" {
-			sawFinal = true
+		if rec.Stage == geppettoobs.StageProviderRoutedEvent && rec.ResponseID == "chatcmpl-factory" && rec.TurnID == "turn_factory" {
+			sawProvider = true
 		}
 	}
-	if !sawFinal {
-		t.Fatalf("factory-created OpenAI engine did not emit final publish record: %#v", records)
+	if !sawProvider {
+		t.Fatalf("factory-created OpenAI engine did not emit provider record: %#v", records)
 	}
 }

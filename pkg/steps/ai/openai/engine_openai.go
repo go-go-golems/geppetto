@@ -425,9 +425,7 @@ streamingComplete:
 
 // publishEvent publishes an event to all configured sinks and any sinks carried in context.
 func (e *OpenAIEngine) publishEvent(ctx context.Context, event events.Event) {
-	e.observePublish(ctx, event, geppettoobs.StageGeppettoPublishStarted, nil)
 	events.PublishEventToContext(ctx, event)
-	e.observePublish(ctx, event, geppettoobs.StageGeppettoPublishDone, nil)
 }
 
 // GetSupportedToolFeatures returns the tool features supported by OpenAI
