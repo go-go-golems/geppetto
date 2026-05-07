@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
@@ -22,16 +23,26 @@ import (
 // ClaudeEngine implements the Engine interface for Claude (Anthropic) API calls.
 // It wraps the existing Claude logic from geppetto's ChatStep implementation.
 type ClaudeEngine struct {
-	settings    *settings.InferenceSettings
-	toolAdapter *tools.ClaudeToolAdapter
+	settings            *settings.InferenceSettings
+	toolAdapter         *tools.ClaudeToolAdapter
+	observer            geppettoobs.Observer
+	observabilityConfig geppettoobs.Config
 }
 
 // NewClaudeEngine creates a new Claude inference engine with the given settings and options.
-func NewClaudeEngine(settings *settings.InferenceSettings) (*ClaudeEngine, error) {
-	return &ClaudeEngine{
-		settings:    settings,
-		toolAdapter: tools.NewClaudeToolAdapter(),
-	}, nil
+func NewClaudeEngine(settings *settings.InferenceSettings, opts ...EngineOption) (*ClaudeEngine, error) {
+	e := &ClaudeEngine{
+		settings:            settings,
+		toolAdapter:         tools.NewClaudeToolAdapter(),
+		observabilityConfig: geppettoobs.DefaultConfig(),
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(e)
+		}
+	}
+	e.observabilityConfig = e.observabilityConfig.Normalized()
+	return e, nil
 }
 
 // Tool configuration now read from Turn.Data; no ConfigureTools method
@@ -166,6 +177,7 @@ func (e *ClaudeEngine) RunInference(
 			}
 
 			eventCount++
+			e.observeProviderEvent(ctx, metadata, req.Model, event)
 
 			events_, err := completionMerger.Add(event)
 			if err != nil {
@@ -245,6 +257,7 @@ streamingComplete:
 
 // publishEvent publishes an event to all configured sinks and any sinks carried in context.
 func (e *ClaudeEngine) publishEvent(ctx context.Context, event events.Event) {
+	e.observePublishStarted(ctx, event)
 	events.PublishEventToContext(ctx, event)
 }
 
