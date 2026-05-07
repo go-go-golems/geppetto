@@ -1,0 +1,64 @@
+# OpenAI completions observability evidence
+
+## Key symbols
+pkg/inference/engine/factory/factory.go:22:	// CreateEngine creates an Engine instance based on the provided settings.
+pkg/inference/engine/factory/factory.go:25:	CreateEngine(settings *settings.InferenceSettings) (engine.Engine, error)
+pkg/inference/engine/factory/factory.go:46:// WithOpenAIResponsesOptions passes options to OpenAI Responses engines created
+pkg/inference/engine/factory/factory.go:49:func WithOpenAIResponsesOptions(opts ...openai_responses.EngineOption) StandardEngineFactoryOption {
+pkg/inference/engine/factory/factory.go:70:// CreateEngine creates an Engine instance based on the provider specified in settings.Chat.ApiType.
+pkg/inference/engine/factory/factory.go:73:func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSettings) (engine.Engine, error) {
+pkg/inference/engine/factory/factory_test.go:101:func TestStandardEngineFactory_CreateEngine_UnsupportedProvider(t *testing.T) {
+pkg/inference/engine/factory/factory_test.go:111:	engine, err := factory.CreateEngine(settings)
+pkg/inference/engine/factory/factory_test.go:118:func TestStandardEngineFactory_CreateEngine_MissingAPIKey(t *testing.T) {
+pkg/inference/engine/factory/factory_test.go:128:	engine, err := factory.CreateEngine(settings)
+pkg/inference/engine/factory/factory_test.go:135:func TestStandardEngineFactory_CreateEngine_DefaultsToOpenAI(t *testing.T) {
+pkg/inference/engine/factory/factory_test.go:142:	engine, err := factory.CreateEngine(settings)
+pkg/inference/engine/factory/factory_test.go:149:func TestStandardEngineFactory_CreateEngine_ReasoningModelsStayOnConfiguredProvider(t *testing.T) {
+pkg/inference/engine/factory/factory_test.go:157:	engine, err := factory.CreateEngine(settings)
+pkg/inference/engine/factory/factory_test.go:36:func TestStandardEngineFactory_CreateEngine_NilSettings(t *testing.T) {
+pkg/inference/engine/factory/factory_test.go:39:	engine, err := factory.CreateEngine(nil)
+pkg/inference/engine/factory/factory_test.go:46:func TestStandardEngineFactory_CreateEngine_OpenAI_Success(t *testing.T) {
+pkg/inference/engine/factory/factory_test.go:52:	engine, err := factory.CreateEngine(settings)
+pkg/inference/engine/factory/factory_test.go:59:func TestStandardEngineFactory_CreateEngine_Claude_Success(t *testing.T) {
+pkg/inference/engine/factory/factory_test.go:65:	engine, err := factory.CreateEngine(settings)
+pkg/inference/engine/factory/factory_test.go:72:func TestStandardEngineFactory_CreateEngine_OpenResponses_Success(t *testing.T) {
+pkg/inference/engine/factory/factory_test.go:77:	engine, err := factory.CreateEngine(settings)
+pkg/inference/engine/factory/factory_test.go:84:func TestStandardEngineFactory_CreateEngine_LegacyOpenAIResponsesAlias_Success(t *testing.T) {
+pkg/inference/engine/factory/factory_test.go:94:	engine, err := factory.CreateEngine(settings)
+pkg/inference/engine/factory/helpers.go:13:	return factory.CreateEngine(stepSettings)
+pkg/observability/config.go:16:	TraceProvider TraceLevel = "provider"
+pkg/observability/config.go:20:type Config struct {
+pkg/observability/config.go:41:	case TraceEvents, TraceProvider:
+pkg/observability/config.go:51:	return c.Normalized().Level == TraceProvider
+pkg/observability/config.go:61:		return TraceProvider, nil
+pkg/observability/observer.go:13:	StageProviderRoutedEvent    Stage = "provider_routed_event"
+pkg/observability/observer.go:14:	StageProviderNormalizeDelta Stage = "provider_normalize_delta"
+pkg/observability/observer.go:24:type Record struct {
+pkg/observability/observer_test.go:30:		{"provider", TraceProvider},
+pkg/observability/observer_test.go:31:		{" PROVIDER ", TraceProvider},
+pkg/observability/observer_test.go:51:	Notify(context.Background(), panicObserver{}, Record{Stage: StageProviderRoutedEvent})
+pkg/observability/observer_test.go:56:	Notify(context.Background(), obs, Record{Stage: StageProviderRoutedEvent})
+pkg/steps/ai/openai/chat_stream.go:181:func (s *chatCompletionStream) Recv() (chatStreamEvent, error) {
+pkg/steps/ai/openai/chat_stream.go:247:func normalizeChatStreamEvent(raw map[string]any) chatStreamEvent {
+pkg/steps/ai/openai/chat_stream.go:248:	ret := chatStreamEvent{RawPayload: raw}
+pkg/steps/ai/openai/chat_stream.go:35:type chatStreamEvent struct {
+pkg/steps/ai/openai/chat_stream.go:41:	RawPayload     map[string]any
+pkg/steps/ai/openai/chat_stream.go:85:func openChatCompletionStream(
+pkg/steps/ai/openai/engine_openai.go:27:type OpenAIEngine struct {
+pkg/steps/ai/openai/engine_openai.go:33:func NewOpenAIEngine(settings *settings.InferenceSettings) (*OpenAIEngine, error) {
+pkg/steps/ai/openai/engine_openai.go:412:func (e *OpenAIEngine) publishEvent(ctx context.Context, event events.Event) {
+pkg/steps/ai/openai/engine_openai.go:43:func (e *OpenAIEngine) RunInference(
+pkg/steps/ai/openai_responses/engine.go:41:	e.observePublish(ctx, event, geppettoobs.StageGeppettoPublishStarted, nil)
+pkg/steps/ai/openai_responses/engine.go:43:	e.observePublish(ctx, event, geppettoobs.StageGeppettoPublishDone, nil)
+pkg/steps/ai/openai_responses/observability.go:12:type EngineOption func(*Engine)
+pkg/steps/ai/openai_responses/observability.go:14:func WithObserver(obs geppettoobs.Observer) EngineOption {
+pkg/steps/ai/openai_responses/observability.go:20:func WithObservabilityConfig(cfg geppettoobs.Config) EngineOption {
+pkg/steps/ai/openai_responses/observability.go:33:func (e *Engine) observeProviderEvent(ctx context.Context, metadata events.EventMetadata, model string, currentResponseID string, eventType string, m map[string]any) {
+pkg/steps/ai/openai_responses/observability.go:38:	rec.Stage = geppettoobs.StageProviderRoutedEvent
+pkg/steps/ai/openai_responses/observability.go:48:	rec.Stage = geppettoobs.StageProviderNormalizeDelta
+pkg/steps/ai/openai_responses/observability.go:56:func (e *Engine) observePublish(ctx context.Context, event events.Event, stage geppettoobs.Stage, err error) {
+pkg/steps/ai/openai_responses/observability_test.go:157:	eng, err := NewEngine(&settings.InferenceSettings{}, WithObserver(obs), WithObservabilityConfig(geppettoobs.DefaultConfig()))
+pkg/steps/ai/openai_responses/observability_test.go:161:	eng.observe(context.Background(), geppettoobs.Record{Stage: geppettoobs.StageProviderRoutedEvent})
+pkg/steps/ai/openai_responses/observability_test.go:76:	}, WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
+pkg/steps/ai/openai_responses/observability_test.go:89:	providerRec := findRecord(records, geppettoobs.StageProviderRoutedEvent, "response.reasoning_summary_text.delta", "")
+pkg/steps/ai/openai_responses/streaming.go:118:		e.observeProviderEvent(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m)
