@@ -10,3 +10,5 @@
 - [x] Run targeted and broad validation
 - [x] Update diary/changelog and commit at checkpoints
 - [x] Upload design guide and diary bundle to reMarkable
+- [x] Run Playwright web-chat validation with Claude `haiku` profile
+- [x] Capture Claude web-chat debug/geppetto evidence and size analysis

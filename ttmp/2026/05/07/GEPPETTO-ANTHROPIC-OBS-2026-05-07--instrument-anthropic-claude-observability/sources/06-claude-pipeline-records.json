@@ -1,0 +1,442 @@
+{
+  "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+  "kind": "pipeline",
+  "records": [
+    {
+      "kind": "pipeline",
+      "timestamp": "2026-05-07T20:34:58.374387161Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "ordinal": "1",
+      "pipeline": {
+        "mode": "live",
+        "event": "ChatUserMessageAccepted",
+        "eventType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+        "payload": {
+          "content": "Say exactly: pong",
+          "messageId": "chat-msg-2-user",
+          "role": "user",
+          "text": "Say exactly: pong"
+        },
+        "eventAppended": true,
+        "timelineCursorAdvanced": true,
+        "uiEvents": [
+          {
+            "name": "ChatMessageAccepted",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "content": "Say exactly: pong",
+              "messageId": "chat-msg-2-user",
+              "role": "user",
+              "text": "Say exactly: pong"
+            }
+          }
+        ],
+        "timelineEntities": [
+          {
+            "kind": "ChatMessage",
+            "id": "chat-msg-2-user",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+            "payload": {
+              "content": "Say exactly: pong",
+              "messageId": "chat-msg-2-user",
+              "role": "user",
+              "text": "Say exactly: pong"
+            }
+          }
+        ],
+        "appliedEntities": [
+          {
+            "kind": "ChatMessage",
+            "id": "chat-msg-2-user",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+            "payload": {
+              "content": "Say exactly: pong",
+              "messageId": "chat-msg-2-user",
+              "role": "user",
+              "text": "Say exactly: pong"
+            }
+          }
+        ],
+        "fanoutEvents": [
+          {
+            "name": "ChatMessageAccepted",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "content": "Say exactly: pong",
+              "messageId": "chat-msg-2-user",
+              "role": "user",
+              "text": "Say exactly: pong"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "pipeline",
+      "timestamp": "2026-05-07T20:34:58.374868501Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "ordinal": "2",
+      "pipeline": {
+        "mode": "live",
+        "event": "ChatInferenceStarted",
+        "eventType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+        "payload": {
+          "messageId": "chat-msg-2",
+          "prompt": "Say exactly: pong",
+          "role": "assistant",
+          "status": "streaming",
+          "streaming": true
+        },
+        "eventAppended": true,
+        "viewOrdinal": "1",
+        "timelineCursorAdvanced": true,
+        "uiEvents": [
+          {
+            "name": "ChatMessageStarted",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "messageId": "chat-msg-2",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "status": "streaming",
+              "streaming": true
+            }
+          }
+        ],
+        "fanoutEvents": [
+          {
+            "name": "ChatMessageStarted",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "messageId": "chat-msg-2",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "status": "streaming",
+              "streaming": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "pipeline",
+      "timestamp": "2026-05-07T20:34:58.996967064Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "ordinal": "3",
+      "pipeline": {
+        "mode": "live",
+        "event": "ChatTokensDelta",
+        "eventType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+        "payload": {
+          "chunk": "p",
+          "content": "p",
+          "messageId": "chat-msg-2:text:1",
+          "parentMessageId": "chat-msg-2",
+          "prompt": "Say exactly: pong",
+          "role": "assistant",
+          "segment": 1,
+          "segmentType": "text",
+          "status": "streaming",
+          "streaming": true,
+          "text": "p"
+        },
+        "eventAppended": true,
+        "viewOrdinal": "2",
+        "timelineCursorAdvanced": true,
+        "uiEvents": [
+          {
+            "name": "ChatMessageAppended",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "chunk": "p",
+              "content": "p",
+              "messageId": "chat-msg-2:text:1",
+              "parentMessageId": "chat-msg-2",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "streaming",
+              "streaming": true,
+              "text": "p"
+            }
+          }
+        ],
+        "timelineEntities": [
+          {
+            "kind": "ChatMessage",
+            "id": "chat-msg-2:text:1",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+            "payload": {
+              "content": "p",
+              "messageId": "chat-msg-2:text:1",
+              "parentMessageId": "chat-msg-2",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "streaming",
+              "streaming": true,
+              "text": "p"
+            }
+          }
+        ],
+        "appliedEntities": [
+          {
+            "kind": "ChatMessage",
+            "id": "chat-msg-2:text:1",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+            "payload": {
+              "content": "p",
+              "messageId": "chat-msg-2:text:1",
+              "parentMessageId": "chat-msg-2",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "streaming",
+              "streaming": true,
+              "text": "p"
+            }
+          }
+        ],
+        "fanoutEvents": [
+          {
+            "name": "ChatMessageAppended",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "chunk": "p",
+              "content": "p",
+              "messageId": "chat-msg-2:text:1",
+              "parentMessageId": "chat-msg-2",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "streaming",
+              "streaming": true,
+              "text": "p"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "pipeline",
+      "timestamp": "2026-05-07T20:34:59.020323432Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "ordinal": "4",
+      "pipeline": {
+        "mode": "live",
+        "event": "ChatTokensDelta",
+        "eventType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+        "payload": {
+          "chunk": "ong",
+          "content": "pong",
+          "messageId": "chat-msg-2:text:1",
+          "parentMessageId": "chat-msg-2",
+          "prompt": "Say exactly: pong",
+          "role": "assistant",
+          "segment": 1,
+          "segmentType": "text",
+          "status": "streaming",
+          "streaming": true,
+          "text": "pong"
+        },
+        "eventAppended": true,
+        "viewOrdinal": "3",
+        "timelineCursorAdvanced": true,
+        "uiEvents": [
+          {
+            "name": "ChatMessageAppended",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "chunk": "ong",
+              "content": "pong",
+              "messageId": "chat-msg-2:text:1",
+              "parentMessageId": "chat-msg-2",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "streaming",
+              "streaming": true,
+              "text": "pong"
+            }
+          }
+        ],
+        "timelineEntities": [
+          {
+            "kind": "ChatMessage",
+            "id": "chat-msg-2:text:1",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+            "payload": {
+              "content": "pong",
+              "messageId": "chat-msg-2:text:1",
+              "parentMessageId": "chat-msg-2",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "streaming",
+              "streaming": true,
+              "text": "pong"
+            }
+          }
+        ],
+        "appliedEntities": [
+          {
+            "kind": "ChatMessage",
+            "id": "chat-msg-2:text:1",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+            "payload": {
+              "content": "pong",
+              "messageId": "chat-msg-2:text:1",
+              "parentMessageId": "chat-msg-2",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "streaming",
+              "streaming": true,
+              "text": "pong"
+            }
+          }
+        ],
+        "fanoutEvents": [
+          {
+            "name": "ChatMessageAppended",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "chunk": "ong",
+              "content": "pong",
+              "messageId": "chat-msg-2:text:1",
+              "parentMessageId": "chat-msg-2",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "streaming",
+              "streaming": true,
+              "text": "pong"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "pipeline",
+      "timestamp": "2026-05-07T20:34:59.044704508Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "ordinal": "5",
+      "pipeline": {
+        "mode": "live",
+        "event": "ChatInferenceFinished",
+        "eventType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+        "payload": {
+          "content": "pong",
+          "final": true,
+          "messageId": "chat-msg-2:text:1",
+          "parentMessageId": "chat-msg-2",
+          "prompt": "Say exactly: pong",
+          "role": "assistant",
+          "segment": 1,
+          "segmentType": "text",
+          "status": "finished",
+          "text": "pong"
+        },
+        "eventAppended": true,
+        "viewOrdinal": "4",
+        "timelineCursorAdvanced": true,
+        "uiEvents": [
+          {
+            "name": "ChatMessageFinished",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "content": "pong",
+              "final": true,
+              "messageId": "chat-msg-2:text:1",
+              "parentMessageId": "chat-msg-2",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "finished",
+              "text": "pong"
+            }
+          },
+          {
+            "name": "ChatAgentModePreviewCleared",
+            "payloadType": "pinocchio.chatapp.v1.AgentModePreviewCleared",
+            "payload": {
+              "messageId": "chat-msg-2:text:1"
+            }
+          }
+        ],
+        "timelineEntities": [
+          {
+            "kind": "ChatMessage",
+            "id": "chat-msg-2:text:1",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+            "payload": {
+              "content": "pong",
+              "final": true,
+              "messageId": "chat-msg-2:text:1",
+              "parentMessageId": "chat-msg-2",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "finished",
+              "text": "pong"
+            }
+          }
+        ],
+        "appliedEntities": [
+          {
+            "kind": "ChatMessage",
+            "id": "chat-msg-2:text:1",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageEntity",
+            "payload": {
+              "content": "pong",
+              "final": true,
+              "messageId": "chat-msg-2:text:1",
+              "parentMessageId": "chat-msg-2",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "finished",
+              "text": "pong"
+            }
+          }
+        ],
+        "fanoutEvents": [
+          {
+            "name": "ChatMessageFinished",
+            "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate",
+            "payload": {
+              "content": "pong",
+              "final": true,
+              "messageId": "chat-msg-2:text:1",
+              "parentMessageId": "chat-msg-2",
+              "prompt": "Say exactly: pong",
+              "role": "assistant",
+              "segment": 1,
+              "segmentType": "text",
+              "status": "finished",
+              "text": "pong"
+            }
+          },
+          {
+            "name": "ChatAgentModePreviewCleared",
+            "payloadType": "pinocchio.chatapp.v1.AgentModePreviewCleared",
+            "payload": {
+              "messageId": "chat-msg-2:text:1"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,291 @@
+{
+  "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+  "kind": "transport",
+  "records": [
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.370162969Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "connectionId": "conn-2",
+      "transport": {
+        "stage": "client_frame_decoded",
+        "direction": "client_to_server",
+        "frameType": "subscribe",
+        "rawBytes": 93
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.370163563Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "connectionId": "conn-2",
+      "transport": {
+        "stage": "subscribe_received",
+        "direction": "client_to_server",
+        "frameType": "subscribe"
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.370176805Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "connectionId": "conn-2",
+      "transport": {
+        "stage": "subscription_registered"
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.370177067Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "connectionId": "conn-2",
+      "transport": {
+        "stage": "snapshot_load_started"
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.370283463Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "connectionId": "conn-2",
+      "transport": {
+        "stage": "snapshot_loaded"
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.370304355Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "connectionId": "conn-2",
+      "transport": {
+        "stage": "snapshot_sent"
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.370306272Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "connectionId": "conn-2",
+      "transport": {
+        "stage": "subscription_live"
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.370312147Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "connectionId": "conn-2",
+      "transport": {
+        "stage": "subscribed"
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.374316086Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "ordinal": "1",
+      "transport": {
+        "stage": "fanout_started",
+        "fanoutEventCount": 1,
+        "fanoutTargetIds": [
+          "conn-2"
+        ]
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.374382747Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "connectionId": "conn-2",
+      "ordinal": "1",
+      "transport": {
+        "stage": "ui_event_sent",
+        "direction": "server_to_client",
+        "eventName": "ChatMessageAccepted",
+        "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate"
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.374383766Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "ordinal": "1",
+      "transport": {
+        "stage": "fanout_completed",
+        "fanoutEventCount": 1,
+        "fanoutTargetIds": [
+          "conn-2"
+        ]
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.374775419Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "ordinal": "2",
+      "transport": {
+        "stage": "fanout_started",
+        "fanoutEventCount": 1,
+        "fanoutTargetIds": [
+          "conn-2"
+        ]
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.374864745Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "connectionId": "conn-2",
+      "ordinal": "2",
+      "transport": {
+        "stage": "ui_event_sent",
+        "direction": "server_to_client",
+        "eventName": "ChatMessageStarted",
+        "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate"
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.374866061Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "ordinal": "2",
+      "transport": {
+        "stage": "fanout_completed",
+        "fanoutEventCount": 1,
+        "fanoutTargetIds": [
+          "conn-2"
+        ]
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.996911998Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "ordinal": "3",
+      "transport": {
+        "stage": "fanout_started",
+        "fanoutEventCount": 1,
+        "fanoutTargetIds": [
+          "conn-2"
+        ]
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.996963017Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "connectionId": "conn-2",
+      "ordinal": "3",
+      "transport": {
+        "stage": "ui_event_sent",
+        "direction": "server_to_client",
+        "eventName": "ChatMessageAppended",
+        "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate"
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:58.996963929Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "ordinal": "3",
+      "transport": {
+        "stage": "fanout_completed",
+        "fanoutEventCount": 1,
+        "fanoutTargetIds": [
+          "conn-2"
+        ]
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:59.020288297Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "ordinal": "4",
+      "transport": {
+        "stage": "fanout_started",
+        "fanoutEventCount": 1,
+        "fanoutTargetIds": [
+          "conn-2"
+        ]
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:59.020320951Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "connectionId": "conn-2",
+      "ordinal": "4",
+      "transport": {
+        "stage": "ui_event_sent",
+        "direction": "server_to_client",
+        "eventName": "ChatMessageAppended",
+        "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate"
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:59.02032153Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "ordinal": "4",
+      "transport": {
+        "stage": "fanout_completed",
+        "fanoutEventCount": 1,
+        "fanoutTargetIds": [
+          "conn-2"
+        ]
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:59.044648353Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "ordinal": "5",
+      "transport": {
+        "stage": "fanout_started",
+        "fanoutEventCount": 2,
+        "fanoutTargetIds": [
+          "conn-2"
+        ]
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:59.044684462Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "connectionId": "conn-2",
+      "ordinal": "5",
+      "transport": {
+        "stage": "ui_event_sent",
+        "direction": "server_to_client",
+        "eventName": "ChatMessageFinished",
+        "payloadType": "pinocchio.chatapp.v1.ChatMessageUpdate"
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:59.044691301Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "connectionId": "conn-2",
+      "ordinal": "5",
+      "transport": {
+        "stage": "ui_event_sent",
+        "direction": "server_to_client",
+        "eventName": "ChatAgentModePreviewCleared",
+        "payloadType": "pinocchio.chatapp.v1.AgentModePreviewCleared"
+      }
+    },
+    {
+      "kind": "transport",
+      "timestamp": "2026-05-07T20:34:59.044691741Z",
+      "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+      "ordinal": "5",
+      "transport": {
+        "stage": "fanout_completed",
+        "fanoutEventCount": 2,
+        "fanoutTargetIds": [
+          "conn-2"
+        ]
+      }
+    }
+  ]
+}

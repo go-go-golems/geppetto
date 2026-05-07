@@ -1,0 +1,21 @@
+{
+  "sessionId": "83473858-b729-49d9-8c33-045efbdd98cd",
+  "pipelineFanoutOrdinals": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5"
+  ],
+  "transportFanoutOrdinals": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5"
+  ],
+  "missingTransportFanout": [],
+  "extraTransportFanout": [],
+  "pipelineRecordCount": 5,
+  "transportRecordCount": 24
+}

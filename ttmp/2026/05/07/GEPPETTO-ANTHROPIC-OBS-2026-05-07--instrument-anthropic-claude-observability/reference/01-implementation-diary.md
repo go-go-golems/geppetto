@@ -18,7 +18,7 @@ RelatedFiles:
   - Path: pkg/inference/engine/factory/factory.go
 ExternalSources: []
 Summary: Chronological diary for the Claude/Anthropic observability work.
-LastUpdated: 2026-05-07T15:50:00-04:00
+LastUpdated: 2026-05-07T16:45:00-04:00
 WhatFor: "Record implementation decisions, commands, validation, failures, and commit hashes for Anthropic observability."
 WhenToUse: "During implementation and review of GEPPETTO-ANTHROPIC-OBS-2026-05-07."
 ---
@@ -82,3 +82,54 @@ Uploaded the design guide + diary bundle to reMarkable without force overwrite:
 - Document: `GEPPETTO-ANTHROPIC-OBS-2026-05-07 Claude Observability Guide`
 
 Verified the remote listing with `remarquee cloud ls /ai/2026/05/07/GEPPETTO-ANTHROPIC-OBS-2026-05-07 --long --non-interactive`.
+
+### 2026-05-07 16:45 — Playwright web-chat validation with Claude profile
+
+Ran Pinocchio web-chat with the `haiku` profile from `~/.config/pinocchio/profiles.yaml`:
+
+```bash
+cd pinocchio
+go run ./cmd/web-chat web-chat \
+  --addr :18081 \
+  --debug-api \
+  --geppetto-trace-level provider \
+  --geppetto-trace-max-records 200000 \
+  --profile-registries ~/.config/pinocchio/profiles.yaml \
+  --profile haiku \
+  --log-level debug
+```
+
+First retry after credits were added succeeded, but the UI selector was still on `default`, so the captured Geppetto records belonged to OpenAI Responses. I explicitly selected `haiku`, started a new conversation, and reran the prompt.
+
+Successful Claude run:
+
+- Session: `83473858-b729-49d9-8c33-045efbdd98cd`
+- Profile endpoint: `haiku` from registry `default`
+- Prompt: `Say exactly: pong`
+- Visible assistant output: `pong`
+- UI state: websocket connected, queue 0, finished
+- Browser console warnings/errors: none
+- HTTP status: session creation, message post, and debug endpoints returned 200
+
+Captured evidence:
+
+- `sources/03-claude-webchat-runthrough.png`
+- `sources/04-claude-debug-records.json`
+- `sources/05-claude-geppetto-records.json`
+- `sources/06-claude-pipeline-records.json`
+- `sources/07-claude-transport-records.json`
+- `sources/08-claude-reconcile.json`
+- `sources/09-claude-event-size-analysis.md`
+
+Event-size summary:
+
+- Combined backend debug records: 43 records, 20,327 bytes
+- Geppetto records: 14 records, 6,518 bytes
+- Pipeline records JSON: 8,221 bytes
+- Transport records JSON: 5,773 bytes
+- Reconcile JSON: 252 bytes
+- Geppetto provider distribution: `claude`: 14
+- Geppetto stages: `provider_routed_event`: 8, `geppetto_publish_started`: 6
+- Publish-done records: 0, as expected
+
+The run also exposed a Pinocchio integration gap: web-chat had only wired OpenAI Responses observability options into the engine factory. I updated `pinocchio/cmd/web-chat/main.go` to include `enginefactory.WithClaudeOptions(claude.WithObserver(debugRecorder), claude.WithObservabilityConfig(obsConfig))`; `go test ./cmd/web-chat` passed.

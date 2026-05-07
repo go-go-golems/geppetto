@@ -1,0 +1,415 @@
+{
+  "ls": "1",
+  "count": 27,
+  "entries": [
+    {
+      "type": "ws-lifecycle",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "event": "connect-start",
+      "basePrefix": "",
+      "id": 1,
+      "timestamp": 1778186311901
+    },
+    {
+      "type": "ws-lifecycle",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "event": "open",
+      "id": 2,
+      "timestamp": 1778186311905
+    },
+    {
+      "type": "raw-ws",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "size": 35,
+      "preview": "{\"hello\":{\"connectionId\":\"conn-3\"}}",
+      "raw": "{\"hello\":{\"connectionId\":\"conn-3\"}}",
+      "id": 3,
+      "timestamp": 1778186311906
+    },
+    {
+      "type": "parsed-frame",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "frameType": "hello",
+      "frame": {
+        "type": "hello",
+        "connectionId": "conn-3"
+      },
+      "id": 4,
+      "timestamp": 1778186311906
+    },
+    {
+      "type": "raw-ws",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "size": 65,
+      "preview": "{\"snapshot\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\"}}",
+      "raw": "{\"snapshot\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\"}}",
+      "id": 5,
+      "timestamp": 1778186311907
+    },
+    {
+      "type": "parsed-frame",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "frameType": "snapshot",
+      "frame": {
+        "type": "snapshot",
+        "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+        "entities": []
+      },
+      "id": 6,
+      "timestamp": 1778186311907
+    },
+    {
+      "type": "snapshot",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "entityCount": 0,
+      "droppedCount": 0,
+      "entities": [],
+      "id": 7,
+      "timestamp": 1778186311907
+    },
+    {
+      "type": "raw-ws",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "size": 67,
+      "preview": "{\"subscribed\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\"}}",
+      "raw": "{\"subscribed\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\"}}",
+      "id": 8,
+      "timestamp": 1778186311907
+    },
+    {
+      "type": "parsed-frame",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "frameType": "subscribed",
+      "frame": {
+        "type": "subscribed",
+        "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73"
+      },
+      "id": 9,
+      "timestamp": 1778186311907
+    },
+    {
+      "type": "raw-ws",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "size": 301,
+      "preview": "{\"uiEvent\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\", \"eventOrdinal\":\"1\", \"name\":\"ChatMessageAccepted\", \"payload\":{\"@type\":\"type.googleapis.com/pinocchio.chatapp.v1.ChatMessageUpdate\", \"messageId\":\"chat-msg-3-user\", \"role\":\"user\", \"text\":\"Say exactly: pong\", \"content\":\"Say exactly: pong\"}}}",
+      "raw": "{\"uiEvent\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\", \"eventOrdinal\":\"1\", \"name\":\"ChatMessageAccepted\", \"payload\":{\"@type\":\"type.googleapis.com/pinocchio.chatapp.v1.ChatMessageUpdate\", \"messageId\":\"chat-msg-3-user\", \"role\":\"user\", \"text\":\"Say exactly: pong\", \"content\":\"Say exactly: pong\"}}}",
+      "id": 10,
+      "timestamp": 1778186311909
+    },
+    {
+      "type": "parsed-frame",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "frameType": "ui-event",
+      "name": "ChatMessageAccepted",
+      "ordinal": "1",
+      "frame": {
+        "type": "ui-event",
+        "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+        "ordinal": "1",
+        "name": "ChatMessageAccepted",
+        "payload": {
+          "@type": "type.googleapis.com/pinocchio.chatapp.v1.ChatMessageUpdate",
+          "messageId": "chat-msg-3-user",
+          "role": "user",
+          "text": "Say exactly: pong",
+          "content": "Say exactly: pong"
+        }
+      },
+      "id": 11,
+      "timestamp": 1778186311909
+    },
+    {
+      "type": "ui-event",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "ordinal": "1",
+      "name": "ChatMessageAccepted",
+      "messageId": "chat-msg-3-user",
+      "mutation": {
+        "upsert": {
+          "id": "chat-msg-3-user",
+          "kind": "message",
+          "createdAt": 1778186311909,
+          "updatedAt": 1778186311909,
+          "props": {
+            "role": "user",
+            "content": "Say exactly: pong",
+            "status": "submitted",
+            "streaming": false
+          }
+        }
+      },
+      "id": 12,
+      "timestamp": 1778186311909
+    },
+    {
+      "type": "raw-ws",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "size": 311,
+      "preview": "{\"uiEvent\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\", \"eventOrdinal\":\"2\", \"name\":\"ChatMessageStarted\", \"payload\":{\"@type\":\"type.googleapis.com/pinocchio.chatapp.v1.ChatMessageUpdate\", \"messageId\":\"chat-msg-3\", \"role\":\"assistant\", \"prompt\":\"Say exactly: pong\", \"status\":\"streaming\", \"streaming\":true}}}",
+      "raw": "{\"uiEvent\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\", \"eventOrdinal\":\"2\", \"name\":\"ChatMessageStarted\", \"payload\":{\"@type\":\"type.googleapis.com/pinocchio.chatapp.v1.ChatMessageUpdate\", \"messageId\":\"chat-msg-3\", \"role\":\"assistant\", \"prompt\":\"Say exactly: pong\", \"status\":\"streaming\", \"streaming\":true}}}",
+      "id": 13,
+      "timestamp": 1778186311911
+    },
+    {
+      "type": "parsed-frame",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "frameType": "ui-event",
+      "name": "ChatMessageStarted",
+      "ordinal": "2",
+      "frame": {
+        "type": "ui-event",
+        "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+        "ordinal": "2",
+        "name": "ChatMessageStarted",
+        "payload": {
+          "@type": "type.googleapis.com/pinocchio.chatapp.v1.ChatMessageUpdate",
+          "messageId": "chat-msg-3",
+          "role": "assistant",
+          "prompt": "Say exactly: pong",
+          "status": "streaming",
+          "streaming": true
+        }
+      },
+      "id": 14,
+      "timestamp": 1778186311911
+    },
+    {
+      "type": "ui-event",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "ordinal": "2",
+      "name": "ChatMessageStarted",
+      "messageId": "chat-msg-3",
+      "mutation": {
+        "status": "streaming"
+      },
+      "id": 15,
+      "timestamp": 1778186311911
+    },
+    {
+      "type": "raw-ws",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "size": 426,
+      "preview": "{\"uiEvent\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\", \"eventOrdinal\":\"3\", \"name\":\"ChatMessageAppended\", \"payload\":{\"@type\":\"type.googleapis.com/pinocchio.chatapp.v1.ChatMessageUpdate\", \"messageId\":\"chat-msg-3:text:1\", \"role\":\"assistant\", \"prompt\":\"Say exactly: pong\", \"chunk\":\"p\", \"text\":\"p\", \"content\":\"p\", \"status\":\"streaming\", \"streaming\":true, \"parentMessageId\":\"chat-msg-3\", \"segment\":1, \"segmentType\":\"text\"}}}",
+      "raw": "{\"uiEvent\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\", \"eventOrdinal\":\"3\", \"name\":\"ChatMessageAppended\", \"payload\":{\"@type\":\"type.googleapis.com/pinocchio.chatapp.v1.ChatMessageUpdate\", \"messageId\":\"chat-msg-3:text:1\", \"role\":\"assistant\", \"prompt\":\"Say exactly: pong\", \"chunk\":\"p\", \"text\":\"p\", \"content\":\"p\", \"status\":\"streaming\", \"streaming\":true, \"parentMessageId\":\"chat-msg-3\", \"segment\":1, \"segmentType\":\"text\"}}}",
+      "id": 16,
+      "timestamp": 1778186312499
+    },
+    {
+      "type": "parsed-frame",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "frameType": "ui-event",
+      "name": "ChatMessageAppended",
+      "ordinal": "3",
+      "frame": {
+        "type": "ui-event",
+        "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+        "ordinal": "3",
+        "name": "ChatMessageAppended",
+        "payload": {
+          "@type": "type.googleapis.com/pinocchio.chatapp.v1.ChatMessageUpdate",
+          "messageId": "chat-msg-3:text:1",
+          "role": "assistant",
+          "prompt": "Say exactly: pong",
+          "chunk": "p",
+          "text": "p",
+          "content": "p",
+          "status": "streaming",
+          "streaming": true,
+          "parentMessageId": "chat-msg-3",
+          "segment": 1,
+          "segmentType": "text"
+        }
+      },
+      "id": 17,
+      "timestamp": 1778186312499
+    },
+    {
+      "type": "ui-event",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "ordinal": "3",
+      "name": "ChatMessageAppended",
+      "messageId": "chat-msg-3:text:1",
+      "mutation": {
+        "upsert": {
+          "id": "chat-msg-3:text:1",
+          "kind": "message",
+          "createdAt": 1778186312499,
+          "updatedAt": 1778186312499,
+          "props": {
+            "role": "assistant",
+            "content": "p",
+            "status": "streaming",
+            "streaming": true
+          }
+        },
+        "status": "streaming"
+      },
+      "id": 18,
+      "timestamp": 1778186312500
+    },
+    {
+      "type": "raw-ws",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "size": 434,
+      "preview": "{\"uiEvent\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\", \"eventOrdinal\":\"4\", \"name\":\"ChatMessageAppended\", \"payload\":{\"@type\":\"type.googleapis.com/pinocchio.chatapp.v1.ChatMessageUpdate\", \"messageId\":\"chat-msg-3:text:1\", \"role\":\"assistant\", \"prompt\":\"Say exactly: pong\", \"chunk\":\"ong\", \"text\":\"pong\", \"content\":\"pong\", \"status\":\"streaming\", \"streaming\":true, \"parentMessageId\":\"chat-msg-3\", \"segment\":1, \"segmentType\":\"text\"}}}",
+      "raw": "{\"uiEvent\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\", \"eventOrdinal\":\"4\", \"name\":\"ChatMessageAppended\", \"payload\":{\"@type\":\"type.googleapis.com/pinocchio.chatapp.v1.ChatMessageUpdate\", \"messageId\":\"chat-msg-3:text:1\", \"role\":\"assistant\", \"prompt\":\"Say exactly: pong\", \"chunk\":\"ong\", \"text\":\"pong\", \"content\":\"pong\", \"status\":\"streaming\", \"streaming\":true, \"parentMessageId\":\"chat-msg-3\", \"segment\":1, \"segmentType\":\"text\"}}}",
+      "id": 19,
+      "timestamp": 1778186312535
+    },
+    {
+      "type": "parsed-frame",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "frameType": "ui-event",
+      "name": "ChatMessageAppended",
+      "ordinal": "4",
+      "frame": {
+        "type": "ui-event",
+        "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+        "ordinal": "4",
+        "name": "ChatMessageAppended",
+        "payload": {
+          "@type": "type.googleapis.com/pinocchio.chatapp.v1.ChatMessageUpdate",
+          "messageId": "chat-msg-3:text:1",
+          "role": "assistant",
+          "prompt": "Say exactly: pong",
+          "chunk": "ong",
+          "text": "pong",
+          "content": "pong",
+          "status": "streaming",
+          "streaming": true,
+          "parentMessageId": "chat-msg-3",
+          "segment": 1,
+          "segmentType": "text"
+        }
+      },
+      "id": 20,
+      "timestamp": 1778186312535
+    },
+    {
+      "type": "ui-event",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "ordinal": "4",
+      "name": "ChatMessageAppended",
+      "messageId": "chat-msg-3:text:1",
+      "mutation": {
+        "upsert": {
+          "id": "chat-msg-3:text:1",
+          "kind": "message",
+          "createdAt": 1778186312535,
+          "updatedAt": 1778186312535,
+          "props": {
+            "role": "assistant",
+            "content": "pong",
+            "status": "streaming",
+            "streaming": true
+          }
+        },
+        "status": "streaming"
+      },
+      "id": 21,
+      "timestamp": 1778186312535
+    },
+    {
+      "type": "raw-ws",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "size": 414,
+      "preview": "{\"uiEvent\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\", \"eventOrdinal\":\"5\", \"name\":\"ChatMessageFinished\", \"payload\":{\"@type\":\"type.googleapis.com/pinocchio.chatapp.v1.ChatMessageUpdate\", \"messageId\":\"chat-msg-3:text:1\", \"role\":\"assistant\", \"prompt\":\"Say exactly: pong\", \"text\":\"pong\", \"content\":\"pong\", \"status\":\"finished\", \"parentMessageId\":\"chat-msg-3\", \"segment\":1, \"segmentType\":\"text\", \"final\":true}}}",
+      "raw": "{\"uiEvent\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\", \"eventOrdinal\":\"5\", \"name\":\"ChatMessageFinished\", \"payload\":{\"@type\":\"type.googleapis.com/pinocchio.chatapp.v1.ChatMessageUpdate\", \"messageId\":\"chat-msg-3:text:1\", \"role\":\"assistant\", \"prompt\":\"Say exactly: pong\", \"text\":\"pong\", \"content\":\"pong\", \"status\":\"finished\", \"parentMessageId\":\"chat-msg-3\", \"segment\":1, \"segmentType\":\"text\", \"final\":true}}}",
+      "id": 22,
+      "timestamp": 1778186312558
+    },
+    {
+      "type": "parsed-frame",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "frameType": "ui-event",
+      "name": "ChatMessageFinished",
+      "ordinal": "5",
+      "frame": {
+        "type": "ui-event",
+        "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+        "ordinal": "5",
+        "name": "ChatMessageFinished",
+        "payload": {
+          "@type": "type.googleapis.com/pinocchio.chatapp.v1.ChatMessageUpdate",
+          "messageId": "chat-msg-3:text:1",
+          "role": "assistant",
+          "prompt": "Say exactly: pong",
+          "text": "pong",
+          "content": "pong",
+          "status": "finished",
+          "parentMessageId": "chat-msg-3",
+          "segment": 1,
+          "segmentType": "text",
+          "final": true
+        }
+      },
+      "id": 23,
+      "timestamp": 1778186312558
+    },
+    {
+      "type": "ui-event",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "ordinal": "5",
+      "name": "ChatMessageFinished",
+      "messageId": "chat-msg-3:text:1",
+      "mutation": {
+        "upsert": {
+          "id": "chat-msg-3:text:1",
+          "kind": "message",
+          "createdAt": 1778186312558,
+          "updatedAt": 1778186312558,
+          "props": {
+            "role": "assistant",
+            "prompt": "Say exactly: pong",
+            "content": "pong",
+            "status": "finished",
+            "streaming": false
+          }
+        },
+        "status": "finished"
+      },
+      "id": 24,
+      "timestamp": 1778186312558
+    },
+    {
+      "type": "raw-ws",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "size": 243,
+      "preview": "{\"uiEvent\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\", \"eventOrdinal\":\"5\", \"name\":\"ChatAgentModePreviewCleared\", \"payload\":{\"@type\":\"type.googleapis.com/pinocchio.chatapp.v1.AgentModePreviewCleared\", \"messageId\":\"chat-msg-3:text:1\"}}}",
+      "raw": "{\"uiEvent\":{\"sessionId\":\"392d86c9-2517-4a3a-97e7-2b6be6a0ec73\", \"eventOrdinal\":\"5\", \"name\":\"ChatAgentModePreviewCleared\", \"payload\":{\"@type\":\"type.googleapis.com/pinocchio.chatapp.v1.AgentModePreviewCleared\", \"messageId\":\"chat-msg-3:text:1\"}}}",
+      "id": 25,
+      "timestamp": 1778186312560
+    },
+    {
+      "type": "parsed-frame",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "frameType": "ui-event",
+      "name": "ChatAgentModePreviewCleared",
+      "ordinal": "5",
+      "frame": {
+        "type": "ui-event",
+        "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+        "ordinal": "5",
+        "name": "ChatAgentModePreviewCleared",
+        "payload": {
+          "@type": "type.googleapis.com/pinocchio.chatapp.v1.AgentModePreviewCleared",
+          "messageId": "chat-msg-3:text:1"
+        }
+      },
+      "id": 26,
+      "timestamp": 1778186312560
+    },
+    {
+      "type": "ui-event",
+      "sessionId": "392d86c9-2517-4a3a-97e7-2b6be6a0ec73",
+      "ordinal": "5",
+      "name": "ChatAgentModePreviewCleared",
+      "messageId": "chat-msg-3:text:1",
+      "mutation": {
+        "deleteId": "agent-mode-preview:chat-msg-3:text:1"
+      },
+      "id": 27,
+      "timestamp": 1778186312560
+    }
+  ]
+}
