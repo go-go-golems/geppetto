@@ -137,3 +137,18 @@ Committed the Geppetto observability slice as bce74b10d858bf47aa6cc81b4ce971497f
 - /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-OBSERVABILITY--add-geppetto-provider-and-event-observability-hooks-for-high-frequency-inference-debugging/reference/01-diary.md — Recorded commit hashes
 - and Pinocchio GOWORK — off hook caveat
 
+
+## 2026-05-07
+
+Added direct provider correlation fields to Pinocchio ReasoningUpdate and changed Geppetto publish observability so only done/error records carry full event_json and metadata_json. The reasoning plugin now keeps provider IDs from Geppetto EventInfo.Data in segment state and attaches them to browser-visible reasoning started/delta/finished payloads; the SQLite correlation view exposes those backend/frontend provider fields.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/steps/ai/openai_responses/observability.go — Done/error-only publish payload JSON policy
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/pkg/steps/ai/openai_responses/observability_test.go — Publish-started payload omission test
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/pinocchio/proto/pinocchio/chatapp/v1/chat.proto — ReasoningUpdate provider fields
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/pinocchio/pkg/chatapp/plugins/reasoning.go — Provider field extraction and propagation into ReasoningUpdate
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/pinocchio/pkg/chatapp/plugins/reasoning_test.go — Provider ID propagation test
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/pinocchio/cmd/web-chat/app/debug_reconcile_db.go — Correlation view now exposes backend/frontend provider IDs
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-OBSERVABILITY--add-geppetto-provider-and-event-observability-hooks-for-high-frequency-inference-debugging/reference/01-diary.md — Implementation diary for this slice
+- /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/geppetto/ttmp/2026/05/07/GP-OBSERVABILITY--add-geppetto-provider-and-event-observability-hooks-for-high-frequency-inference-debugging/tasks.md — Marked ReasoningUpdate provider-ID follow-up done

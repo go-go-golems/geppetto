@@ -58,7 +58,7 @@
 - [x] Add observability Record payload fields object_json, event_json, metadata_json with capped/redacted JSON helpers
 - [x] Add OpenAI Responses observer options WithObserver and WithObservabilityConfig without changing existing NewEngine callers
 - [x] Instrument OpenAI Responses provider_routed_event records with decoded object_json in provider trace mode
-- [x] Instrument Geppetto publish start/done records with event_json and metadata_json in events/provider trace modes
+- [x] Instrument Geppetto publish records in events/provider trace modes, with full event_json/metadata_json only on done/error records
 - [x] Propagate provider IDs into reasoning-summary-started, reasoning-summary-ended, thinking-ended, and final reasoning-summary EventInfo.Data
 - [x] Add tests for provider object_json capture, event_json/metadata_json capture, observer panic safety, redaction/capping, and no raw preview field
 - [x] Extend Pinocchio SQLite reconcile export with geppetto_records columns for object_json, event_json, metadata_json, stable IDs, stage, and info_message
@@ -67,7 +67,7 @@
 - [x] Run real provider-backed end-to-end validation: start web-chat with provider tracing, submit prompt, verify /geppetto records, export SQLite, and query Geppetto tables/views
 - [x] Run browser-driven real chat session with frontend stream debug enabled, export SQLite with frontend records, and verify delivery_chain plus Geppetto tables
 - [ ] Add provider-to-browser reasoning correlation playbook/view using Geppetto partial-thinking event_json deltas, Sessionstream ordinals, frontend parsed chunks, and timeline entity IDs
-- [ ] Consider extending Pinocchio ReasoningUpdate payloads with provider response/item/output/summary IDs for direct SQL joins instead of row-order/chunk matching
-- [ ] Add provider response_id, item_id, output_index, and summary_index fields to Pinocchio ReasoningUpdate protobuf/schema and populate them from Geppetto EventInfo.Data for direct provider-to-browser SQL joins
+- [x] Extend Pinocchio ReasoningUpdate payloads with provider response/item/output/summary IDs for direct SQL joins instead of row-order/chunk matching
+- [x] Add provider response_id, item_id, output_index, and summary_index fields to Pinocchio ReasoningUpdate protobuf/schema and populate them from Geppetto EventInfo.Data for direct provider-to-browser SQL joins
 - [x] Store numbered SQL scripts and latest smoke query outputs under ticket scripts/ for provider-to-browser correlation review
 - [x] Add provider-to-browser correlation playbook documenting browser run, SQLite export, SQL scripts, exit criteria, and limitations
