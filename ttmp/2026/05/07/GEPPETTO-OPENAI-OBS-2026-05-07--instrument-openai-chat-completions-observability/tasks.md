@@ -16,3 +16,4 @@
 - [x] Run targeted and broad validation for OpenAI observability changes
 - [x] Update diary/changelog with implementation details and commit hashes
 - [x] Remove unnecessary OpenAI Chat Completions publish-boundary observability records
+- [x] Align OpenAI Chat Completions and Responses publish observability to started-only records

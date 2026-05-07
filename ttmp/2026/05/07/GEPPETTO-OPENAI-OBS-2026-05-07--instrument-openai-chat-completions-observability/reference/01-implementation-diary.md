@@ -331,3 +331,29 @@ go test ./pkg/steps/ai/openai ./pkg/inference/engine/factory
 ```
 
 Result: passed.
+
+### 2026-05-07 15:33 — Aligned publish observability to started-only records
+
+The user clarified that both OpenAI Chat Completions and OpenAI Responses should emit only `PublishStarted` records, not `PublishDone`. The rationale is to keep event-boundary records compact and avoid full event/metadata JSON growth during long streams.
+
+Changes made:
+
+- OpenAI Chat Completions:
+  - Added compact `observePublishStarted` records before `events.PublishEventToContext`.
+  - Kept provider routed and reasoning-normalization records unchanged.
+  - Updated tests so `TraceEvents` sees publish-started records and no provider or publish-done records.
+- OpenAI Responses:
+  - Removed the post-publish `StageGeppettoPublishDone` call.
+  - Kept existing compact `StageGeppettoPublishStarted` call.
+  - Updated `observePublish` so publish observation no longer attaches full `EventJSON`/`MetadataJSON` payloads.
+  - Updated tests to assert there is no publish-done reasoning-summary record.
+- Factory test:
+  - Returned to `TraceEvents` and verifies OpenAI option plumbing through a final publish-started record.
+
+Validation:
+
+```bash
+go test ./pkg/steps/ai/openai ./pkg/steps/ai/openai_responses ./pkg/inference/engine/factory
+```
+
+Result: passed.

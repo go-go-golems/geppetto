@@ -49,3 +49,15 @@ Removed OpenAI Chat Completions publish-boundary observability records and kept 
 - pkg/steps/ai/openai/observability.go — Removed OpenAI observePublish helper
 - pkg/steps/ai/openai/observability_test.go — Updated expectations for provider-only OpenAI observability
 
+
+## 2026-05-07
+
+Aligned OpenAI Chat Completions and Responses publish observability to compact started-only records; no publish-done JSON payload records.
+
+### Related Files
+
+- pkg/steps/ai/openai/engine_openai.go — Publishes compact observability record before event fan-out
+- pkg/steps/ai/openai/observability.go — Adds compact observePublishStarted helper
+- pkg/steps/ai/openai_responses/engine.go — Removes post-publish done record
+- pkg/steps/ai/openai_responses/observability.go — Keeps publish observation compact without event/metadata JSON
+
