@@ -38,6 +38,7 @@ type EngineFactory interface {
 // Provider selection is based on settings.Chat.ApiType with fallback to OpenAI.
 type StandardEngineFactory struct {
 	openAIResponsesOptions []openai_responses.EngineOption
+	openAIOptions          []openai.EngineOption
 }
 
 // StandardEngineFactoryOption configures StandardEngineFactory.
@@ -49,6 +50,15 @@ type StandardEngineFactoryOption func(*StandardEngineFactory)
 func WithOpenAIResponsesOptions(opts ...openai_responses.EngineOption) StandardEngineFactoryOption {
 	return func(f *StandardEngineFactory) {
 		f.openAIResponsesOptions = append(f.openAIResponsesOptions, opts...)
+	}
+}
+
+// WithOpenAIOptions passes options to OpenAI Chat Completions engines created
+// by the factory. This mirrors WithOpenAIResponsesOptions for apps that want
+// provider-agnostic construction plus provider-specific observability hooks.
+func WithOpenAIOptions(opts ...openai.EngineOption) StandardEngineFactoryOption {
+	return func(f *StandardEngineFactory) {
+		f.openAIOptions = append(f.openAIOptions, opts...)
 	}
 }
 
@@ -99,7 +109,7 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSetting
 	// Create engine based on provider
 	switch provider {
 	case string(types.ApiTypeOpenAI), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
-		return openai.NewOpenAIEngine(settings)
+		return openai.NewOpenAIEngine(settings, f.openAIOptions...)
 
 	case string(types.ApiTypeOpenResponses), string(types.ApiTypeOpenAIResponses):
 		return openai_responses.NewEngine(settings, f.openAIResponsesOptions...)

@@ -15,6 +15,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/google/uuid"
 
+	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/streamhelpers"
@@ -25,16 +26,26 @@ import (
 // OpenAIEngine implements the Engine interface for OpenAI API calls.
 // It wraps the existing OpenAI logic from geppetto's ChatStep implementation.
 type OpenAIEngine struct {
-	settings    *settings.InferenceSettings
-	toolAdapter *tools.OpenAIToolAdapter
+	settings            *settings.InferenceSettings
+	toolAdapter         *tools.OpenAIToolAdapter
+	observer            geppettoobs.Observer
+	observabilityConfig geppettoobs.Config
 }
 
 // NewOpenAIEngine creates a new OpenAI inference engine with the given settings and options.
-func NewOpenAIEngine(settings *settings.InferenceSettings) (*OpenAIEngine, error) {
-	return &OpenAIEngine{
-		settings:    settings,
-		toolAdapter: tools.NewOpenAIToolAdapter(),
-	}, nil
+func NewOpenAIEngine(settings *settings.InferenceSettings, opts ...EngineOption) (*OpenAIEngine, error) {
+	e := &OpenAIEngine{
+		settings:            settings,
+		toolAdapter:         tools.NewOpenAIToolAdapter(),
+		observabilityConfig: geppettoobs.DefaultConfig(),
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(e)
+		}
+	}
+	e.observabilityConfig = e.observabilityConfig.Normalized()
+	return e, nil
 }
 
 // ConfigureTools configures the engine to use tools
@@ -265,6 +276,7 @@ func (e *OpenAIEngine) RunInference(
 				return nil, err
 			}
 			chunkCount++
+			e.observeProviderEvent(ctx, metadata, req.Model, response)
 
 			delta := response.DeltaText
 			if delta != "" {
@@ -275,7 +287,10 @@ func (e *OpenAIEngine) RunInference(
 					thinkingStarted = true
 					e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", nil))
 				}
-				thinkingBuf.WriteString(streamhelpers.NormalizeReasoningDelta(thinkingBuf.String(), response.DeltaReasoning))
+				before := thinkingBuf.Len()
+				normalized := streamhelpers.NormalizeReasoningDelta(thinkingBuf.String(), response.DeltaReasoning)
+				e.observeProviderNormalizeDelta(ctx, metadata, req.Model, response, len(response.DeltaReasoning), len(normalized), before+len(normalized))
+				thinkingBuf.WriteString(normalized)
 				e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, response.DeltaReasoning, thinkingBuf.String()))
 			}
 
@@ -410,7 +425,9 @@ streamingComplete:
 
 // publishEvent publishes an event to all configured sinks and any sinks carried in context.
 func (e *OpenAIEngine) publishEvent(ctx context.Context, event events.Event) {
+	e.observePublish(ctx, event, geppettoobs.StageGeppettoPublishStarted, nil)
 	events.PublishEventToContext(ctx, event)
+	e.observePublish(ctx, event, geppettoobs.StageGeppettoPublishDone, nil)
 }
 
 // GetSupportedToolFeatures returns the tool features supported by OpenAI
