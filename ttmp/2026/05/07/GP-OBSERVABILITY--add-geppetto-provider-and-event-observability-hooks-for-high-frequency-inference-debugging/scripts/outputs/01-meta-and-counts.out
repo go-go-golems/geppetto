@@ -1,0 +1,17 @@
+key                    value                               
+---------------------  ------------------------------------
+backend_record_count   2690                                
+frontend_record_count  1158                                
+geppetto_record_count  1539                                
+session_id             e4394b1d-4e89-47b7-9259-cd7adfafd07d
+table_name                        rows
+--------------------------------  ----
+frontend_records                  1158
+backend_records                   2690
+geppetto_records                  1539
+geppetto_provider_events          757 
+geppetto_emitted_events           782 
+geppetto_reasoning_sequence       752 
+geppetto_summary_without_item_id  0   
+geppetto_publish_errors           0   
+delivery_chain                    382 

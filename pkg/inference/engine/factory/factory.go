@@ -37,6 +37,19 @@ type EngineFactory interface {
 // It supports creating engines for OpenAI, Claude, and other configured providers.
 // Provider selection is based on settings.Chat.ApiType with fallback to OpenAI.
 type StandardEngineFactory struct {
+	openAIResponsesOptions []openai_responses.EngineOption
+}
+
+// StandardEngineFactoryOption configures StandardEngineFactory.
+type StandardEngineFactoryOption func(*StandardEngineFactory)
+
+// WithOpenAIResponsesOptions passes options to OpenAI Responses engines created
+// by the factory. This keeps generic factory callers compatible while allowing
+// apps to attach observer hooks when they explicitly need them.
+func WithOpenAIResponsesOptions(opts ...openai_responses.EngineOption) StandardEngineFactoryOption {
+	return func(f *StandardEngineFactory) {
+		f.openAIResponsesOptions = append(f.openAIResponsesOptions, opts...)
+	}
 }
 
 func isResponsesProvider(provider string) bool {
@@ -44,8 +57,14 @@ func isResponsesProvider(provider string) bool {
 }
 
 // NewStandardEngineFactory creates a new StandardEngineFactory.
-func NewStandardEngineFactory() *StandardEngineFactory {
-	return &StandardEngineFactory{}
+func NewStandardEngineFactory(opts ...StandardEngineFactoryOption) *StandardEngineFactory {
+	f := &StandardEngineFactory{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(f)
+		}
+	}
+	return f
 }
 
 // CreateEngine creates an Engine instance based on the provider specified in settings.Chat.ApiType.
@@ -83,7 +102,7 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSetting
 		return openai.NewOpenAIEngine(settings)
 
 	case string(types.ApiTypeOpenResponses), string(types.ApiTypeOpenAIResponses):
-		return openai_responses.NewEngine(settings)
+		return openai_responses.NewEngine(settings, f.openAIResponsesOptions...)
 
 	case string(types.ApiTypeClaude), "anthropic":
 		return claude.NewClaudeEngine(settings)

@@ -1,0 +1,24 @@
+comparison            pairs  exact_matches  mismatches
+--------------------  -----  -------------  ----------
+provider_to_frontend  359    356            3         
+geppetto_to_frontend  359    359            0         
+backend_to_frontend   359    359            0         
+rn   provider_record_id  provider_delta                        frontend_ordinal  frontend_chunk                     
+---  ------------------  ------------------------------------  ----------------  -----------------------------------
+92   670                 '**Formatting response for clarity**  95                '                                  
+                                                                                                                    
+                         The'                                                    **Formatting response for clarity**
+                                                                                                                    
+                                                                                 The'                               
+
+181  1300                '**Crafting a concise response**      184               '                                  
+                                                                                                                    
+                         I'                                                      **Crafting a concise response**    
+                                                                                                                    
+                                                                                 I'                                 
+
+274  1958                '**Formulating the final sentence**   277               '                                  
+                                                                                                                    
+                         I'                                                      **Formulating the final sentence** 
+                                                                                                                    
+                                                                                 I'                                 

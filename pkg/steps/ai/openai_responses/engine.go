@@ -13,6 +13,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -26,7 +27,9 @@ import (
 
 // Engine implements the Engine interface for Open Responses-compatible API calls.
 type Engine struct {
-	settings *settings.InferenceSettings
+	settings            *settings.InferenceSettings
+	observer            geppettoobs.Observer
+	observabilityConfig geppettoobs.Config
 }
 
 type usageTotals struct {
@@ -36,13 +39,22 @@ type usageTotals struct {
 	reasoningTokens int
 }
 
-func NewEngine(s *settings.InferenceSettings) (*Engine, error) {
-	return &Engine{settings: s}, nil
+func NewEngine(s *settings.InferenceSettings, opts ...EngineOption) (*Engine, error) {
+	e := &Engine{settings: s, observabilityConfig: geppettoobs.DefaultConfig()}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(e)
+		}
+	}
+	e.observabilityConfig = e.observabilityConfig.Normalized()
+	return e, nil
 }
 
 // publishEvent publishes events to configured sinks and context sinks.
 func (e *Engine) publishEvent(ctx context.Context, event events.Event) {
+	e.observePublish(ctx, event, geppettoobs.StageGeppettoPublishStarted, nil)
 	events.PublishEventToContext(ctx, event)
+	e.observePublish(ctx, event, geppettoobs.StageGeppettoPublishDone, nil)
 }
 
 func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
@@ -207,6 +219,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		var currentReasoningText strings.Builder
 		var currentReasoningSummary strings.Builder
 		currentReasoningItemID := ""
+		lastReasoningItemID := ""
 		assistantByItem := map[string]string{}
 		var summaryBuf strings.Builder
 		currentResponseID := ""
@@ -224,6 +237,9 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		// Track encrypted reasoning content for the current reasoning item only.
 		var currentReasoningEncryptedContent string
 		var currentReasoningOutputIndex *int
+		var lastReasoningOutputIndex *int
+		var currentReasoningSummaryIndex *int
+		var lastReasoningSummaryIndex *int
 		var currentReasoningStatus string
 		var latestMessageItemID string
 		var latestMessageOutputIndex *int
@@ -286,6 +302,13 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 			if id, ok := m["response_id"].(string); ok && id != "" {
 				currentResponseID = id
 			}
+			providerEventType := normalizeResponsesEventName(eventName)
+			if providerEventType == "" {
+				if typ, ok := m["type"].(string); ok {
+					providerEventType = normalizeResponsesEventName(typ)
+				}
+			}
+			e.observeProviderEvent(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m)
 			appendAssistantChunk := func(chunk string) {
 				if chunk == "" {
 					return
@@ -370,18 +393,18 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 					return string(b)
 				}
 			}
-			switch normalizeResponsesEventName(eventName) {
+			switch providerEventType {
 			case "response.output_item.added":
 				if it, ok := m["item"].(map[string]any); ok {
 					if typ, ok := it["type"].(string); ok {
 						switch typ {
 						case "reasoning":
-							e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", nil))
 							currentReasoningItemID = ""
 							currentReasoningText.Reset()
 							currentReasoningSummary.Reset()
 							currentReasoningEncryptedContent = ""
 							currentReasoningOutputIndex = nil
+							currentReasoningSummaryIndex = nil
 							currentReasoningStatus = ""
 							if v, ok := it["id"].(string); ok && v != "" {
 								currentReasoningItemID = v
@@ -392,6 +415,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 							if idx, ok := intFromProviderNumber(m["output_index"]); ok {
 								currentReasoningOutputIndex = &idx
 							}
+							e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", providerData("openai_responses", currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
 							// Capture encrypted reasoning content when present.
 							if enc, ok := it["encrypted_content"].(string); ok && enc != "" {
 								currentReasoningEncryptedContent = enc
@@ -507,31 +531,72 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 					tap.OnProviderObject("response.failed", m)
 				}
 			case "response.reasoning_summary_part.added":
+				if itemID := itemIDFromProviderObject(m); itemID != "" {
+					currentReasoningItemID = itemID
+				}
+				if idx, ok := intFromProviderNumber(m["summary_index"]); ok {
+					currentReasoningSummaryIndex = &idx
+					lastReasoningSummaryIndex = &idx
+				}
 				// Start of a summary piece – forward as streaming info event
-				e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-started", nil))
+				e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-started", providerData("openai_responses", currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
 			case "response.reasoning_summary_text.delta":
+				if itemID := itemIDFromProviderObject(m); itemID != "" {
+					currentReasoningItemID = itemID
+					lastReasoningItemID = itemID
+				}
+				if idx, ok := intFromProviderNumber(m["summary_index"]); ok {
+					currentReasoningSummaryIndex = &idx
+					lastReasoningSummaryIndex = &idx
+				}
 				if v, ok := m["delta"].(string); ok && v != "" {
+					before := summaryBuf.Len()
 					normalized := streamhelpers.NormalizeReasoningSummaryDelta(summaryBuf.String(), v)
+					e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(v), len(normalized), before+len(normalized))
 					summaryBuf.WriteString(normalized)
 					currentReasoningSummary.WriteString(normalized)
 					// Emit thinking partials for live reasoning summary text
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, normalized, summaryBuf.String()))
 				} else if s, ok := m["text"].(string); ok && s != "" {
+					before := summaryBuf.Len()
 					normalized := streamhelpers.NormalizeReasoningSummaryDelta(summaryBuf.String(), s)
+					e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(s), len(normalized), before+len(normalized))
 					summaryBuf.WriteString(normalized)
 					currentReasoningSummary.WriteString(normalized)
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, normalized, summaryBuf.String()))
 				}
 			case "response.reasoning_summary_part.done":
+				if itemID := itemIDFromProviderObject(m); itemID != "" {
+					currentReasoningItemID = itemID
+					lastReasoningItemID = itemID
+				}
+				if idx, ok := intFromProviderNumber(m["summary_index"]); ok {
+					currentReasoningSummaryIndex = &idx
+					lastReasoningSummaryIndex = &idx
+				}
 				// End of a summary piece – forward as streaming info event
-				e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-ended", nil))
+				e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-ended", providerData("openai_responses", currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
 			case "response.reasoning_text.delta":
+				if itemID := itemIDFromProviderObject(m); itemID != "" {
+					currentReasoningItemID = itemID
+					lastReasoningItemID = itemID
+				}
+				if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+					currentReasoningOutputIndex = &idx
+					lastReasoningOutputIndex = &idx
+				}
 				if d, ok := m["delta"].(string); ok && d != "" {
-					thinkBuf.WriteString(streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), d))
+					before := thinkBuf.Len()
+					normalized := streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), d)
+					e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(d), len(normalized), before+len(normalized))
+					thinkBuf.WriteString(normalized)
 					currentReasoningText.WriteString(d)
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, d, thinkBuf.String()))
 				} else if s, ok := m["text"].(string); ok && s != "" {
-					thinkBuf.WriteString(streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), s))
+					before := thinkBuf.Len()
+					normalized := streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), s)
+					e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(s), len(normalized), before+len(normalized))
+					thinkBuf.WriteString(normalized)
 					currentReasoningText.WriteString(s)
 					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, s, thinkBuf.String()))
 				}
@@ -548,7 +613,15 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 					if typ, ok := it["type"].(string); ok {
 						switch typ {
 						case "reasoning":
-							e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-ended", nil))
+							if itemID := itemIDFromProviderObject(m); itemID != "" {
+								currentReasoningItemID = itemID
+								lastReasoningItemID = itemID
+							}
+							if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+								currentReasoningOutputIndex = &idx
+								lastReasoningOutputIndex = &idx
+							}
+							e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-ended", providerData("openai_responses", currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
 							// Append a reasoning block with encrypted content if present.
 							rb := turns.Block{Kind: turns.BlockKindReasoning}
 							payload := map[string]any{}
@@ -565,6 +638,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 							}
 							if idx, ok := intFromProviderNumber(m["output_index"]); ok {
 								currentReasoningOutputIndex = &idx
+								lastReasoningOutputIndex = &idx
 							}
 							if terminalText := reasoningTextFromProviderContent(it["content"]); terminalText != "" {
 								backfillReasoningText(terminalText)
@@ -594,6 +668,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 							currentReasoningSummary.Reset()
 							currentReasoningEncryptedContent = ""
 							currentReasoningOutputIndex = nil
+							currentReasoningSummaryIndex = nil
 							currentReasoningStatus = ""
 							if tap != nil {
 								tap.OnProviderObject("output.reasoning", it)
@@ -870,8 +945,13 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		metadata.Extra["saying_text"] = sayBuf.String()
 		if summaryBuf.Len() > 0 {
 			metadata.Extra["reasoning_summary_text"] = summaryBuf.String()
-			// Publish a friendly info event with the complete summary
-			e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary", map[string]any{"text": summaryBuf.String()}))
+			// Publish a friendly info event with the complete summary and provider identity when available.
+			data := providerData("openai_responses", currentResponseID, lastReasoningItemID, lastReasoningOutputIndex, lastReasoningSummaryIndex)
+			if data == nil {
+				data = map[string]any{}
+			}
+			data["text"] = summaryBuf.String()
+			e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary", data))
 		}
 		if stopReason != nil {
 			metadata.StopReason = stopReason
