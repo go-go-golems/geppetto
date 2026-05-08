@@ -319,6 +319,9 @@ func TestRunInference_StreamToolCallsAreMergedAndUsagePreserved(t *testing.T) {
 
 		var toolCallEvents int
 		var finalUsage *events.Usage
+		var argumentDeltas []string
+		var accumulatedArguments []string
+		var argumentSequences []int64
 		for _, event := range sink.snapshot() {
 			switch e := event.(type) {
 			case *events.EventToolCallRequested:
@@ -329,12 +332,28 @@ func TestRunInference_StreamToolCallsAreMergedAndUsagePreserved(t *testing.T) {
 				if e.Input != "{\"q\":\"cats\"}" {
 					t.Fatalf("expected merged tool args, got %q", e.Input)
 				}
+			case *events.EventToolCallArgumentsDelta:
+				argumentDeltas = append(argumentDeltas, e.Delta)
+				accumulatedArguments = append(accumulatedArguments, e.Arguments)
+				argumentSequences = append(argumentSequences, e.Sequence)
 			case *events.EventProviderCallFinished:
 				finalUsage = e.Usage
 			}
 		}
 		if toolCallEvents != 1 {
 			t.Fatalf("expected one merged tool call event, got %d", toolCallEvents)
+		}
+		if len(argumentDeltas) != 2 {
+			t.Fatalf("expected two tool argument delta events, got %d", len(argumentDeltas))
+		}
+		if argumentDeltas[0] != "{\"q\"" || argumentDeltas[1] != ":\"cats\"}" {
+			t.Fatalf("unexpected tool argument deltas: %#v", argumentDeltas)
+		}
+		if accumulatedArguments[0] != "{\"q\"" || accumulatedArguments[1] != "{\"q\":\"cats\"}" {
+			t.Fatalf("expected accumulated tool arguments, got %#v", accumulatedArguments)
+		}
+		if argumentSequences[0] != 1 || argumentSequences[1] != 2 {
+			t.Fatalf("expected monotonically increasing tool argument sequence, got %#v", argumentSequences)
 		}
 		if finalUsage == nil || finalUsage.InputTokens != 8 || finalUsage.OutputTokens != 4 {
 			t.Fatalf("unexpected final usage: %#v", finalUsage)

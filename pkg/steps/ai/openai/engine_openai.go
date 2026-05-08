@@ -256,6 +256,8 @@ func (e *OpenAIEngine) RunInference(
 	textSegmentStarted := false
 	reasoningSegmentStarted := false
 	startedToolStreams := map[string]bool{}
+	toolArgumentBuffers := map[string]string{}
+	toolArgumentSequences := map[string]int64{}
 	chatCorr := func(choiceIndex *int, streamKind, toolCallID string, toolCallIndex *int) events.Correlation {
 		corr := events.BuildChatCompletionsCorrelation(e.inferenceProvider(), currentResponseID, choiceIndex, streamKind, toolCallID, toolCallIndex)
 		corr.ProviderCallID = providerCallCorr.ProviderCallID
@@ -344,7 +346,9 @@ func (e *OpenAIEngine) RunInference(
 						e.publishEvent(ctx, events.NewToolCallStartedEvent(metadata, corr, toolCallID, tc.Function.Name))
 					}
 					if tc.Function.Arguments != "" {
-						e.publishEvent(ctx, events.NewToolCallArgumentsDeltaEvent(metadata, corr, corr.ToolCallID, tc.Function.Arguments, tc.Function.Arguments, 0))
+						toolArgumentBuffers[key] += tc.Function.Arguments
+						toolArgumentSequences[key]++
+						e.publishEvent(ctx, events.NewToolCallArgumentsDeltaEvent(metadata, corr, corr.ToolCallID, tc.Function.Arguments, toolArgumentBuffers[key], toolArgumentSequences[key]))
 					}
 				}
 				toolCallMerger.AddToolCalls(response.ToolCalls)
