@@ -500,22 +500,22 @@ Goal: make CoinVault consume only canonical Pinocchio chatapp events.
 
 Goal: keep all debugging tools useful after event names and schemas change.
 
-- [ ] Update CoinVault debug analysis SQL scripts under the relevant observability ticket.
-- [ ] Update Python analysis scripts that refer to old event names.
-- [ ] Update `SQLITE-TRACE-VERBS` trace browser app:
-  - [ ] overview page shows provider-call results;
-  - [ ] conversation page uses canonical text segment events;
-  - [ ] correlations page uses `CorrelationInfo` / `correlation_key`;
-  - [ ] reasoning page uses canonical reasoning segments;
-  - [ ] tool calls page includes tool argument deltas and requested events;
-  - [ ] schema/raw pages include new tables.
-- [ ] Update trace-browser CLI verbs:
-  - [ ] provider-call summary;
-  - [ ] segment lifecycle summary;
+- [x] Update CoinVault debug analysis SQL scripts under the relevant observability ticket.
+- [x] Update Python analysis scripts that refer to old event names.
+- [x] Update `SQLITE-TRACE-VERBS` trace browser app for Pinocchio web-chat canonical artifacts:
+  - [x] overview page shows provider-call results;
+  - [x] add dedicated canonical segment lifecycle page;
+  - [x] correlations page uses `CorrelationInfo` / `correlation_key`;
+  - [x] reasoning page uses canonical reasoning segments;
+  - [x] tool calls page includes canonical tool lifecycle fields where present;
+  - [x] schema/raw pages include new tables.
+- [x] Update trace-browser CLI verbs:
+  - [x] provider-call summary;
+  - [x] segment lifecycle summary;
   - [ ] duplicate-text check using `geppetto_segments`;
-  - [ ] provider metadata preservation check using `geppetto_inference_results`.
-- [ ] Validate `db-browser serve` against a new SQLite artifact.
-- [ ] Validate `db-browser verbs` against a new SQLite artifact.
+  - [x] provider metadata preservation check using `geppetto_inference_results`.
+- [x] Validate `db-browser serve` against a new SQLite artifact.
+- [x] Validate `db-browser verbs` against new SQLite artifacts.
 
 ## Phase 12 — Cross-repo compile and deletion gates
 

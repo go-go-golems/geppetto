@@ -1283,3 +1283,46 @@ Review in this order:
 
 - Run CoinVault full-trace with a tool-use prompt and validate `tool_call_id` / `correlation_key` joins.
 - Extend the browser matrix to the CoinVault-requested profiles (`gpt-5-low`, `wafer-glm-5.1`, `z-ai-glm-5v-turbo`, and optional DeepSeek thinking/tool-order profile).
+
+## 2026-05-08 10:55 — Adapted db-browser and CoinVault SQLite analysis scripts
+
+After the Pinocchio web-chat SQLite run, I checked whether the trace inspection tooling had been fully exercised. The canonical SQLite rows were validated with targeted queries, but the db-browser scripts still needed updates before they could be used as the final review surface.
+
+### What changed
+
+In the CoinVault `SQLITE-TRACE-VERBS` ticket:
+
+- `scripts/verbs/trace_verbs.js` now exposes canonical verbs:
+  - `canonical-summary`;
+  - `provider-calls`;
+  - `segment-lifecycle`;
+  - `text-segments`;
+  - `tool-lifecycle`.
+- `scripts/serve/trace_browser_app.js` now has Provider Calls and Segments top-level pages and updates Reasoning/Tool Calls pages to prefer canonical lifecycle rows.
+
+In the CoinVault observability ticket:
+
+- `scripts/analyze_debug_sqlite.py` now reports `geppetto_inference_results` and `geppetto_segments` summaries.
+- `scripts/02-sql-query-appendix.md` no longer points at stale `ChatReasoningAppended`; it documents canonical reasoning segment event queries.
+
+### Validation
+
+I smoke-tested db-browser verbs across five Pinocchio web-chat SQLite artifacts: OpenAI Responses, Claude, Gemini, OpenAI-compatible Chat Completions, and the Gemini correlation-fix follow-up. The verbs completed within a 30s timeout per artifact, including the large Qwen reasoning trace.
+
+I also served the trace browser on `:18187` and fetched:
+
+```text
+/
+/provider-calls
+/segments
+/reasoning
+/tool-calls
+/correlations
+/schema
+```
+
+The updated Python analyzer was run against the `gpt-5-nano` artifact and printed canonical provider-call and segment lifecycle sections.
+
+### Remaining caveat
+
+The Tool Calls page/verb is wired for canonical rows, but the current Pinocchio smoke prompts did not exercise tool calls. The next CoinVault full-trace run must use a tool-use prompt and verify `tool_call_id` plus `correlation_key` joins end-to-end.
