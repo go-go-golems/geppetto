@@ -680,3 +680,32 @@ The Pinocchio pre-commit hook passed after removing an unused legacy `newChatMes
 ### Remaining Phase 8 work
 
 Reasoning and tool plugins still need their canonical payload migration. In particular, `pkg/chatapp/plugins/reasoning.go` still contains legacy `EventThinkingPartial` support and one `metadata.Extra` path for legacy reasoning metadata. Those are next, along with preserving full `CorrelationInfo` on timeline entities instead of the older flattened provider fields.
+
+## 2026-05-08 11:10 — Phase 8 partial: reasoning/tool plugins canonicalized
+
+### What changed
+
+Migrated Pinocchio chat plugins to canonical backend events:
+
+- `pkg/chatapp/plugins/reasoning.go` now handles only canonical Geppetto reasoning events (`EventReasoningSegmentStarted`, `EventReasoningDelta`, `EventReasoningSegmentFinished`) and publishes canonical chatapp backend payloads (`ChatReasoningSegmentStarted`, `ChatReasoningDelta`, `ChatReasoningSegmentFinished`);
+- removed reasoning routing based on `metadata.Extra`; typed `CorrelationInfo` is copied from Geppetto `events.Correlation`;
+- `pkg/chatapp/plugins/toolcall.go` now handles canonical Geppetto tool lifecycle events (`EventToolCallStarted`, `EventToolCallArgumentsDelta`, `EventToolCallRequested`, `EventToolExecutionStarted`, `EventToolResultReady`, `EventToolCallFinished`) and publishes canonical chatapp backend payloads;
+- compatibility UI projections still emit the existing UI event names/payloads for the current web frontend, while canonical backend payloads carry full `CorrelationInfo`;
+- plugin tests were rewritten to assert canonical backend event names and payloads, and to prove legacy `EventThinkingPartial`/`EventToolCall` are no longer handled.
+
+### Validation
+
+```bash
+cd ../pinocchio
+go test ./pkg/chatapp/plugins -count=1
+go test ./pkg/chatapp/... ./cmd/web-chat/... -count=1
+go test ./...
+cd cmd/web-chat/web && npm run typecheck && npm run lint
+git commit -m "Migrate chat plugins to canonical events"
+```
+
+The Pinocchio pre-commit hook passed (`go generate`, web build, Go build/lint/vet, `go test ./...`). A deletion scan now finds old `ChatInference*` and `EventThinkingPartial` names only in docs, not active `pkg/chatapp`/`cmd/web-chat` runtime code.
+
+### Remaining Phase 8 work
+
+The main semantic runtime cutover is done. Remaining polish is to decide whether timeline entity protobufs should gain full nested `CorrelationInfo`; current backend payloads preserve it, while compatibility UI/timeline entities still expose selected flattened fields for the existing frontend.

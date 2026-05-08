@@ -362,27 +362,27 @@ Goal: make Pinocchio consume only canonical Geppetto events and publish only can
   - [x] remove `EventFinal` branch;
   - [x] remove `EventPartialCompletion` branch;
   - [x] remove logic that creates text segments for provider-call events;
-  - [ ] add handlers for canonical run/provider/text/reasoning/tool events; (provider/text done; reasoning/tool plugin migration pending)
+  - [x] add handlers for canonical run/provider/text/reasoning/tool events;
   - [x] map typed Geppetto `Correlation` to protobuf `CorrelationInfo`.
 - [x] Update `../pinocchio/pkg/chatapp/runtime_inference.go`:
   - [x] publish `ChatRunStarted` instead of `ChatInferenceStarted`;
   - [x] publish `ChatRunFinished` when the whole run completes;
   - [x] publish `ChatRunStopped`/`ChatRunFailed` for stop/error;
   - [x] do not synthesize text finalization at run completion unless an explicit canonical text event exists.
-- [ ] Update `../pinocchio/pkg/chatapp/projections.go`: (canonical text projection done; provider/debug, reasoning/tool pending)
+- [x] Update `../pinocchio/pkg/chatapp/projections.go`:
   - [x] project `ChatTextDelta` into UI text append/update events;
   - [x] project `ChatTextSegmentFinished` into finished text segment UI state;
   - [x] project run/provider-call events into debug/status UI only if desired;
-  - [ ] preserve `CorrelationInfo` in timeline entities.
-- [ ] Update reasoning plugin:
-  - [ ] use canonical reasoning events;
-  - [ ] stop deriving correlation from `metadata.Extra` for new events;
-  - [ ] preserve `CorrelationInfo` in reasoning UI/timeline entities.
-- [ ] Update tool plugin:
-  - [ ] use canonical tool events;
-  - [ ] support `ToolCallArgumentsDelta` if rendered/debugged;
-  - [ ] preserve `CorrelationInfo` in tool call/result entities.
-- [ ] Delete or rewrite tests that assert old event names.
+  - [ ] preserve `CorrelationInfo` in timeline entities. (backend canonical payloads preserve it; existing compatibility timeline entities still flatten selected fields)
+- [x] Update reasoning plugin:
+  - [x] use canonical reasoning events;
+  - [x] stop deriving correlation from `metadata.Extra` for new events;
+  - [ ] preserve `CorrelationInfo` in reasoning UI/timeline entities. (backend payloads preserve it; compatibility UI/timeline currently flatten selected fields)
+- [x] Update tool plugin:
+  - [x] use canonical tool events;
+  - [x] support `ToolCallArgumentsDelta` if rendered/debugged;
+  - [ ] preserve `CorrelationInfo` in tool call/result entities. (backend payloads preserve it; compatibility UI/timeline currently flatten selected fields)
+- [x] Delete or rewrite tests that assert old event names.
 - [ ] Add tests proving provider-call events do not affect text segment state. (runtime no longer closes text on provider/tool boundary; dedicated assertion pending)
 - [x] Run `cd ../pinocchio && go test ./pkg/chatapp/... -count=1`.
 
