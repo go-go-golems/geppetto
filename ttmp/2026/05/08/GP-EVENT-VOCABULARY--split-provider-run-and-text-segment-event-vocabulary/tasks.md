@@ -439,22 +439,22 @@ Goal: make Pinocchio consume only canonical Geppetto events and publish only can
 
 Goal: make the trace artifact prove provider-call and segment semantics directly.
 
-- [ ] Update `../pinocchio/cmd/web-chat/app/debug_reconcile_schema.go`.
-- [ ] Add `geppetto_inference_results` table.
-- [ ] Add `geppetto_segments` table.
-- [ ] Update existing `geppetto_records`, `geppetto_provider_events`, and `geppetto_emitted_events` schemas to include canonical correlation fields if needed.
-- [ ] Update `../pinocchio/cmd/web-chat/app/debug_reconcile_geppetto.go` to insert:
-  - [ ] provider event rows;
-  - [ ] canonical emitted event rows;
-  - [ ] provider-call inference result rows;
-  - [ ] segment rows.
-- [ ] Update `../pinocchio/cmd/web-chat/app/debug_reconcile_views.go`:
-  - [ ] provider-to-emitted joins by `correlation_key`;
-  - [ ] provider-call result view;
-  - [ ] segment lifecycle view;
-  - [ ] backend-to-frontend correlation view using `CorrelationInfo`;
-  - [ ] delivery-gap views updated for new event names.
-- [ ] Add SQL tests/fixtures if debug reconcile has test coverage.
+- [x] Update `../pinocchio/cmd/web-chat/app/debug_reconcile_schema.go`.
+- [x] Add `geppetto_inference_results` table.
+- [x] Add `geppetto_segments` table.
+- [x] Update existing `geppetto_records`, `geppetto_provider_events`, and `geppetto_emitted_events` schemas to include canonical correlation fields if needed.
+- [x] Update `../pinocchio/cmd/web-chat/app/debug_reconcile_geppetto.go` to insert:
+  - [x] provider event rows;
+  - [x] canonical emitted event rows;
+  - [x] provider-call inference result rows;
+  - [x] segment rows.
+- [x] Update `../pinocchio/cmd/web-chat/app/debug_reconcile_views.go`:
+  - [x] provider-to-emitted joins by `correlation_key`;
+  - [x] provider-call result view;
+  - [x] segment lifecycle view;
+  - [x] backend-to-frontend correlation view using `CorrelationInfo`;
+  - [x] delivery-gap views updated for new event names.
+- [x] Add SQL tests/fixtures if debug reconcile has test coverage.
 - [ ] Verify with sample SQLite export that these queries work:
   - [ ] provider-call results by `provider_call_index`;
   - [ ] text segments by `segment_id`;
@@ -605,7 +605,7 @@ Suggested commit sequence. Keep each commit compiling if possible, but do not me
 - [ ] Geppetto commit 5: remove legacy event names and update docs.
 - [x] Pinocchio commit 1: replace protobufs with `CorrelationInfo` and canonical messages. (`60f6d3c`, completed by full UI cutover `95fb755`)
 - [x] Pinocchio commit 2: replace runtime sink/projections/plugins. (`c3e31da`, `c57559a`, completed by full UI cutover `95fb755`)
-- [ ] Pinocchio commit 3: update SQLite reconcile schema/views.
+- [x] Pinocchio commit 3: update SQLite reconcile schema/views. (`0c5d343`)
 - [ ] CoinVault commit 1: update protobuf mirror and frontend parser.
 - [ ] CoinVault commit 2: update tests, debug scripts, and trace browser.
 - [ ] Docs commit(s): update ticket diaries/changelogs and final reports.
@@ -626,7 +626,7 @@ The migration is complete when all of these are true:
 - [ ] Claude `message_delta` and `message_stop` emit provider-call events only.
 - [ ] OpenAI Responses `response.completed` emits provider-call finished only.
 - [ ] OpenAI Chat Completions EOF/final usage emits provider-call finished only.
-- [ ] SQLite export can directly show provider-call results and text segment lifecycles.
+- [x] SQLite export can directly show provider-call results and text segment lifecycles.
 - [ ] Haiku tool-use browser run has no duplicate assistant text.
 - [ ] Haiku SQLite shows `stop_reason=tool_use` in `geppetto_inference_results` for the tool-use provider call.
 - [ ] Frontend timeline entities preserve correlation IDs without metadata heuristics.

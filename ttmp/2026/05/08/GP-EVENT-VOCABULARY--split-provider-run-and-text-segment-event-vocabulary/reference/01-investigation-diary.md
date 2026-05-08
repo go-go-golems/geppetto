@@ -13,6 +13,16 @@ Intent: long-term
 Owners:
     - manuel
 RelatedFiles:
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/app/debug_reconcile_geppetto.go
+      Note: Inserts provider event
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/app/debug_reconcile_schema.go
+      Note: Adds canonical provider-call result and segment lifecycle SQLite tables
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/app/debug_reconcile_views.go
+      Note: Defines canonical provider-call and segment lifecycle debug views
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/app/debug_record_geppetto.go
+      Note: Retains canonical Geppetto provider-call and segment fields in debug JSON records
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/app/server_test.go
+      Note: Covers debug SQLite schema and canonical Geppetto rows
     - Path: ../../../../../../../pinocchio/cmd/web-chat/web/src/ws/chatappPayloads.ts
       Note: Frontend websocket parser now consumes canonical chatapp payloads
     - Path: ../../../../../../../pinocchio/pkg/chatapp/plugins/reasoning.go
@@ -31,6 +41,7 @@ LastUpdated: 2026-05-08T07:20:00-04:00
 WhatFor: Preserve how the vocabulary design was researched, written, validated, and delivered.
 WhenToUse: Read before implementing or updating GP-EVENT-VOCABULARY.
 ---
+
 
 
 # Investigation diary
@@ -1031,3 +1042,125 @@ cd cmd/web-chat/web && npm run typecheck && npm run lint
 ```
 
 The final commit hook also ran `go generate ./...`, `go build ./...`, `golangci-lint`, and `go vet`.
+
+## 2026-05-08 10:20 — Added canonical Geppetto rows to Pinocchio debug SQLite export
+
+This step implemented Phase 9 for Pinocchio's debug reconcile SQLite export. The export can now store and query canonical provider-call results and canonical text/reasoning/tool segment lifecycles directly instead of reconstructing them from older UI event wrappers or provider metadata maps.
+
+The key outcome is Pinocchio commit `0c5d343`: trace artifacts now include `geppetto_inference_results` and `geppetto_segments`, plus views that expose provider-call stop reasons and segment lifecycle rows for browser/debug validation.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as previous step)
+
+**Assistant interpretation:** Continue checkpointed migration work and keep the ticket diary current.
+
+**Inferred user intent:** Preserve reviewable evidence while advancing from Pinocchio UI cutover into debug/SQLite observability.
+
+**Commit (code):** `0c5d343` — "Export canonical Geppetto debug rows"
+
+### What I did
+
+- Extended `../pinocchio/cmd/web-chat/app/debug_record_geppetto.go` so debug records retain new observability fields:
+  - `kind`, `runId`, `providerCallId`, `providerCallIndex`;
+  - `contentBlockIndex`, `parentCorrelationKey`;
+  - `segmentId`, `segmentIndex`, `segmentType`, `segmentStatus`, `textLen`;
+  - `stopReason`, `finishClass`, `usage`, `durationMs`, `hasToolCalls`.
+- Extended `../pinocchio/cmd/web-chat/app/debug_reconcile_schema.go`:
+  - added canonical correlation/lifecycle columns to `geppetto_records`;
+  - added canonical fields to `geppetto_provider_events` and `geppetto_emitted_events`;
+  - added `geppetto_inference_results`;
+  - added `geppetto_segments`;
+  - added indexes for provider-call, segment, and lifecycle lookup.
+- Rewrote `../pinocchio/cmd/web-chat/app/debug_reconcile_geppetto.go` to insert:
+  - provider event rows;
+  - canonical emitted event rows;
+  - provider-call result rows when `kind=provider_call_result` or `stage=provider_call_result_finalized`;
+  - segment lifecycle rows when `kind=segment` or stage is `segment_started`, `segment_updated`, or `segment_finished`.
+- Updated `../pinocchio/cmd/web-chat/app/debug_reconcile_views.go`:
+  - nested `CorrelationInfo` paths are now used for backend/frontend correlation joins;
+  - stale `ChatReasoningAppended` / `partial-thinking` assumptions were replaced with `ChatReasoningDelta` / `reasoning-delta`;
+  - added `geppetto_inference_result_summary`;
+  - added `geppetto_segment_lifecycle`;
+  - added `geppetto_text_segments`.
+- Updated `../pinocchio/cmd/web-chat/app/server_test.go` to assert the new tables and views exist and receive rows.
+
+### Why
+
+The browser/debug validation matrix needs to prove provider-call lifecycle and segment lifecycle semantics directly. Without dedicated rows, reviewers would still have to infer tool-use stops and text lifecycle from older frontend wrapper names or provider JSON blobs.
+
+### What worked
+
+- Targeted test passed:
+
+```bash
+cd pinocchio
+go test ./cmd/web-chat/app -run TestDebugReconcileUploadReturnsSQLiteDatabase -count=1
+```
+
+- Web-chat test package passed:
+
+```bash
+cd pinocchio
+go test ./cmd/web-chat/app ./cmd/web-chat/... -count=1
+```
+
+- The Pinocchio pre-commit for `0c5d343` passed:
+  - `go generate ./...`;
+  - frontend production build;
+  - `go build ./...`;
+  - `golangci-lint run`;
+  - `go vet`;
+  - `go test ./...`.
+
+### What didn't work
+
+The first compile failed because `boolInt` already existed in `debug_reconcile_values.go`:
+
+```text
+cmd/web-chat/app/debug_reconcile_values.go:80:6: boolInt redeclared in this block
+	cmd/web-chat/app/debug_reconcile_geppetto.go:54:6: other declaration of boolInt
+```
+
+I removed the duplicate helper from `debug_reconcile_geppetto.go` and reused the existing package-level helper.
+
+### What I learned
+
+The Geppetto observability record already had most of the canonical provider-call and segment fields; the Pinocchio debug adapter was the lossy boundary. Preserving `Record.Kind` and lifecycle fields in `GeppettoDebugRecord` made the SQLite export straightforward.
+
+### What was tricky to build
+
+The views had to move from top-level compatibility payload fields to nested protobuf JSON paths such as `$.payload.correlation.correlationKey`. That is easy to miss because old views still looked useful, but they would silently return empty joins after the canonical UI cutover.
+
+### What warrants a second pair of eyes
+
+- The SQLite schema intentionally denormalizes many correlation fields into several tables for easier ad-hoc queries; review whether any fields should be normalized or indexed differently before long-term trace storage.
+- The `geppetto_reasoning_to_frontend` view still pairs rows by row number for provider delta ↔ reasoning delta correlation in one branch. It now uses canonical event names and correlation fields, but a future improvement should prefer correlation-key joins wherever provider records have stable keys.
+
+### What should be done in the future
+
+- Generate a real SQLite artifact from a browser tool-use run and manually validate:
+  - provider-call results by `provider_call_index`;
+  - text segments by `segment_id`;
+  - tool calls by `tool_call_id` and `correlation_key`;
+  - frontend timeline joins by `correlation_key`.
+- Update CoinVault trace browser and analysis scripts to surface the new views.
+
+### Code review instructions
+
+Review in this order:
+
+1. `../pinocchio/cmd/web-chat/app/debug_record_geppetto.go`
+2. `../pinocchio/cmd/web-chat/app/debug_reconcile_schema.go`
+3. `../pinocchio/cmd/web-chat/app/debug_reconcile_geppetto.go`
+4. `../pinocchio/cmd/web-chat/app/debug_reconcile_views.go`
+5. `../pinocchio/cmd/web-chat/app/server_test.go`
+
+Validation commands:
+
+```bash
+cd pinocchio
+go test ./cmd/web-chat/app -run TestDebugReconcileUploadReturnsSQLiteDatabase -count=1
+go test ./cmd/web-chat/app ./cmd/web-chat/... -count=1
+go test ./...
+```

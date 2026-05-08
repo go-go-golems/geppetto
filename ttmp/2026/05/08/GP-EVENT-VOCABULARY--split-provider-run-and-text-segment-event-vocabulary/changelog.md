@@ -20,6 +20,7 @@ LastUpdated: 2026-05-08T07:20:00-04:00
 
 ## 2026-05-08
 
+- Committed Pinocchio SQLite debug export update in `0c5d343`: added canonical Geppetto provider-call result and segment lifecycle tables/views, extended stored correlation fields, and updated debug reconcile tests.
 - Committed Pinocchio full canonical chatapp/UI cutover in `95fb755`: removed active `ChatInference*`/`ChatTokensDelta` payloads and UI wrappers, forwarded canonical backend payloads to the browser, preserved nested `CorrelationInfo` in timeline entities, and migrated legacy TUI/simple-chat consumers to canonical Geppetto text/reasoning/tool events.
 - Cleaned up post-cutover Geppetto event leftovers: removed unused `ChatEventHandler` and `ToolEventAggregator`, renamed `text_events.go` to `error_events.go`, keyed structured-sink streams by canonical segment correlation, and refreshed stale comments.
 - Deleted Geppetto legacy text/tool event structs, constants, constructors, and JSON decoder branches from active code; migrated structured sink, printers, tool aggregator, event-router interface, examples, and ttmp probe scripts to canonical events; saved validation under `various/legacy-event-deletion-validation.log`.
