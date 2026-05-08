@@ -358,21 +358,21 @@ Goal: make `CorrelationInfo` canonical and remove old event payload names.
 
 Goal: make Pinocchio consume only canonical Geppetto events and publish only canonical chatapp events.
 
-- [ ] Update `../pinocchio/pkg/chatapp/runtime_sink.go`:
-  - [ ] remove `EventFinal` branch;
-  - [ ] remove `EventPartialCompletion` branch;
-  - [ ] remove logic that creates text segments for provider-call events;
-  - [ ] add handlers for canonical run/provider/text/reasoning/tool events;
-  - [ ] map typed Geppetto `Correlation` to protobuf `CorrelationInfo`.
-- [ ] Update `../pinocchio/pkg/chatapp/runtime_inference.go`:
-  - [ ] publish `ChatRunStarted` instead of `ChatInferenceStarted`;
-  - [ ] publish `ChatRunFinished` when the whole run completes;
-  - [ ] publish `ChatRunStopped`/`ChatRunFailed` for stop/error;
-  - [ ] do not synthesize text finalization at run completion unless an explicit canonical text event exists.
-- [ ] Update `../pinocchio/pkg/chatapp/projections.go`:
-  - [ ] project `ChatTextDelta` into UI text append/update events;
-  - [ ] project `ChatTextSegmentFinished` into finished text segment UI state;
-  - [ ] project run/provider-call events into debug/status UI only if desired;
+- [x] Update `../pinocchio/pkg/chatapp/runtime_sink.go`:
+  - [x] remove `EventFinal` branch;
+  - [x] remove `EventPartialCompletion` branch;
+  - [x] remove logic that creates text segments for provider-call events;
+  - [ ] add handlers for canonical run/provider/text/reasoning/tool events; (provider/text done; reasoning/tool plugin migration pending)
+  - [x] map typed Geppetto `Correlation` to protobuf `CorrelationInfo`.
+- [x] Update `../pinocchio/pkg/chatapp/runtime_inference.go`:
+  - [x] publish `ChatRunStarted` instead of `ChatInferenceStarted`;
+  - [x] publish `ChatRunFinished` when the whole run completes;
+  - [x] publish `ChatRunStopped`/`ChatRunFailed` for stop/error;
+  - [x] do not synthesize text finalization at run completion unless an explicit canonical text event exists.
+- [ ] Update `../pinocchio/pkg/chatapp/projections.go`: (canonical text projection done; provider/debug, reasoning/tool pending)
+  - [x] project `ChatTextDelta` into UI text append/update events;
+  - [x] project `ChatTextSegmentFinished` into finished text segment UI state;
+  - [x] project run/provider-call events into debug/status UI only if desired;
   - [ ] preserve `CorrelationInfo` in timeline entities.
 - [ ] Update reasoning plugin:
   - [ ] use canonical reasoning events;
@@ -383,8 +383,8 @@ Goal: make Pinocchio consume only canonical Geppetto events and publish only can
   - [ ] support `ToolCallArgumentsDelta` if rendered/debugged;
   - [ ] preserve `CorrelationInfo` in tool call/result entities.
 - [ ] Delete or rewrite tests that assert old event names.
-- [ ] Add tests proving provider-call events do not affect text segment state.
-- [ ] Run `cd ../pinocchio && go test ./pkg/chatapp/... -count=1`.
+- [ ] Add tests proving provider-call events do not affect text segment state. (runtime no longer closes text on provider/tool boundary; dedicated assertion pending)
+- [x] Run `cd ../pinocchio && go test ./pkg/chatapp/... -count=1`.
 
 ## Phase 9 — Update Pinocchio web-chat debug SQLite export
 

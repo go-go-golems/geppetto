@@ -647,3 +647,36 @@ git commit -m "Add canonical chatapp protobuf events"
 ```
 
 The first commit attempt correctly failed before commit because base-registering `ChatReasoningDelta` collided with the existing reasoning plugin schema registration, and Biome wanted generated TS imports sorted. I removed the overlapping base registrations, formatted the generated TS with Biome from the web root, reran validation, and the Pinocchio pre-commit hook passed (`go generate`, build/lint/vet, `go test ./...`, web typecheck, web lint).
+
+## 2026-05-08 10:45 — Phase 8 partial: Pinocchio runtime/text projection cutover
+
+### What changed
+
+Migrated the core Pinocchio chat runtime path away from legacy chatapp event names:
+
+- removed active runtime registration/emission of `ChatInferenceStarted`, `ChatTokensDelta`, `ChatInferenceFinished`, and `ChatInferenceStopped` from `pkg/chatapp`;
+- added `pkg/chatapp/correlation.go` to map typed Geppetto `events.Correlation` and `events.Usage` into protobuf `CorrelationInfo` / `UsageInfo`;
+- changed `runtime_sink.go` to consume canonical Geppetto provider-call and text-segment events:
+  - provider-call events publish `ChatProviderCallStarted`, `ChatProviderCallMetadataUpdated`, `ChatProviderCallFinished`;
+  - text events publish `ChatTextSegmentStarted`, `ChatTextDelta`, `ChatTextSegmentFinished`;
+  - legacy `EventPartialCompletion` / `EventFinal` branches were removed;
+  - provider/tool boundary fallback text finalization was removed;
+- changed `runtime_inference.go` to publish `ChatRunStarted`, `ChatRunFinished`, `ChatRunStopped`, and `ChatRunFailed`, and to stop synthesizing text final events from final turns at run completion;
+- changed demo/runtime-backed tests to emit explicit canonical text segment events;
+- updated base UI/timeline projections to derive old UI-level message update payloads from canonical text payloads for local UI compatibility.
+
+### Validation
+
+```bash
+cd ../pinocchio
+go test ./pkg/chatapp/... ./cmd/web-chat/... -count=1
+go test ./...
+cd cmd/web-chat/web && npm run typecheck && npm run lint
+git commit -m "Migrate chat runtime to canonical text events"
+```
+
+The Pinocchio pre-commit hook passed after removing an unused legacy `newChatMessageDelta` helper and a redundant return. The hook ran `go generate`, web build, Go build/lint/vet, and `go test ./...`.
+
+### Remaining Phase 8 work
+
+Reasoning and tool plugins still need their canonical payload migration. In particular, `pkg/chatapp/plugins/reasoning.go` still contains legacy `EventThinkingPartial` support and one `metadata.Extra` path for legacy reasoning metadata. Those are next, along with preserving full `CorrelationInfo` on timeline entities instead of the older flattened provider fields.

@@ -20,6 +20,7 @@ LastUpdated: 2026-05-08T05:55:00-04:00
 
 ## 2026-05-08
 
+- Migrated Pinocchio core chat runtime/projections to canonical run/provider-call/text events and removed active `ChatInference*`/`ChatTokensDelta` emission from `pkg/chatapp`.
 - Added Pinocchio canonical `CorrelationInfo` and run/provider-call/text/reasoning/tool chatapp protobuf payloads, regenerated Go/TS bindings, and registered non-overlapping canonical base event schemas.
 - Added canonical observability record kinds/stages for provider-call results and segment lifecycle rows, with typed correlation enrichment across Claude/OpenAI providers.
 - Migrated OpenAI-compatible Chat Completions streaming to canonical provider-call/text/reasoning/tool events and updated observability/tests.
