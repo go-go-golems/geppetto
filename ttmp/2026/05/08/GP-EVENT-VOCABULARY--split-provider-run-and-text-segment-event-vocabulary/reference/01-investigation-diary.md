@@ -389,3 +389,57 @@ cd 2026-03-16--gec-rag/web && pnpm run test:unit -- src/ws/parsing.test.ts src/w
 ### Next
 
 Begin Phase 1 in Geppetto by adding the canonical `Correlation` envelope and new run/provider/text/reasoning/tool event structs before touching provider adapters.
+
+## 2026-05-08 06:05 — Phase 1 started: canonical Geppetto event and correlation types
+
+### What changed
+
+Added the first canonical Geppetto event contracts:
+
+```text
+pkg/events/correlation.go
+pkg/events/canonical_events.go
+pkg/events/canonical_tool_events.go
+pkg/events/canonical_events_test.go
+```
+
+`events.Correlation` now carries typed join identity for runtime, provider-call, provider item/block, transcript segment, tool, and normalized correlation-key scope. This is the first step toward removing routing through `metadata.Extra`.
+
+Added canonical event types and constructors for:
+
+```text
+EventRunStarted
+EventRunFinished
+EventRunStopped
+EventRunFailed
+EventProviderCallStarted
+EventProviderCallMetadataUpdated
+EventProviderCallFinished
+EventTextSegmentStarted
+EventTextDelta
+EventTextSegmentFinished
+EventReasoningSegmentStarted
+EventReasoningDelta
+EventReasoningSegmentFinished
+EventToolCallStarted
+EventToolCallArgumentsDelta
+EventToolCallRequested
+EventToolExecutionStarted
+EventToolResultReady
+EventToolCallFinished
+```
+
+Also added canonical event type constants and `NewEventFromJson` decoding support.
+
+### Validation
+
+```bash
+go test ./pkg/events -count=1
+go test ./pkg/events/... -count=1
+```
+
+Both passed.
+
+### Notes
+
+This commit intentionally adds canonical types before removing legacy event producers/consumers. The hard cutover remains the final target; old events still exist until provider adapters and downstream consumers are migrated in later phases.

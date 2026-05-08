@@ -66,61 +66,61 @@ Goal: start from a known-good multi-repo workspace and make the hard cutover mea
 
 Goal: define the new vocabulary and typed identity envelope before provider adapters are migrated.
 
-- [ ] Add `pkg/events/correlation.go` with `events.Correlation`.
+- [x] Add `pkg/events/correlation.go` with `events.Correlation`.
 - [ ] Include these runtime-scope fields:
-  - [ ] `SessionID`
-  - [ ] `RunID`
-  - [ ] `InferenceID`
-  - [ ] `TurnID`
+  - [x] `SessionID`
+  - [x] `RunID`
+  - [x] `InferenceID`
+  - [x] `TurnID`
 - [ ] Include these provider-call fields:
-  - [ ] `ProviderCallID`
-  - [ ] `ProviderCallIndex`
-  - [ ] `Provider`
-  - [ ] `Model`
-  - [ ] `ResponseID`
+  - [x] `ProviderCallID`
+  - [x] `ProviderCallIndex`
+  - [x] `Provider`
+  - [x] `Model`
+  - [x] `ResponseID`
 - [ ] Include these provider item/block fields:
-  - [ ] `ItemID`
-  - [ ] `OutputIndex`
-  - [ ] `SummaryIndex`
-  - [ ] `ChoiceIndex`
-  - [ ] `ContentBlockIndex`
+  - [x] `ItemID`
+  - [x] `OutputIndex`
+  - [x] `SummaryIndex`
+  - [x] `ChoiceIndex`
+  - [x] `ContentBlockIndex`
 - [ ] Include these transcript segment fields:
-  - [ ] `SegmentID`
-  - [ ] `SegmentIndex`
-  - [ ] `SegmentType`
-  - [ ] `StreamKind`
+  - [x] `SegmentID`
+  - [x] `SegmentIndex`
+  - [x] `SegmentType`
+  - [x] `StreamKind`
 - [ ] Include these tool fields:
-  - [ ] `ToolCallID`
-  - [ ] `ToolCallIndex`
+  - [x] `ToolCallID`
+  - [x] `ToolCallIndex`
 - [ ] Include these join fields:
-  - [ ] `CorrelationKey`
-  - [ ] `ParentCorrelationKey`
-- [ ] Add a `CorrelatedEvent` interface or equivalent helper API so consumers can retrieve typed correlation without reading `metadata.Extra`.
-- [ ] Add run lifecycle events:
-  - [ ] `EventRunStarted`
-  - [ ] `EventRunFinished`
-  - [ ] `EventRunStopped`
-  - [ ] `EventRunFailed`
-- [ ] Add provider-call lifecycle events:
-  - [ ] `EventProviderCallStarted`
-  - [ ] `EventProviderCallMetadataUpdated`
-  - [ ] `EventProviderCallFinished`
-- [ ] Add text segment events:
-  - [ ] `EventTextSegmentStarted`
-  - [ ] `EventTextDelta`
-  - [ ] `EventTextSegmentFinished`
+  - [x] `CorrelationKey`
+  - [x] `ParentCorrelationKey`
+- [x] Add a `CorrelatedEvent` interface or equivalent helper API so consumers can retrieve typed correlation without reading `metadata.Extra`.
+- [x] Add run lifecycle events:
+  - [x] `EventRunStarted`
+  - [x] `EventRunFinished`
+  - [x] `EventRunStopped`
+  - [x] `EventRunFailed`
+- [x] Add provider-call lifecycle events:
+  - [x] `EventProviderCallStarted`
+  - [x] `EventProviderCallMetadataUpdated`
+  - [x] `EventProviderCallFinished`
+- [x] Add text segment events:
+  - [x] `EventTextSegmentStarted`
+  - [x] `EventTextDelta`
+  - [x] `EventTextSegmentFinished`
   - [ ] optional `EventTextSegmentStopped` if interruption semantics need segment-level stop.
-- [ ] Add reasoning segment events:
-  - [ ] `EventReasoningSegmentStarted`
-  - [ ] `EventReasoningDelta`
-  - [ ] `EventReasoningSegmentFinished`
-- [ ] Add tool lifecycle events:
-  - [ ] `EventToolCallStarted`
-  - [ ] `EventToolCallArgumentsDelta`
-  - [ ] `EventToolCallRequested`
-  - [ ] `EventToolExecutionStarted`
-  - [ ] `EventToolResultReady`
-  - [ ] `EventToolCallFinished` if host-side completion needs a distinct event.
+- [x] Add reasoning segment events:
+  - [x] `EventReasoningSegmentStarted`
+  - [x] `EventReasoningDelta`
+  - [x] `EventReasoningSegmentFinished`
+- [x] Add tool lifecycle events:
+  - [x] `EventToolCallStarted`
+  - [x] `EventToolCallArgumentsDelta`
+  - [x] `EventToolCallRequested`
+  - [x] `EventToolExecutionStarted`
+  - [x] `EventToolResultReady`
+  - [x] `EventToolCallFinished` if host-side completion needs a distinct event.
 - [ ] Remove or make inaccessible the legacy constructors/types from active provider code:
   - [ ] `NewStartEvent`
   - [ ] `NewPartialCompletionEvent`
@@ -128,13 +128,14 @@ Goal: define the new vocabulary and typed identity envelope before provider adap
   - [ ] `NewThinkingPartialEvent`
   - [ ] legacy `EventToolCall` if replaced by `EventToolCallRequested`.
 - [ ] Update `NewEventFromJson` / event decoding to use only canonical event type strings.
+  - [x] Add `NewEventFromJson` decoding support for canonical event type strings while legacy events still exist during staged implementation.
 - [ ] Update event printer/structured sinks so canonical events render clearly.
-- [ ] Add Geppetto event serialization tests:
-  - [ ] every event round-trips through JSON;
-  - [ ] every event preserves `Correlation`;
-  - [ ] provider-call events do not have text payloads;
+- [x] Add Geppetto event serialization tests:
+  - [x] every event round-trips through JSON;
+  - [x] every event preserves `Correlation`;
+  - [x] provider-call events do not have text payloads in the new event structs;
   - [ ] text segment events require `SegmentID` and `CorrelationKey`.
-- [ ] Run `go test ./pkg/events/... -count=1`.
+- [x] Run `go test ./pkg/events/... -count=1`.
 
 ## Phase 2 — Geppetto correlation builders and invariants
 
