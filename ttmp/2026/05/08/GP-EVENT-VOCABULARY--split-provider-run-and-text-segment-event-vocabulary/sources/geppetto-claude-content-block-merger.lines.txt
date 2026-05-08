@@ -1,0 +1,281 @@
+    60		sort.Ints(keys)
+    61	
+    62		// Iterate over the sorted keys
+    63		for _, k := range keys {
+    64			res += cbm.contentBlocks[k].Text
+    65		}
+    66	
+    67		return res
+    68	}
+    69	
+    70	func (cbm *ContentBlockMerger) Response() *api.MessageResponse {
+    71		return cbm.response
+    72	}
+    73	
+    74	func (cbm *ContentBlockMerger) Metadata() events.EventMetadata {
+    75		return cbm.metadata
+    76	}
+    77	
+    78	func (cbm *ContentBlockMerger) Error() *api.Error {
+    79		return cbm.error
+    80	}
+    81	
+    82	func (cbm *ContentBlockMerger) stopReasonIsToolUse() bool {
+    83		if cbm == nil {
+    84			return false
+    85		}
+    86		if cbm.metadata.StopReason != nil && *cbm.metadata.StopReason == "tool_use" {
+    87			return true
+    88		}
+    89		if cbm.metadata.Extra != nil {
+    90			if v, ok := cbm.metadata.Extra[StopReasonMetadataSlug].(string); ok && v == "tool_use" {
+    91				return true
+    92			}
+    93		}
+    94		return false
+    95	}
+    96	
+    97	const ModelMetadataSlug = "claude_model"
+    98	const StopReasonMetadataSlug = "claude_stop_reason"
+    99	const StopSequenceMetadataSlug = "claude_stop_sequence"
+   100	
+   101	// TODO(manuel, 2024-06-07) Unify counting usage across steps and LLM calls so that we can use it for openai and other completion APIs as well.
+   102	
+   103	const MessageIdMetadataSlug = "claude_message_id"
+   104	const RoleMetadataSlug = "claude_role"
+   105	
+   106	// updateUsage updates the usage statistics and metadata from an event usage
+   107	func (cbm *ContentBlockMerger) updateUsage(event api.StreamingEvent) {
+   108		cbm.metadata.Usage = nil
+   109		if event.Usage != nil {
+   110			cbm.metadata.Usage = &events.Usage{
+   111				InputTokens:              event.Usage.InputTokens,
+   112				OutputTokens:             event.Usage.OutputTokens,
+   113				CacheCreationInputTokens: event.Usage.CacheCreationInputTokens,
+   114				CacheReadInputTokens:     event.Usage.CacheReadInputTokens,
+   115			}
+   116		}
+   117	
+   118		if event.Message != nil {
+   119			cbm.metadata.Usage = &events.Usage{
+   120				InputTokens:              event.Message.Usage.InputTokens,
+   121				OutputTokens:             event.Message.Usage.OutputTokens,
+   122				CacheCreationInputTokens: event.Message.Usage.CacheCreationInputTokens,
+   123				CacheReadInputTokens:     event.Message.Usage.CacheReadInputTokens,
+   124			}
+   125		}
+   126		if event.Usage != nil {
+   127			cbm.metadata.Usage = &events.Usage{
+   128				InputTokens:              event.Usage.InputTokens,
+   129				OutputTokens:             event.Usage.OutputTokens,
+   130				CacheCreationInputTokens: event.Usage.CacheCreationInputTokens,
+   131				CacheReadInputTokens:     event.Usage.CacheReadInputTokens,
+   132			}
+   133		}
+   134	
+   135		if cbm.metadata.Usage == nil {
+   136			return
+   137		}
+   138	
+   139		if cbm.metadata.Usage.InputTokens > 0 {
+   140			cbm.inputTokens = cbm.metadata.Usage.InputTokens
+   141		} else {
+   142			cbm.metadata.Usage.InputTokens = cbm.inputTokens
+   143		}
+   144	
+   145		if cbm.response != nil {
+   146			cbm.response.Usage = api.Usage{
+   147				InputTokens:              cbm.metadata.Usage.InputTokens,
+   148				OutputTokens:             cbm.metadata.Usage.OutputTokens,
+   149				CacheCreationInputTokens: cbm.metadata.Usage.CacheCreationInputTokens,
+   150				CacheReadInputTokens:     cbm.metadata.Usage.CacheReadInputTokens,
+   151			}
+   152		}
+   153	}
+   154	
+   155	func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, error) {
+   156		// NOTE(manuel, 2024-06-04) This is where to continue: implement the block merger for claude, maybe test it in the main.go,
+   157		// then properly implement the step and try it out (maybe also in its own main.go, as an example of how to use steps on their own.
+   158	
+   159		switch event.Type {
+   160		case api.PingType:
+   161			return []events.Event{}, nil
+   162	
+   163		case api.MessageStartType:
+   164			if event.Message == nil {
+   165				return nil, errors.New("MessageStartType event must have a message")
+   166			}
+   167			cbm.response = event.Message
+   168			if cbm.metadata.Extra == nil {
+   169				cbm.metadata.Extra = map[string]interface{}{}
+   170			}
+   171			cbm.metadata.Extra[ModelMetadataSlug] = event.Message.Model
+   172			cbm.metadata.Extra[MessageIdMetadataSlug] = event.Message.ID
+   173			cbm.metadata.Extra[RoleMetadataSlug] = event.Message.Role
+   174	
+   175			// Update event metadata with common fields
+   176			// engine removed; model is sufficient
+   177			cbm.updateUsage(event)
+   178	
+   179			return []events.Event{events.NewStartEvent(cbm.metadata)}, nil
+   180	
+   181		case api.MessageDeltaType:
+   182			if event.Delta == nil {
+   183				return nil, errors.New("MessageDeltaType event must have a delta")
+   184			}
+   185			if event.Delta.StopReason != "" {
+   186				if cbm.metadata.Extra == nil {
+   187					cbm.metadata.Extra = map[string]interface{}{}
+   188				}
+   189				cbm.metadata.Extra[StopReasonMetadataSlug] = event.Delta.StopReason
+   190				cbm.metadata.StopReason = &event.Delta.StopReason
+   191				if cbm.response != nil {
+   192					cbm.response.StopReason = event.Delta.StopReason
+   193				}
+   194			}
+   195			if event.Delta.StopSequence != "" {
+   196				if cbm.metadata.Extra == nil {
+   197					cbm.metadata.Extra = map[string]interface{}{}
+   198				}
+   199				cbm.metadata.Extra[StopSequenceMetadataSlug] = event.Delta.StopSequence
+   200				if cbm.response != nil {
+   201					cbm.response.StopSequence = event.Delta.StopSequence
+   202				}
+   203			}
+   204	
+   205			cbm.updateUsage(event)
+   206	
+   207			// Anthropic message_delta events can carry message-level metadata such as
+   208			// stop_reason and usage without carrying new text. Text is emitted from
+   209			// content_block_delta/content_block_stop events; emitting the accumulated
+   210			// text again here causes downstream consumers to create a duplicate text
+   211			// segment before tool execution.
+   212			return []events.Event{}, nil
+   213	
+   214		case api.MessageStopType:
+   215			if cbm.response == nil {
+   216				return nil, errors.New("MessageStopType event must have a message to store the finished content block")
+   217			}
+   218	
+   219			if event.Message != nil {
+   220				if event.Message.StopReason != "" {
+   221					if cbm.metadata.Extra == nil {
+   222						cbm.metadata.Extra = map[string]interface{}{}
+   223					}
+   224					cbm.metadata.Extra[StopReasonMetadataSlug] = event.Message.StopReason
+   225					cbm.metadata.StopReason = &event.Message.StopReason
+   226					cbm.response.StopReason = event.Message.StopReason
+   227				}
+   228				if event.Message.StopSequence != "" {
+   229					if cbm.metadata.Extra == nil {
+   230						cbm.metadata.Extra = map[string]interface{}{}
+   231					}
+   232					cbm.metadata.Extra[StopSequenceMetadataSlug] = event.Message.StopSequence
+   233					cbm.response.StopSequence = event.Message.StopSequence
+   234				}
+   235				cbm.updateUsage(event)
+   236			}
+   237	
+   238			// set duration on final
+   239			d := time.Since(cbm.startTime).Milliseconds()
+   240			dm := int64(d)
+   241			cbm.metadata.DurationMs = &dm
+   242	
+   243			if cbm.stopReasonIsToolUse() {
+   244				// For Claude tool-use turns, the preceding text block has already been
+   245				// streamed and block-finalized before the tool_use block. The
+   246				// message_stop event closes the provider message envelope; publishing a
+   247				// final event here causes downstream consumers to finalize the cached
+   248				// text as a new assistant segment after the tool call.
+   249				return []events.Event{}, nil
+   250			}
+   251			return []events.Event{events.NewFinalEvent(cbm.metadata, cbm.Text())}, nil
+   252	
+   253		case api.ContentBlockStartType:
+   254			if cbm.response == nil {
+   255				return nil, errors.New("ContentBlockStartType event must have a message to store the finished content block")
+   256			}
+   257			if event.ContentBlock == nil {
+   258				return nil, errors.New("ContentBlockStartType event must have a content block")
+   259			}
+   260			if event.Index < 0 {
+   261				return nil, errors.New("ContentBlockStartType event must have a positive index")
+   262			}
+   263			if _, exists := cbm.contentBlocks[event.Index]; exists {
+   264				return nil, errors.Errorf("ContentBlockStartType event with index %d already exists", event.Index)
+   265			}
+   266			cbm.contentBlocks[event.Index] = event.ContentBlock
+   267	
+   268			// TODO(manuel, 2024-07-04) We should have a proper BlockStart message here
+   269			return []events.Event{}, nil
+   270	
+   271		case api.ContentBlockDeltaType:
+   272			if cbm.response == nil {
+   273				return nil, errors.New("ContentBlockDeltaType event must have a message to store the finished content block")
+   274			}
+   275			if event.Delta == nil {
+   276				return nil, errors.New("ContentBlockDeltaType event must have a delta")
+   277			}
+   278			cb, exists := cbm.contentBlocks[event.Index]
+   279			if !exists {
+   280				return nil, errors.Errorf("ContentBlockDeltaType event with index %d does not exist", event.Index)
+   281			}
+   282	
+   283			cbm.updateUsage(event)
+   284	
+   285			delta := ""
+   286			switch event.Delta.Type {
+   287			case api.TextDeltaType:
+   288				delta = event.Delta.Text
+   289				cb.Text += event.Delta.Text
+   290				return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, delta, cbm.Text())}, nil
+   291			case api.InputJSONDeltaType:
+   292				delta = event.Delta.PartialJSON
+   293				// Append to existing input string for tool use
+   294				if currentInput, ok := cb.Input.(string); ok {
+   295					cb.Input = currentInput + event.Delta.PartialJSON
+   296				} else {
+   297					cb.Input = event.Delta.PartialJSON
+   298				}
+   299				// TODO(manuel, 2024-07-04) This is where we would do partial tool call streaming
+   300				_ = delta
+   301			}
+   302			return []events.Event{}, nil
+   303	
+   304		case api.ContentBlockStopType:
+   305			if cbm.response == nil {
+   306				return nil, errors.New("ContentBlockStopType event must have a message to store the finished content block")
+   307			}
+   308			cb, exists := cbm.contentBlocks[event.Index]
+   309			if !exists {
+   310				return nil, errors.Errorf("ContentBlockStopType event with index %d does not exist", event.Index)
+   311			}
+   312			switch cb.Type {
+   313			case api.ContentTypeText:
+   314				cbm.response.Content = append(cbm.response.Content, api.NewTextContent(cb.Text))
+   315				// TODO(manuel, 2024-07-04) This shoudl be some sort of block stop type
+   316				return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, "", cbm.Text())}, nil
+   317	
+   318			case api.ContentTypeToolUse:
+   319				// Convert Input to string for API compatibility
+   320				inputStr := ""
+   321				if cb.Input != nil {
+   322					if str, ok := cb.Input.(string); ok {
+   323						inputStr = str
+   324					} else {
+   325						// For non-string inputs, marshal to JSON
+   326						if inputBytes, err := json.Marshal(cb.Input); err == nil {
+   327							inputStr = string(inputBytes)
+   328						}
+   329					}
+   330				}
+   331				cbm.response.Content = append(cbm.response.Content, api.NewToolUseContent(cb.ID, cb.Name, inputStr))
+   332				return []events.Event{events.NewToolCallEvent(cbm.metadata, events.ToolCall{
+   333					ID:    cb.ID,
+   334					Name:  cb.Name,
+   335					Input: inputStr,
+   336				})}, nil
+   337	
+   338			case api.ContentTypeImage, api.ContentTypeToolResult:
+   339				return nil, errors.Errorf("Unsupported content block type: %s", cb.Type)
+   340			}

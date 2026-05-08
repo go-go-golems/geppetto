@@ -1,0 +1,90 @@
+     1	package events
+     2	
+     3	import (
+     4		"encoding/json"
+     5		"fmt"
+     6	
+     7		"github.com/google/uuid"
+     8		"github.com/rs/zerolog"
+     9	)
+    10	
+    11	type EventType string
+    12	
+    13	const (
+    14		// EventTypeStart to EventTypeFinal are for text completion, actually
+    15		EventTypeStart             EventType = "start"
+    16		EventTypeFinal             EventType = "final"
+    17		EventTypePartialCompletion EventType = "partial"
+    18		// Separate partial stream for reasoning/summary thinking text
+    19		EventTypePartialThinking EventType = "partial-thinking"
+    20	
+    21		// TODO(manuel, 2024-07-04) I'm not sure if this is needed
+    22		EventTypeStatus EventType = "status"
+    23	
+    24		// TODO(manuel, 2024-07-04) Should potentially have a EventTypeText for a block stop here
+    25		// Model requested a tool call (received from provider stream)
+    26		EventTypeToolCall   EventType = "tool-call"
+    27		EventTypeToolResult EventType = "tool-result"
+    28	
+    29		// Execution-phase events (we are actually executing tools locally)
+    30		EventTypeToolCallExecute         EventType = "tool-call-execute"
+    31		EventTypeToolCallExecutionResult EventType = "tool-call-execution-result"
+    32		EventTypeError                   EventType = "error"
+    33		EventTypeInterrupt               EventType = "interrupt"
+    34	
+    35		// Informational/logging events (emitted by engines, middlewares or tools)
+    36		EventTypeLog  EventType = "log"
+    37		EventTypeInfo EventType = "info"
+    38	
+    39		// Debugger pause event (step-mode)
+    40		EventTypeDebuggerPause EventType = "debugger.pause"
+    41	
+    42		// Agent-mode custom event (exported so UIs can act upon it)
+    43		EventTypeAgentModeSwitch EventType = "agent-mode-switch"
+    44	
+    45		// Web search progress events (built-in/server tools)
+    46		EventTypeWebSearchStarted   EventType = "web-search-started"
+    47		EventTypeWebSearchSearching EventType = "web-search-searching"
+    48		EventTypeWebSearchOpenPage  EventType = "web-search-open-page"
+    49		EventTypeWebSearchDone      EventType = "web-search-done"
+    50	
+    51		// Citation annotations attached to output text
+    52		EventTypeCitation EventType = "citation"
+    53	
+    54		// File search progress events
+    55		EventTypeFileSearchStarted   EventType = "file-search-started"
+    56		EventTypeFileSearchSearching EventType = "file-search-searching"
+    57		EventTypeFileSearchDone      EventType = "file-search-done"
+    58	
+    59		// Code interpreter events
+    60		EventTypeCodeInterpreterStarted      EventType = "code-interpreter-started"
+    61		EventTypeCodeInterpreterInterpreting EventType = "code-interpreter-interpreting"
+    62		EventTypeCodeInterpreterDone         EventType = "code-interpreter-done"
+    63		EventTypeCodeInterpreterCodeDelta    EventType = "code-interpreter-code-delta"
+    64		EventTypeCodeInterpreterCodeDone     EventType = "code-interpreter-code-done"
+    65	
+    66		// MCP tools
+    67		EventTypeMCPArgsDelta      EventType = "mcp-args-delta"
+    68		EventTypeMCPArgsDone       EventType = "mcp-args-done"
+    69		EventTypeMCPInProgress     EventType = "mcp-in-progress"
+    70		EventTypeMCPCompleted      EventType = "mcp-completed"
+    71		EventTypeMCPFailed         EventType = "mcp-failed"
+    72		EventTypeMCPListInProgress EventType = "mcp-list-tools-in-progress"
+    73		EventTypeMCPListCompleted  EventType = "mcp-list-tools-completed"
+    74		EventTypeMCPListFailed     EventType = "mcp-list-tools-failed"
+    75	
+    76		// Image generation built-in
+    77		EventTypeImageGenInProgress   EventType = "image-generation-in-progress"
+    78		EventTypeImageGenGenerating   EventType = "image-generation-generating"
+    79		EventTypeImageGenPartialImage EventType = "image-generation-partial-image"
+    80		EventTypeImageGenCompleted    EventType = "image-generation-completed"
+    81	
+    82		// Normalized tool results
+    83		EventTypeToolSearchResults EventType = "tool-search-results"
+    84	)
+    85	
+    86	type Event interface {
+    87		Type() EventType
+    88		Metadata() EventMetadata
+    89		Payload() []byte
+    90	}

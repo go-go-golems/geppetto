@@ -1,0 +1,51 @@
+     1	package app
+     2	
+     3	import (
+     4		"context"
+     5		"database/sql"
+     6	)
+     7	
+     8	func createDebugSQLiteSchema(ctx context.Context, db *sql.DB) error {
+     9		stmts := []string{
+    10			`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
+    11			`CREATE TABLE backend_records (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, ts TEXT, session_id TEXT, connection_id TEXT, ordinal INTEGER, raw_json TEXT NOT NULL)`,
+    12			`CREATE TABLE backend_pipeline (record_id INTEGER PRIMARY KEY REFERENCES backend_records(id), mode TEXT, event_name TEXT, event_type TEXT, event_appended INTEGER, view_ordinal INTEGER, timeline_cursor_advanced INTEGER, append_error TEXT, session_error TEXT, view_error TEXT, ui_projection_error TEXT, timeline_projection_error TEXT, apply_error TEXT, cursor_error TEXT, fanout_error TEXT)`,
+    13			`CREATE TABLE backend_pipeline_ui_events (id INTEGER PRIMARY KEY AUTOINCREMENT, record_id INTEGER NOT NULL REFERENCES backend_records(id), source TEXT NOT NULL, name TEXT, payload_type TEXT, payload_json TEXT)`,
+    14			`CREATE TABLE backend_pipeline_entities (id INTEGER PRIMARY KEY AUTOINCREMENT, record_id INTEGER NOT NULL REFERENCES backend_records(id), source TEXT NOT NULL, kind TEXT, entity_id TEXT, created_ordinal INTEGER, last_event_ordinal INTEGER, tombstone INTEGER, payload_type TEXT, payload_json TEXT)`,
+    15			`CREATE TABLE backend_transport (record_id INTEGER PRIMARY KEY REFERENCES backend_records(id), stage TEXT, direction TEXT, frame_type TEXT, event_name TEXT, payload_type TEXT, since_snapshot_ordinal INTEGER, snapshot_ordinal INTEGER, snapshot_entity_count INTEGER, fanout_event_count INTEGER, raw_bytes INTEGER, queue_len INTEGER, queue_cap INTEGER, error TEXT)`,
+    16			`CREATE TABLE backend_transport_snapshot_entities (id INTEGER PRIMARY KEY AUTOINCREMENT, record_id INTEGER NOT NULL REFERENCES backend_records(id), kind TEXT, entity_id TEXT, created_ordinal INTEGER, last_event_ordinal INTEGER, payload_type TEXT, tombstone INTEGER)`,
+    17			`CREATE TABLE geppetto_records (record_id INTEGER PRIMARY KEY REFERENCES backend_records(id), ts TEXT, provider TEXT, model TEXT, session_id TEXT, inference_id TEXT, turn_id TEXT, message_id TEXT, stage TEXT NOT NULL, event_type TEXT, info_message TEXT, response_id TEXT, item_id TEXT, output_index INTEGER, summary_index INTEGER, choice_index INTEGER, stream_kind TEXT, correlation_key TEXT, tool_call_id TEXT, tool_call_index INTEGER, delta_len INTEGER, normalized_delta_len INTEGER, buffer_len INTEGER, error TEXT, object_json TEXT, event_json TEXT, metadata_json TEXT)`,
+    18			`CREATE TABLE geppetto_provider_events (record_id INTEGER PRIMARY KEY REFERENCES geppetto_records(record_id), provider_event_type TEXT, response_id TEXT, item_id TEXT, output_index INTEGER, summary_index INTEGER, choice_index INTEGER, stream_kind TEXT, correlation_key TEXT, tool_call_id TEXT, tool_call_index INTEGER, object_json TEXT)`,
+    19			`CREATE TABLE geppetto_emitted_events (record_id INTEGER PRIMARY KEY REFERENCES geppetto_records(record_id), geppetto_event_type TEXT, info_message TEXT, response_id TEXT, item_id TEXT, output_index INTEGER, summary_index INTEGER, choice_index INTEGER, stream_kind TEXT, correlation_key TEXT, tool_call_id TEXT, tool_call_index INTEGER, event_json TEXT, metadata_json TEXT)`,
+    20			`CREATE INDEX idx_geppetto_records_session_stage ON geppetto_records(session_id, stage)`,
+    21			`CREATE INDEX idx_geppetto_records_item ON geppetto_records(item_id)`,
+    22			`CREATE INDEX idx_geppetto_records_correlation_key ON geppetto_records(correlation_key)`,
+    23			`CREATE INDEX idx_geppetto_records_event_type ON geppetto_records(event_type)`,
+    24			`CREATE TABLE frontend_records (id INTEGER PRIMARY KEY, type TEXT NOT NULL, ts_ms INTEGER, ts_iso TEXT, session_id TEXT, ordinal INTEGER, raw_json TEXT NOT NULL)`,
+    25			`CREATE TABLE frontend_raw_ws (record_id INTEGER PRIMARY KEY REFERENCES frontend_records(id), size INTEGER, preview TEXT, raw TEXT)`,
+    26			`CREATE TABLE frontend_parsed_frames (record_id INTEGER PRIMARY KEY REFERENCES frontend_records(id), frame_type TEXT, name TEXT, payload_type TEXT, frame_json TEXT)`,
+    27			`CREATE TABLE frontend_snapshots (record_id INTEGER PRIMARY KEY REFERENCES frontend_records(id), entity_count INTEGER, dropped_count INTEGER)`,
+    28			`CREATE TABLE frontend_snapshot_entities (id INTEGER PRIMARY KEY AUTOINCREMENT, record_id INTEGER NOT NULL REFERENCES frontend_records(id), raw_kind TEXT, raw_id TEXT, mapped_kind TEXT, mapped_id TEXT, dropped INTEGER)`,
+    29			`CREATE TABLE frontend_ui_events (record_id INTEGER PRIMARY KEY REFERENCES frontend_records(id), name TEXT, message_id TEXT, mutation_json TEXT)`,
+    30			`CREATE TABLE frontend_lifecycle (record_id INTEGER PRIMARY KEY REFERENCES frontend_records(id), event TEXT)`,
+    31			`CREATE INDEX idx_backend_records_session_ordinal ON backend_records(session_id, ordinal)`,
+    32			`CREATE INDEX idx_backend_transport_stage ON backend_transport(stage)`,
+    33			`CREATE INDEX idx_frontend_records_session_ordinal ON frontend_records(session_id, ordinal)`,
+    34			`CREATE INDEX idx_frontend_records_type ON frontend_records(type)`,
+    35	
+    36			// Timeline and turns tables — persisted data alongside event evidence.
+    37			`CREATE TABLE timeline_entities (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, entity_id TEXT NOT NULL, created_ordinal INTEGER NOT NULL, last_event_ordinal INTEGER NOT NULL, tombstone INTEGER NOT NULL DEFAULT 0, payload_type TEXT, payload_json TEXT)`,
+    38			`CREATE INDEX idx_timeline_entities_kind ON timeline_entities(kind)`,
+    39			`CREATE INDEX idx_timeline_entities_entity_id ON timeline_entities(entity_id)`,
+    40	
+    41			`CREATE TABLE turns (id INTEGER PRIMARY KEY AUTOINCREMENT, conv_id TEXT NOT NULL, session_id TEXT NOT NULL, turn_id TEXT NOT NULL, phase TEXT NOT NULL, runtime_key TEXT, inference_id TEXT, created_at_ms INTEGER, created_at TEXT, payload_json TEXT NOT NULL)`,
+    42			`CREATE INDEX idx_turns_session_id ON turns(session_id)`,
+    43			`CREATE INDEX idx_turns_conv_id ON turns(conv_id)`,
+    44		}
+    45		for _, stmt := range stmts {
+    46			if _, err := db.ExecContext(ctx, stmt); err != nil {
+    47				return err
+    48			}
+    49		}
+    50		return nil
+    51	}

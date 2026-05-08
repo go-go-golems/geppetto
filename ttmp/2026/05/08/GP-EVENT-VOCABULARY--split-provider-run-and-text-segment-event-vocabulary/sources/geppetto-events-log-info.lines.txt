@@ -1,0 +1,80 @@
+     1	package events
+     2	
+     3	import "github.com/rs/zerolog"
+     4	
+     5	// EventLog represents a generic log record emitted during inference (by engine, middleware or tools)
+     6	type EventLog struct {
+     7		EventImpl
+     8		Level   string                 `json:"level"`
+     9		Message string                 `json:"message"`
+    10		Fields  map[string]interface{} `json:"fields,omitempty"`
+    11	}
+    12	
+    13	func NewLogEvent(metadata EventMetadata, level string, message string, fields map[string]interface{}) *EventLog {
+    14		return &EventLog{
+    15			EventImpl: EventImpl{
+    16				Type_:     EventTypeLog,
+    17				Metadata_: metadata,
+    18				payload:   nil,
+    19			},
+    20			Level:   level,
+    21			Message: message,
+    22			Fields:  fields,
+    23		}
+    24	}
+    25	
+    26	var _ Event = &EventLog{}
+    27	
+    28	func (e EventLog) MarshalZerologObject(ev *zerolog.Event) {
+    29		e.EventImpl.MarshalZerologObject(ev)
+    30		ev.Str("level", e.Level).Str("message", e.Message)
+    31		if len(e.Fields) > 0 {
+    32			ev.Dict("fields", zerolog.Dict().Fields(e.Fields))
+    33		}
+    34	}
+    35	
+    36	// EventInfo is a lightweight informational message for user-facing notifications
+    37	type EventInfo struct {
+    38		EventImpl
+    39		Message string                 `json:"message"`
+    40		Data    map[string]interface{} `json:"data,omitempty"`
+    41	}
+    42	
+    43	func NewInfoEvent(metadata EventMetadata, message string, data map[string]interface{}) *EventInfo {
+    44		return &EventInfo{
+    45			EventImpl: EventImpl{
+    46				Type_:     EventTypeInfo,
+    47				Metadata_: metadata,
+    48				payload:   nil,
+    49			},
+    50			Message: message,
+    51			Data:    data,
+    52		}
+    53	}
+    54	
+    55	var _ Event = &EventInfo{}
+    56	
+    57	func (e EventInfo) MarshalZerologObject(ev *zerolog.Event) {
+    58		e.EventImpl.MarshalZerologObject(ev)
+    59		ev.Str("message", e.Message)
+    60		if len(e.Data) > 0 {
+    61			ev.Dict("data", zerolog.Dict().Fields(e.Data))
+    62		}
+    63	}
+    64	
+    65	// EventAgentModeSwitch: exported custom event with analysis and new mode
+    66	// Message carries a short title; Data should include "from", "to", and optionally "analysis"
+    67	type EventAgentModeSwitch struct {
+    68		EventImpl
+    69		Message string                 `json:"message"`
+    70		Data    map[string]interface{} `json:"data,omitempty"`
+    71	}
+    72	
+    73	func NewAgentModeSwitchEvent(metadata EventMetadata, from string, to string, analysis string) *EventAgentModeSwitch {
+    74		data := map[string]interface{}{"from": from, "to": to}
+    75		if analysis != "" {
+    76			data["analysis"] = analysis
+    77		}
+    78		return &EventAgentModeSwitch{
+    79			EventImpl: EventImpl{Type_: EventTypeAgentModeSwitch, Metadata_: metadata},
+    80			Message:   "agentmode: mode switched",

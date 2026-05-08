@@ -1,0 +1,230 @@
+     1	package openai_responses
+     2	
+     3	import (
+     4		"context"
+     5		"strconv"
+     6		"strings"
+     7	
+     8		"github.com/go-go-golems/geppetto/pkg/events"
+     9		geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
+    10	)
+    11	
+    12	type EngineOption func(*Engine)
+    13	
+    14	func WithObserver(obs geppettoobs.Observer) EngineOption {
+    15		return func(e *Engine) {
+    16			e.observer = obs
+    17		}
+    18	}
+    19	
+    20	func WithObservabilityConfig(cfg geppettoobs.Config) EngineOption {
+    21		return func(e *Engine) {
+    22			e.observabilityConfig = cfg.Normalized()
+    23		}
+    24	}
+    25	
+    26	func (e *Engine) observe(ctx context.Context, rec geppettoobs.Record) {
+    27		if e == nil || !e.observabilityConfig.Enabled() {
+    28			return
+    29		}
+    30		geppettoobs.Notify(ctx, e.observer, rec)
+    31	}
+    32	
+    33	func (e *Engine) observeProviderEvent(ctx context.Context, metadata events.EventMetadata, model string, currentResponseID string, eventType string, m map[string]any) {
+    34		if e == nil || !e.observabilityConfig.RecordsProvider() {
+    35			return
+    36		}
+    37		rec := providerRecordBase(metadata, model, currentResponseID, eventType, m)
+    38		rec.Stage = geppettoobs.StageProviderRoutedEvent
+    39		rec.ObjectJSON = mustMarshalJSON(m)
+    40		e.observe(ctx, rec)
+    41	}
+    42	
+    43	func (e *Engine) observeProviderNormalizeDelta(ctx context.Context, metadata events.EventMetadata, model string, currentResponseID string, eventType string, m map[string]any, deltaLen, normalizedDeltaLen, bufferLen int) {
+    44		if e == nil || !e.observabilityConfig.RecordsProvider() {
+    45			return
+    46		}
+    47		rec := providerRecordBase(metadata, model, currentResponseID, eventType, m)
+    48		rec.Stage = geppettoobs.StageProviderNormalizeDelta
+    49		rec.DeltaLen = deltaLen
+    50		rec.NormalizedDeltaLen = normalizedDeltaLen
+    51		rec.BufferLen = bufferLen
+    52		rec.ObjectJSON = mustMarshalJSON(m)
+    53		e.observe(ctx, rec)
+    54	}
+    55	
+    56	func (e *Engine) observePublish(ctx context.Context, event events.Event, stage geppettoobs.Stage, err error) {
+    57		if e == nil || !e.observabilityConfig.RecordsEvents() || event == nil {
+    58			return
+    59		}
+    60		metadata := event.Metadata()
+    61		rec := geppettoobs.Record{
+    62			Provider:    "openai_responses",
+    63			Model:       metadata.Model,
+    64			SessionID:   metadata.SessionID,
+    65			InferenceID: metadata.InferenceID,
+    66			TurnID:      metadata.TurnID,
+    67			MessageID:   metadata.ID.String(),
+    68			Stage:       stage,
+    69			EventType:   string(event.Type()),
+    70		}
+    71		// Publish observation is intentionally emitted only before event fan-out and
+    72		// kept compact. Full event/metadata JSON on every streamed partial can make
+    73		// traces grow very quickly.
+    74		if err != nil {
+    75			rec.Error = err.Error()
+    76		}
+    77		if info, ok := event.(*events.EventInfo); ok {
+    78			rec.InfoMessage = info.Message
+    79			applyProviderDataToRecord(&rec, info.Data)
+    80		}
+    81		e.observe(ctx, rec)
+    82	}
+    83	
+    84	func providerRecordBase(metadata events.EventMetadata, model string, currentResponseID string, eventType string, m map[string]any) geppettoobs.Record {
+    85		rec := geppettoobs.Record{
+    86			Provider:    "openai_responses",
+    87			Model:       model,
+    88			SessionID:   metadata.SessionID,
+    89			InferenceID: metadata.InferenceID,
+    90			TurnID:      metadata.TurnID,
+    91			MessageID:   metadata.ID.String(),
+    92			EventType:   eventType,
+    93			ResponseID:  currentResponseID,
+    94		}
+    95		if v := stringFromProviderMap(m, "response_id"); v != "" {
+    96			rec.ResponseID = v
+    97		} else if response, ok := m["response"].(map[string]any); ok {
+    98			if v := stringFromProviderMap(response, "id"); v != "" {
+    99				rec.ResponseID = v
+   100			}
+   101		}
+   102		if v := itemIDFromProviderObject(m); v != "" {
+   103			rec.ItemID = v
+   104		}
+   105		if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+   106			rec.OutputIndex = &idx
+   107		}
+   108		if idx, ok := intFromProviderNumber(m["summary_index"]); ok {
+   109			rec.SummaryIndex = &idx
+   110		}
+   111		rec.CorrelationKey = responsesCorrelationKey(rec.Provider, rec.ResponseID, rec.ItemID, rec.OutputIndex, rec.SummaryIndex)
+   112		return rec
+   113	}
+   114	
+   115	func stringFromProviderMap(m map[string]any, key string) string {
+   116		if m == nil {
+   117			return ""
+   118		}
+   119		if v, ok := m[key].(string); ok {
+   120			return v
+   121		}
+   122		return ""
+   123	}
+   124	
+   125	func itemIDFromProviderObject(m map[string]any) string {
+   126		if v := stringFromProviderMap(m, "item_id"); v != "" {
+   127			return v
+   128		}
+   129		if item, ok := m["item"].(map[string]any); ok {
+   130			if v := stringFromProviderMap(item, "id"); v != "" {
+   131				return v
+   132			}
+   133		}
+   134		return ""
+   135	}
+   136	
+   137	func providerData(provider, responseID, itemID string, outputIndex, summaryIndex *int) map[string]any {
+   138		data := map[string]any{}
+   139		if provider != "" {
+   140			data["provider"] = provider
+   141		}
+   142		if responseID != "" {
+   143			data["response_id"] = responseID
+   144		}
+   145		if itemID != "" {
+   146			data["item_id"] = itemID
+   147		}
+   148		if outputIndex != nil {
+   149			data["output_index"] = *outputIndex
+   150		}
+   151		if summaryIndex != nil {
+   152			data["summary_index"] = *summaryIndex
+   153		}
+   154		if key := responsesCorrelationKey(provider, responseID, itemID, outputIndex, summaryIndex); key != "" {
+   155			data["correlation_key"] = key
+   156		}
+   157		if len(data) == 0 {
+   158			return nil
+   159		}
+   160		return data
+   161	}
+   162	
+   163	func responsesCorrelationKey(provider, responseID, itemID string, outputIndex, summaryIndex *int) string {
+   164		provider = strings.TrimSpace(provider)
+   165		responseID = strings.TrimSpace(responseID)
+   166		itemID = strings.TrimSpace(itemID)
+   167		if provider == "" || responseID == "" {
+   168			return ""
+   169		}
+   170		if itemID != "" {
+   171			return provider + ":" + responseID + ":item:" + itemID
+   172		}
+   173		if outputIndex != nil && summaryIndex != nil {
+   174			return provider + ":" + responseID + ":output:" + strconv.Itoa(*outputIndex) + ":summary:" + strconv.Itoa(*summaryIndex)
+   175		}
+   176		if outputIndex != nil {
+   177			return provider + ":" + responseID + ":output:" + strconv.Itoa(*outputIndex)
+   178		}
+   179		return provider + ":" + responseID
+   180	}
+   181	
+   182	func applyProviderDataToRecord(rec *geppettoobs.Record, data map[string]interface{}) {
+   183		if rec == nil || data == nil {
+   184			return
+   185		}
+   186		if v, ok := data["provider"].(string); ok && v != "" {
+   187			rec.Provider = v
+   188		}
+   189		if v, ok := data["response_id"].(string); ok && v != "" {
+   190			rec.ResponseID = v
+   191		}
+   192		if v, ok := data["item_id"].(string); ok && v != "" {
+   193			rec.ItemID = v
+   194		}
+   195		if v, ok := intFromAny(data["output_index"]); ok {
+   196			rec.OutputIndex = &v
+   197		}
+   198		if v, ok := intFromAny(data["summary_index"]); ok {
+   199			rec.SummaryIndex = &v
+   200		}
+   201		if v, ok := data["correlation_key"].(string); ok && v != "" {
+   202			rec.CorrelationKey = v
+   203		}
+   204	}
+   205	
+   206	func intFromAny(v any) (int, bool) {
+   207		if i, ok := intFromProviderNumber(v); ok {
+   208			return i, true
+   209		}
+   210		switch tv := v.(type) {
+   211		case int32:
+   212			return intFromSigned64(int64(tv))
+   213		case uint:
+   214			return intFromUnsigned64(uint64(tv))
+   215		case uint32:
+   216			return intFromUnsigned64(uint64(tv))
+   217		case uint64:
+   218			return intFromUnsigned64(tv)
+   219		case string:
+   220			return intFromString(tv)
+   221		}
+   222		return 0, false
+   223	}
+   224	
+   225	func intFromString(v string) (int, bool) {
+   226		i, err := strconv.Atoi(strings.TrimSpace(v))
+   227		if err != nil {
+   228			return 0, false
+   229		}
+   230		return i, true

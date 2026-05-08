@@ -1,0 +1,80 @@
+     1	package observability
+     2	
+     3	import (
+     4		"context"
+     5		"encoding/json"
+     6		"time"
+     7	)
+     8	
+     9	// Stage identifies the boundary at which a record was captured.
+    10	type Stage string
+    11	
+    12	const (
+    13		StageProviderRoutedEvent    Stage = "provider_routed_event"
+    14		StageProviderNormalizeDelta Stage = "provider_normalize_delta"
+    15	
+    16		StageGeppettoPublishStarted Stage = "geppetto_publish_started"
+    17		StageGeppettoPublishDone    Stage = "geppetto_publish_done"
+    18		StageGeppettoPublishError   Stage = "geppetto_publish_error"
+    19	)
+    20	
+    21	// Record is the neutral evidence object emitted by Geppetto provider engines.
+    22	// Stable scalar fields make records queryable; JSON payloads make them
+    23	// inspectable when lower-level provider shape or Geppetto enrichment is buggy.
+    24	type Record struct {
+    25		Timestamp time.Time `json:"timestamp"`
+    26	
+    27		Provider string `json:"provider,omitempty"`
+    28		Model    string `json:"model,omitempty"`
+    29	
+    30		SessionID   string `json:"sessionId,omitempty"`
+    31		InferenceID string `json:"inferenceId,omitempty"`
+    32		TurnID      string `json:"turnId,omitempty"`
+    33		MessageID   string `json:"messageId,omitempty"`
+    34	
+    35		Stage       Stage  `json:"stage"`
+    36		EventType   string `json:"eventType,omitempty"`
+    37		InfoMessage string `json:"infoMessage,omitempty"`
+    38	
+    39		ResponseID   string `json:"responseId,omitempty"`
+    40		ItemID       string `json:"itemId,omitempty"`
+    41		OutputIndex  *int   `json:"outputIndex,omitempty"`
+    42		SummaryIndex *int   `json:"summaryIndex,omitempty"`
+    43	
+    44		ChoiceIndex    *int   `json:"choiceIndex,omitempty"`
+    45		StreamKind     string `json:"streamKind,omitempty"`
+    46		CorrelationKey string `json:"correlationKey,omitempty"`
+    47		ToolCallID     string `json:"toolCallId,omitempty"`
+    48		ToolCallIndex  *int   `json:"toolCallIndex,omitempty"`
+    49	
+    50		ObjectJSON   json.RawMessage `json:"objectJson,omitempty"`
+    51		EventJSON    json.RawMessage `json:"eventJson,omitempty"`
+    52		MetadataJSON json.RawMessage `json:"metadataJson,omitempty"`
+    53	
+    54		DeltaLen           int `json:"deltaLen,omitempty"`
+    55		NormalizedDeltaLen int `json:"normalizedDeltaLen,omitempty"`
+    56		BufferLen          int `json:"bufferLen,omitempty"`
+    57	
+    58		Error string `json:"error,omitempty"`
+    59	}
+    60	
+    61	// Observer receives best-effort Geppetto observability records.
+    62	type Observer interface {
+    63		OnGeppettoRecord(ctx context.Context, rec Record)
+    64	}
+    65	
+    66	// Notify delivers a record to obs without letting observer failures affect
+    67	// inference. Panics are intentionally swallowed: observability is evidence, not
+    68	// behavior required for inference correctness.
+    69	func Notify(ctx context.Context, obs Observer, rec Record) {
+    70		if obs == nil {
+    71			return
+    72		}
+    73		if rec.Timestamp.IsZero() {
+    74			rec.Timestamp = time.Now().UTC()
+    75		}
+    76		defer func() {
+    77			_ = recover()
+    78		}()
+    79		obs.OnGeppettoRecord(ctx, rec)
+    80	}

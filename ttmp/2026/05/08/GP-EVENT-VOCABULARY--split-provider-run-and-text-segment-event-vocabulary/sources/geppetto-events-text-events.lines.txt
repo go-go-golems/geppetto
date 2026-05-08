@@ -1,0 +1,150 @@
+     1	package events
+     2	
+     3	import "github.com/rs/zerolog"
+     4	
+     5	type EventPartialCompletionStart struct {
+     6		EventImpl
+     7	}
+     8	
+     9	func NewStartEvent(metadata EventMetadata) *EventPartialCompletionStart {
+    10		return &EventPartialCompletionStart{
+    11			EventImpl: EventImpl{
+    12				Type_:     EventTypeStart,
+    13				Metadata_: metadata,
+    14				payload:   nil,
+    15			},
+    16		}
+    17	}
+    18	
+    19	var _ Event = &EventPartialCompletionStart{}
+    20	
+    21	type EventInterrupt struct {
+    22		EventImpl
+    23		Text string `json:"text"`
+    24		// TODO(manuel, 2024-07-04) Add all collected tool calls so far
+    25	}
+    26	
+    27	func NewInterruptEvent(metadata EventMetadata, text string) *EventInterrupt {
+    28		return &EventInterrupt{
+    29			EventImpl: EventImpl{
+    30				Type_:     EventTypeInterrupt,
+    31				Metadata_: metadata,
+    32				payload:   nil,
+    33			},
+    34			Text: text,
+    35		}
+    36	}
+    37	
+    38	var _ Event = &EventInterrupt{}
+    39	
+    40	type EventFinal struct {
+    41		EventImpl
+    42		Text string `json:"text"`
+    43		// TODO(manuel, 2024-07-04) Add all collected tool calls so far
+    44	}
+    45	
+    46	func NewFinalEvent(metadata EventMetadata, text string) *EventFinal {
+    47		return &EventFinal{
+    48			EventImpl: EventImpl{
+    49				Type_:     EventTypeFinal,
+    50				Metadata_: metadata,
+    51				payload:   nil,
+    52			},
+    53			Text: text,
+    54		}
+    55	}
+    56	
+    57	var _ Event = &EventFinal{}
+    58	
+    59	type EventError struct {
+    60		EventImpl
+    61		ErrorString string `json:"error_string"`
+    62	}
+    63	
+    64	func NewErrorEvent(metadata EventMetadata, err error) *EventError {
+    65		return &EventError{
+    66			EventImpl: EventImpl{
+    67				Type_:     EventTypeError,
+    68				Metadata_: metadata,
+    69				payload:   nil,
+    70			},
+    71			ErrorString: err.Error(),
+    72		}
+    73	}
+    74	
+    75	var _ Event = &EventError{}
+    76	
+    77	// TODO(manuel, 2024-07-05) This might be possible to delete
+    78	type EventText struct {
+    79		EventImpl
+    80		Text string `json:"text"`
+    81		// TODO(manuel, 2024-06-04) Add ToolCall information here, and potentially multiple responses (see the claude API that allows multiple content blocks)
+    82		// This is currently stored in the metadata uder the MetadataToolCallsSlug (see chat-with-tools-step.go in openai)
+    83	}
+    84	
+    85	func NewTextEvent(metadata EventMetadata, text string) *EventText {
+    86		return &EventText{
+    87			EventImpl: EventImpl{
+    88				Type_:     EventTypeStart,
+    89				Metadata_: metadata,
+    90				payload:   nil,
+    91			},
+    92			Text: text,
+    93		}
+    94	}
+    95	
+    96	var _ Event = &EventText{}
+    97	
+    98	// TODO(manuel, 2024-07-03) Then, we can add those to the openai step as well, and to the UI, and then we should have a good way to do auto tool calling
+    99	
+   100	// EventPartialCompletion is the event type for textual partial completion. We don't support partial tool completion.
+   101	type EventPartialCompletion struct {
+   102		EventImpl
+   103		Delta string `json:"delta"`
+   104		// This is the complete completion string so far (when using openai, this is currently also the toolcall json)
+   105		Completion string `json:"completion"`
+   106	
+   107		// TODO(manuel, 2024-06-04) This might need partial tool completion if it is of interest,
+   108		// this is less important than adding tool call information to the result above
+   109	}
+   110	
+   111	func NewPartialCompletionEvent(metadata EventMetadata, delta string, completion string) *EventPartialCompletion {
+   112		return &EventPartialCompletion{
+   113			EventImpl: EventImpl{
+   114				Type_:     EventTypePartialCompletion,
+   115				Metadata_: metadata,
+   116				payload:   nil,
+   117			},
+   118			Delta:      delta,
+   119			Completion: completion,
+   120		}
+   121	}
+   122	
+   123	var _ Event = &EventPartialCompletion{}
+   124	
+   125	// EventThinkingPartial mirrors EventPartialCompletion but is dedicated to reasoning/summary text
+   126	type EventThinkingPartial struct {
+   127		EventImpl
+   128		Delta      string `json:"delta"`
+   129		Completion string `json:"completion"`
+   130	}
+   131	
+   132	func NewThinkingPartialEvent(metadata EventMetadata, delta string, completion string) *EventThinkingPartial {
+   133		return &EventThinkingPartial{
+   134			EventImpl:  EventImpl{Type_: EventTypePartialThinking, Metadata_: metadata},
+   135			Delta:      delta,
+   136			Completion: completion,
+   137		}
+   138	}
+   139	
+   140	var _ Event = &EventThinkingPartial{}
+   141	
+   142	func (e EventPartialCompletionStart) MarshalZerologObject(ev *zerolog.Event) {
+   143		e.EventImpl.MarshalZerologObject(ev)
+   144	}
+   145	
+   146	func (e EventInterrupt) MarshalZerologObject(ev *zerolog.Event) {
+   147		e.EventImpl.MarshalZerologObject(ev)
+   148		ev.Str("text", e.Text)
+   149	}
+   150	

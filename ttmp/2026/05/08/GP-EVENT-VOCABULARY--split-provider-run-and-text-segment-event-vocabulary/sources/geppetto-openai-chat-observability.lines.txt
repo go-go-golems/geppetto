@@ -1,0 +1,330 @@
+     1	package openai
+     2	
+     3	import (
+     4		"context"
+     5		"encoding/json"
+     6		"fmt"
+     7		"math"
+     8		"strconv"
+     9		"strings"
+    10	
+    11		"github.com/go-go-golems/geppetto/pkg/events"
+    12		geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
+    13	)
+    14	
+    15	const defaultChatCompletionEventType = "chat.completion.chunk"
+    16	
+    17	// EngineOption configures optional OpenAI Chat Completions engine behavior.
+    18	type EngineOption func(*OpenAIEngine)
+    19	
+    20	// WithObserver attaches a best-effort observability observer to the engine.
+    21	func WithObserver(obs geppettoobs.Observer) EngineOption {
+    22		return func(e *OpenAIEngine) {
+    23			e.observer = obs
+    24		}
+    25	}
+    26	
+    27	// WithObservabilityConfig controls which OpenAI Chat Completions records are emitted.
+    28	func WithObservabilityConfig(cfg geppettoobs.Config) EngineOption {
+    29		return func(e *OpenAIEngine) {
+    30			e.observabilityConfig = cfg.Normalized()
+    31		}
+    32	}
+    33	
+    34	func (e *OpenAIEngine) observe(ctx context.Context, rec geppettoobs.Record) {
+    35		if e == nil || !e.observabilityConfig.Enabled() {
+    36			return
+    37		}
+    38		geppettoobs.Notify(ctx, e.observer, rec)
+    39	}
+    40	
+    41	func (e *OpenAIEngine) observePublishStarted(ctx context.Context, event events.Event) {
+    42		if e == nil || !e.observabilityConfig.RecordsEvents() || event == nil {
+    43			return
+    44		}
+    45		metadata := event.Metadata()
+    46		rec := geppettoobs.Record{
+    47			Provider:    e.inferenceProvider(),
+    48			Model:       metadata.Model,
+    49			SessionID:   metadata.SessionID,
+    50			InferenceID: metadata.InferenceID,
+    51			TurnID:      metadata.TurnID,
+    52			MessageID:   metadata.ID.String(),
+    53			Stage:       geppettoobs.StageGeppettoPublishStarted,
+    54			EventType:   string(event.Type()),
+    55		}
+    56		applyChatProviderDataToRecord(&rec, metadata.Extra)
+    57		if info, ok := event.(*events.EventInfo); ok {
+    58			rec.InfoMessage = info.Message
+    59			applyChatProviderDataToRecord(&rec, info.Data)
+    60		}
+    61		e.observe(ctx, rec)
+    62	}
+    63	
+    64	func (e *OpenAIEngine) observeProviderEvent(ctx context.Context, metadata events.EventMetadata, model string, ev chatStreamEvent) {
+    65		if e == nil || !e.observabilityConfig.RecordsProvider() {
+    66			return
+    67		}
+    68		rec := e.chatProviderRecordBase(metadata, model, ev)
+    69		rec.Stage = geppettoobs.StageProviderRoutedEvent
+    70		rec.ObjectJSON = mustMarshalJSON(ev.RawPayload)
+    71		e.observe(ctx, rec)
+    72	}
+    73	
+    74	func (e *OpenAIEngine) observeProviderNormalizeDelta(ctx context.Context, metadata events.EventMetadata, model string, ev chatStreamEvent, deltaLen, normalizedDeltaLen, bufferLen int) {
+    75		if e == nil || !e.observabilityConfig.RecordsProvider() {
+    76			return
+    77		}
+    78		rec := e.chatProviderRecordBase(metadata, model, ev)
+    79		rec.Stage = geppettoobs.StageProviderNormalizeDelta
+    80		rec.DeltaLen = deltaLen
+    81		rec.NormalizedDeltaLen = normalizedDeltaLen
+    82		rec.BufferLen = bufferLen
+    83		rec.ObjectJSON = mustMarshalJSON(ev.RawPayload)
+    84		e.observe(ctx, rec)
+    85	}
+    86	
+    87	func (e *OpenAIEngine) chatProviderRecordBase(metadata events.EventMetadata, model string, ev chatStreamEvent) geppettoobs.Record {
+    88		if model == "" {
+    89			model = stringFromRawMap(ev.RawPayload, "model")
+    90		}
+    91		provider := e.inferenceProvider()
+    92		responseID := stringFromRawMap(ev.RawPayload, "id")
+    93		streamKind := chatStreamKind(ev)
+    94		tc := firstChatToolCall(ev.ToolCalls)
+    95		var toolCallID string
+    96		var toolCallIndex *int
+    97		if tc != nil {
+    98			toolCallID = tc.ID
+    99			toolCallIndex = cloneIntPtr(tc.Index)
+   100		}
+   101		rec := geppettoobs.Record{
+   102			Provider:       provider,
+   103			Model:          model,
+   104			SessionID:      metadata.SessionID,
+   105			InferenceID:    metadata.InferenceID,
+   106			TurnID:         metadata.TurnID,
+   107			MessageID:      metadata.ID.String(),
+   108			EventType:      chatProviderEventType(ev),
+   109			ResponseID:     responseID,
+   110			ChoiceIndex:    cloneIntPtr(ev.ChoiceIndex),
+   111			StreamKind:     streamKind,
+   112			CorrelationKey: chatCorrelationKey(provider, responseID, ev.ChoiceIndex, streamKind, toolCallID, toolCallIndex),
+   113			ToolCallID:     toolCallID,
+   114			ToolCallIndex:  toolCallIndex,
+   115			DeltaLen:       len(ev.DeltaText) + len(ev.DeltaReasoning),
+   116		}
+   117		if rec.EventType == "" {
+   118			rec.EventType = defaultChatCompletionEventType
+   119		}
+   120		return rec
+   121	}
+   122	
+   123	type chatToolCallIDTracker map[string]string
+   124	
+   125	func (t chatToolCallIDTracker) Enrich(ev chatStreamEvent) chatStreamEvent {
+   126		if len(ev.ToolCalls) == 0 {
+   127			return ev
+   128		}
+   129		if t == nil {
+   130			return ev
+   131		}
+   132		enriched := ev
+   133		enriched.ToolCalls = make([]ChatToolCall, len(ev.ToolCalls))
+   134		copy(enriched.ToolCalls, ev.ToolCalls)
+   135		for i := range enriched.ToolCalls {
+   136			call := &enriched.ToolCalls[i]
+   137			if call.Index == nil {
+   138				continue
+   139			}
+   140			key := chatToolCallTrackerKey(ev.ChoiceIndex, call.Index)
+   141			if call.ID != "" {
+   142				t[key] = call.ID
+   143				continue
+   144			}
+   145			if rememberedID := t[key]; rememberedID != "" {
+   146				call.ID = rememberedID
+   147			}
+   148		}
+   149		return enriched
+   150	}
+   151	
+   152	func chatToolCallTrackerKey(choiceIndex, toolCallIndex *int) string {
+   153		choice := 0
+   154		if choiceIndex != nil {
+   155			choice = *choiceIndex
+   156		}
+   157		return fmt.Sprintf("%d:%d", choice, *toolCallIndex)
+   158	}
+   159	
+   160	func chatProviderEventType(ev chatStreamEvent) string {
+   161		if object := stringFromRawMap(ev.RawPayload, "object"); object != "" {
+   162			return object
+   163		}
+   164		return defaultChatCompletionEventType
+   165	}
+   166	
+   167	func (e *OpenAIEngine) inferenceProvider() string {
+   168		if e != nil && e.settings != nil && e.settings.Chat != nil && e.settings.Chat.ApiType != nil {
+   169			if provider := strings.ToLower(strings.TrimSpace(string(*e.settings.Chat.ApiType))); provider != "" {
+   170				return provider
+   171			}
+   172		}
+   173		return "openai"
+   174	}
+   175	
+   176	func chatStreamKind(ev chatStreamEvent) string {
+   177		switch {
+   178		case ev.DeltaReasoning != "":
+   179			return "reasoning"
+   180		case ev.DeltaText != "":
+   181			return "content"
+   182		case len(ev.ToolCalls) > 0:
+   183			return "tool_call"
+   184		case ev.FinishReason != nil && *ev.FinishReason != "":
+   185			return "finish"
+   186		default:
+   187			return "unknown"
+   188		}
+   189	}
+   190	
+   191	func firstChatToolCall(calls []ChatToolCall) *ChatToolCall {
+   192		if len(calls) == 0 {
+   193			return nil
+   194		}
+   195		return &calls[0]
+   196	}
+   197	
+   198	func chatProviderData(provider, responseID string, choiceIndex *int, streamKind, correlationKey, toolCallID string, toolCallIndex *int) map[string]any {
+   199		data := map[string]any{}
+   200		if provider != "" {
+   201			data["provider"] = provider
+   202		}
+   203		if responseID != "" {
+   204			data["response_id"] = responseID
+   205		}
+   206		if choiceIndex != nil {
+   207			data["choice_index"] = *choiceIndex
+   208		}
+   209		if streamKind != "" {
+   210			data["stream_kind"] = streamKind
+   211		}
+   212		if correlationKey != "" {
+   213			data["correlation_key"] = correlationKey
+   214		}
+   215		if toolCallID != "" {
+   216			data["tool_call_id"] = toolCallID
+   217		}
+   218		if toolCallIndex != nil {
+   219			data["tool_call_index"] = *toolCallIndex
+   220		}
+   221		if len(data) == 0 {
+   222			return nil
+   223		}
+   224		return data
+   225	}
+   226	
+   227	func chatProviderDataFromEvent(provider string, ev chatStreamEvent) map[string]any {
+   228		responseID := stringFromRawMap(ev.RawPayload, "id")
+   229		streamKind := chatStreamKind(ev)
+   230		tc := firstChatToolCall(ev.ToolCalls)
+   231		var toolCallID string
+   232		var toolCallIndex *int
+   233		if tc != nil {
+   234			toolCallID = tc.ID
+   235			toolCallIndex = cloneIntPtr(tc.Index)
+   236		}
+   237		return chatProviderData(provider, responseID, ev.ChoiceIndex, streamKind, chatCorrelationKey(provider, responseID, ev.ChoiceIndex, streamKind, toolCallID, toolCallIndex), toolCallID, toolCallIndex)
+   238	}
+   239	
+   240	func chatCorrelationKey(provider, responseID string, choiceIndex *int, streamKind, toolCallID string, toolCallIndex *int) string {
+   241		provider = strings.TrimSpace(provider)
+   242		responseID = strings.TrimSpace(responseID)
+   243		streamKind = strings.TrimSpace(streamKind)
+   244		if provider == "" || responseID == "" || streamKind == "" || streamKind == "unknown" {
+   245			return ""
+   246		}
+   247		choice := 0
+   248		if choiceIndex != nil {
+   249			choice = *choiceIndex
+   250		}
+   251		if streamKind == "tool_call" {
+   252			if toolCallID != "" {
+   253				return fmt.Sprintf("%s-chat:%s:choice:%d:tool:%s", provider, responseID, choice, toolCallID)
+   254			}
+   255			if toolCallIndex != nil {
+   256				return fmt.Sprintf("%s-chat:%s:choice:%d:tool-index:%d", provider, responseID, choice, *toolCallIndex)
+   257			}
+   258		}
+   259		return fmt.Sprintf("%s-chat:%s:choice:%d:%s", provider, responseID, choice, streamKind)
+   260	}
+   261	
+   262	func metadataWithChatProviderData(metadata events.EventMetadata, data map[string]any) events.EventMetadata {
+   263		if len(data) == 0 {
+   264			return metadata
+   265		}
+   266		if metadata.Extra == nil {
+   267			metadata.Extra = map[string]any{}
+   268		} else {
+   269			copyExtra := make(map[string]any, len(metadata.Extra)+len(data))
+   270			for k, v := range metadata.Extra {
+   271				copyExtra[k] = v
+   272			}
+   273			metadata.Extra = copyExtra
+   274		}
+   275		for k, v := range data {
+   276			metadata.Extra[k] = v
+   277		}
+   278		return metadata
+   279	}
+   280	
+   281	func applyChatProviderDataToRecord(rec *geppettoobs.Record, data map[string]interface{}) {
+   282		if rec == nil || data == nil {
+   283			return
+   284		}
+   285		if v, ok := data["provider"].(string); ok && v != "" {
+   286			rec.Provider = v
+   287		}
+   288		if v, ok := data["response_id"].(string); ok && v != "" {
+   289			rec.ResponseID = v
+   290		}
+   291		if v, ok := data["item_id"].(string); ok && v != "" {
+   292			rec.ItemID = v
+   293		}
+   294		if v, ok := intFromAny(data["output_index"]); ok {
+   295			rec.OutputIndex = &v
+   296		}
+   297		if v, ok := intFromAny(data["summary_index"]); ok {
+   298			rec.SummaryIndex = &v
+   299		}
+   300		if v, ok := intFromAny(data["choice_index"]); ok {
+   301			rec.ChoiceIndex = &v
+   302		}
+   303		if v, ok := data["stream_kind"].(string); ok && v != "" {
+   304			rec.StreamKind = v
+   305		}
+   306		if v, ok := data["correlation_key"].(string); ok && v != "" {
+   307			rec.CorrelationKey = v
+   308		}
+   309		if v, ok := data["tool_call_id"].(string); ok && v != "" {
+   310			rec.ToolCallID = v
+   311		}
+   312		if v, ok := intFromAny(data["tool_call_index"]); ok {
+   313			rec.ToolCallIndex = &v
+   314		}
+   315	}
+   316	
+   317	func intFromAny(v any) (int, bool) {
+   318		switch tv := v.(type) {
+   319		case int:
+   320			return tv, true
+   321		case int32:
+   322			return intFromSigned64(int64(tv))
+   323		case int64:
+   324			return intFromSigned64(tv)
+   325		case uint:
+   326			return intFromUnsigned64(uint64(tv))
+   327		case uint32:
+   328			return intFromUnsigned64(uint64(tv))
+   329		case uint64:
+   330			return intFromUnsigned64(tv)

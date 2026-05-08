@@ -1,0 +1,81 @@
+    50	
+    51	Avoid:
+    52	
+    53	```go
+    54	reg.RegisterUIEvent("ChatAgentModeCommitted", &structpb.Struct{})
+    55	reg.RegisterTimelineEntity("AgentMode", &structpb.Struct{})
+    56	```
+    57	
+    58	Use `google.protobuf.Struct` only inside a typed message field when the field is intentionally open-ended metadata, for example provider-specific debug details or arbitrary tool input/output. The outer payload registered with sessionstream should still be a named protobuf message.
+    59	
+    60	A repository-level architecture test (`pkg/chatapp/schema_policy_test.go`) and vet analyzer (`pkg/analysis/sessionstreamschema`, runnable with `make schema-vet`) reject `RegisterEvent`, `RegisterUIEvent`, and `RegisterTimelineEntity` registrations that use `&structpb.Struct{}`.
+    61	
+    62	## Base chatapp schema
+    63	
+    64	The base chatapp registers these command messages:
+    65	
+    66	| Name | Protobuf message | Purpose |
+    67	|---|---|---|
+    68	| `ChatStartInference` | `StartInferenceCommand` | Start an assistant run for a prompt. |
+    69	| `ChatStopInference` | `StopInferenceCommand` | Stop the active assistant run for a session. |
+    70	
+    71	It registers these backend events and UI events with `ChatMessageUpdate` payloads:
+    72	
+    73	| Backend event | UI event | Purpose |
+    74	|---|---|---|
+    75	| `ChatUserMessageAccepted` | `ChatMessageAccepted` | User prompt was accepted and projected into the timeline. |
+    76	| `ChatInferenceStarted` | `ChatMessageStarted` | Assistant run started. |
+    77	| `ChatTokensDelta` | `ChatMessageAppended` | Assistant text changed during streaming. |
+    78	| `ChatInferenceFinished` | `ChatMessageFinished` | Assistant text segment or final response finished. |
+    79	| `ChatInferenceStopped` | `ChatMessageStopped` | Assistant run stopped or failed. |
+    80	
+    81	It registers one base timeline entity kind:
+    82	
+    83	| Kind | Protobuf message | Purpose |
+    84	|---|---|---|
+    85	| `ChatMessage` | `ChatMessageEntity` | User, assistant, thinking, and warning transcript rows. |
+    86	
+    87	## Segment-aware transcript rows
+    88	
+    89	`ChatMessageUpdate` and `ChatMessageEntity` include segment metadata:
+    90	
+    91	| Field | Meaning |
+    92	|---|---|
+    93	| `message_id` / JSON `messageId` | Stable entity ID for this concrete transcript row. |
+    94	| `parent_message_id` / JSON `parentMessageId` | Assistant run ID that owns this row, when the row is a segment. |
+    95	| `segment` | One-based segment number within the parent assistant run. |
+    96	| `segment_type` / JSON `segmentType` | Logical segment kind, for example `text` or `thinking`. |
+    97	| `final` | True only for the final assistant text row of the run. |
+    98	
+    99	This is important for tool loops. A single assistant run can produce:
+   100	
+   101	```text
+   102	chat-msg-1:thinking:1
+   103	chat-msg-1:text:2
+   104	ChatToolCall / ChatToolResult rows
+   105	chat-msg-1:thinking:3
+   106	chat-msg-1:text:4
+   107	```
+   108	
+   109	Timeline stores and Redux reducers upsert by entity ID. Therefore every distinct transcript row must have a distinct `messageId`. Do not reuse the parent assistant ID for multiple thinking blocks or for multiple interleaved assistant text blocks.
+   110	
+   111	## Shared ReasoningPlugin
+   112	
+   113	`pkg/chatapp/plugins.NewReasoningPlugin()` translates Geppetto reasoning events into chatapp/sessionstream events.
+   114	
+   115	It handles:
+   116	
+   117	- `*events.EventThinkingPartial`
+   118	- `*events.EventInfo` with `thinking-started`
+   119	- `*events.EventInfo` with `thinking-ended`
+   120	- reasoning summary info payloads when available
+   121	
+   122	It registers concrete `ReasoningUpdate` protobuf payloads:
+   123	
+   124	| Backend event | UI event | Payload |
+   125	|---|---|---|
+   126	| `ChatReasoningStarted` | `ChatReasoningStarted` | `ReasoningUpdate` |
+   127	| `ChatReasoningDelta` | `ChatReasoningAppended` | `ReasoningUpdate` |
+   128	| `ChatReasoningFinished` | `ChatReasoningFinished` | `ReasoningUpdate` |
+   129	
+   130	The payload contains chat-message-shaped fields such as `messageId`, `parentMessageId`, `segment`, `role: "thinking"`, `chunk`, `content`, `status`, and `streaming`. Each contiguous thinking phase gets a segment ID such as `chat-msg-5:thinking:1`.
