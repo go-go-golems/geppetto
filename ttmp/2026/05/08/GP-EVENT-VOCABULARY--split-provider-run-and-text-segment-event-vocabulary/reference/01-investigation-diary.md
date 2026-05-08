@@ -592,3 +592,29 @@ Both passed.
 ### Follow-up
 
 `EventProviderCallMetadataUpdated` is emitted when Chat Completions chunks carry usage or finish-reason metadata, and `EventProviderCallFinished` remains the provider-call lifecycle terminator at EOF.
+
+## 2026-05-08 09:20 — Phase 6: provider-call result and segment observability records
+
+### What changed
+
+Extended `pkg/observability` with canonical record support:
+
+- `RecordKind` distinguishes provider events, canonical events, provider-call result rows, and segment rows;
+- `Record` now carries typed run/provider-call/segment/tool correlation fields, stop reason, finish class, usage, duration, text length/status, and `has_tool_calls`;
+- added `EnrichRecordFromEvent` to copy typed `events.Correlation` and lifecycle payload fields into observability records without reading `metadata.Extra`;
+- added `DerivedRecordsFromEvent` to emit extra provider-call result and segment lifecycle evidence rows alongside compact canonical event rows.
+
+Wired Claude, OpenAI Responses, and OpenAI Chat Completions publish observability through the shared enrichment/derived-record helpers. Provider routed records now identify themselves with `RecordKindProviderEvent`; canonical publish records use `RecordKindCanonicalEvent`; provider-call finish events additionally emit `provider_call_result_finalized`; text/reasoning/tool segment events additionally emit `segment_started`, `segment_updated`, or `segment_finished` rows.
+
+### Validation
+
+```bash
+go test ./pkg/observability ./pkg/inference/engine ./pkg/steps/ai/... -count=1
+go test ./...
+```
+
+Both passed.
+
+### Notes
+
+The provider-call result finish class comes from canonical `EventProviderCallFinished`; Claude tool-use and OpenAI tool-call finishes already set `tool_calls_pending` / `has_tool_calls` in canonical provider events, so no separate inference-result-builder change was required for the new observability rows.

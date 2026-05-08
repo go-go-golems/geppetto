@@ -52,8 +52,11 @@ func (e *ClaudeEngine) observePublishStarted(ctx context.Context, event events.E
 	if info, ok := event.(*events.EventInfo); ok {
 		rec.InfoMessage = info.Message
 	}
-	applyClaudeCorrelationToRecord(&rec, event)
+	geppettoobs.EnrichRecordFromEvent(&rec, event)
 	e.observe(ctx, rec)
+	for _, derived := range geppettoobs.DerivedRecordsFromEvent(rec, event) {
+		e.observe(ctx, derived)
+	}
 }
 
 func (e *ClaudeEngine) observeProviderEvent(ctx context.Context, metadata events.EventMetadata, model string, ev api.StreamingEvent) {
@@ -71,6 +74,7 @@ func (e *ClaudeEngine) claudeProviderRecordBase(metadata events.EventMetadata, m
 		model = ev.Message.Model
 	}
 	rec := geppettoobs.Record{
+		Kind:        geppettoobs.RecordKindProviderEvent,
 		Provider:    e.inferenceProvider(),
 		Model:       model,
 		SessionID:   metadata.SessionID,
@@ -94,54 +98,6 @@ func (e *ClaudeEngine) claudeProviderRecordBase(metadata events.EventMetadata, m
 		rec.Error = ev.Error.Message
 	}
 	return rec
-}
-
-func applyClaudeCorrelationToRecord(rec *geppettoobs.Record, event events.Event) {
-	if rec == nil || event == nil {
-		return
-	}
-	correlated, ok := event.(events.CorrelatedEvent)
-	if !ok {
-		return
-	}
-	corr := correlated.Correlation()
-	if corr.Provider != "" {
-		rec.Provider = corr.Provider
-	}
-	if corr.Model != "" {
-		rec.Model = corr.Model
-	}
-	if corr.ResponseID != "" {
-		rec.ResponseID = corr.ResponseID
-	}
-	if corr.ItemID != "" {
-		rec.ItemID = corr.ItemID
-	}
-	if corr.OutputIndex != nil {
-		v := int(*corr.OutputIndex)
-		rec.OutputIndex = &v
-	}
-	if corr.SummaryIndex != nil {
-		v := int(*corr.SummaryIndex)
-		rec.SummaryIndex = &v
-	}
-	if corr.ChoiceIndex != nil {
-		v := int(*corr.ChoiceIndex)
-		rec.ChoiceIndex = &v
-	}
-	if corr.StreamKind != "" {
-		rec.StreamKind = corr.StreamKind
-	}
-	if corr.CorrelationKey != "" {
-		rec.CorrelationKey = corr.CorrelationKey
-	}
-	if corr.ToolCallID != "" {
-		rec.ToolCallID = corr.ToolCallID
-	}
-	if corr.ToolCallIndex != nil {
-		v := int(*corr.ToolCallIndex)
-		rec.ToolCallIndex = &v
-	}
 }
 
 func claudeDeltaLen(ev api.StreamingEvent) int {

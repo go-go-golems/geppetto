@@ -78,60 +78,16 @@ func (e *Engine) observePublish(ctx context.Context, event events.Event, stage g
 		rec.InfoMessage = info.Message
 		applyProviderDataToRecord(&rec, info.Data)
 	}
-	applyEventCorrelationToRecord(&rec, event)
+	geppettoobs.EnrichRecordFromEvent(&rec, event)
 	e.observe(ctx, rec)
-}
-
-func applyEventCorrelationToRecord(rec *geppettoobs.Record, event events.Event) {
-	if rec == nil || event == nil {
-		return
-	}
-	correlated, ok := event.(events.CorrelatedEvent)
-	if !ok {
-		return
-	}
-	corr := correlated.Correlation()
-	if corr.Provider != "" {
-		rec.Provider = corr.Provider
-	}
-	if corr.Model != "" {
-		rec.Model = corr.Model
-	}
-	if corr.ResponseID != "" {
-		rec.ResponseID = corr.ResponseID
-	}
-	if corr.ItemID != "" {
-		rec.ItemID = corr.ItemID
-	}
-	if corr.OutputIndex != nil {
-		v := int(*corr.OutputIndex)
-		rec.OutputIndex = &v
-	}
-	if corr.SummaryIndex != nil {
-		v := int(*corr.SummaryIndex)
-		rec.SummaryIndex = &v
-	}
-	if corr.ChoiceIndex != nil {
-		v := int(*corr.ChoiceIndex)
-		rec.ChoiceIndex = &v
-	}
-	if corr.StreamKind != "" {
-		rec.StreamKind = corr.StreamKind
-	}
-	if corr.CorrelationKey != "" {
-		rec.CorrelationKey = corr.CorrelationKey
-	}
-	if corr.ToolCallID != "" {
-		rec.ToolCallID = corr.ToolCallID
-	}
-	if corr.ToolCallIndex != nil {
-		v := int(*corr.ToolCallIndex)
-		rec.ToolCallIndex = &v
+	for _, derived := range geppettoobs.DerivedRecordsFromEvent(rec, event) {
+		e.observe(ctx, derived)
 	}
 }
 
 func providerRecordBase(metadata events.EventMetadata, model string, currentResponseID string, eventType string, m map[string]any) geppettoobs.Record {
 	rec := geppettoobs.Record{
+		Kind:        geppettoobs.RecordKindProviderEvent,
 		Provider:    "openai_responses",
 		Model:       model,
 		SessionID:   metadata.SessionID,

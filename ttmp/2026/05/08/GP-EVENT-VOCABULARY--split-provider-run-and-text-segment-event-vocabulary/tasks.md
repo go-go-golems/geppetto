@@ -285,32 +285,32 @@ Goal: synthesize explicit segment/provider lifecycles for the less-structured Ch
 
 Goal: expose provider-call results and canonical segment records for SQLite/debugging without guessing from emitted transcript events.
 
-- [ ] Extend `pkg/observability/observer.go` or add a typed observability record for provider-call inference results.
-- [ ] Add observability stages or record kinds for:
-  - [ ] provider event received;
-  - [ ] canonical event emitted;
-  - [ ] provider-call result finalized;
-  - [ ] segment started/updated/finished if needed for SQLite.
-- [ ] Ensure provider-call result records include:
-  - [ ] all run/provider-call IDs;
-  - [ ] provider/model/response ID;
-  - [ ] stop reason;
-  - [ ] finish class;
-  - [ ] usage;
-  - [ ] duration;
-  - [ ] has tool calls;
-  - [ ] `correlation_key`.
-- [ ] Ensure segment records include:
-  - [ ] `segment_id`;
-  - [ ] `segment_type`;
-  - [ ] stream kind;
-  - [ ] provider-call IDs;
-  - [ ] provider-native IDs/indexes;
-  - [ ] text length/status;
-  - [ ] start/finish record IDs if known.
-- [ ] Update inference result builder if needed so `tool_use` maps to `tool_calls_pending` for provider-call result rows.
-- [ ] Add tests for inference result and segment observability records.
-- [ ] Run `go test ./pkg/observability ./pkg/inference/engine ./pkg/steps/ai/... -count=1`.
+- [x] Extend `pkg/observability/observer.go` or add a typed observability record for provider-call inference results.
+- [x] Add observability stages or record kinds for:
+  - [x] provider event received;
+  - [x] canonical event emitted;
+  - [x] provider-call result finalized;
+  - [x] segment started/updated/finished if needed for SQLite.
+- [x] Ensure provider-call result records include:
+  - [x] all run/provider-call IDs;
+  - [x] provider/model/response ID;
+  - [x] stop reason;
+  - [x] finish class;
+  - [x] usage;
+  - [x] duration;
+  - [x] has tool calls;
+  - [x] `correlation_key`.
+- [x] Ensure segment records include:
+  - [x] `segment_id`;
+  - [x] `segment_type`;
+  - [x] stream kind;
+  - [x] provider-call IDs;
+  - [x] provider-native IDs/indexes;
+  - [x] text length/status;
+  - [x] start/finish record IDs if known.
+- [x] Update inference result builder if needed so `tool_use` maps to `tool_calls_pending` for provider-call result rows.
+- [x] Add tests for inference result and segment observability records.
+- [x] Run `go test ./pkg/observability ./pkg/inference/engine ./pkg/steps/ai/... -count=1`.
 
 ## Phase 7 — Replace Pinocchio protobuf contract
 

@@ -58,8 +58,11 @@ func (e *OpenAIEngine) observePublishStarted(ctx context.Context, event events.E
 		rec.InfoMessage = info.Message
 		applyChatProviderDataToRecord(&rec, info.Data)
 	}
-	applyChatCorrelationToRecord(&rec, event)
+	geppettoobs.EnrichRecordFromEvent(&rec, event)
 	e.observe(ctx, rec)
+	for _, derived := range geppettoobs.DerivedRecordsFromEvent(rec, event) {
+		e.observe(ctx, derived)
+	}
 }
 
 func (e *OpenAIEngine) observeProviderEvent(ctx context.Context, metadata events.EventMetadata, model string, ev chatStreamEvent) {
@@ -100,6 +103,7 @@ func (e *OpenAIEngine) chatProviderRecordBase(metadata events.EventMetadata, mod
 		toolCallIndex = cloneIntPtr(tc.Index)
 	}
 	rec := geppettoobs.Record{
+		Kind:           geppettoobs.RecordKindProviderEvent,
 		Provider:       provider,
 		Model:          model,
 		SessionID:      metadata.SessionID,
@@ -198,54 +202,6 @@ func firstChatToolCall(calls []ChatToolCall) *ChatToolCall {
 
 func chatCorrelationKey(provider, responseID string, choiceIndex *int, streamKind, toolCallID string, toolCallIndex *int) string {
 	return events.BuildChatCompletionsCorrelation(provider, responseID, choiceIndex, streamKind, toolCallID, toolCallIndex).CorrelationKey
-}
-
-func applyChatCorrelationToRecord(rec *geppettoobs.Record, event events.Event) {
-	if rec == nil || event == nil {
-		return
-	}
-	correlated, ok := event.(events.CorrelatedEvent)
-	if !ok {
-		return
-	}
-	corr := correlated.Correlation()
-	if corr.Provider != "" {
-		rec.Provider = corr.Provider
-	}
-	if corr.Model != "" {
-		rec.Model = corr.Model
-	}
-	if corr.ResponseID != "" {
-		rec.ResponseID = corr.ResponseID
-	}
-	if corr.ItemID != "" {
-		rec.ItemID = corr.ItemID
-	}
-	if corr.OutputIndex != nil {
-		v := int(*corr.OutputIndex)
-		rec.OutputIndex = &v
-	}
-	if corr.SummaryIndex != nil {
-		v := int(*corr.SummaryIndex)
-		rec.SummaryIndex = &v
-	}
-	if corr.ChoiceIndex != nil {
-		v := int(*corr.ChoiceIndex)
-		rec.ChoiceIndex = &v
-	}
-	if corr.StreamKind != "" {
-		rec.StreamKind = corr.StreamKind
-	}
-	if corr.CorrelationKey != "" {
-		rec.CorrelationKey = corr.CorrelationKey
-	}
-	if corr.ToolCallID != "" {
-		rec.ToolCallID = corr.ToolCallID
-	}
-	if corr.ToolCallIndex != nil {
-		v := int(*corr.ToolCallIndex)
-		rec.ToolCallIndex = &v
-	}
 }
 
 func applyChatProviderDataToRecord(rec *geppettoobs.Record, data map[string]interface{}) {

@@ -20,6 +20,7 @@ LastUpdated: 2026-05-08T05:55:00-04:00
 
 ## 2026-05-08
 
+- Added canonical observability record kinds/stages for provider-call results and segment lifecycle rows, with typed correlation enrichment across Claude/OpenAI providers.
 - Migrated OpenAI-compatible Chat Completions streaming to canonical provider-call/text/reasoning/tool events and updated observability/tests.
 - Migrated OpenAI Responses streaming and non-streaming paths to canonical provider-call/text/reasoning/tool events and updated tests/observability.
 - Migrated Claude content-block merger to canonical provider-call/text-segment/tool events and updated Claude observability/tests for typed correlation.

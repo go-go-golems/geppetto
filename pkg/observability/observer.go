@@ -4,10 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+
+	"github.com/go-go-golems/geppetto/pkg/events"
 )
 
 // Stage identifies the boundary at which a record was captured.
 type Stage string
+
+type RecordKind string
 
 const (
 	StageProviderRoutedEvent    Stage = "provider_routed_event"
@@ -16,6 +20,18 @@ const (
 	StageGeppettoPublishStarted Stage = "geppetto_publish_started"
 	StageGeppettoPublishDone    Stage = "geppetto_publish_done"
 	StageGeppettoPublishError   Stage = "geppetto_publish_error"
+
+	StageProviderCallResultFinalized Stage = "provider_call_result_finalized"
+	StageSegmentStarted              Stage = "segment_started"
+	StageSegmentUpdated              Stage = "segment_updated"
+	StageSegmentFinished             Stage = "segment_finished"
+)
+
+const (
+	RecordKindProviderEvent      RecordKind = "provider_event"
+	RecordKindCanonicalEvent     RecordKind = "canonical_event"
+	RecordKindProviderCallResult RecordKind = "provider_call_result"
+	RecordKindSegment            RecordKind = "segment"
 )
 
 // Record is the neutral evidence object emitted by Geppetto provider engines.
@@ -32,7 +48,9 @@ type Record struct {
 	TurnID      string `json:"turnId,omitempty"`
 	MessageID   string `json:"messageId,omitempty"`
 
-	Stage       Stage  `json:"stage"`
+	Stage Stage      `json:"stage"`
+	Kind  RecordKind `json:"kind,omitempty"`
+
 	EventType   string `json:"eventType,omitempty"`
 	InfoMessage string `json:"infoMessage,omitempty"`
 
@@ -41,11 +59,29 @@ type Record struct {
 	OutputIndex  *int   `json:"outputIndex,omitempty"`
 	SummaryIndex *int   `json:"summaryIndex,omitempty"`
 
-	ChoiceIndex    *int   `json:"choiceIndex,omitempty"`
-	StreamKind     string `json:"streamKind,omitempty"`
-	CorrelationKey string `json:"correlationKey,omitempty"`
-	ToolCallID     string `json:"toolCallId,omitempty"`
-	ToolCallIndex  *int   `json:"toolCallIndex,omitempty"`
+	RunID             string `json:"runId,omitempty"`
+	ProviderCallID    string `json:"providerCallId,omitempty"`
+	ProviderCallIndex *int   `json:"providerCallIndex,omitempty"`
+
+	ChoiceIndex          *int   `json:"choiceIndex,omitempty"`
+	ContentBlockIndex    *int   `json:"contentBlockIndex,omitempty"`
+	StreamKind           string `json:"streamKind,omitempty"`
+	CorrelationKey       string `json:"correlationKey,omitempty"`
+	ParentCorrelationKey string `json:"parentCorrelationKey,omitempty"`
+	ToolCallID           string `json:"toolCallId,omitempty"`
+	ToolCallIndex        *int   `json:"toolCallIndex,omitempty"`
+
+	SegmentID     string `json:"segmentId,omitempty"`
+	SegmentIndex  *int   `json:"segmentIndex,omitempty"`
+	SegmentType   string `json:"segmentType,omitempty"`
+	SegmentStatus string `json:"segmentStatus,omitempty"`
+	TextLen       int    `json:"textLen,omitempty"`
+
+	StopReason   string        `json:"stopReason,omitempty"`
+	FinishClass  string        `json:"finishClass,omitempty"`
+	Usage        *events.Usage `json:"usage,omitempty"`
+	DurationMs   *int64        `json:"durationMs,omitempty"`
+	HasToolCalls bool          `json:"hasToolCalls,omitempty"`
 
 	ObjectJSON   json.RawMessage `json:"objectJson,omitempty"`
 	EventJSON    json.RawMessage `json:"eventJson,omitempty"`
