@@ -72,6 +72,10 @@ func TestCanonicalEventsRoundTripCorrelation(t *testing.T) {
 			if decoded.Type() != tt.event.Type() {
 				t.Fatalf("type mismatch: got %s want %s", decoded.Type(), tt.event.Type())
 			}
+			if err := ValidateCanonicalEvent(decoded); err != nil {
+				t.Fatalf("validate canonical event: %v", err)
+			}
+
 			correlated, ok := decoded.(CorrelatedEvent)
 			if !ok {
 				t.Fatalf("decoded event %T does not implement CorrelatedEvent", decoded)
@@ -81,5 +85,25 @@ func TestCanonicalEventsRoundTripCorrelation(t *testing.T) {
 				t.Fatalf("correlation mismatch: got %+v want %+v", got, corr)
 			}
 		})
+	}
+}
+
+func TestValidateCanonicalEventRejectsMissingCorrelationFields(t *testing.T) {
+	metadata := EventMetadata{SessionID: "session-1", InferenceID: "inference-1", TurnID: "turn-1"}
+
+	if err := ValidateCanonicalEvent(NewTextDeltaEvent(metadata, Correlation{CorrelationKey: "text"}, "x", "x", 1)); err == nil {
+		t.Fatalf("expected text delta without segment_id to fail validation")
+	}
+
+	if err := ValidateCanonicalEvent(NewProviderCallFinishedEvent(metadata, Correlation{CorrelationKey: "provider"}, "end_turn", "completed", nil, nil, false)); err == nil {
+		t.Fatalf("expected provider finish without provider_call_id to fail validation")
+	}
+
+	if err := ValidateCanonicalEvent(NewToolCallRequestedEvent(metadata, Correlation{CorrelationKey: "tool"}, "", "sql_doc", "{}")); err == nil {
+		t.Fatalf("expected tool request without tool_call_id to fail validation")
+	}
+
+	if err := ValidateCanonicalEvent(NewTextDeltaEvent(metadata, Correlation{SegmentID: "segment-1"}, "x", "x", 1)); err == nil {
+		t.Fatalf("expected text delta without correlation_key to fail validation")
 	}
 }

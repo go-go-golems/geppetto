@@ -129,12 +129,13 @@ Goal: define the new vocabulary and typed identity envelope before provider adap
   - [ ] legacy `EventToolCall` if replaced by `EventToolCallRequested`.
 - [ ] Update `NewEventFromJson` / event decoding to use only canonical event type strings.
   - [x] Add `NewEventFromJson` decoding support for canonical event type strings while legacy events still exist during staged implementation.
+- [x] Add canonical validation guard for typed-correlation invariants (`ValidateCanonicalEvent`).
 - [ ] Update event printer/structured sinks so canonical events render clearly.
 - [x] Add Geppetto event serialization tests:
   - [x] every event round-trips through JSON;
   - [x] every event preserves `Correlation`;
   - [x] provider-call events do not have text payloads in the new event structs;
-  - [ ] text segment events require `SegmentID` and `CorrelationKey`.
+  - [x] text segment events require `SegmentID` and `CorrelationKey` via `ValidateCanonicalEvent`.
 - [x] Run `go test ./pkg/events/... -count=1`.
 
 ## Phase 2 — Geppetto correlation builders and invariants

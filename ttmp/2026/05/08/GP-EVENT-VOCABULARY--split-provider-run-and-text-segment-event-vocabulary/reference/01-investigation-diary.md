@@ -443,3 +443,27 @@ Both passed.
 ### Notes
 
 This commit intentionally adds canonical types before removing legacy event producers/consumers. The hard cutover remains the final target; old events still exist until provider adapters and downstream consumers are migrated in later phases.
+
+## 2026-05-08 06:25 — Phase 1 guard: canonical correlation validation
+
+### What changed
+
+Added `pkg/events/correlation_validation.go` with `ValidateCanonicalEvent(event Event) error`.
+
+The validation guard currently enforces:
+
+- every canonical event implements `CorrelatedEvent`;
+- every canonical event has a typed `correlation_key`;
+- provider-call events have `provider_call_id`;
+- text/reasoning segment events have `segment_id`;
+- tool lifecycle events have `tool_call_id`.
+
+This gives provider adapters and downstream bridges a single guard to call during hard cutover and documents the invariant in executable tests.
+
+### Validation
+
+```bash
+go test ./pkg/events -count=1
+```
+
+Passed.
