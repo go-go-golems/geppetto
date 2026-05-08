@@ -79,7 +79,7 @@ func newTextCorr(meta events.EventMetadata) events.Correlation {
 	providerCorr := events.BuildProviderCallCorrelation("test", meta.InferenceID, "", 0, "")
 	providerCorr.SessionID = meta.SessionID
 	providerCorr.TurnID = meta.TurnID
-	return events.BuildSegmentCorrelation(providerCorr, "", 0, events.SegmentTypeText)
+	return events.BuildSegmentCorrelation(providerCorr, meta.ID.String(), 0, events.SegmentTypeText)
 }
 
 func newTextDeltaEvent(meta events.EventMetadata, delta, text string) *events.EventTextDelta {

@@ -59,9 +59,10 @@ func TestFilteringSink_ContextLifecycle(t *testing.T) {
 
 	// First partial creates stream state and stream context
 	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(meta, "x", "x")))
+	corr := newTextCorr(meta)
 
 	// Access internal state for this stream
-	st := sink.getState(meta)
+	st := sink.getState(meta, corr)
 	require.NotNil(t, st)
 	require.NotNil(t, st.ctx)
 
@@ -85,7 +86,7 @@ func TestFilteringSink_ContextLifecycle(t *testing.T) {
 
 	// State removed from map
 	sink.mu.Lock()
-	_, ok := sink.byStreamID[id]
+	_, ok := sink.byStreamID[streamStateKey(meta, corr)]
 	sink.mu.Unlock()
 	require.False(t, ok, "stream state should be deleted after final")
 }

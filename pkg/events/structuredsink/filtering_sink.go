@@ -80,7 +80,7 @@ type FilteringSink struct {
 	opts       Options
 	exByKey    map[string]Extractor // key: package+"\x00"+type+"\x00"+version
 	mu         sync.Mutex
-	byStreamID map[uuid.UUID]*streamState
+	byStreamID map[string]*streamState
 	baseCtx    context.Context
 }
 
@@ -95,7 +95,7 @@ func NewFilteringSink(next events.EventSink, opts Options, extractors ...Extract
 		next:       next,
 		opts:       o,
 		exByKey:    ex,
-		byStreamID: make(map[uuid.UUID]*streamState),
+		byStreamID: make(map[string]*streamState),
 		baseCtx:    context.Background(),
 	}
 }
@@ -116,7 +116,7 @@ func NewFilteringSinkWithContext(ctx context.Context, next events.EventSink, opt
 		next:       next,
 		opts:       o,
 		exByKey:    ex,
-		byStreamID: make(map[uuid.UUID]*streamState),
+		byStreamID: make(map[string]*streamState),
 		baseCtx:    ctx,
 	}
 }
@@ -127,7 +127,7 @@ func extractorKey(pkg, typ, ver string) string { return pkg + "\x00" + typ + "\x
 
 // Parser state per message stream
 type streamState struct {
-	id uuid.UUID
+	id string
 	// contexts: stream-scoped and current item-scoped
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -190,23 +190,35 @@ func (f *FilteringSink) PublishEvent(ev events.Event) error {
 	return f.next.PublishEvent(ev)
 }
 
-func (f *FilteringSink) getState(meta events.EventMetadata) *streamState {
+func streamStateKey(meta events.EventMetadata, corr events.Correlation) string {
+	if corr.SegmentID != "" {
+		return corr.SegmentID
+	}
+	if corr.CorrelationKey != "" {
+		return corr.CorrelationKey
+	}
+	return meta.ID.String()
+}
+
+func (f *FilteringSink) getState(meta events.EventMetadata, corr events.Correlation) *streamState {
+	key := streamStateKey(meta, corr)
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	st, ok := f.byStreamID[meta.ID]
+	st, ok := f.byStreamID[key]
 	if !ok {
-		st = &streamState{id: meta.ID}
+		st = &streamState{id: key}
 		// #nosec G118 -- stream context is canceled in deleteState when the stream finalizes.
 		st.ctx, st.cancel = context.WithCancel(f.baseCtx)
-		f.byStreamID[meta.ID] = st
+		f.byStreamID[key] = st
 	}
 	return st
 }
 
-func (f *FilteringSink) deleteState(meta events.EventMetadata) {
+func (f *FilteringSink) deleteState(meta events.EventMetadata, corr events.Correlation) {
+	key := streamStateKey(meta, corr)
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if st, ok := f.byStreamID[meta.ID]; ok {
+	if st, ok := f.byStreamID[key]; ok {
 		if st.itemCancel != nil {
 			st.itemCancel()
 			st.itemCancel = nil
@@ -214,7 +226,7 @@ func (f *FilteringSink) deleteState(meta events.EventMetadata) {
 		if st.cancel != nil {
 			st.cancel()
 		}
-		delete(f.byStreamID, meta.ID)
+		delete(f.byStreamID, key)
 	}
 }
 
@@ -273,7 +285,7 @@ func (f *FilteringSink) handlePartial(ev events.Event) error {
 	}
 	_ = fullText
 
-	st := f.getState(meta)
+	st := f.getState(meta, corr)
 	if f.opts.Debug {
 		log.Trace().Str("stream", meta.ID.String()).Str("event", "partial").Str("delta", delta).Msg("incoming")
 	}
@@ -309,7 +321,7 @@ func (f *FilteringSink) handleFinal(ev events.Event) error {
 	if fe, ok := ev.(*events.EventTextSegmentFinished); ok {
 		meta := fe.Metadata()
 		corr := fe.Correlation()
-		st := f.getState(meta)
+		st := f.getState(meta, corr)
 		// Process only the raw tail we haven't seen via deltas.
 		full := fe.Text
 		prefix := st.rawSeen.String()
@@ -331,7 +343,7 @@ func (f *FilteringSink) handleFinal(ev events.Event) error {
 			_ = f.publishAll(st.ctx, meta, typed)
 		}
 		out := events.NewTextSegmentFinishedEvent(meta, corr, st.filteredCompletion.String(), fe.FinishReason)
-		f.deleteState(meta)
+		f.deleteState(meta, corr)
 		return f.next.PublishEvent(out)
 	}
 

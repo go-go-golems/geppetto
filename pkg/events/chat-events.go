@@ -101,7 +101,9 @@ type Event interface {
 	Payload() []byte
 }
 
-// MetadataSettingsSlug retained for compatibility in EventMetadata.Extra
+// MetadataSettingsSlug is the debug metadata key used to attach resolved
+// inference settings to EventMetadata.Extra. Extra is debug-only and must not be
+// used for routing or joining canonical events.
 const MetadataSettingsSlug = "settings"
 
 type EventImpl struct {

@@ -864,3 +864,30 @@ The active-runtime deletion scan returned no matches, and `go test ./... -count=
 ### Remaining work
 
 Old event names still appear in historical docs, archived ticket notes, and a few documentation examples. They no longer compile as active runtime symbols. The remaining cleanup is documentation-only unless downstream repos still mirror old names.
+
+## 2026-05-08 08:55 — Cleaned up post-cutover event leftovers
+
+### What changed
+
+After the legacy event deletion commit, I did a small simplification pass over code that had become stale:
+
+- removed the unused `ChatEventHandler` interface and its stale comments from `pkg/events/event-router.go`;
+- removed the unused `pkg/events/tool_aggregator.go` helper after confirming no active references to `ToolEventAggregator` / `NewToolEventAggregator` remained;
+- renamed `pkg/events/text_events.go` to `pkg/events/error_events.go`, because the old file now only contains `EventError` and `EventInterrupt`;
+- updated `FilteringSink` to key stream state by canonical text segment correlation (`SegmentID`, then `CorrelationKey`) with `EventMetadata.ID` only as a fallback;
+- refreshed stale comments around `MetadataSettingsSlug` and printer summary metadata so they no longer imply legacy compatibility/start events.
+
+### Validation
+
+Commands run:
+
+```bash
+cd geppetto
+rg "ChatEventHandler|ToolEventAggregator|NewToolEventAggregator|tool_aggregator|text_events\.go|getState\(meta\)|deleteState\(meta\)|byStreamID\[id\]" -n --glob '!ttmp/**'
+rg "MetadataSettingsSlug retained|start-like content|compatibility in EventMetadata.Extra" pkg/events -n
+
+go test ./pkg/events/... -count=1
+go test ./... -count=1
+```
+
+The cleanup scans returned no matches and the tests passed.

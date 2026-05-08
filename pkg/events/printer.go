@@ -234,7 +234,7 @@ func handleStructuredFormat(w io.Writer, e Event, options PrinterOptions, marsha
 func extractImportantMetadata(metadata EventMetadata) map[string]interface{} {
 
 	//nolint:exhaustive
-	// provide a compact subset for start-like content
+	// provide a compact subset for lifecycle summary output
 	{
 		result := map[string]interface{}{
 			"model": metadata.Model,
