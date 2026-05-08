@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/go-go-golems/geppetto/pkg/events"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	aisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	claudesettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
@@ -223,9 +224,12 @@ func TestClaudeObservabilityCapturesPublishStartedAndProviderRecords(t *testing.
 	if deltaRec == nil || deltaRec.OutputIndex == nil || *deltaRec.OutputIndex != 0 || deltaRec.DeltaLen != len("pong") {
 		t.Fatalf("delta provider record missing index or length: %#v", deltaRec)
 	}
-	started := findClaudeRecord(records, geppettoobs.StageGeppettoPublishStarted, "final")
+	started := findClaudeRecord(records, geppettoobs.StageGeppettoPublishStarted, string(events.EventTypeProviderCallFinished))
 	if started == nil {
-		t.Fatalf("missing final publish-started record in %#v", records)
+		t.Fatalf("missing provider-call-finished publish-started record in %#v", records)
+	}
+	if started.CorrelationKey == "" {
+		t.Fatalf("provider-call-finished record missing correlation key: %#v", started)
 	}
 	if len(started.EventJSON) != 0 || len(started.MetadataJSON) != 0 {
 		t.Fatalf("publish-started should be compact: %#v", started)
@@ -249,8 +253,8 @@ func TestClaudeObservabilityEventsLevelSkipsProviderRecords(t *testing.T) {
 	if rec := findClaudeRecord(records, geppettoobs.StageProviderRoutedEvent, "message_start"); rec != nil {
 		t.Fatalf("did not expect provider record at events trace level: %#v", rec)
 	}
-	if rec := findClaudeRecord(records, geppettoobs.StageGeppettoPublishStarted, "final"); rec == nil {
-		t.Fatalf("expected final publish-started record in %#v", records)
+	if rec := findClaudeRecord(records, geppettoobs.StageGeppettoPublishStarted, string(events.EventTypeProviderCallFinished)); rec == nil {
+		t.Fatalf("expected provider-call-finished publish-started record in %#v", records)
 	}
 }
 

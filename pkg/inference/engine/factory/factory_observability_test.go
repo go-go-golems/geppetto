@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/go-go-golems/geppetto/pkg/events"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
@@ -164,11 +165,11 @@ func TestStandardEngineFactory_WithClaudeOptionsPassesObservabilityOptions(t *te
 		if rec.Stage == geppettoobs.StageProviderRoutedEvent {
 			t.Fatalf("TraceEvents should not emit provider records: %#v", rec)
 		}
-		if rec.Stage == geppettoobs.StageGeppettoPublishStarted && rec.EventType == "final" && rec.TurnID == "turn_claude_factory" {
+		if rec.Stage == geppettoobs.StageGeppettoPublishStarted && rec.EventType == string(events.EventTypeProviderCallFinished) && rec.TurnID == "turn_claude_factory" {
 			sawStarted = true
 		}
 	}
 	if !sawStarted {
-		t.Fatalf("factory-created Claude engine did not emit final publish-started record: %#v", records)
+		t.Fatalf("factory-created Claude engine did not emit provider-call-finished publish-started record: %#v", records)
 	}
 }

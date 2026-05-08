@@ -33,6 +33,9 @@ type ContentBlockMerger struct {
 	contentBlocks map[int]*api.ContentBlock
 	inputTokens   int // Track input tokens from start event
 	startTime     time.Time
+
+	providerCallIndex int
+	providerCallCorr  events.Correlation
 }
 
 func NewContentBlockMerger(metadata events.EventMetadata) *ContentBlockMerger {
@@ -77,6 +80,35 @@ func (cbm *ContentBlockMerger) Metadata() events.EventMetadata {
 
 func (cbm *ContentBlockMerger) Error() *api.Error {
 	return cbm.error
+}
+
+func (cbm *ContentBlockMerger) providerCallCorrelation() events.Correlation {
+	if cbm.providerCallCorr.CorrelationKey != "" {
+		return cbm.providerCallCorr
+	}
+	return events.BuildProviderCallCorrelation("claude", cbm.metadata.InferenceID, "", cbm.providerCallIndex, "")
+}
+
+func (cbm *ContentBlockMerger) contentBlockCorrelation(index int, segmentType string) events.Correlation {
+	providerCallID := cbm.providerCallCorrelation().ProviderCallID
+	if providerCallID == "" && cbm.response != nil {
+		providerCallID = cbm.response.ID
+	}
+	return events.BuildClaudeSegmentCorrelation("claude", providerCallID, index, segmentType)
+}
+
+func inputString(input any) string {
+	if input == nil {
+		return ""
+	}
+	if str, ok := input.(string); ok {
+		return str
+	}
+	inputBytes, err := json.Marshal(input)
+	if err != nil {
+		return ""
+	}
+	return string(inputBytes)
 }
 
 func (cbm *ContentBlockMerger) stopReasonIsToolUse() bool {
@@ -176,7 +208,10 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		// engine removed; model is sufficient
 		cbm.updateUsage(event)
 
-		return []events.Event{events.NewStartEvent(cbm.metadata)}, nil
+		cbm.providerCallCorr = events.BuildClaudeProviderCallCorrelation("claude", event.Message.ID, cbm.providerCallIndex)
+		cbm.providerCallCorr.InferenceID = cbm.metadata.InferenceID
+		cbm.providerCallCorr.Model = event.Message.Model
+		return []events.Event{events.NewProviderCallStartedEvent(cbm.metadata, cbm.providerCallCorr)}, nil
 
 	case api.MessageDeltaType:
 		if event.Delta == nil {
@@ -204,12 +239,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 
 		cbm.updateUsage(event)
 
-		// Anthropic message_delta events can carry message-level metadata such as
-		// stop_reason and usage without carrying new text. Text is emitted from
-		// content_block_delta/content_block_stop events; emitting the accumulated
-		// text again here causes downstream consumers to create a duplicate text
-		// segment before tool execution.
-		return []events.Event{}, nil
+		return []events.Event{events.NewProviderCallMetadataUpdatedEvent(cbm.metadata, cbm.providerCallCorrelation(), event.Delta.StopReason, event.Delta.StopSequence, cbm.metadata.Usage)}, nil
 
 	case api.MessageStopType:
 		if cbm.response == nil {
@@ -240,15 +270,11 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		dm := int64(d)
 		cbm.metadata.DurationMs = &dm
 
-		if cbm.stopReasonIsToolUse() {
-			// For Claude tool-use turns, the preceding text block has already been
-			// streamed and block-finalized before the tool_use block. The
-			// message_stop event closes the provider message envelope; publishing a
-			// final event here causes downstream consumers to finalize the cached
-			// text as a new assistant segment after the tool call.
-			return []events.Event{}, nil
+		stopReason := ""
+		if cbm.metadata.StopReason != nil {
+			stopReason = *cbm.metadata.StopReason
 		}
-		return []events.Event{events.NewFinalEvent(cbm.metadata, cbm.Text())}, nil
+		return []events.Event{events.NewProviderCallFinishedEvent(cbm.metadata, cbm.providerCallCorrelation(), stopReason, "", cbm.metadata.Usage, cbm.metadata.DurationMs, cbm.stopReasonIsToolUse())}, nil
 
 	case api.ContentBlockStartType:
 		if cbm.response == nil {
@@ -265,8 +291,18 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		}
 		cbm.contentBlocks[event.Index] = event.ContentBlock
 
-		// TODO(manuel, 2024-07-04) We should have a proper BlockStart message here
-		return []events.Event{}, nil
+		switch event.ContentBlock.Type {
+		case api.ContentTypeText:
+			return []events.Event{events.NewTextSegmentStartedEvent(cbm.metadata, cbm.contentBlockCorrelation(event.Index, events.SegmentTypeText), cbm.response.Role)}, nil
+		case api.ContentTypeToolUse:
+			corr := cbm.contentBlockCorrelation(event.Index, events.SegmentTypeTool)
+			corr.ToolCallID = event.ContentBlock.ID
+			return []events.Event{events.NewToolCallStartedEvent(cbm.metadata, corr, event.ContentBlock.ID, event.ContentBlock.Name)}, nil
+		case api.ContentTypeImage, api.ContentTypeToolResult:
+			return []events.Event{}, nil
+		default:
+			return []events.Event{}, nil
+		}
 
 	case api.ContentBlockDeltaType:
 		if cbm.response == nil {
@@ -287,7 +323,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		case api.TextDeltaType:
 			delta = event.Delta.Text
 			cb.Text += event.Delta.Text
-			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, delta, cbm.Text())}, nil
+			return []events.Event{events.NewTextDeltaEvent(cbm.metadata, cbm.contentBlockCorrelation(event.Index, events.SegmentTypeText), delta, cb.Text, 0)}, nil
 		case api.InputJSONDeltaType:
 			delta = event.Delta.PartialJSON
 			// Append to existing input string for tool use
@@ -296,8 +332,9 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			} else {
 				cb.Input = event.Delta.PartialJSON
 			}
-			// TODO(manuel, 2024-07-04) This is where we would do partial tool call streaming
-			_ = delta
+			corr := cbm.contentBlockCorrelation(event.Index, events.SegmentTypeTool)
+			corr.ToolCallID = cb.ID
+			return []events.Event{events.NewToolCallArgumentsDeltaEvent(cbm.metadata, corr, cb.ID, delta, inputString(cb.Input), 0)}, nil
 		}
 		return []events.Event{}, nil
 
@@ -312,8 +349,7 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		switch cb.Type {
 		case api.ContentTypeText:
 			cbm.response.Content = append(cbm.response.Content, api.NewTextContent(cb.Text))
-			// TODO(manuel, 2024-07-04) This shoudl be some sort of block stop type
-			return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, "", cbm.Text())}, nil
+			return []events.Event{events.NewTextSegmentFinishedEvent(cbm.metadata, cbm.contentBlockCorrelation(event.Index, events.SegmentTypeText), cb.Text, "content_block_stop")}, nil
 
 		case api.ContentTypeToolUse:
 			// Convert Input to string for API compatibility
@@ -329,11 +365,9 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 				}
 			}
 			cbm.response.Content = append(cbm.response.Content, api.NewToolUseContent(cb.ID, cb.Name, inputStr))
-			return []events.Event{events.NewToolCallEvent(cbm.metadata, events.ToolCall{
-				ID:    cb.ID,
-				Name:  cb.Name,
-				Input: inputStr,
-			})}, nil
+			corr := cbm.contentBlockCorrelation(event.Index, events.SegmentTypeTool)
+			corr.ToolCallID = cb.ID
+			return []events.Event{events.NewToolCallRequestedEvent(cbm.metadata, corr, cb.ID, cb.Name, inputStr)}, nil
 
 		case api.ContentTypeImage, api.ContentTypeToolResult:
 			return nil, errors.Errorf("Unsupported content block type: %s", cb.Type)

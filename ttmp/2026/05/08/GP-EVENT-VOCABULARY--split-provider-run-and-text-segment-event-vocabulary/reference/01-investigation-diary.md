@@ -503,3 +503,32 @@ various/phase-2/metadata-extra-routing-inventory.txt
 ```
 
 The canonical `pkg/events` package has no `metadata.Extra` references. Remaining provider adapter references are legacy/debug metadata and will be retired as providers migrate to canonical events.
+
+## 2026-05-08 07:20 — Phase 3 started: Claude emits canonical provider/segment/tool events
+
+### What changed
+
+Migrated `pkg/steps/ai/claude/content-block-merger.go` from legacy transcript events to canonical vocabulary:
+
+- `message_start` now emits `EventProviderCallStarted`;
+- `message_delta` now emits `EventProviderCallMetadataUpdated`;
+- `message_stop` now emits `EventProviderCallFinished` for both `end_turn` and `tool_use`;
+- text content-block start/delta/stop now emit `EventTextSegmentStarted`, `EventTextDelta`, and `EventTextSegmentFinished`;
+- tool-use block start/input-json/stop now emit `EventToolCallStarted`, `EventToolCallArgumentsDelta`, and `EventToolCallRequested`.
+
+The previous Claude duplicate-text guard is now represented semantically: a `tool_use` `message_stop` finishes the provider call, not a text segment. No empty text finalizer is manufactured.
+
+Updated Claude observability so publish-started records read typed `events.Correlation` from canonical events rather than relying on `metadata.Extra` for correlation fields.
+
+### Validation
+
+```bash
+go test ./pkg/steps/ai/claude -count=1
+go test ./pkg/steps/ai/... -count=1
+```
+
+Both passed.
+
+### Caveat
+
+This is a Geppetto-side hard-cutover step. Pinocchio still needs its protobuf/runtime migration before browser consumers can process the new Claude event vocabulary end-to-end.

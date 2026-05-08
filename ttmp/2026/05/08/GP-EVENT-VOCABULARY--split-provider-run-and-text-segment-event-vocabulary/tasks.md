@@ -172,49 +172,49 @@ Goal: centralize identity construction so providers do not each invent ad hoc me
 
 Goal: use Claude's clean envelope/content-block distinction as the first proof of the new vocabulary.
 
-- [ ] Update `pkg/steps/ai/claude/content-block-merger.go` to maintain provider-call state:
-  - [ ] active `ProviderCallID`;
-  - [ ] `ProviderCallIndex`;
-  - [ ] provider `response_id` from `message_start.message.id`;
-  - [ ] current stop reason;
-  - [ ] current stop sequence;
-  - [ ] latest usage;
-  - [ ] duration.
-- [ ] Emit `EventProviderCallStarted` for `message_start`.
-- [ ] Emit `EventProviderCallMetadataUpdated` for `message_delta`.
-- [ ] Emit `EventProviderCallFinished` for `message_stop`.
-- [ ] Ensure `message_delta` emits no text event.
-- [ ] Ensure `message_stop` emits no text event.
-- [ ] Update text block handling:
-  - [ ] `content_block_start type=text` emits `EventTextSegmentStarted`;
-  - [ ] `content_block_delta type=text_delta` emits `EventTextDelta`;
-  - [ ] `content_block_stop type=text` emits `EventTextSegmentFinished`.
-- [ ] Update tool-use block handling:
-  - [ ] `content_block_start type=tool_use` emits `EventToolCallStarted`;
-  - [ ] `content_block_delta type=input_json_delta` emits `EventToolCallArgumentsDelta`;
-  - [ ] `content_block_stop type=tool_use` emits `EventToolCallRequested`.
-- [ ] Ensure Claude correlation fields are populated on every event:
-  - [ ] `provider=claude`;
-  - [ ] `model`;
-  - [ ] `provider_call_id`;
-  - [ ] `provider_call_index`;
-  - [ ] `response_id` when known;
-  - [ ] `content_block_index` for block events;
-  - [ ] `segment_id` for text/reasoning segments;
-  - [ ] `tool_call_id` for tool-use blocks;
-  - [ ] `correlation_key`;
-  - [ ] `parent_correlation_key`.
-- [ ] Update `pkg/steps/ai/claude/engine_claude.go` to publish canonical events only.
-- [ ] Preserve canonical inference-result persistence from provider-call metadata:
-  - [ ] tool-use call persists/exports `stop_reason=tool_use`;
-  - [ ] final call persists/exports `stop_reason=end_turn` or provider equivalent.
-- [ ] Update Claude tests:
-  - [ ] text-only stream;
-  - [ ] text -> tool_use -> `message_stop`;
-  - [ ] text -> tool_use -> next provider call -> text -> end_turn;
-  - [ ] metadata-only `message_delta` retains usage and stop reason;
-  - [ ] no `EventTextSegmentFinished` is emitted from `message_stop`.
-- [ ] Run `go test ./pkg/steps/ai/claude -count=1`.
+- [x] Update `pkg/steps/ai/claude/content-block-merger.go` to maintain provider-call state:
+  - [x] active `ProviderCallID`;
+  - [x] `ProviderCallIndex`;
+  - [x] provider `response_id` from `message_start.message.id`;
+  - [x] current stop reason;
+  - [x] current stop sequence;
+  - [x] latest usage;
+  - [x] duration.
+- [x] Emit `EventProviderCallStarted` for `message_start`.
+- [x] Emit `EventProviderCallMetadataUpdated` for `message_delta`.
+- [x] Emit `EventProviderCallFinished` for `message_stop`.
+- [x] Ensure `message_delta` emits no text event.
+- [x] Ensure `message_stop` emits no text event.
+- [x] Update text block handling:
+  - [x] `content_block_start type=text` emits `EventTextSegmentStarted`;
+  - [x] `content_block_delta type=text_delta` emits `EventTextDelta`;
+  - [x] `content_block_stop type=text` emits `EventTextSegmentFinished`.
+- [x] Update tool-use block handling:
+  - [x] `content_block_start type=tool_use` emits `EventToolCallStarted`;
+  - [x] `content_block_delta type=input_json_delta` emits `EventToolCallArgumentsDelta`;
+  - [x] `content_block_stop type=tool_use` emits `EventToolCallRequested`.
+- [x] Ensure Claude correlation fields are populated on every event:
+  - [x] `provider=claude`;
+  - [x] `model`;
+  - [x] `provider_call_id`;
+  - [x] `provider_call_index`;
+  - [x] `response_id` when known;
+  - [x] `content_block_index` for block events;
+  - [x] `segment_id` for text/reasoning segments;
+  - [x] `tool_call_id` for tool-use blocks;
+  - [x] `correlation_key`;
+  - [x] `parent_correlation_key`.
+- [x] Update `pkg/steps/ai/claude/engine_claude.go` to publish canonical events only.
+- [x] Preserve canonical inference-result persistence from provider-call metadata:
+  - [x] tool-use call persists/exports `stop_reason=tool_use`;
+  - [x] final call persists/exports `stop_reason=end_turn` or provider equivalent.
+- [x] Update Claude tests:
+  - [x] text-only stream;
+  - [x] text -> tool_use -> `message_stop`;
+  - [x] text -> tool_use -> next provider call -> text -> end_turn;
+  - [x] metadata-only `message_delta` retains usage and stop reason;
+  - [x] no `EventTextSegmentFinished` is emitted from `message_stop`.
+- [x] Run `go test ./pkg/steps/ai/claude -count=1`.
 
 ## Phase 4 — Migrate OpenAI Responses
 

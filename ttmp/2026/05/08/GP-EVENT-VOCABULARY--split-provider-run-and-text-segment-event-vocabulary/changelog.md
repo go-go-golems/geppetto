@@ -20,6 +20,7 @@ LastUpdated: 2026-05-08T05:55:00-04:00
 
 ## 2026-05-08
 
+- Migrated Claude content-block merger to canonical provider-call/text-segment/tool events and updated Claude observability/tests for typed correlation.
 - Started Phase 2 by centralizing provider-call, segment, Chat Completions, Responses, and Claude correlation builders; OpenAI observability helpers now delegate to shared builders.
 - Added `ValidateCanonicalEvent` to enforce canonical typed-correlation invariants for provider-call, segment, and tool events.
 - Began Phase 1 by adding canonical Geppetto `Correlation` and run/provider-call/text/reasoning/tool event structs with JSON round-trip tests; `go test ./pkg/events/... -count=1` passed.
