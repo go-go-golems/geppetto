@@ -220,31 +220,31 @@ Goal: use Claude's clean envelope/content-block distinction as the first proof o
 
 Goal: map Responses item lifecycle to text/reasoning/tool segments and provider response lifecycle to provider-call events.
 
-- [ ] Update `pkg/steps/ai/openai_responses/streaming.go` to create a provider-call correlation before processing stream events.
-- [ ] Emit `EventProviderCallStarted` at response creation / first provider event.
-- [ ] Preserve provider `response_id` once known and update subsequent correlation.
-- [ ] Map text items:
-  - [ ] `response.output_item.added type=message` emits `EventTextSegmentStarted` when it represents text output;
-  - [ ] `response.output_text.delta` emits `EventTextDelta`;
-  - [ ] `response.output_item.done type=message` emits `EventTextSegmentFinished`.
-- [ ] Map reasoning items:
-  - [ ] reasoning item start emits `EventReasoningSegmentStarted`;
-  - [ ] reasoning text/summary deltas emit `EventReasoningDelta`;
-  - [ ] reasoning item/summary completion emits `EventReasoningSegmentFinished`.
-- [ ] Map function calls:
-  - [ ] function-call argument deltas emit `EventToolCallArgumentsDelta` when available;
-  - [ ] completed function-call item emits `EventToolCallRequested`.
-- [ ] Map `response.completed` to `EventProviderCallFinished` only.
-- [ ] Ensure `response.completed` never emits text segment finished unless an actual text item remains unclosed due to provider stream shape; if such a fallback is necessary, make it explicit and test it as text-item closure, not provider-final closure.
-- [ ] Update `pkg/steps/ai/openai_responses/observability.go` to fill typed correlation rather than map-only provider data.
-- [ ] Update Responses tests for:
-  - [ ] text-only response;
-  - [ ] reasoning response;
-  - [ ] function-call response;
-  - [ ] text + function-call response;
-  - [ ] `response.completed` no duplicate text finalization;
-  - [ ] correlation key stability by item ID and output index.
-- [ ] Run `go test ./pkg/steps/ai/openai_responses -count=1`.
+- [x] Update `pkg/steps/ai/openai_responses/streaming.go` to create a provider-call correlation before processing stream events.
+- [x] Emit `EventProviderCallStarted` at response creation / first provider event.
+- [x] Preserve provider `response_id` once known and update subsequent correlation.
+- [x] Map text items:
+  - [x] `response.output_item.added type=message` emits `EventTextSegmentStarted` when it represents text output;
+  - [x] `response.output_text.delta` emits `EventTextDelta`;
+  - [x] `response.output_item.done type=message` emits `EventTextSegmentFinished`.
+- [x] Map reasoning items:
+  - [x] reasoning item start emits `EventReasoningSegmentStarted`;
+  - [x] reasoning text/summary deltas emit `EventReasoningDelta`;
+  - [x] reasoning item/summary completion emits `EventReasoningSegmentFinished`.
+- [x] Map function calls:
+  - [x] function-call argument deltas emit `EventToolCallArgumentsDelta` when available;
+  - [x] completed function-call item emits `EventToolCallRequested`.
+- [x] Map `response.completed` to `EventProviderCallFinished` only.
+- [x] Ensure `response.completed` never emits text segment finished unless an actual text item remains unclosed due to provider stream shape; if such a fallback is necessary, make it explicit and test it as text-item closure, not provider-final closure.
+- [x] Update `pkg/steps/ai/openai_responses/observability.go` to fill typed correlation rather than map-only provider data.
+- [x] Update Responses tests for:
+  - [x] text-only response;
+  - [x] reasoning response;
+  - [x] function-call response;
+  - [x] text + function-call response;
+  - [x] `response.completed` no duplicate text finalization;
+  - [x] correlation key stability by item ID and output index.
+- [x] Run `go test ./pkg/steps/ai/openai_responses -count=1`.
 
 ## Phase 5 — Migrate OpenAI-compatible Chat Completions
 

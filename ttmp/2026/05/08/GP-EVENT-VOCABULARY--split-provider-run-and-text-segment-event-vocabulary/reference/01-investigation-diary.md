@@ -532,3 +532,33 @@ Both passed.
 ### Caveat
 
 This is a Geppetto-side hard-cutover step. Pinocchio still needs its protobuf/runtime migration before browser consumers can process the new Claude event vocabulary end-to-end.
+
+## 2026-05-08 08:15 — Phase 4: OpenAI Responses emits canonical provider/segment/tool events
+
+### What changed
+
+Migrated `pkg/steps/ai/openai_responses/streaming.go` to canonical event vocabulary:
+
+- starts each provider call with `EventProviderCallStarted` using a response-ID-independent provider-call correlation;
+- maps message output items to `EventTextSegmentStarted`, `EventTextDelta`, and `EventTextSegmentFinished`;
+- maps reasoning output items and reasoning summaries/text to `EventReasoningSegmentStarted`, `EventReasoningDelta`, and `EventReasoningSegmentFinished`;
+- maps function-call lifecycle to `EventToolCallStarted`, `EventToolCallArgumentsDelta`, and `EventToolCallRequested`;
+- maps `response.completed` / end-of-stream completion to `EventProviderCallFinished` only;
+- removed streaming use of legacy `EventPartialCompletion`, `EventThinkingPartial`, `EventToolCall`, and `EventFinal`.
+
+Also migrated `pkg/steps/ai/openai_responses/nonstreaming.go` so non-streaming Responses outputs publish canonical provider-call, text, and reasoning events rather than a legacy final event.
+
+Updated `pkg/steps/ai/openai_responses/observability.go` so publish records populate debug correlation fields from typed `events.Correlation` on canonical events.
+
+### Validation
+
+```bash
+go test ./pkg/steps/ai/openai_responses -count=1
+go test ./pkg/steps/ai/... -count=1
+```
+
+Both passed.
+
+### Notes
+
+OpenAI Responses still persists assistant/reasoning/tool blocks into the returned `turns.Turn` as before. The event stream, however, now separates provider-call lifecycle from transcript text/reasoning/tool segment lifecycle.

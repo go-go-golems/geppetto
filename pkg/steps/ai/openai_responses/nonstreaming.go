@@ -47,6 +47,24 @@ func (e *Engine) runNonStreamingInference(ctx context.Context, t *turns.Turn, ht
 	if err := json.Unmarshal(rawResponse, &rr); err != nil {
 		return nil, err
 	}
+	inferenceScopeID := metadata.InferenceID
+	if inferenceScopeID == "" {
+		inferenceScopeID = metadata.ID.String()
+	}
+	providerCallCorr := events.BuildProviderCallCorrelation("openai_responses", inferenceScopeID, "", 0, rr.ID)
+	e.publishEvent(ctx, events.NewProviderCallStartedEvent(metadata, providerCallCorr))
+	segmentCorr := func(itemID string, outputIndex *int, segmentType string) events.Correlation {
+		corr := events.BuildResponsesCorrelation("openai_responses", rr.ID, itemID, outputIndex, nil)
+		corr.ProviderCallID = providerCallCorr.ProviderCallID
+		corr.ProviderCallIndex = providerCallCorr.ProviderCallIndex
+		corr.ParentCorrelationKey = providerCallCorr.CorrelationKey
+		corr.SegmentType = segmentType
+		corr.StreamKind = streamKindForResponsesSegment(segmentType)
+		if corr.SegmentID == "" && corr.CorrelationKey != "" {
+			corr.SegmentID = corr.CorrelationKey
+		}
+		return corr
+	}
 	var message string
 	latestMessageItemID := ""
 	var latestMessageOutputIndex *int
@@ -56,6 +74,7 @@ func (e *Engine) runNonStreamingInference(ctx context.Context, t *turns.Turn, ht
 		// Capture reasoning items (non-streaming)
 		if oi.Type == "reasoning" {
 			b := turns.Block{ID: oi.ID, Kind: turns.BlockKindReasoning, Payload: map[string]any{}}
+			e.publishEvent(ctx, events.NewReasoningSegmentStartedEvent(metadata, segmentCorr(oi.ID, &idx, events.SegmentTypeReasoning), "provider"))
 			if oi.ID != "" {
 				b.Payload[turns.PayloadKeyItemID] = oi.ID
 			}
@@ -68,6 +87,10 @@ func (e *Engine) runNonStreamingInference(ctx context.Context, t *turns.Turn, ht
 			if oi.EncryptedContent != "" {
 				b.Payload[turns.PayloadKeyEncryptedContent] = oi.EncryptedContent
 			}
+			if text, _ := b.Payload[turns.PayloadKeyText].(string); text != "" {
+				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, segmentCorr(oi.ID, &idx, events.SegmentTypeReasoning), text, text, 0))
+			}
+			e.publishEvent(ctx, events.NewReasoningSegmentFinishedEvent(metadata, segmentCorr(oi.ID, &idx, events.SegmentTypeReasoning), reasoningTextFromOutputContent(oi.Content), oi.Status))
 			setOpenAIResponsesBlockMetadata(&b, rr.ID, &idx, "reasoning", oi.Status)
 			turns.AppendBlock(t, b)
 		}
@@ -90,6 +113,10 @@ func (e *Engine) runNonStreamingInference(ctx context.Context, t *turns.Turn, ht
 		}
 	}
 	if strings.TrimSpace(message) != "" {
+		textCorr := segmentCorr(latestMessageItemID, latestMessageOutputIndex, events.SegmentTypeText)
+		e.publishEvent(ctx, events.NewTextSegmentStartedEvent(metadata, textCorr, "assistant"))
+		e.publishEvent(ctx, events.NewTextDeltaEvent(metadata, textCorr, message, message, 0))
+		e.publishEvent(ctx, events.NewTextSegmentFinishedEvent(metadata, textCorr, message, latestMessageStatus))
 		ab := turns.NewAssistantTextBlock(message)
 		if latestMessageItemID != "" {
 			if ab.Payload == nil {
@@ -123,6 +150,6 @@ func (e *Engine) runNonStreamingInference(ctx context.Context, t *turns.Turn, ht
 	if err := engine.PersistInferenceResult(t, result); err != nil {
 		log.Warn().Err(err).Msg("Responses: failed to persist canonical inference_result")
 	}
-	e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
+	e.publishEvent(ctx, events.NewProviderCallFinishedEvent(metadata, providerCallCorr, "", "completed", metadata.Usage, metadata.DurationMs, false))
 	return t, nil
 }

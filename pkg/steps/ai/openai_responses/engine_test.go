@@ -372,11 +372,11 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 	var finalUsage *events.Usage
 	for _, event := range sink.snapshot() {
 		switch e := event.(type) {
-		case *events.EventThinkingPartial:
+		case *events.EventReasoningDelta:
 			thinkingPartialEvents++
-		case *events.EventFinal:
+		case *events.EventProviderCallFinished:
 			finalEvents++
-			finalUsage = e.Metadata().Usage
+			finalUsage = e.Usage
 			if e.Metadata().Extra != nil {
 				if s, ok := e.Metadata().Extra["thinking_text"].(string); ok {
 					finalThinkingText = s
@@ -386,7 +386,7 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 	}
 
 	if thinkingPartialEvents == 0 {
-		t.Fatalf("expected partial-thinking events for reasoning text")
+		t.Fatalf("expected reasoning delta events for reasoning text")
 	}
 	if finalEvents != 1 {
 		t.Fatalf("expected exactly one final event, got %d", finalEvents)
@@ -633,15 +633,15 @@ func TestRunInference_StreamingReasoningSummaryPreservesSentenceBoundaries(t *te
 	var finalSummaryFromMetadata string
 	for _, event := range sink.snapshot() {
 		switch e := event.(type) {
-		case *events.EventThinkingPartial:
-			lastThinkingCompletion = e.Completion
+		case *events.EventReasoningDelta:
+			lastThinkingCompletion = e.Text
 		case *events.EventInfo:
 			if e.Message == "reasoning-summary" {
 				if s, ok := e.Data["text"].(string); ok {
 					finalSummary = s
 				}
 			}
-		case *events.EventFinal:
+		case *events.EventProviderCallFinished:
 			if e.Metadata().Extra != nil {
 				if s, ok := e.Metadata().Extra["reasoning_summary_text"].(string); ok {
 					finalSummaryFromMetadata = s
@@ -723,12 +723,12 @@ func TestRunInference_StreamingReasoningAliasEventsAreNormalized(t *testing.T) {
 	var thinkingPartialEvents int
 	for _, event := range sink.snapshot() {
 		switch event.(type) {
-		case *events.EventThinkingPartial:
+		case *events.EventReasoningDelta:
 			thinkingPartialEvents++
 		}
 	}
 	if thinkingPartialEvents != 2 {
-		t.Fatalf("expected 2 partial-thinking events, got %d", thinkingPartialEvents)
+		t.Fatalf("expected 2 reasoning delta events, got %d", thinkingPartialEvents)
 	}
 
 	var reasoningBlock *turns.Block
@@ -835,7 +835,7 @@ func TestRunInference_StreamingReasoningTextDonePreservesAccumulatedThinking(t *
 	var finalThinkingText string
 	for _, event := range sink.snapshot() {
 		switch e := event.(type) {
-		case *events.EventFinal:
+		case *events.EventProviderCallFinished:
 			if e.Metadata().Extra != nil {
 				if s, ok := e.Metadata().Extra["thinking_text"].(string); ok {
 					finalThinkingText = s
@@ -921,9 +921,9 @@ func TestRunInference_StreamingReasoningTextDoneOnlyEmitsThinkingPartial(t *test
 	var thinkingDeltas []string
 	var thinkingCompletions []string
 	for _, event := range sink.snapshot() {
-		if e, ok := event.(*events.EventThinkingPartial); ok {
+		if e, ok := event.(*events.EventReasoningDelta); ok {
 			thinkingDeltas = append(thinkingDeltas, e.Delta)
-			thinkingCompletions = append(thinkingCompletions, e.Completion)
+			thinkingCompletions = append(thinkingCompletions, e.Text)
 		}
 	}
 
@@ -1018,7 +1018,7 @@ func TestRunInference_StreamingReasoningItemsKeepMarkdownBoundaries(t *testing.T
 
 	var finalThinkingText string
 	for _, event := range sink.snapshot() {
-		if e, ok := event.(*events.EventFinal); ok && e.Metadata().Extra != nil {
+		if e, ok := event.(*events.EventProviderCallFinished); ok && e.Metadata().Extra != nil {
 			if s, ok := e.Metadata().Extra["thinking_text"].(string); ok {
 				finalThinkingText = s
 			}
@@ -1114,9 +1114,9 @@ func TestRunInference_StreamingOutputItemDoneDoesNotDuplicateStreamedText(t *tes
 	var partialDeltas []string
 	for _, event := range sink.snapshot() {
 		switch e := event.(type) {
-		case *events.EventPartialCompletion:
+		case *events.EventTextDelta:
 			partialDeltas = append(partialDeltas, e.Delta)
-		case *events.EventFinal:
+		case *events.EventTextSegmentFinished:
 			finalText = e.Text
 		}
 	}
@@ -1196,9 +1196,9 @@ func TestRunInference_StreamingOutputItemDoneBackfillsMissingTail(t *testing.T) 
 	var partialDeltas []string
 	for _, event := range sink.snapshot() {
 		switch e := event.(type) {
-		case *events.EventPartialCompletion:
+		case *events.EventTextDelta:
 			partialDeltas = append(partialDeltas, e.Delta)
-		case *events.EventFinal:
+		case *events.EventTextSegmentFinished:
 			finalText = e.Text
 		}
 	}
@@ -1287,9 +1287,9 @@ func TestRunInference_StreamingPreservesWhitespaceOnlyDelta(t *testing.T) {
 	var partialDeltas []string
 	for _, event := range sink.snapshot() {
 		switch e := event.(type) {
-		case *events.EventPartialCompletion:
+		case *events.EventTextDelta:
 			partialDeltas = append(partialDeltas, e.Delta)
-		case *events.EventFinal:
+		case *events.EventTextSegmentFinished:
 			finalText = e.Text
 		}
 	}
@@ -1376,9 +1376,9 @@ func TestRunInference_NonStreamingUsageIncludesCachedTokens(t *testing.T) {
 	var reasoningTokens int
 	for _, event := range sink.snapshot() {
 		switch e := event.(type) {
-		case *events.EventFinal:
+		case *events.EventProviderCallFinished:
 			finalEvents++
-			finalUsage = e.Metadata().Usage
+			finalUsage = e.Usage
 			if e.Metadata().Extra != nil {
 				if v, ok := e.Metadata().Extra["reasoning_tokens"].(int); ok {
 					reasoningTokens = v
