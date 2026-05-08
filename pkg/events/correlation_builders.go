@@ -65,7 +65,7 @@ func BuildSegmentCorrelation(parent Correlation, providerObjectID string, segmen
 			objectPart = providerObjectID
 		}
 		corr.SegmentID = fmt.Sprintf("%s:%s:%d:%s", parent.ProviderCallID, objectPart, segmentIndex, segmentType)
-		corr.CorrelationKey = fmt.Sprintf("%s:%s", parent.ProviderCallID, corr.SegmentID)
+		corr.CorrelationKey = corr.SegmentID
 	}
 	return corr
 }

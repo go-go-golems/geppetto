@@ -21,6 +21,12 @@ func TestBuildSegmentCorrelation(t *testing.T) {
 	if segment.SegmentID == "" || segment.CorrelationKey == "" {
 		t.Fatalf("segment identity missing: %+v", segment)
 	}
+	if segment.SegmentID != "openai:run-1:provider-call:1:item_1:2:text" {
+		t.Fatalf("segment id mismatch: got %q", segment.SegmentID)
+	}
+	if segment.CorrelationKey != segment.SegmentID {
+		t.Fatalf("segment key should match segment id: got %q want %q", segment.CorrelationKey, segment.SegmentID)
+	}
 	if segment.ParentCorrelationKey != parent.CorrelationKey {
 		t.Fatalf("parent key mismatch: got %q want %q", segment.ParentCorrelationKey, parent.CorrelationKey)
 	}
