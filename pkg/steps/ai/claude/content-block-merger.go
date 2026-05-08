@@ -75,6 +75,21 @@ func (cbm *ContentBlockMerger) Error() *api.Error {
 	return cbm.error
 }
 
+func (cbm *ContentBlockMerger) stopReasonIsToolUse() bool {
+	if cbm == nil {
+		return false
+	}
+	if cbm.metadata.StopReason != nil && *cbm.metadata.StopReason == "tool_use" {
+		return true
+	}
+	if cbm.metadata.Extra != nil {
+		if v, ok := cbm.metadata.Extra[StopReasonMetadataSlug].(string); ok && v == "tool_use" {
+			return true
+		}
+	}
+	return false
+}
+
 const ModelMetadataSlug = "claude_model"
 const StopReasonMetadataSlug = "claude_stop_reason"
 const StopSequenceMetadataSlug = "claude_stop_sequence"
@@ -170,7 +185,12 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 
 		cbm.updateUsage(event)
 
-		return []events.Event{events.NewPartialCompletionEvent(cbm.metadata, "", cbm.Text())}, nil
+		// Anthropic message_delta events can carry message-level metadata such as
+		// stop_reason and usage without carrying new text. Text is emitted from
+		// content_block_delta/content_block_stop events; emitting the accumulated
+		// text again here causes downstream consumers to create a duplicate text
+		// segment before tool execution.
+		return []events.Event{}, nil
 
 	case api.MessageStopType:
 		if cbm.response == nil {
@@ -197,7 +217,16 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		d := time.Since(cbm.startTime).Milliseconds()
 		dm := int64(d)
 		cbm.metadata.DurationMs = &dm
-		return []events.Event{events.NewFinalEvent(cbm.metadata, cbm.Text())}, nil
+
+		finalText := cbm.Text()
+		if cbm.stopReasonIsToolUse() {
+			// For Claude tool-use turns, the preceding text block has already been
+			// streamed and block-finalized before the tool_use block. The
+			// message_stop event closes the provider message envelope; it must not
+			// re-emit the accumulated text as a new assistant segment.
+			finalText = ""
+		}
+		return []events.Event{events.NewFinalEvent(cbm.metadata, finalText)}, nil
 
 	case api.ContentBlockStartType:
 		if cbm.response == nil {
