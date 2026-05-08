@@ -562,3 +562,33 @@ Both passed.
 ### Notes
 
 OpenAI Responses still persists assistant/reasoning/tool blocks into the returned `turns.Turn` as before. The event stream, however, now separates provider-call lifecycle from transcript text/reasoning/tool segment lifecycle.
+
+## 2026-05-08 08:45 — Phase 5: OpenAI-compatible Chat Completions emits canonical events
+
+### What changed
+
+Migrated `pkg/steps/ai/openai/engine_openai.go` away from legacy streaming transcript events:
+
+- provider calls now start with `EventProviderCallStarted` before stream processing;
+- streamed content deltas now emit `EventTextSegmentStarted`, `EventTextDelta`, and an explicit `EventTextSegmentFinished` only when text was active;
+- streamed reasoning deltas now emit `EventReasoningSegmentStarted`, `EventReasoningDelta`, and `EventReasoningSegmentFinished`;
+- streamed tool-call deltas now emit `EventToolCallStarted` and `EventToolCallArgumentsDelta` while preserving IDs through the existing stateful tool-call ID tracker;
+- merged tool calls now emit `EventToolCallRequested`;
+- EOF/final stream completion emits `EventProviderCallFinished` rather than `EventFinal`.
+
+Updated `pkg/steps/ai/openai/observability.go` so publish-started records populate response/choice/stream/tool/correlation fields from typed `events.Correlation` on canonical events.
+
+Updated OpenAI Chat Completions tests and observability tests to assert canonical text/reasoning/tool/provider-call events instead of `EventPartialCompletion`, `EventThinkingPartial`, `EventToolCall`, and `EventFinal`.
+
+### Validation
+
+```bash
+go test ./pkg/steps/ai/openai -count=1
+go test ./pkg/steps/ai/... -count=1
+```
+
+Both passed.
+
+### Follow-up
+
+`EventProviderCallMetadataUpdated` is emitted when Chat Completions chunks carry usage or finish-reason metadata, and `EventProviderCallFinished` remains the provider-call lifecycle terminator at EOF.

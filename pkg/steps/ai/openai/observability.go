@@ -58,6 +58,7 @@ func (e *OpenAIEngine) observePublishStarted(ctx context.Context, event events.E
 		rec.InfoMessage = info.Message
 		applyChatProviderDataToRecord(&rec, info.Data)
 	}
+	applyChatCorrelationToRecord(&rec, event)
 	e.observe(ctx, rec)
 }
 
@@ -195,69 +196,56 @@ func firstChatToolCall(calls []ChatToolCall) *ChatToolCall {
 	return &calls[0]
 }
 
-func chatProviderData(provider, responseID string, choiceIndex *int, streamKind, correlationKey, toolCallID string, toolCallIndex *int) map[string]any {
-	data := map[string]any{}
-	if provider != "" {
-		data["provider"] = provider
-	}
-	if responseID != "" {
-		data["response_id"] = responseID
-	}
-	if choiceIndex != nil {
-		data["choice_index"] = *choiceIndex
-	}
-	if streamKind != "" {
-		data["stream_kind"] = streamKind
-	}
-	if correlationKey != "" {
-		data["correlation_key"] = correlationKey
-	}
-	if toolCallID != "" {
-		data["tool_call_id"] = toolCallID
-	}
-	if toolCallIndex != nil {
-		data["tool_call_index"] = *toolCallIndex
-	}
-	if len(data) == 0 {
-		return nil
-	}
-	return data
-}
-
-func chatProviderDataFromEvent(provider string, ev chatStreamEvent) map[string]any {
-	responseID := stringFromRawMap(ev.RawPayload, "id")
-	streamKind := chatStreamKind(ev)
-	tc := firstChatToolCall(ev.ToolCalls)
-	var toolCallID string
-	var toolCallIndex *int
-	if tc != nil {
-		toolCallID = tc.ID
-		toolCallIndex = cloneIntPtr(tc.Index)
-	}
-	return chatProviderData(provider, responseID, ev.ChoiceIndex, streamKind, chatCorrelationKey(provider, responseID, ev.ChoiceIndex, streamKind, toolCallID, toolCallIndex), toolCallID, toolCallIndex)
-}
-
 func chatCorrelationKey(provider, responseID string, choiceIndex *int, streamKind, toolCallID string, toolCallIndex *int) string {
 	return events.BuildChatCompletionsCorrelation(provider, responseID, choiceIndex, streamKind, toolCallID, toolCallIndex).CorrelationKey
 }
 
-func metadataWithChatProviderData(metadata events.EventMetadata, data map[string]any) events.EventMetadata {
-	if len(data) == 0 {
-		return metadata
+func applyChatCorrelationToRecord(rec *geppettoobs.Record, event events.Event) {
+	if rec == nil || event == nil {
+		return
 	}
-	if metadata.Extra == nil {
-		metadata.Extra = map[string]any{}
-	} else {
-		copyExtra := make(map[string]any, len(metadata.Extra)+len(data))
-		for k, v := range metadata.Extra {
-			copyExtra[k] = v
-		}
-		metadata.Extra = copyExtra
+	correlated, ok := event.(events.CorrelatedEvent)
+	if !ok {
+		return
 	}
-	for k, v := range data {
-		metadata.Extra[k] = v
+	corr := correlated.Correlation()
+	if corr.Provider != "" {
+		rec.Provider = corr.Provider
 	}
-	return metadata
+	if corr.Model != "" {
+		rec.Model = corr.Model
+	}
+	if corr.ResponseID != "" {
+		rec.ResponseID = corr.ResponseID
+	}
+	if corr.ItemID != "" {
+		rec.ItemID = corr.ItemID
+	}
+	if corr.OutputIndex != nil {
+		v := int(*corr.OutputIndex)
+		rec.OutputIndex = &v
+	}
+	if corr.SummaryIndex != nil {
+		v := int(*corr.SummaryIndex)
+		rec.SummaryIndex = &v
+	}
+	if corr.ChoiceIndex != nil {
+		v := int(*corr.ChoiceIndex)
+		rec.ChoiceIndex = &v
+	}
+	if corr.StreamKind != "" {
+		rec.StreamKind = corr.StreamKind
+	}
+	if corr.CorrelationKey != "" {
+		rec.CorrelationKey = corr.CorrelationKey
+	}
+	if corr.ToolCallID != "" {
+		rec.ToolCallID = corr.ToolCallID
+	}
+	if corr.ToolCallIndex != nil {
+		v := int(*corr.ToolCallIndex)
+		rec.ToolCallIndex = &v
+	}
 }
 
 func applyChatProviderDataToRecord(rec *geppettoobs.Record, data map[string]interface{}) {

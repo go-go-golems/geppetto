@@ -123,10 +123,10 @@ func TestRunInference_StreamTogetherReasoningPublishesEventsAndPersistsBlock(t *
 		var finalUsage *events.Usage
 		for _, event := range sink.snapshot() {
 			switch e := event.(type) {
-			case *events.EventThinkingPartial:
+			case *events.EventReasoningDelta:
 				thinkingPartialEvents++
-			case *events.EventFinal:
-				finalUsage = e.Metadata().Usage
+			case *events.EventProviderCallFinished:
+				finalUsage = e.Usage
 				if e.Metadata().Extra != nil {
 					if s, ok := e.Metadata().Extra["thinking_text"].(string); ok {
 						finalThinkingText = s
@@ -136,7 +136,7 @@ func TestRunInference_StreamTogetherReasoningPublishesEventsAndPersistsBlock(t *
 		}
 
 		if thinkingPartialEvents != 2 {
-			t.Fatalf("expected 2 partial-thinking events, got %d", thinkingPartialEvents)
+			t.Fatalf("expected 2 reasoning delta events, got %d", thinkingPartialEvents)
 		}
 		if finalThinkingText != "Thinking hard." {
 			t.Fatalf("expected final thinking_text to be propagated, got %q", finalThinkingText)
@@ -180,12 +180,12 @@ func TestRunInference_StreamDeepSeekReasoningContentPublishesEvents(t *testing.T
 		var thinkingPartialEvents int
 		for _, event := range sink.snapshot() {
 			switch event.(type) {
-			case *events.EventThinkingPartial:
+			case *events.EventReasoningDelta:
 				thinkingPartialEvents++
 			}
 		}
 		if thinkingPartialEvents != 2 {
-			t.Fatalf("expected 2 partial-thinking events, got %d", thinkingPartialEvents)
+			t.Fatalf("expected 2 reasoning delta events, got %d", thinkingPartialEvents)
 		}
 
 		if len(out.Blocks) < 2 {
@@ -215,9 +215,9 @@ func TestRunInference_StreamTextOnlyBehaviorIsUnchanged(t *testing.T) {
 		var partialEvents int
 		for _, event := range sink.snapshot() {
 			switch event.(type) {
-			case *events.EventThinkingPartial:
+			case *events.EventReasoningDelta:
 				reasoningEvents++
-			case *events.EventPartialCompletion:
+			case *events.EventTextDelta:
 				partialEvents++
 			}
 		}
@@ -225,7 +225,7 @@ func TestRunInference_StreamTextOnlyBehaviorIsUnchanged(t *testing.T) {
 			t.Fatalf("expected no reasoning events for text-only stream, got %d", reasoningEvents)
 		}
 		if partialEvents != 2 {
-			t.Fatalf("expected 2 partial completion events, got %d", partialEvents)
+			t.Fatalf("expected 2 text delta events, got %d", partialEvents)
 		}
 		if len(out.Blocks) == 0 {
 			t.Fatalf("expected output blocks")
@@ -321,16 +321,16 @@ func TestRunInference_StreamToolCallsAreMergedAndUsagePreserved(t *testing.T) {
 		var finalUsage *events.Usage
 		for _, event := range sink.snapshot() {
 			switch e := event.(type) {
-			case *events.EventToolCall:
+			case *events.EventToolCallRequested:
 				toolCallEvents++
-				if e.ToolCall.Name != "lookup" {
-					t.Fatalf("expected merged tool call name lookup, got %q", e.ToolCall.Name)
+				if e.ToolName != "lookup" {
+					t.Fatalf("expected merged tool call name lookup, got %q", e.ToolName)
 				}
-				if e.ToolCall.Input != "{\"q\":\"cats\"}" {
-					t.Fatalf("expected merged tool args, got %q", e.ToolCall.Input)
+				if e.Input != "{\"q\":\"cats\"}" {
+					t.Fatalf("expected merged tool args, got %q", e.Input)
 				}
-			case *events.EventFinal:
-				finalUsage = e.Metadata().Usage
+			case *events.EventProviderCallFinished:
+				finalUsage = e.Usage
 			}
 		}
 		if toolCallEvents != 1 {

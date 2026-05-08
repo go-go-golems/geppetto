@@ -97,7 +97,7 @@ func TestStandardEngineFactory_WithOpenAIOptionsPassesObservabilityOptions(t *te
 		if rec.Stage == geppettoobs.StageProviderRoutedEvent {
 			t.Fatalf("TraceEvents should not emit provider records: %#v", rec)
 		}
-		if rec.Stage == geppettoobs.StageGeppettoPublishStarted && rec.EventType == "final" && rec.TurnID == "turn_factory" {
+		if rec.Stage == geppettoobs.StageGeppettoPublishStarted && rec.EventType == string(events.EventTypeProviderCallFinished) && rec.TurnID == "turn_factory" {
 			sawStarted = true
 		}
 		if rec.Stage == geppettoobs.StageGeppettoPublishDone {
@@ -105,7 +105,7 @@ func TestStandardEngineFactory_WithOpenAIOptionsPassesObservabilityOptions(t *te
 		}
 	}
 	if !sawStarted {
-		t.Fatalf("factory-created OpenAI engine did not emit final publish-started record: %#v", records)
+		t.Fatalf("factory-created OpenAI engine did not emit provider-call-finished publish-started record: %#v", records)
 	}
 }
 

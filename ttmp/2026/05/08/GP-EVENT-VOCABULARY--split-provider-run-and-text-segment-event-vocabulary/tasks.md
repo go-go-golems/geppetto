@@ -250,36 +250,36 @@ Goal: map Responses item lifecycle to text/reasoning/tool segments and provider 
 
 Goal: synthesize explicit segment/provider lifecycles for the less-structured Chat Completions stream.
 
-- [ ] Update `pkg/steps/ai/openai/engine_openai.go` to create a provider-call correlation before reading chunks.
-- [ ] Emit `EventProviderCallStarted` on first chunk or before stream processing.
-- [ ] Track `response_id` as soon as chunks expose it.
-- [ ] Track `choice_index` for all content/reasoning/tool streams.
-- [ ] Text stream handling:
-  - [ ] on first non-empty `delta.content` for a choice, emit `EventTextSegmentStarted`;
-  - [ ] for each content delta, emit `EventTextDelta`;
-  - [ ] on `finish_reason=stop`, emit `EventTextSegmentFinished` for active text segments only.
-- [ ] Reasoning stream handling:
-  - [ ] on first non-empty reasoning delta for a choice, emit `EventReasoningSegmentStarted`;
-  - [ ] emit `EventReasoningDelta` for each reasoning delta;
-  - [ ] emit `EventReasoningSegmentFinished` when the choice/provider call ends.
-- [ ] Tool stream handling:
-  - [ ] preserve tool-call IDs across argument-only deltas;
-  - [ ] on first tool-call delta for `(choice_index, tool_call_index)`, emit `EventToolCallStarted`;
-  - [ ] emit `EventToolCallArgumentsDelta` for argument deltas;
-  - [ ] on `finish_reason=tool_calls`, emit `EventToolCallRequested` for each completed tool call.
-- [ ] Provider-call finalization:
-  - [ ] emit `EventProviderCallMetadataUpdated` when usage/finish reason metadata arrives;
-  - [ ] emit `EventProviderCallFinished` at EOF/final chunk;
-  - [ ] never emit text segment finished from EOF unless an active text segment exists and is being explicitly closed.
-- [ ] Update `pkg/steps/ai/openai/observability.go` to make existing normalized keys feed typed `Correlation`.
-- [ ] Update Chat Completions tests for:
-  - [ ] text-only answer;
-  - [ ] reasoning stream;
-  - [ ] tool-call stream with ID on first delta only;
+- [x] Update `pkg/steps/ai/openai/engine_openai.go` to create a provider-call correlation before reading chunks.
+- [x] Emit `EventProviderCallStarted` on first chunk or before stream processing.
+- [x] Track `response_id` as soon as chunks expose it.
+- [x] Track `choice_index` for all content/reasoning/tool streams.
+- [x] Text stream handling:
+  - [x] on first non-empty `delta.content` for a choice, emit `EventTextSegmentStarted`;
+  - [x] for each content delta, emit `EventTextDelta`;
+  - [x] on `finish_reason=stop`, emit `EventTextSegmentFinished` for active text segments only.
+- [x] Reasoning stream handling:
+  - [x] on first non-empty reasoning delta for a choice, emit `EventReasoningSegmentStarted`;
+  - [x] emit `EventReasoningDelta` for each reasoning delta;
+  - [x] emit `EventReasoningSegmentFinished` when the choice/provider call ends.
+- [x] Tool stream handling:
+  - [x] preserve tool-call IDs across argument-only deltas;
+  - [x] on first tool-call delta for `(choice_index, tool_call_index)`, emit `EventToolCallStarted`;
+  - [x] emit `EventToolCallArgumentsDelta` for argument deltas;
+  - [x] on `finish_reason=tool_calls`, emit `EventToolCallRequested` for each completed tool call.
+- [x] Provider-call finalization:
+  - [x] emit `EventProviderCallMetadataUpdated` when usage/finish reason metadata arrives;
+  - [x] emit `EventProviderCallFinished` at EOF/final chunk;
+  - [x] never emit text segment finished from EOF unless an active text segment exists and is being explicitly closed.
+- [x] Update `pkg/steps/ai/openai/observability.go` to make existing normalized keys feed typed `Correlation`.
+- [x] Update Chat Completions tests for:
+  - [x] text-only answer;
+  - [x] reasoning stream;
+  - [x] tool-call stream with ID on first delta only;
   - [ ] parallel tool calls;
   - [ ] `finish_reason=tool_calls` does not produce duplicate text;
   - [ ] correlation keys match documented shape.
-- [ ] Run `go test ./pkg/steps/ai/openai -count=1`.
+- [x] Run `go test ./pkg/steps/ai/openai -count=1`.
 
 ## Phase 6 — Update Geppetto inference result and observability output
 

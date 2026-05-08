@@ -315,19 +315,6 @@ func TestContentBlockMerger(t *testing.T) {
 					assert.Equal(t, expectedEvent.Type(), events_[i].Type(), "Event type mismatch at index %d", i)
 
 					switch expected := expectedEvent.(type) {
-					case *events.EventPartialCompletion:
-						actual, ok := events_[i].(*events.EventPartialCompletion)
-						require.True(t, ok, "Event at index %d is not EventPartialCompletion", i)
-						assert.Equal(t, expected.Delta, actual.Delta, "Delta mismatch at index %d", i)
-						assert.Equal(t, expected.Completion, actual.Completion, "Completion mismatch at index %d", i)
-					case *events.EventToolCall:
-						actual, ok := events_[i].(*events.EventToolCall)
-						require.True(t, ok, "Event at index %d is not EventToolCall", i)
-						assert.Equal(t, expected.ToolCall, actual.ToolCall, "ToolCall mismatch at index %d", i)
-					case *events.EventFinal:
-						actual, ok := events_[i].(*events.EventFinal)
-						require.True(t, ok, "Event at index %d is not EventFinal", i)
-						assert.Equal(t, expected.Text, actual.Text, "Final text mismatch at index %d", i)
 					case *events.EventTextDelta:
 						actual, ok := events_[i].(*events.EventTextDelta)
 						require.True(t, ok, "Event at index %d is not EventTextDelta", i)
