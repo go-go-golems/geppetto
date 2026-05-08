@@ -38,6 +38,7 @@ type chatStreamEvent struct {
 	ToolCalls      []ChatToolCall
 	Usage          *chatStreamUsage
 	FinishReason   *string
+	ChoiceIndex    *int
 	RawPayload     map[string]any
 }
 
@@ -247,6 +248,9 @@ func readSSEFrame(reader *bufio.Reader) (sseFrame, error) {
 func normalizeChatStreamEvent(raw map[string]any) chatStreamEvent {
 	ret := chatStreamEvent{RawPayload: raw}
 	choice := firstChoice(raw)
+	if idx, ok := intValue(choice["index"]); ok {
+		ret.ChoiceIndex = &idx
+	}
 	delta := mapValue(choice["delta"])
 
 	if s, ok := stringValue(delta["content"]); ok {

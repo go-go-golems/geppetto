@@ -248,6 +248,8 @@ func (e *OpenAIEngine) RunInference(
 
 	log.Debug().Msg("OpenAI starting streaming loop")
 	chunkCount := 0
+	currentResponseID := ""
+	currentChoiceIndex := (*int)(nil)
 	for {
 		select {
 		case <-ctx.Done():
@@ -276,6 +278,12 @@ func (e *OpenAIEngine) RunInference(
 				return nil, err
 			}
 			chunkCount++
+			if id := stringFromRawMap(response.RawPayload, "id"); id != "" {
+				currentResponseID = id
+			}
+			if response.ChoiceIndex != nil {
+				currentChoiceIndex = cloneIntPtr(response.ChoiceIndex)
+			}
 			e.observeProviderEvent(ctx, metadata, req.Model, response)
 
 			delta := response.DeltaText
@@ -283,15 +291,17 @@ func (e *OpenAIEngine) RunInference(
 				message += delta
 			}
 			if response.DeltaReasoning != "" {
+				providerData := chatProviderDataFromEvent(e.inferenceProvider(), response)
+				providerMetadata := metadataWithChatProviderData(metadata, providerData)
 				if !thinkingStarted {
 					thinkingStarted = true
-					e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", nil))
+					e.publishEvent(ctx, events.NewInfoEvent(providerMetadata, "thinking-started", providerData))
 				}
 				before := thinkingBuf.Len()
 				normalized := streamhelpers.NormalizeReasoningDelta(thinkingBuf.String(), response.DeltaReasoning)
 				e.observeProviderNormalizeDelta(ctx, metadata, req.Model, response, len(response.DeltaReasoning), len(normalized), before+len(normalized))
 				thinkingBuf.WriteString(normalized)
-				e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, response.DeltaReasoning, thinkingBuf.String()))
+				e.publishEvent(ctx, events.NewThinkingPartialEvent(providerMetadata, response.DeltaReasoning, thinkingBuf.String()))
 			}
 
 			// Tool call deltas
@@ -313,7 +323,7 @@ func (e *OpenAIEngine) RunInference(
 			// Publish intermediate streaming event only if we have a non-empty delta
 			if delta != "" {
 				partialEvent := events.NewPartialCompletionEvent(
-					metadata,
+					metadataWithChatProviderData(metadata, chatProviderDataFromEvent(e.inferenceProvider(), response)),
 					delta, message,
 				)
 				e.publishEvent(ctx, partialEvent)
@@ -370,8 +380,9 @@ streamingComplete:
 	if len(mergedToolCalls) > 0 {
 		for _, tc := range mergedToolCalls {
 			inputStr := tc.Function.Arguments
+			providerData := chatProviderData(e.inferenceProvider(), currentResponseID, currentChoiceIndex, "tool_call", chatCorrelationKey(e.inferenceProvider(), currentResponseID, currentChoiceIndex, "tool_call", tc.ID, tc.Index), tc.ID, tc.Index)
 			toolCallEvent := events.NewToolCallEvent(
-				metadata,
+				metadataWithChatProviderData(metadata, providerData),
 				events.ToolCall{ID: tc.ID, Name: tc.Function.Name, Input: inputStr},
 			)
 			e.publishEvent(ctx, toolCallEvent)

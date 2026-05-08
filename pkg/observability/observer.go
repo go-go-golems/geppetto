@@ -41,6 +41,12 @@ type Record struct {
 	OutputIndex  *int   `json:"outputIndex,omitempty"`
 	SummaryIndex *int   `json:"summaryIndex,omitempty"`
 
+	ChoiceIndex    *int   `json:"choiceIndex,omitempty"`
+	StreamKind     string `json:"streamKind,omitempty"`
+	CorrelationKey string `json:"correlationKey,omitempty"`
+	ToolCallID     string `json:"toolCallId,omitempty"`
+	ToolCallIndex  *int   `json:"toolCallIndex,omitempty"`
+
 	ObjectJSON   json.RawMessage `json:"objectJson,omitempty"`
 	EventJSON    json.RawMessage `json:"eventJson,omitempty"`
 	MetadataJSON json.RawMessage `json:"metadataJson,omitempty"`
