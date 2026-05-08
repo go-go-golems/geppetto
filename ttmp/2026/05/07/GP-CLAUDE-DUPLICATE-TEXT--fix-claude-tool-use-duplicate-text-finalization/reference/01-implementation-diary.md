@@ -80,3 +80,33 @@ go test ./pkg/steps/ai/... -count=1
 ```
 
 It passed for Claude, Claude API, Gemini, OpenAI, OpenAI Responses, runtime attribution, settings, and stream helpers. This gives confidence that the changed final-text behavior did not break adjacent provider packages.
+
+## 2026-05-08 00:55 — Playwright retest showed empty final still duplicates downstream
+
+I re-ran CoinVault Haiku through Playwright after commit `ae94308`. Because the workspace has `../go.work` including `./geppetto`, CoinVault should have picked up the local Geppetto checkout. The retest still showed duplicate intro text.
+
+The new artifact was:
+
+```text
+../2026-03-16--gec-rag/ttmp/2026/05/07/COINVAULT-OBSERVABILITY--add-observer-correlation-export-for-coinvault-web-chat/various/browser-runs/haiku-after-geppetto-fix-20260507-235210/haiku/debug.sqlite
+```
+
+The Geppetto/provider sequence now showed:
+
+```text
+record 56 provider_routed_event message_delta stop_reason=tool_use
+record 57 provider_routed_event message_stop
+record 58 geppetto_publish_started final
+```
+
+Backend pipeline still had:
+
+```text
+ordinal 6 ChatInferenceFinished chat-msg-1:text:1
+ordinal 7 ChatToolCallStarted
+ordinal 8 ChatInferenceFinished chat-msg-1:text:2
+```
+
+This means the first fix was too weak. Emitting `EventFinal` with empty text still causes downstream Pinocchio/CoinVault logic to finalize cached accumulated text as a new segment. For `stop_reason=tool_use`, Claude `message_stop` must emit no final event at all. The lifecycle/tool-turn boundary is already represented by the tool-call event and the next inference turn.
+
+I updated the fix accordingly: `MessageStopType` now returns no events when the stop reason is `tool_use`, and the regression test now expects no final event for that case.

@@ -22,7 +22,7 @@ LastUpdated: 2026-05-08T00:15:00-04:00
 - [x] Correlate CoinVault Haiku duplicate through provider, backend, transport, frontend, and timeline records.
 - [x] Add regression coverage for Claude `tool_use` stop finalization.
 - [x] Change Claude `message_delta` handling to metadata-only.
-- [x] Change Claude `message_stop` with `stop_reason=tool_use` to emit an empty final text payload.
+- [x] Change Claude `message_stop` with `stop_reason=tool_use` to emit no final event.
 - [x] Run `go test ./pkg/steps/ai/claude -run 'TestContentBlockMerger' -count=1`.
 - [x] Run `go test ./pkg/steps/ai/claude -count=1`.
 - [x] Run `go test ./pkg/steps/ai/... -count=1`.

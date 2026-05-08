@@ -181,7 +181,6 @@ func TestContentBlockMerger(t *testing.T) {
 					Name:  "sql_doc",
 					Input: `{"topic":"inventory"}`,
 				}),
-				events.NewFinalEvent(events.EventMetadata{}, ""),
 			},
 			checkMetadata: func(t *testing.T, metadata map[string]interface{}) {
 				assert.Equal(t, "tool_use", metadata[StopReasonMetadataSlug])

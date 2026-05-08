@@ -218,15 +218,15 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		dm := int64(d)
 		cbm.metadata.DurationMs = &dm
 
-		finalText := cbm.Text()
 		if cbm.stopReasonIsToolUse() {
 			// For Claude tool-use turns, the preceding text block has already been
 			// streamed and block-finalized before the tool_use block. The
-			// message_stop event closes the provider message envelope; it must not
-			// re-emit the accumulated text as a new assistant segment.
-			finalText = ""
+			// message_stop event closes the provider message envelope; publishing a
+			// final event here causes downstream consumers to finalize the cached
+			// text as a new assistant segment after the tool call.
+			return []events.Event{}, nil
 		}
-		return []events.Event{events.NewFinalEvent(cbm.metadata, finalText)}, nil
+		return []events.Event{events.NewFinalEvent(cbm.metadata, cbm.Text())}, nil
 
 	case api.ContentBlockStartType:
 		if cbm.response == nil {

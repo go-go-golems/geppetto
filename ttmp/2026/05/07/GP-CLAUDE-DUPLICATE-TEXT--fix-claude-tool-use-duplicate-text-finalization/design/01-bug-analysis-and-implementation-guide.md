@@ -91,7 +91,7 @@ For Claude/Anthropic streams:
 - Text content block stop may publish the block-finalization partial used by downstream segment finalization.
 - Tool-use block stop should publish a tool-call event.
 - Message delta with only `stop_reason` / usage should update metadata but should not publish text.
-- Message stop should publish the final lifecycle event, but if the stop reason is `tool_use`, its text payload must be empty so downstream code does not create a duplicate text segment.
+- Message stop should publish the final lifecycle event for normal end-turn responses, but if the stop reason is `tool_use`, it must not publish a final event because downstream code treats final as a text-segment finalizer.
 
 In pseudocode:
 
@@ -103,7 +103,7 @@ on message_delta:
 on message_stop:
   update stop_reason / usage metadata
   if stop_reason == "tool_use":
-      return Final(text="")
+      return no event
   return Final(text=all accumulated text)
 ```
 
@@ -122,7 +122,7 @@ This preserves a final event for lifecycle consumers while preventing the messag
    - the text block stop emits the existing empty-delta partial;
    - the tool call is emitted;
    - `message_delta` emits no text event;
-   - the final event exists but has empty text.
+   - no final event is emitted for `tool_use` message stop.
 3. Run:
 
 ```bash
