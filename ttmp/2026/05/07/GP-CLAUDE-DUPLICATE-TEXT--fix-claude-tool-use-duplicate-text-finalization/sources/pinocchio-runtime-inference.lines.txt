@@ -1,0 +1,106 @@
+   70		if err := e.publish(ctx, sid, pub, EventInferenceStarted, started); err != nil {
+   71			return
+   72		}
+   73	
+   74		baseSink := gepevents.EventSink(&runtimeEventSink{publishCtx: publishContext(ctx), sessionID: sid, messageID: messageID, prompt: prompt, pub: pub, engine: e})
+   75		eventSink := baseSink
+   76		if runtime.WrapSink != nil {
+   77			wrapped, err := runtime.WrapSink(baseSink)
+   78			if err != nil {
+   79				_ = e.publish(publishContext(ctx), sid, pub, EventInferenceStopped, newChatMessageUpdate(messageID, "assistant", "", "", prompt, "stopped", false, err.Error()))
+   80				return
+   81			}
+   82			eventSink = wrapped
+   83		}
+   84		sink, ok := baseSink.(*runtimeEventSink)
+   85		if !ok {
+   86			_ = e.publish(publishContext(ctx), sid, pub, EventInferenceStopped, newChatMessageUpdate(messageID, "assistant", "", "", prompt, "stopped", false, "internal runtime sink type assertion failed"))
+   87			return
+   88		}
+   89		sess := gepsession.NewSessionWithID(string(sid))
+   90		sess.Builder = &enginebuilder.Builder{
+   91			Base:       runtime.Engine,
+   92			EventSinks: []gepevents.EventSink{eventSink},
+   93		}
+   94	
+   95		// Load conversation history: the last persisted turn contains the full
+   96		// conversation as an accumulator. AppendNewTurnFromUserPrompt will clone
+   97		// it and add the new user block, giving the LLM the full context.
+   98		if e.turnStore != nil {
+   99			snapshot, err := e.turnStore.LoadLatestTurn(ctx, string(sid), "final")
+  100			if err != nil {
+  101				_ = e.publish(publishContext(ctx), sid, pub, EventInferenceStopped, sink.stoppedMessageUpdate(messageID, fmt.Sprintf("load conversation history: %v", err)))
+  102				return
+  103			}
+  104			if snapshot != nil {
+  105				turn, err := serde.FromYAML([]byte(snapshot.Payload))
+  106				if err != nil {
+  107					_ = e.publish(publishContext(ctx), sid, pub, EventInferenceStopped, sink.stoppedMessageUpdate(messageID, fmt.Sprintf("decode conversation history: %v", err)))
+  108					return
+  109				}
+  110				if turn == nil {
+  111					_ = e.publish(publishContext(ctx), sid, pub, EventInferenceStopped, sink.stoppedMessageUpdate(messageID, "decode conversation history: empty turn"))
+  112					return
+  113				}
+  114				sess.Append(turn)
+  115			}
+  116		}
+  117	
+  118		_, err := sess.AppendNewTurnFromUserPrompt(prompt)
+  119		if err != nil {
+  120			_ = e.publish(publishContext(ctx), sid, pub, EventInferenceStopped, sink.stoppedMessageUpdate(messageID, err.Error()))
+  121			return
+  122		}
+  123		handle, err := sess.StartInference(ctx)
+  124		if err != nil {
+  125			_ = e.publish(publishContext(ctx), sid, pub, EventInferenceStopped, sink.stoppedMessageUpdate(messageID, err.Error()))
+  126			return
+  127		}
+  128		output, err := handle.Wait()
+  129		if err != nil {
+  130			if !sink.IsTerminal() {
+  131				if isMaxIterationsError(err) {
+  132					_ = e.publish(publishContext(ctx), sid, pub, EventInferenceFinished, newChatMessageUpdate(runtimeWarningMessageID(messageID), "warning", maxIterationsWarningText(err), maxIterationsWarningText(err), prompt, "finished", false, ""))
+  133				}
+  134				_ = e.publish(publishContext(ctx), sid, pub, EventInferenceStopped, sink.stoppedMessageUpdate(messageID, err.Error()))
+  135			}
+  136			return
+  137		}
+  138		if sink.IsTerminal() {
+  139			return
+  140		}
+  141		finalText := sink.LastText()
+  142		if finalText == "" {
+  143			finalText = assistantTextFromTurn(output)
+  144		}
+  145		textMessageID, segment := sink.ensureTextSegmentID()
+  146		finished := newChatMessageUpdate(textMessageID, "assistant", finalText, finalText, prompt, "finished", false, "")
+  147		finished.ParentMessageId = messageID
+  148		finished.Segment = segment
+  149		finished.SegmentType = "text"
+  150		finished.Final = true
+  151		_ = e.publish(publishContext(ctx), sid, pub, EventInferenceFinished, finished)
+  152	}
+  153	
+  154	func publishContext(ctx context.Context) context.Context {
+  155		if ctx == nil {
+  156			return context.Background()
+  157		}
+  158		return context.WithoutCancel(ctx)
+  159	}
+  160	
+  161	func (e *Engine) publish(ctx context.Context, sid sessionstream.SessionId, pub sessionstream.EventPublisher, name string, payload proto.Message) error {
+  162		if payload == nil {
+  163			return fmt.Errorf("event %s payload is nil", name)
+  164		}
+  165		if e.hooks.OnBackendEvent != nil {
+  166			e.hooks.OnBackendEvent(string(sid), name, protoMessageAsMap(payload))
+  167		}
+  168		return pub.Publish(ctx, sessionstream.Event{Name: name, SessionId: sid, Payload: payload})
+  169	}
+  170	
+  171	func assistantTextFromTurn(turn *turns.Turn) string {
+  172		if turn == nil {
+  173			return ""
+  174		}
+  175		parts := make([]string, 0, len(turn.Blocks))

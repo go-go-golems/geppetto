@@ -1,0 +1,161 @@
+  280				}
+  281				chunkCount++
+  282				if id := stringFromRawMap(response.RawPayload, "id"); id != "" {
+  283					currentResponseID = id
+  284				}
+  285				if response.ChoiceIndex != nil {
+  286					currentChoiceIndex = cloneIntPtr(response.ChoiceIndex)
+  287				}
+  288				response = toolCallIDTracker.Enrich(response)
+  289				e.observeProviderEvent(ctx, metadata, req.Model, response)
+  290	
+  291				delta := response.DeltaText
+  292				if delta != "" {
+  293					message += delta
+  294				}
+  295				if response.DeltaReasoning != "" {
+  296					providerData := chatProviderDataFromEvent(e.inferenceProvider(), response)
+  297					providerMetadata := metadataWithChatProviderData(metadata, providerData)
+  298					if !thinkingStarted {
+  299						thinkingStarted = true
+  300						e.publishEvent(ctx, events.NewInfoEvent(providerMetadata, "thinking-started", providerData))
+  301					}
+  302					before := thinkingBuf.Len()
+  303					normalized := streamhelpers.NormalizeReasoningDelta(thinkingBuf.String(), response.DeltaReasoning)
+  304					e.observeProviderNormalizeDelta(ctx, metadata, req.Model, response, len(response.DeltaReasoning), len(normalized), before+len(normalized))
+  305					thinkingBuf.WriteString(normalized)
+  306					e.publishEvent(ctx, events.NewThinkingPartialEvent(providerMetadata, response.DeltaReasoning, thinkingBuf.String()))
+  307				}
+  308	
+  309				// Tool call deltas
+  310				if len(response.ToolCalls) > 0 {
+  311					toolCallMerger.AddToolCalls(response.ToolCalls)
+  312				}
+  313	
+  314				// Extract usage and finish reason from normalized stream response
+  315				if response.Usage != nil {
+  316					usageInputTokens = response.Usage.promptTokens
+  317					usageOutputTokens = response.Usage.completionTokens
+  318					cachedTokens = response.Usage.cachedTokens
+  319					reasoningTokens = response.Usage.reasoningTokens
+  320				}
+  321				if response.FinishReason != nil && *response.FinishReason != "" {
+  322					stopReason = response.FinishReason
+  323				}
+  324	
+  325				// Publish intermediate streaming event only if we have a non-empty delta
+  326				if delta != "" {
+  327					partialEvent := events.NewPartialCompletionEvent(
+  328						metadataWithChatProviderData(metadata, chatProviderDataFromEvent(e.inferenceProvider(), response)),
+  329						delta, message,
+  330					)
+  331					e.publishEvent(ctx, partialEvent)
+  332				}
+  333			}
+  334		}
+  335	
+  336	streamingComplete:
+  337	
+  338		// Update event metadata with usage information
+  339		if usageInputTokens > 0 || usageOutputTokens > 0 || cachedTokens > 0 {
+  340			if metadata.Usage == nil {
+  341				metadata.Usage = &events.Usage{}
+  342			}
+  343			metadata.Usage.InputTokens = usageInputTokens
+  344			metadata.Usage.OutputTokens = usageOutputTokens
+  345			metadata.Usage.CachedTokens = cachedTokens
+  346		}
+  347		if metadata.Extra == nil {
+  348			metadata.Extra = map[string]any{}
+  349		}
+  350		metadata.Extra["thinking_text"] = thinkingBuf.String()
+  351		metadata.Extra["saying_text"] = message
+  352		if reasoningTokens > 0 {
+  353			metadata.Extra["reasoning_tokens"] = reasoningTokens
+  354		}
+  355		metadata.StopReason = stopReason
+  356		// set duration for successful completion
+  357		d := time.Since(startTime).Milliseconds()
+  358		dm := int64(d)
+  359		metadata.DurationMs = &dm
+  360	
+  361		log.Debug().
+  362			Int("input_tokens", usageInputTokens).
+  363			Int("output_tokens", usageOutputTokens).
+  364			Str("stop_reason", func() string {
+  365				if stopReason != nil {
+  366					return *stopReason
+  367				}
+  368				return ""
+  369			}()).
+  370			Msg("OpenAI metadata finalized")
+  371	
+  372		mergedToolCalls := toolCallMerger.GetToolCalls()
+  373		log.Debug().Int("final_text_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI streaming complete, preparing messages")
+  374	
+  375		if thinkingBuf.Len() > 0 {
+  376			if thinkingStarted {
+  377				e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-ended", nil))
+  378			}
+  379		}
+  380	
+  381		// If we have tool calls, publish ToolCall events now
+  382		if len(mergedToolCalls) > 0 {
+  383			for _, tc := range mergedToolCalls {
+  384				inputStr := tc.Function.Arguments
+  385				providerData := chatProviderData(e.inferenceProvider(), currentResponseID, currentChoiceIndex, "tool_call", chatCorrelationKey(e.inferenceProvider(), currentResponseID, currentChoiceIndex, "tool_call", tc.ID, tc.Index), tc.ID, tc.Index)
+  386				toolCallEvent := events.NewToolCallEvent(
+  387					metadataWithChatProviderData(metadata, providerData),
+  388					events.ToolCall{ID: tc.ID, Name: tc.Function.Name, Input: inputStr},
+  389				)
+  390				e.publishEvent(ctx, toolCallEvent)
+  391			}
+  392		}
+  393	
+  394		// Append messages in order that keeps last message as tool-use when present
+  395		if thinkingBuf.Len() > 0 {
+  396			turns.AppendBlock(t, turns.Block{
+  397				ID:   uuid.NewString(),
+  398				Kind: turns.BlockKindReasoning,
+  399				Payload: map[string]any{
+  400					turns.PayloadKeyText: thinkingBuf.String(),
+  401				},
+  402			})
+  403		}
+  404		if len(message) > 0 {
+  405			turns.AppendBlock(t, turns.NewAssistantTextBlock(message))
+  406		}
+  407		for _, tc := range mergedToolCalls {
+  408			var args any
+  409			_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
+  410			turns.AppendBlock(t, turns.NewToolCallBlock(tc.ID, tc.Function.Name, args))
+  411		}
+  412		result := engine.BuildInferenceResultFromEventMetadata(metadata, "openai", len(mergedToolCalls) > 0)
+  413		if err := engine.PersistInferenceResult(t, result); err != nil {
+  414			log.Warn().Err(err).Msg("OpenAI: failed to persist canonical inference_result")
+  415		}
+  416	
+  417		// Publish final event for streaming
+  418		log.Debug().
+  419			Str("event_id", metadata.ID.String()).
+  420			Str("model", metadata.Model).
+  421			Interface("temperature", metadata.Temperature).
+  422			Interface("top_p", metadata.TopP).
+  423			Interface("max_tokens", metadata.MaxTokens).
+  424			Interface("usage", metadata.Usage).
+  425			Str("stop_reason", func() string {
+  426				if stopReason != nil {
+  427					return *stopReason
+  428				}
+  429				return ""
+  430			}()).
+  431			Msg("OpenAI publishing final event (streaming)")
+  432		finalEvent := events.NewFinalEvent(metadata, message)
+  433		e.publishEvent(ctx, finalEvent)
+  434	
+  435		log.Debug().Msg("OpenAI RunInference completed (streaming)")
+  436		return t, nil
+  437	}
+  438	
+  439	// publishEvent publishes an event to all configured sinks and any sinks carried in context.
+  440	func (e *OpenAIEngine) publishEvent(ctx context.Context, event events.Event) {

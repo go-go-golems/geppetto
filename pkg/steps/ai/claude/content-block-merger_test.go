@@ -123,6 +123,77 @@ func TestContentBlockMerger(t *testing.T) {
 			},
 		},
 		{
+			name: "Test tool use stop does not duplicate finalized text",
+			events: []api.StreamingEvent{
+				{Type: api.MessageStartType, Message: &api.MessageResponse{}},
+				{
+					Type:         api.ContentBlockStartType,
+					Index:        0,
+					ContentBlock: &api.ContentBlock{Type: api.ContentTypeText},
+				},
+				{
+					Type:  api.ContentBlockDeltaType,
+					Index: 0,
+					Delta: &api.Delta{
+						Type: api.TextDeltaType,
+						Text: "I'll inspect the schema first.",
+					},
+				},
+				{
+					Type:  api.ContentBlockStopType,
+					Index: 0,
+				},
+				{
+					Type:  api.ContentBlockStartType,
+					Index: 1,
+					ContentBlock: &api.ContentBlock{
+						Type: api.ContentTypeToolUse,
+						ID:   "tool_1",
+						Name: "sql_doc",
+					},
+				},
+				{
+					Type:  api.ContentBlockDeltaType,
+					Index: 1,
+					Delta: &api.Delta{
+						Type:        api.InputJSONDeltaType,
+						PartialJSON: `{"topic":"inventory"}`,
+					},
+				},
+				{
+					Type:  api.ContentBlockStopType,
+					Index: 1,
+				},
+				{
+					Type: api.MessageDeltaType,
+					Delta: &api.Delta{
+						StopReason: "tool_use",
+					},
+				},
+				{Type: api.MessageStopType},
+			},
+			expectedEvents: []events.Event{
+				events.NewStartEvent(events.EventMetadata{}),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, "I'll inspect the schema first.", "I'll inspect the schema first."),
+				events.NewPartialCompletionEvent(events.EventMetadata{}, "", "I'll inspect the schema first."),
+				events.NewToolCallEvent(events.EventMetadata{}, events.ToolCall{
+					ID:    "tool_1",
+					Name:  "sql_doc",
+					Input: `{"topic":"inventory"}`,
+				}),
+			},
+			checkMetadata: func(t *testing.T, metadata map[string]interface{}) {
+				assert.Equal(t, "tool_use", metadata[StopReasonMetadataSlug])
+			},
+			checkResponse: func(t *testing.T, response *api.MessageResponse) {
+				assert.Len(t, response.Content, 2)
+				assert.Equal(t, "I'll inspect the schema first.", response.Content[0].(api.TextContent).Text)
+				toolUseContent := response.Content[1].(api.ToolUseContent)
+				assert.Equal(t, "tool_1", toolUseContent.ID)
+				assert.Equal(t, "sql_doc", toolUseContent.Name)
+			},
+		},
+		{
 			name: "Test multiple content blocks (text and tool use)",
 			events: []api.StreamingEvent{
 				{Type: api.MessageStartType, Message: &api.MessageResponse{}},

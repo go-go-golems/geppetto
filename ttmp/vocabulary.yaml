@@ -103,6 +103,8 @@ topics:
       description: Intern-focused onboarding, architecture orientation, and contributor guides
     - slug: observability
       description: Runtime observability, trace records, debug evidence, and telemetry-style diagnostics
+    - slug: claude
+      description: Anthropic Claude provider integration and streaming behavior
 docTypes:
     - slug: index
       description: Ticket index

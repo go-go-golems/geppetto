@@ -1,0 +1,230 @@
+    1	package chatapp
+    2	
+    3	import (
+    4		"context"
+    5		"fmt"
+    6		"strconv"
+    7		"strings"
+    8		"sync"
+    9	
+   10		gepevents "github.com/go-go-golems/geppetto/pkg/events"
+   11		chatappv1 "github.com/go-go-golems/pinocchio/pkg/chatapp/pb/proto/pinocchio/chatapp/v1"
+   12		sessionstream "github.com/go-go-golems/sessionstream/pkg/sessionstream"
+   13	)
+   14	
+   15	type runtimeEventSink struct {
+   16		mu          sync.Mutex
+   17		publishCtx  context.Context
+   18		sessionID   sessionstream.SessionId
+   19		messageID   string
+   20		prompt      string
+   21		pub         sessionstream.EventPublisher
+   22		engine      *Engine
+   23		lastText    string
+   24		terminal    bool
+   25		textSegment int32
+   26		textActive  bool
+   27	}
+   28	
+   29	func (s *runtimeEventSink) PublishEvent(event gepevents.Event) error {
+   30		if s == nil || s.pub == nil || s.engine == nil {
+   31			return nil
+   32		}
+   33		switch ev := event.(type) {
+   34		case *gepevents.EventPartialCompletion:
+   35			textMessageID, segment := s.ensureTextSegmentID()
+   36			s.mu.Lock()
+   37			s.lastText = ev.Completion
+   38			s.mu.Unlock()
+   39			payload := newChatMessageDelta(textMessageID, ev.Delta, ev.Completion, s.prompt, "streaming", true, "")
+   40			payload.ParentMessageId = s.messageID
+   41			payload.Segment = segment
+   42			payload.SegmentType = "text"
+   43			applyChatMessageProviderInfo(payload, ev.Metadata())
+   44			return s.engine.publish(s.publishContext(), s.sessionID, s.pub, EventTokensDelta, payload)
+   45		case *gepevents.EventFinal:
+   46			textMessageID, segment := s.ensureTextSegmentID()
+   47			s.mu.Lock()
+   48			s.lastText = ev.Text
+   49			s.terminal = true
+   50			s.textActive = false
+   51			s.mu.Unlock()
+   52			payload := newChatMessageUpdate(textMessageID, "assistant", ev.Text, ev.Text, s.prompt, "finished", false, "")
+   53			payload.ParentMessageId = s.messageID
+   54			payload.Segment = segment
+   55			payload.SegmentType = "text"
+   56			payload.Final = true
+   57			return s.engine.publish(s.publishContext(), s.sessionID, s.pub, EventInferenceFinished, payload)
+   58		case *gepevents.EventError:
+   59			return s.engine.publish(s.publishContext(), s.sessionID, s.pub, EventInferenceStopped, s.stoppedMessageUpdate(s.messageID, ev.ErrorString))
+   60		case *gepevents.EventInterrupt:
+   61			textMessageID, segment := s.ensureTextSegmentID()
+   62			s.mu.Lock()
+   63			s.lastText = ev.Text
+   64			s.terminal = true
+   65			s.textActive = false
+   66			s.mu.Unlock()
+   67			payload := newChatMessageUpdate(textMessageID, "assistant", ev.Text, ev.Text, s.prompt, "stopped", false, "")
+   68			payload.ParentMessageId = s.messageID
+   69			payload.Segment = segment
+   70			payload.SegmentType = "text"
+   71			payload.Final = true
+   72			return s.engine.publish(s.publishContext(), s.sessionID, s.pub, EventInferenceStopped, payload)
+   73		default:
+   74			if isTranscriptBoundaryEvent(event) {
+   75				if textMessageID, segment, text, ok := s.finishTextSegment(); ok {
+   76					payload := newChatMessageUpdate(textMessageID, "assistant", text, text, s.prompt, "finished", false, "")
+   77					payload.ParentMessageId = s.messageID
+   78					payload.Segment = segment
+   79					payload.SegmentType = "text"
+   80					if err := s.engine.publish(s.publishContext(), s.sessionID, s.pub, EventInferenceFinished, payload); err != nil {
+   81						return err
+   82					}
+   83				}
+   84			}
+   85			return s.engine.handleFeatureRuntimeEvent(s.publishContext(), s.sessionID, s.messageID, s.pub, event)
+   86		}
+   87	}
+   88	
+   89	func (s *runtimeEventSink) publishContext() context.Context {
+   90		if s == nil {
+   91			return context.Background()
+   92		}
+   93		return publishContext(s.publishCtx)
+   94	}
+   95	
+   96	func (s *runtimeEventSink) ensureTextSegmentID() (string, int32) {
+   97		if s == nil {
+   98			return "", 0
+   99		}
+  100		s.mu.Lock()
+  101		defer s.mu.Unlock()
+  102		if !s.textActive {
+  103			s.textSegment++
+  104			s.textActive = true
+  105		}
+  106		return textSegmentMessageID(s.messageID, s.textSegment), s.textSegment
+  107	}
+  108	
+  109	func (s *runtimeEventSink) stoppedMessageUpdate(defaultMessageID, errText string) *chatappv1.ChatMessageUpdate {
+  110		if s == nil {
+  111			return newChatMessageUpdate(defaultMessageID, "assistant", "", "", "", "stopped", false, errText)
+  112		}
+  113		s.mu.Lock()
+  114		text := s.lastText
+  115		segment := s.textSegment
+  116		active := s.textActive && segment > 0
+  117		if active {
+  118			s.textActive = false
+  119		}
+  120		s.terminal = true
+  121		s.mu.Unlock()
+  122	
+  123		if !active {
+  124			// If a prior text segment was already closed by a tool/reasoning boundary,
+  125			// do not duplicate that segment's content into the parent run-level stopped row.
+  126			if segment > 0 {
+  127				text = ""
+  128			}
+  129			return newChatMessageUpdate(defaultMessageID, "assistant", text, text, s.prompt, "stopped", false, errText)
+  130		}
+  131		payload := newChatMessageUpdate(textSegmentMessageID(s.messageID, segment), "assistant", text, text, s.prompt, "stopped", false, errText)
+  132		payload.ParentMessageId = s.messageID
+  133		payload.Segment = segment
+  134		payload.SegmentType = "text"
+  135		payload.Final = true
+  136		return payload
+  137	}
+  138	
+  139	func (s *runtimeEventSink) finishTextSegment() (string, int32, string, bool) {
+  140		if s == nil {
+  141			return "", 0, "", false
+  142		}
+  143		s.mu.Lock()
+  144		defer s.mu.Unlock()
+  145		if !s.textActive || s.textSegment <= 0 || strings.TrimSpace(s.lastText) == "" {
+  146			s.textActive = false
+  147			return "", 0, "", false
+  148		}
+  149		s.textActive = false
+  150		return textSegmentMessageID(s.messageID, s.textSegment), s.textSegment, s.lastText, true
+  151	}
+  152	
+  153	func textSegmentMessageID(messageID string, segment int32) string {
+  154		messageID = strings.TrimSpace(messageID)
+  155		if messageID == "" || segment <= 0 {
+  156			return ""
+  157		}
+  158		return fmt.Sprintf("%s:text:%d", messageID, segment)
+  159	}
+  160	
+  161	func applyChatMessageProviderInfo(update *chatappv1.ChatMessageUpdate, metadata gepevents.EventMetadata) {
+  162		if update == nil || metadata.Extra == nil {
+  163			return
+  164		}
+  165		if v, ok := metadata.Extra["provider"].(string); ok {
+  166			update.Provider = strings.TrimSpace(v)
+  167		}
+  168		if v, ok := metadata.Extra["response_id"].(string); ok {
+  169			update.ResponseId = strings.TrimSpace(v)
+  170		}
+  171		if v, ok := int32FromMetadata(metadata.Extra["choice_index"]); ok {
+  172			update.ChoiceIndex = &v
+  173		}
+  174		if v, ok := metadata.Extra["stream_kind"].(string); ok {
+  175			update.StreamKind = strings.TrimSpace(v)
+  176		}
+  177		if v, ok := metadata.Extra["correlation_key"].(string); ok {
+  178			update.CorrelationKey = strings.TrimSpace(v)
+  179		}
+  180	}
+  181	
+  182	func int32FromMetadata(v any) (int32, bool) {
+  183		switch tv := v.(type) {
+  184		case int:
+  185			parsed, err := strconv.ParseInt(strconv.Itoa(tv), 10, 32)
+  186			if err != nil {
+  187				return 0, false
+  188			}
+  189			return int32(parsed), true
+  190		case int32:
+  191			return tv, true
+  192		case int64:
+  193			if tv < int64(-1<<31) || tv > int64(1<<31-1) {
+  194				return 0, false
+  195			}
+  196			return int32(tv), true
+  197		case float64:
+  198			if tv < float64(-1<<31) || tv > float64(1<<31-1) || tv != float64(int32(tv)) {
+  199				return 0, false
+  200			}
+  201			return int32(tv), true
+  202		case string:
+  203			parsed, err := strconv.ParseInt(strings.TrimSpace(tv), 10, 32)
+  204			if err != nil {
+  205				return 0, false
+  206			}
+  207			return int32(parsed), true
+  208		default:
+  209			return 0, false
+  210		}
+  211	}
+  212	
+  213	func isTranscriptBoundaryEvent(event gepevents.Event) bool {
+  214		switch event.(type) {
+  215		case *gepevents.EventToolCall, *gepevents.EventToolCallExecute, *gepevents.EventToolResult, *gepevents.EventToolCallExecutionResult:
+  216			return true
+  217		default:
+  218			return false
+  219		}
+  220	}
+  221	
+  222	func (s *runtimeEventSink) LastText() string {
+  223		if s == nil {
+  224			return ""
+  225		}
+  226		s.mu.Lock()
+  227		defer s.mu.Unlock()
+  228		return s.lastText
+  229	}
+  230	
