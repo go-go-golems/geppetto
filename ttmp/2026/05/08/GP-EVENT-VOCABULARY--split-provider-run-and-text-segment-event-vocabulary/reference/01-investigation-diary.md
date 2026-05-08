@@ -3,22 +3,35 @@ Title: Investigation diary
 Ticket: GP-EVENT-VOCABULARY
 Status: active
 Topics:
-  - geppetto
-  - pinocchio
-  - streaming
-  - observability
-  - events
+    - geppetto
+    - pinocchio
+    - streaming
+    - observability
+    - events
 DocType: reference
 Intent: long-term
 Owners:
-  - manuel
-RelatedFiles: []
+    - manuel
+RelatedFiles:
+    - Path: ../../../../../../../pinocchio/cmd/web-chat/web/src/ws/chatappPayloads.ts
+      Note: Frontend websocket parser now consumes canonical chatapp payloads
+    - Path: ../../../../../../../pinocchio/pkg/chatapp/plugins/reasoning.go
+      Note: Canonical reasoning event forwarding and timeline projection
+    - Path: ../../../../../../../pinocchio/pkg/chatapp/plugins/toolcall.go
+      Note: Canonical tool lifecycle forwarding and timeline projection
+    - Path: ../../../../../../../pinocchio/pkg/chatapp/projections.go
+      Note: Canonical UI and timeline projection cutover
+    - Path: ../../../../../../../pinocchio/pkg/ui/timeline_persist.go
+      Note: Legacy TUI persistence migrated to canonical Geppetto text/reasoning events
+    - Path: ../../../../../../../pinocchio/proto/pinocchio/chatapp/v1/chat.proto
+      Note: Canonical chatapp protobuf contract completed by Pinocchio commit 95fb755
 ExternalSources: []
 Summary: Chronological investigation and delivery notes for the provider/run/text segment event vocabulary design ticket.
 LastUpdated: 2026-05-08T07:20:00-04:00
 WhatFor: Preserve how the vocabulary design was researched, written, validated, and delivered.
 WhenToUse: Read before implementing or updating GP-EVENT-VOCABULARY.
 ---
+
 
 # Investigation diary
 
@@ -891,3 +904,130 @@ go test ./... -count=1
 ```
 
 The cleanup scans returned no matches and the tests passed.
+
+## 2026-05-08 09:35 — Committed Pinocchio canonical UI/protobuf cutover
+
+This step finished the large Pinocchio-side hard cutover that had been staged but uncommitted. The final result is commit `95fb755` in `../pinocchio`, which removes the active web-chat compatibility wrappers and migrates the remaining older TUI/simple-chat consumers away from deleted Geppetto legacy event structs.
+
+The important semantic change is that Pinocchio now treats canonical backend payloads as the browser contract: run, provider-call, text segment, reasoning segment, and tool lifecycle events are forwarded by canonical event name with nested `CorrelationInfo`. Provider-call lifecycle events remain telemetry/debug lifecycle, not transcript text segment state.
+
+### Prompt Context
+
+**User prompt (verbatim):** "keep a diary, commit at appropriate intervals"
+
+**Assistant interpretation:** Continue the migration work, record failures and decisions as they happen, and create a focused commit once Pinocchio validates.
+
+**Inferred user intent:** Keep the multi-repo cutover reviewable and resumable, with checkpoint commits and ticket evidence instead of a long uncommitted working tree.
+
+**Commit (code):** `95fb755` — "Cut over chatapp UI to canonical events"
+
+### What I did
+
+- Re-ran the Pinocchio validation matrix after the previous frontend lint/typecheck pass.
+- Fixed plugin tests that still referenced deleted Geppetto constructors:
+  - `NewThinkingPartialEvent`
+  - `NewToolCallEvent`
+- Migrated remaining active Pinocchio non-webchat/TUI code from deleted Geppetto event structs to canonical events:
+  - `pkg/ui/timeline_persist.go`
+  - `pkg/ui/backend.go`
+  - `pkg/ui/forwarders/agent/forwarder.go`
+  - `cmd/agents/simple-chat-agent/pkg/xevents/events.go`
+  - `cmd/agents/simple-chat-agent/pkg/store/sqlstore.go`
+  - `cmd/agents/simple-chat-agent/pkg/ui/app.go`
+  - `cmd/agents/simple-chat-agent/pkg/ui/sidebar.go`
+  - `cmd/agents/simple-chat-agent/pkg/ui/host.go`
+  - `cmd/agents/simple-chat-agent/main.go`
+- Kept the already-staged web-chat canonical protobuf/UI cutover intact:
+  - canonical `chat.proto` messages;
+  - regenerated Go and TypeScript protobufs;
+  - canonical websocket payload parsing and timeline entities;
+  - canonical reasoning/tool plugins preserving nested `CorrelationInfo`.
+- Removed stale active comments that still referred to `ReasoningUpdate` or `EventFinal` semantics.
+- Committed all Pinocchio code as `95fb755`.
+
+### Why
+
+Geppetto removed the legacy event structs entirely, so Pinocchio could not keep active references to `EventFinal`, `EventPartialCompletion`, `EventThinkingPartial`, or old tool event structs. The web-chat path had already been migrated, but full `go test ./...` exposed older TUI/simple-chat packages that still consumed the deleted APIs.
+
+### What worked
+
+- Targeted web-chat and chatapp validations passed after the earlier frontend fixes.
+- Full Pinocchio active-code scan, excluding docs/tickets/markdown, found no remaining old Geppetto or chatapp UI event names after the TUI/simple-chat migration.
+- The final Pinocchio pre-commit passed:
+  - `go generate ./...`
+  - frontend production build;
+  - `go build ./...`
+  - `golangci-lint run`;
+  - `go vet`;
+  - `go test ./...`;
+  - `cmd/web-chat/web` typecheck and Biome lint.
+
+### What didn't work
+
+The first commit attempt failed in pre-commit with two useful findings.
+
+1. Staticcheck rejected redundant type assertions because `sessionstream.Event.Payload` is already `proto.Message`:
+
+```text
+pkg/chatapp/plugins/reasoning.go:104:14: S1040: type assertion to the same type: ev.Payload already has type proto.Message
+pkg/chatapp/plugins/toolcall.go:90:14: S1040: type assertion to the same type: ev.Payload already has type proto.Message
+pkg/chatapp/projections.go:21:71: S1040: type assertion to the same type: ev.Payload already has type proto.Message
+```
+
+I fixed this by checking `ev.Payload == nil` and cloning `ev.Payload` directly.
+
+2. `TestChatExampleStopPath` failed once under the slower pre-commit run:
+
+```text
+Error: "[{ChatMessage chat-msg-1-user ...}]" should have 2 item(s), but has 1
+```
+
+The stop command can now arrive before any text segment exists. That is valid under the hard cutover rule: run/provider lifecycle must not manufacture assistant text. I updated the test to require at least the user entity, and only assert stopped assistant state if an assistant text entity actually exists.
+
+### What I learned
+
+The web-chat path was not the only active Pinocchio consumer of Geppetto events. Older TUI/simple-chat packages still compiled in the main module and therefore had to be migrated as part of the hard cutover, even though they are not the primary CoinVault route.
+
+### What was tricky to build
+
+The subtle part was keeping the “no empty assistant transcript” rule consistent across implementations. A stopped run is no longer enough to create an assistant entity; only canonical text segment events should create/update/finish assistant text. This affected both the timeline persistence code and the stop-path test expectation.
+
+### What warrants a second pair of eyes
+
+- The simple-chat TUI migration is a straightforward canonical mapping, but it is older UI code and should be manually reviewed for desired UX around streamed tool argument deltas versus final tool requests.
+- `pkg/ui/timeline_persist.go` now keys persisted text/reasoning entities by canonical segment correlation when available; review whether downstream consumers expect old metadata-ID entity IDs in any non-webchat storage views.
+
+### What should be done in the future
+
+- Phase 9 should extend the Pinocchio debug SQLite export with `geppetto_inference_results` and `geppetto_segments` so browser traces can prove provider-call versus text-segment semantics directly.
+- Documentation still needs a pass to remove old examples in Pinocchio docs and historical README material.
+
+### Code review instructions
+
+Start with the contract changes:
+
+1. `../pinocchio/proto/pinocchio/chatapp/v1/chat.proto`
+2. `../pinocchio/pkg/chatapp/projections.go`
+3. `../pinocchio/pkg/chatapp/plugins/reasoning.go`
+4. `../pinocchio/pkg/chatapp/plugins/toolcall.go`
+5. `../pinocchio/cmd/web-chat/web/src/ws/chatappPayloads.ts`
+6. `../pinocchio/cmd/web-chat/web/src/ws/timelineEvents.ts`
+
+Then review the secondary active-consumer migration:
+
+1. `../pinocchio/pkg/ui/timeline_persist.go`
+2. `../pinocchio/pkg/ui/backend.go`
+3. `../pinocchio/pkg/ui/forwarders/agent/forwarder.go`
+4. `../pinocchio/cmd/agents/simple-chat-agent/pkg/ui/app.go`
+5. `../pinocchio/cmd/agents/simple-chat-agent/pkg/xevents/events.go`
+
+Validation commands:
+
+```bash
+cd pinocchio
+go test ./pkg/chatapp/... ./cmd/web-chat/... -count=1
+go test ./...
+cd cmd/web-chat/web && npm run typecheck && npm run lint
+```
+
+The final commit hook also ran `go generate ./...`, `go build ./...`, `golangci-lint`, and `go vet`.

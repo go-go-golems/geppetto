@@ -391,13 +391,13 @@ Goal: make `CorrelationInfo` canonical and remove old event payload names.
   - [x] `ChatToolExecutionStarted`
   - [x] `ChatToolResultReady`
   - [x] `ChatToolCallFinished`
-- [ ] Remove or stop generating active payloads for:
-  - [ ] `ChatMessageUpdate` as the universal text delta/final payload, if fully replaced;
-  - [ ] old top-level provider fields duplicated outside `CorrelationInfo`;
-  - [ ] `ChatInferenceStarted`;
-  - [ ] `ChatTokensDelta`;
-  - [ ] `ChatInferenceFinished`;
-  - [ ] `ChatInferenceStopped`.
+- [x] Remove or stop generating active payloads for:
+  - [x] `ChatMessageUpdate` as the universal text delta/final payload, if fully replaced;
+  - [x] old top-level provider fields duplicated outside `CorrelationInfo`;
+  - [x] `ChatInferenceStarted`;
+  - [x] `ChatTokensDelta`;
+  - [x] `ChatInferenceFinished`;
+  - [x] `ChatInferenceStopped`.
 - [x] Regenerate Pinocchio Go protobufs.
 - [x] Regenerate Pinocchio web/chat TypeScript protobufs if that repo owns any.
 - [x] Update protobuf registration code/tests.
@@ -422,15 +422,15 @@ Goal: make Pinocchio consume only canonical Geppetto events and publish only can
   - [x] project `ChatTextDelta` into UI text append/update events;
   - [x] project `ChatTextSegmentFinished` into finished text segment UI state;
   - [x] project run/provider-call events into debug/status UI only if desired;
-  - [ ] preserve `CorrelationInfo` in timeline entities. (backend canonical payloads preserve it; existing compatibility timeline entities still flatten selected fields)
+  - [x] preserve `CorrelationInfo` in timeline entities.
 - [x] Update reasoning plugin:
   - [x] use canonical reasoning events;
   - [x] stop deriving correlation from `metadata.Extra` for new events;
-  - [ ] preserve `CorrelationInfo` in reasoning UI/timeline entities. (backend payloads preserve it; compatibility UI/timeline currently flatten selected fields)
+  - [x] preserve `CorrelationInfo` in reasoning UI/timeline entities.
 - [x] Update tool plugin:
   - [x] use canonical tool events;
   - [x] support `ToolCallArgumentsDelta` if rendered/debugged;
-  - [ ] preserve `CorrelationInfo` in tool call/result entities. (backend payloads preserve it; compatibility UI/timeline currently flatten selected fields)
+  - [x] preserve `CorrelationInfo` in tool call/result entities.
 - [x] Delete or rewrite tests that assert old event names.
 - [ ] Add tests proving provider-call events do not affect text segment state. (runtime no longer closes text on provider/tool boundary; dedicated assertion pending)
 - [x] Run `cd ../pinocchio && go test ./pkg/chatapp/... -count=1`.
@@ -526,10 +526,10 @@ Goal: prove the hard cutover is complete and no old runtime vocabulary remains.
   - [x] `cd geppetto && go test ./pkg/steps/ai/gemini ./pkg/inference/tools -count=1`
   - [x] `cd geppetto && go test ./pkg/steps/ai/... -count=1`
   - [x] `cd geppetto && go test ./...`
-- [ ] Run Pinocchio tests:
+- [x] Run Pinocchio tests:
   - [x] `cd pinocchio && go test ./pkg/chatapp/... -count=1`
-  - [ ] `cd pinocchio && go test ./cmd/web-chat/... -count=1`
-  - [ ] `cd pinocchio && go test ./...` if practical.
+  - [x] `cd pinocchio && go test ./cmd/web-chat/... -count=1`
+  - [x] `cd pinocchio && go test ./...` if practical.
 - [ ] Run CoinVault tests:
   - [x] `cd 2026-03-16--gec-rag && go test ./internal/webchat ./cmd/coinvault/cmds -count=1`
   - [x] `cd 2026-03-16--gec-rag/web && pnpm run typecheck`
@@ -603,8 +603,8 @@ Suggested commit sequence. Keep each commit compiling if possible, but do not me
 - [ ] Geppetto commit 4: migrate OpenAI Chat Completions.
 - [ ] Geppetto commit 4B: migrate Gemini and local tool execution events.
 - [ ] Geppetto commit 5: remove legacy event names and update docs.
-- [ ] Pinocchio commit 1: replace protobufs with `CorrelationInfo` and canonical messages.
-- [ ] Pinocchio commit 2: replace runtime sink/projections/plugins.
+- [x] Pinocchio commit 1: replace protobufs with `CorrelationInfo` and canonical messages. (`60f6d3c`, completed by full UI cutover `95fb755`)
+- [x] Pinocchio commit 2: replace runtime sink/projections/plugins. (`c3e31da`, `c57559a`, completed by full UI cutover `95fb755`)
 - [ ] Pinocchio commit 3: update SQLite reconcile schema/views.
 - [ ] CoinVault commit 1: update protobuf mirror and frontend parser.
 - [ ] CoinVault commit 2: update tests, debug scripts, and trace browser.
@@ -616,13 +616,13 @@ The migration is complete when all of these are true:
 
 - [x] No active runtime code emits or consumes `EventFinal`.
 - [x] No active runtime code emits or consumes `EventPartialCompletion`.
-- [ ] Gemini emits only canonical provider-call/text/tool events.
-- [ ] Local tool execution emits only canonical tool execution/result events.
+- [x] Gemini emits only canonical provider-call/text/tool events.
+- [x] Local tool execution emits only canonical tool execution/result events.
 - [ ] No active Pinocchio/CoinVault code emits or consumes `ChatInferenceStarted`, `ChatTokensDelta`, or `ChatInferenceFinished`.
 - [ ] Every canonical event carries typed correlation.
-- [ ] Every Pinocchio protobuf payload carries `CorrelationInfo`.
-- [ ] Provider-call lifecycle events never create text rows.
-- [ ] Text rows are created/updated/finished only by text-segment events.
+- [x] Every Pinocchio protobuf payload carries `CorrelationInfo`.
+- [x] Provider-call lifecycle events never create text rows.
+- [x] Text rows are created/updated/finished only by text-segment events.
 - [ ] Claude `message_delta` and `message_stop` emit provider-call events only.
 - [ ] OpenAI Responses `response.completed` emits provider-call finished only.
 - [ ] OpenAI Chat Completions EOF/final usage emits provider-call finished only.
