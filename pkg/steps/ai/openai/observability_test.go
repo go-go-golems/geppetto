@@ -168,6 +168,90 @@ func TestOpenAIObservabilityEventsLevelEmitsPublishStartedOnly(t *testing.T) {
 	}
 }
 
+func TestOpenAIObservabilityAddsChatCorrelationFields(t *testing.T) {
+	body := chatCompletionSSE(
+		`data: {"id":"chatcmpl-corr","object":"chat.completion.chunk","model":"gpt-test","choices":[{"index":0,"delta":{"reasoning_content":"thinking"}}]}`,
+		``,
+		`data: {"id":"chatcmpl-corr","object":"chat.completion.chunk","model":"gpt-test","choices":[{"index":0,"delta":{"content":"answer"},"finish_reason":"stop"}]}`,
+		``,
+		`data: [DONE]`,
+		``,
+	)
+	obs := &captureGeppettoObserver{}
+	eng, err := NewOpenAIEngine(newObservableOpenAITestSettings(body), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
+	if err != nil {
+		t.Fatalf("NewOpenAIEngine: %v", err)
+	}
+	turn := &turns.Turn{ID: "turn_1", Blocks: []turns.Block{turns.NewUserTextBlock("think")}}
+	if _, err := eng.RunInference(context.Background(), turn); err != nil {
+		t.Fatalf("RunInference: %v", err)
+	}
+
+	reasoningRec := findGeppettoRecord(obs.snapshot(), geppettoobs.StageProviderRoutedEvent, "chat.completion.chunk", "")
+	if reasoningRec == nil {
+		t.Fatalf("missing provider record")
+	}
+	if reasoningRec.StreamKind != "reasoning" || reasoningRec.ChoiceIndex == nil || *reasoningRec.ChoiceIndex != 0 {
+		t.Fatalf("unexpected reasoning correlation fields: %#v", reasoningRec)
+	}
+	if reasoningRec.CorrelationKey != "openai-chat:chatcmpl-corr:choice:0:reasoning" {
+		t.Fatalf("unexpected reasoning correlation key: %q", reasoningRec.CorrelationKey)
+	}
+	partialThinking := findGeppettoRecord(obs.snapshot(), geppettoobs.StageGeppettoPublishStarted, string(events.EventTypePartialThinking), "")
+	if partialThinking == nil {
+		t.Fatalf("missing partial thinking publish record")
+	}
+	if partialThinking.CorrelationKey != reasoningRec.CorrelationKey || partialThinking.StreamKind != "reasoning" {
+		t.Fatalf("thinking publish did not preserve correlation data: %#v", partialThinking)
+	}
+}
+
+func TestOpenAIObservabilityAddsToolCorrelationFields(t *testing.T) {
+	body := chatCompletionSSE(
+		`data: {"id":"chatcmpl-tool","object":"chat.completion.chunk","model":"gpt-test","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"lookup","arguments":"{\"q\""}}]}}]}`,
+		``,
+		`data: {"id":"chatcmpl-tool","object":"chat.completion.chunk","model":"gpt-test","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":":\"cats\"}"}}]},"finish_reason":"tool_calls"}]}`,
+		``,
+		`data: [DONE]`,
+		``,
+	)
+	obs := &captureGeppettoObserver{}
+	eng, err := NewOpenAIEngine(newObservableOpenAITestSettings(body), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
+	if err != nil {
+		t.Fatalf("NewOpenAIEngine: %v", err)
+	}
+	turn := &turns.Turn{ID: "turn_1", Blocks: []turns.Block{turns.NewUserTextBlock("use tool")}}
+	if _, err := eng.RunInference(context.Background(), turn); err != nil {
+		t.Fatalf("RunInference: %v", err)
+	}
+
+	var toolProviders []geppettoobs.Record
+	for _, rec := range obs.snapshot() {
+		if rec.Stage == geppettoobs.StageProviderRoutedEvent && rec.StreamKind == "tool_call" {
+			toolProviders = append(toolProviders, rec)
+		}
+	}
+	if len(toolProviders) != 2 {
+		t.Fatalf("expected two tool provider records in %#v", obs.snapshot())
+	}
+	for _, toolProvider := range toolProviders {
+		if toolProvider.ToolCallID != "call_1" || toolProvider.ToolCallIndex == nil || *toolProvider.ToolCallIndex != 0 {
+			t.Fatalf("unexpected tool provider fields: %#v", toolProvider)
+		}
+		if toolProvider.CorrelationKey != "openai-chat:chatcmpl-tool:choice:0:tool:call_1" {
+			t.Fatalf("unexpected tool correlation key: %q", toolProvider.CorrelationKey)
+		}
+	}
+	toolProvider := toolProviders[0]
+	toolPublish := findGeppettoRecord(obs.snapshot(), geppettoobs.StageGeppettoPublishStarted, string(events.EventTypeToolCall), "")
+	if toolPublish == nil {
+		t.Fatalf("missing tool publish record")
+	}
+	if toolPublish.CorrelationKey != toolProvider.CorrelationKey || toolPublish.ToolCallID != "call_1" {
+		t.Fatalf("tool publish did not preserve correlation data: %#v", toolPublish)
+	}
+}
+
 func TestOpenAIObservabilityCapturesReasoningNormalization(t *testing.T) {
 	body := chatCompletionSSE(
 		`data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"gpt-test","choices":[{"delta":{"reasoning_content":"thinking"}}]}`,
