@@ -1164,3 +1164,122 @@ go test ./cmd/web-chat/app -run TestDebugReconcileUploadReturnsSQLiteDatabase -c
 go test ./cmd/web-chat/app ./cmd/web-chat/... -count=1
 go test ./...
 ```
+
+## 2026-05-08 10:25 — Pinocchio web-chat browser/SQLite correlation validation
+
+This step prioritized "Geppetto web-chat first" by running Pinocchio web-chat end-to-end through a real browser, frontend debug capture, debug upload, and SQLite reconciliation before returning to CoinVault.
+
+### Intent
+
+Validate that canonical Geppetto provider-call, text, reasoning, and segment lifecycles survive through Pinocchio web-chat into browser-visible records and the SQLite debug export across the main provider families.
+
+### What changed
+
+The first browser matrix found two active observability gaps rather than protobuf/parser breakage:
+
+1. Pinocchio web-chat only attached debug observers for OpenAI Responses and Claude engines.
+2. Gemini emitted canonical runtime events but did not publish Geppetto observer records, so the SQLite export could not prove provider-call and segment lifecycles for Gemini.
+
+I fixed those gaps with:
+
+- Geppetto `2e7f6c8 Add Gemini observability hooks`:
+  - added `gemini.WithObserver` and `gemini.WithObservabilityConfig`;
+  - added provider and canonical event observer records for Gemini;
+  - extended the standard engine factory with `WithGeminiOptions`.
+- Pinocchio `8ba04fc Wire web chat observers for all providers`:
+  - added OpenAI Chat Completions observer wiring;
+  - added Gemini observer wiring.
+
+The browser run then exposed a smaller generic correlation quality issue: `BuildSegmentCorrelation` set `CorrelationKey` to `parent.ProviderCallID + segmentID`, while `segmentID` already contained the provider-call prefix. Gemini made this visible as duplicated `provider-call:0:provider-call:0` keys. I fixed it with Geppetto `e1be7f2 Avoid nested segment correlation duplication`, making generic segment `CorrelationKey` equal to `SegmentID` and preserving `ParentCorrelationKey` for parent joins.
+
+### Browser run
+
+Automation script:
+
+```bash
+/home/manuel/.pyenv/versions/3.11.4/bin/python .playwright-mcp/pinocchio_webchat_e2e.py
+```
+
+Primary artifacts:
+
+```text
+various/browser-runs/pinocchio-webchat-correlation-20260508-095442/
+```
+
+Profiles:
+
+- `gpt-5-nano` / OpenAI Responses;
+- `haiku` / Claude;
+- `gemini-2.5-flash` / Gemini;
+- `wafer-qwen3.5-397b` / OpenAI-compatible Chat Completions.
+
+Prompt template:
+
+```text
+Reply with exactly one short sentence containing {profile} and CORRELATION-SMOKE. Do not use markdown.
+```
+
+### Validation results
+
+The primary run produced SQLite artifacts for all four provider families:
+
+- `gpt-5-nano`: `geppetto_records=96`, `geppetto_provider_events=35`, `geppetto_inference_results=1`, `geppetto_segments=29`, non-empty Geppetto correlation rows `96`.
+- `haiku`: `geppetto_records=35`, `geppetto_provider_events=13`, `geppetto_inference_results=1`, `geppetto_segments=9`, non-empty Geppetto correlation rows `22`.
+- `gemini-2.5-flash`: `geppetto_records=31`, `geppetto_provider_events=6`, `geppetto_emitted_events=25`, `geppetto_inference_results=1`, `geppetto_segments=8`, non-empty Geppetto correlation rows `31`.
+- `wafer-qwen3.5-397b`: `geppetto_records=5483`, `geppetto_provider_events=2732`, `geppetto_inference_results=1`, `geppetto_segments=1373`, non-empty Geppetto correlation rows `5481`.
+
+The follow-up Gemini run after `e1be7f2` is archived at:
+
+```text
+various/browser-runs/pinocchio-webchat-gemini-correlation-fix-20260508-101500/
+```
+
+It confirmed the generic Gemini text segment key is no longer duplicated:
+
+```text
+gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text
+```
+
+### What worked
+
+- OpenAI Responses, Claude, Gemini, and OpenAI-compatible Chat Completions all produced `geppetto_inference_results` rows.
+- The SQLite export contains canonical segment lifecycle rows in `geppetto_segments`, `geppetto_segment_lifecycle`, and `geppetto_text_segments`.
+- Backend and frontend debug records preserve correlation through canonical payloads / `CorrelationInfo`.
+- The web-chat UI and protobuf path handled canonical Pinocchio payloads without needing compatibility wrappers.
+
+### What did not work / caveats
+
+- `wafer-qwen3.5-397b` produced a very large reasoning trace for the one-sentence prompt. The automation timed out waiting for the UI terminal predicate, but the SQLite upload completed and showed a completed provider-call result plus canonical reasoning/text segments.
+- This was Pinocchio web-chat validation, not CoinVault full-trace tool-use validation. CoinVault remains the next browser matrix.
+
+### Validation commands
+
+```bash
+cd geppetto
+go test ./pkg/steps/ai/gemini ./pkg/inference/engine/factory -count=1
+go test ./pkg/events ./pkg/steps/ai/gemini ./pkg/inference/engine/factory -count=1
+go test ./...
+
+cd pinocchio
+go test ./cmd/web-chat ./cmd/web-chat/app -count=1
+go test ./...
+```
+
+Both Geppetto commits passed their pre-commit checks (`go test ./...`, `golangci-lint`, `go vet`). The Pinocchio observer-wiring commit passed the repository pre-commit, including `go generate ./...`, frontend production build, `go build ./...`, `golangci-lint`, `go vet`, and `go test ./...`.
+
+### Review instructions
+
+Review in this order:
+
+1. `../geppetto/pkg/steps/ai/gemini/observability.go`
+2. `../geppetto/pkg/steps/ai/gemini/engine_gemini.go`
+3. `../geppetto/pkg/inference/engine/factory/factory.go`
+4. `../pinocchio/cmd/web-chat/main.go`
+5. `../geppetto/pkg/events/correlation_builders.go`
+6. `various/browser-runs/pinocchio-webchat-correlation-20260508-095442/01-run-report.md`
+7. `various/browser-runs/pinocchio-webchat-gemini-correlation-fix-20260508-101500/01-run-report.md`
+
+### Future work
+
+- Run CoinVault full-trace with a tool-use prompt and validate `tool_call_id` / `correlation_key` joins.
+- Extend the browser matrix to the CoinVault-requested profiles (`gpt-5-low`, `wafer-glm-5.1`, `z-ai-glm-5v-turbo`, and optional DeepSeek thinking/tool-order profile).

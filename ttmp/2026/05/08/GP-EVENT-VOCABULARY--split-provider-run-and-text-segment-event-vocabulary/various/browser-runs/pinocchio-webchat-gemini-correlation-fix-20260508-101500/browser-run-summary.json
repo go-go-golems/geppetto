@@ -1,0 +1,132 @@
+[
+  {
+    "profile": "gemini-2.5-flash",
+    "api": "gemini",
+    "sessionId": "6dad55bf-18ad-4a88-9890-38920cb41016",
+    "terminalOk": true,
+    "entryCount": 72,
+    "sqliteBytes": 827392,
+    "uploadStatus": 200,
+    "counts": {
+      "backend_records": 117,
+      "backend_pipeline": 19,
+      "backend_pipeline_ui_events": 42,
+      "frontend_records": 72,
+      "frontend_parsed_frames": 24,
+      "frontend_ui_events": 21,
+      "geppetto_records": 31,
+      "geppetto_provider_events": 6,
+      "geppetto_emitted_events": 25,
+      "geppetto_inference_results": 1,
+      "geppetto_segments": 8,
+      "timeline_entities": 3,
+      "turns": 1
+    },
+    "correlation_nonempty": 31,
+    "backend_corr_nonempty": 26,
+    "frontend_corr_nonempty": 13,
+    "inference_results": [
+      [
+        "gemini",
+        "gemini-2.5-flash",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0",
+        null,
+        "",
+        "FinishReasonStop",
+        "completed",
+        0,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0"
+      ]
+    ],
+    "segments": [
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "",
+        0,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-segment-started",
+        "segment_started"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "",
+        87,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "",
+        349,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "",
+        617,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "",
+        867,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "",
+        1145,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "",
+        1294,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "FinishReasonStop",
+        1294,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-segment-finished",
+        "segment_finished"
+      ]
+    ]
+  }
+]

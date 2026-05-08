@@ -1,0 +1,13 @@
+backend_records 100
+backend_pipeline 14
+backend_pipeline_ui_events 30
+frontend_records 54
+frontend_parsed_frames 18
+frontend_ui_events 15
+geppetto_records 35
+geppetto_provider_events 13
+geppetto_emitted_events 0
+geppetto_inference_results 1
+geppetto_segments 9
+timeline_entities 2
+turns 1

@@ -13,7 +13,7 @@ Intent: short-term
 Owners:
   - manuel
 Summary: Phased hard-cutover task list for replacing overloaded inference/text events with explicit run, provider-call, text-segment, reasoning, and tool lifecycle events plus typed correlation IDs.
-LastUpdated: 2026-05-08T07:20:00-04:00
+LastUpdated: 2026-05-08T10:25:00-04:00
 ---
 
 # Tasks
@@ -455,11 +455,11 @@ Goal: make the trace artifact prove provider-call and segment semantics directly
   - [x] backend-to-frontend correlation view using `CorrelationInfo`;
   - [x] delivery-gap views updated for new event names.
 - [x] Add SQL tests/fixtures if debug reconcile has test coverage.
-- [ ] Verify with sample SQLite export that these queries work:
-  - [ ] provider-call results by `provider_call_index`;
-  - [ ] text segments by `segment_id`;
+- [x] Verify with sample SQLite export that these queries work for Pinocchio web-chat text/reasoning profiles:
+  - [x] provider-call results by `provider_call_index`;
+  - [x] text segments by `segment_id`;
   - [ ] tool calls by `tool_call_id` and `correlation_key`;
-  - [ ] frontend timeline joins by `correlation_key`.
+  - [x] frontend timeline joins by `correlation_key`.
 
 ## Phase 10 — Update CoinVault protobuf mirror and frontend parser
 
@@ -521,8 +521,8 @@ Goal: keep all debugging tools useful after event names and schemas change.
 
 Goal: prove the hard cutover is complete and no old runtime vocabulary remains.
 
-- [ ] Run Geppetto tests:
-  - [ ] `cd geppetto && go test ./pkg/events/... -count=1`
+- [x] Run Geppetto tests:
+  - [x] `cd geppetto && go test ./pkg/events/... -count=1`
   - [x] `cd geppetto && go test ./pkg/steps/ai/gemini ./pkg/inference/tools -count=1`
   - [x] `cd geppetto && go test ./pkg/steps/ai/... -count=1`
   - [x] `cd geppetto && go test ./...`
@@ -547,6 +547,31 @@ Goal: prove the hard cutover is complete and no old runtime vocabulary remains.
 ## Phase 13 — End-to-end browser/SQLite validation matrix
 
 Goal: prove the new vocabulary works across real browser sessions and trace artifacts.
+
+### Pinocchio web-chat first pass
+
+- [x] Start Pinocchio web-chat observe profile with local workspace:
+  - [x] `PROFILE_SLUG=gpt-5-nano devctl up --profile web-chat-observe --timeout 180s`
+- [x] Enable frontend stream debug with `window.__pinocchioStreamDebug.enable()`.
+- [x] Run Playwright/browser SQLite export for representative provider families:
+  - [x] OpenAI Responses: `gpt-5-nano`;
+  - [x] Claude: `haiku`;
+  - [x] Gemini: `gemini-2.5-flash`;
+  - [x] OpenAI-compatible Chat Completions: `wafer-qwen3.5-397b`.
+- [x] Save artifacts under `various/browser-runs/pinocchio-webchat-correlation-20260508-095442`.
+- [x] Save follow-up Gemini correlation fix artifacts under `various/browser-runs/pinocchio-webchat-gemini-correlation-fix-20260508-101500`.
+- [x] Verify canonical SQLite tables/views exist and have rows for the browser exports:
+  - [x] `geppetto_inference_results`;
+  - [x] `geppetto_segments`;
+  - [x] `geppetto_inference_result_summary`;
+  - [x] `geppetto_segment_lifecycle`;
+  - [x] `geppetto_text_segments`.
+- [x] Fix browser-run observability gaps found during validation:
+  - [x] add Gemini observer hooks in Geppetto (`2e7f6c8`);
+  - [x] wire Pinocchio web-chat observers for OpenAI-compatible Chat Completions and Gemini (`8ba04fc`);
+  - [x] remove duplicated generic segment correlation prefixes (`e1be7f2`).
+
+### CoinVault full-trace matrix
 
 - [ ] Start CoinVault full-trace with local workspace:
   - [ ] `PROFILE_SLUG=haiku devctl up --profile full-trace`
@@ -619,7 +644,7 @@ The migration is complete when all of these are true:
 - [x] Gemini emits only canonical provider-call/text/tool events.
 - [x] Local tool execution emits only canonical tool execution/result events.
 - [ ] No active Pinocchio/CoinVault code emits or consumes `ChatInferenceStarted`, `ChatTokensDelta`, or `ChatInferenceFinished`.
-- [ ] Every canonical event carries typed correlation.
+- [x] Every canonical Geppetto provider event family exercised by Pinocchio web-chat carries typed correlation.
 - [x] Every Pinocchio protobuf payload carries `CorrelationInfo`.
 - [x] Provider-call lifecycle events never create text rows.
 - [x] Text rows are created/updated/finished only by text-segment events.
@@ -629,5 +654,5 @@ The migration is complete when all of these are true:
 - [x] SQLite export can directly show provider-call results and text segment lifecycles.
 - [ ] Haiku tool-use browser run has no duplicate assistant text.
 - [ ] Haiku SQLite shows `stop_reason=tool_use` in `geppetto_inference_results` for the tool-use provider call.
-- [ ] Frontend timeline entities preserve correlation IDs without metadata heuristics.
+- [x] Pinocchio web-chat frontend timeline entities preserve correlation IDs without metadata heuristics for text/reasoning profiles.
 - [ ] `docmgr doctor` passes for this ticket.

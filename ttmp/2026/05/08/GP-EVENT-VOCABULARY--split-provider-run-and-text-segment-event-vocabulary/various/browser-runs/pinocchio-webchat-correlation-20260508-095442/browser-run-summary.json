@@ -1,0 +1,522 @@
+[
+  {
+    "profile": "gpt-5-nano",
+    "api": "openai-responses",
+    "sessionId": "aafd9e51-0a6a-4a05-86f8-d37086081d7a",
+    "terminalOk": true,
+    "entryCount": 114,
+    "sqliteBytes": 1617920,
+    "uploadStatus": 200,
+    "counts": {
+      "backend_records": 241,
+      "backend_pipeline": 34,
+      "backend_pipeline_ui_events": 70,
+      "frontend_records": 114,
+      "frontend_parsed_frames": 38,
+      "frontend_ui_events": 35,
+      "geppetto_records": 96,
+      "geppetto_provider_events": 35,
+      "geppetto_emitted_events": 0,
+      "geppetto_inference_results": 1,
+      "geppetto_segments": 29,
+      "timeline_entities": 3,
+      "turns": 1
+    },
+    "correlation_nonempty": 96,
+    "backend_corr_nonempty": 66,
+    "frontend_corr_nonempty": 33,
+    "inference_results": [
+      [
+        "openai_responses",
+        "gpt-5-nano",
+        "openai_responses:1fd29ebc-2750-4712-bcd6-5f16e33fb28d:provider-call:0",
+        null,
+        "resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de",
+        "",
+        "completed",
+        0,
+        "openai_responses:1fd29ebc-2750-4712-bcd6-5f16e33fb28d:provider-call:0"
+      ]
+    ],
+    "segments": [
+      [
+        "reasoning",
+        "reasoning",
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:rs_0e0d87017bdfcf6e0069fdee5df3588196a8cd5d31074ede54",
+        null,
+        "",
+        0,
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:rs_0e0d87017bdfcf6e0069fdee5df3588196a8cd5d31074ede54",
+        "reasoning-segment-started",
+        "segment_started"
+      ],
+      [
+        "reasoning",
+        "reasoning",
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:rs_0e0d87017bdfcf6e0069fdee5df3588196a8cd5d31074ede54",
+        null,
+        "",
+        0,
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:rs_0e0d87017bdfcf6e0069fdee5df3588196a8cd5d31074ede54",
+        "reasoning-segment-finished",
+        "segment_finished"
+      ],
+      [
+        "text",
+        "content",
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:msg_0e0d87017bdfcf6e0069fdee6561808196bdbd45fddf99bf16",
+        null,
+        "",
+        0,
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:msg_0e0d87017bdfcf6e0069fdee6561808196bdbd45fddf99bf16",
+        "text-segment-started",
+        "segment_started"
+      ],
+      [
+        "text",
+        "content",
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:msg_0e0d87017bdfcf6e0069fdee6561808196bdbd45fddf99bf16",
+        null,
+        "",
+        2,
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:msg_0e0d87017bdfcf6e0069fdee6561808196bdbd45fddf99bf16",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:msg_0e0d87017bdfcf6e0069fdee6561808196bdbd45fddf99bf16",
+        null,
+        "",
+        6,
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:msg_0e0d87017bdfcf6e0069fdee6561808196bdbd45fddf99bf16",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:msg_0e0d87017bdfcf6e0069fdee6561808196bdbd45fddf99bf16",
+        null,
+        "",
+        15,
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:msg_0e0d87017bdfcf6e0069fdee6561808196bdbd45fddf99bf16",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:msg_0e0d87017bdfcf6e0069fdee6561808196bdbd45fddf99bf16",
+        null,
+        "",
+        16,
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:msg_0e0d87017bdfcf6e0069fdee6561808196bdbd45fddf99bf16",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:msg_0e0d87017bdfcf6e0069fdee6561808196bdbd45fddf99bf16",
+        null,
+        "",
+        18,
+        "openai_responses:resp_0e0d87017bdfcf6e0069fdee5d575c81968f348b92322784de:item:msg_0e0d87017bdfcf6e0069fdee6561808196bdbd45fddf99bf16",
+        "text-delta",
+        "segment_updated"
+      ]
+    ]
+  },
+  {
+    "profile": "haiku",
+    "api": "claude",
+    "sessionId": "c3e0c807-b761-4ae2-8ee7-dac9e7bd4bb5",
+    "terminalOk": true,
+    "entryCount": 54,
+    "sqliteBytes": 585728,
+    "uploadStatus": 200,
+    "counts": {
+      "backend_records": 100,
+      "backend_pipeline": 14,
+      "backend_pipeline_ui_events": 30,
+      "frontend_records": 54,
+      "frontend_parsed_frames": 18,
+      "frontend_ui_events": 15,
+      "geppetto_records": 35,
+      "geppetto_provider_events": 13,
+      "geppetto_emitted_events": 0,
+      "geppetto_inference_results": 1,
+      "geppetto_segments": 9,
+      "timeline_entities": 2,
+      "turns": 1
+    },
+    "correlation_nonempty": 22,
+    "backend_corr_nonempty": 26,
+    "frontend_corr_nonempty": 13,
+    "inference_results": [
+      [
+        "claude",
+        "claude-haiku-4-5-20251001",
+        "msg_017UJ7kJadbKkfCo71eg5U7p",
+        null,
+        "msg_017UJ7kJadbKkfCo71eg5U7p",
+        "end_turn",
+        "",
+        0,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:provider-call"
+      ]
+    ],
+    "segments": [
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        0,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-segment-started",
+        "segment_started"
+      ],
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        3,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        106,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        154,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        261,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        384,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        483,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        536,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-delta",
+        "segment_updated"
+      ]
+    ]
+  },
+  {
+    "profile": "gemini-2.5-flash",
+    "api": "gemini",
+    "sessionId": "8bad33fa-6718-4d8d-8c38-969f1ea96ade",
+    "terminalOk": true,
+    "entryCount": 72,
+    "sqliteBytes": 823296,
+    "uploadStatus": 200,
+    "counts": {
+      "backend_records": 117,
+      "backend_pipeline": 19,
+      "backend_pipeline_ui_events": 42,
+      "frontend_records": 72,
+      "frontend_parsed_frames": 24,
+      "frontend_ui_events": 21,
+      "geppetto_records": 31,
+      "geppetto_provider_events": 6,
+      "geppetto_emitted_events": 25,
+      "geppetto_inference_results": 1,
+      "geppetto_segments": 8,
+      "timeline_entities": 3,
+      "turns": 1
+    },
+    "correlation_nonempty": 31,
+    "backend_corr_nonempty": 26,
+    "frontend_corr_nonempty": 13,
+    "inference_results": [
+      [
+        "gemini",
+        "gemini-2.5-flash",
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0",
+        null,
+        "",
+        "FinishReasonStop",
+        "completed",
+        0,
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0"
+      ]
+    ],
+    "segments": [
+      [
+        "text",
+        "content",
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        null,
+        "",
+        0,
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        "text-segment-started",
+        "segment_started"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        null,
+        "",
+        92,
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        null,
+        "",
+        295,
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        null,
+        "",
+        534,
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        null,
+        "",
+        786,
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        null,
+        "",
+        995,
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        null,
+        "",
+        1055,
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        null,
+        "FinishReasonStop",
+        1055,
+        "gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:gemini:e1f2fd33-3321-4a70-96ff-9463d90b2233:provider-call:0:segment:0:text",
+        "text-segment-finished",
+        "segment_finished"
+      ]
+    ]
+  },
+  {
+    "profile": "wafer-qwen3.5-397b",
+    "api": "openai-compatible-chat",
+    "sessionId": "6e0144be-2d73-44ab-bb26-bf0d13535101",
+    "terminalOk": false,
+    "entryCount": 3658,
+    "sqliteBytes": 314347520,
+    "uploadStatus": 200,
+    "counts": {
+      "backend_records": 10942,
+      "backend_pipeline": 1380,
+      "backend_pipeline_ui_events": 2762,
+      "frontend_records": 3658,
+      "frontend_parsed_frames": 1219,
+      "frontend_ui_events": 1216,
+      "geppetto_records": 5483,
+      "geppetto_provider_events": 2732,
+      "geppetto_emitted_events": 0,
+      "geppetto_inference_results": 1,
+      "geppetto_segments": 1373,
+      "timeline_entities": 4,
+      "turns": 1
+    },
+    "correlation_nonempty": 5481,
+    "backend_corr_nonempty": 2758,
+    "frontend_corr_nonempty": 1215,
+    "inference_results": [
+      [
+        "openai",
+        "Qwen3.5-397B-A17B",
+        "openai:6a7e353a-e09f-49fd-9167-103ea50cc33b:provider-call:0",
+        null,
+        "5d11f1d85bb8421c94bfacefbe5425d6",
+        "stop",
+        "completed",
+        0,
+        "openai:6a7e353a-e09f-49fd-9167-103ea50cc33b:provider-call:0"
+      ]
+    ],
+    "segments": [
+      [
+        "reasoning",
+        "reasoning",
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        null,
+        "",
+        0,
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        "reasoning-segment-started",
+        "segment_started"
+      ],
+      [
+        "reasoning",
+        "reasoning",
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        null,
+        "",
+        8,
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        "reasoning-delta",
+        "segment_updated"
+      ],
+      [
+        "reasoning",
+        "reasoning",
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        null,
+        "",
+        19,
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        "reasoning-delta",
+        "segment_updated"
+      ],
+      [
+        "reasoning",
+        "reasoning",
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        null,
+        "",
+        22,
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        "reasoning-delta",
+        "segment_updated"
+      ],
+      [
+        "reasoning",
+        "reasoning",
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        null,
+        "",
+        32,
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        "reasoning-delta",
+        "segment_updated"
+      ],
+      [
+        "reasoning",
+        "reasoning",
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        null,
+        "",
+        47,
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        "reasoning-delta",
+        "segment_updated"
+      ],
+      [
+        "reasoning",
+        "reasoning",
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        null,
+        "",
+        53,
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        "reasoning-delta",
+        "segment_updated"
+      ],
+      [
+        "reasoning",
+        "reasoning",
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        null,
+        "",
+        62,
+        "openai-chat:5d11f1d85bb8421c94bfacefbe5425d6:choice:0:reasoning",
+        "reasoning-delta",
+        "segment_updated"
+      ]
+    ]
+  }
+]

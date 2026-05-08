@@ -13,13 +13,15 @@ Intent: short-term
 Owners:
   - manuel
 Summary: Changelog for the provider/run/text segment vocabulary design ticket.
-LastUpdated: 2026-05-08T07:20:00-04:00
+LastUpdated: 2026-05-08T10:25:00-04:00
 ---
 
 # Changelog
 
 ## 2026-05-08
 
+- Ran Pinocchio web-chat browser/SQLite correlation validation across `gpt-5-nano`, `haiku`, `gemini-2.5-flash`, and `wafer-qwen3.5-397b`; archived artifacts and reports under `various/browser-runs/pinocchio-webchat-correlation-20260508-095442` and the Gemini follow-up `pinocchio-webchat-gemini-correlation-fix-20260508-101500`.
+- Fixed the gaps found by the browser run: Geppetto `2e7f6c8` adds Gemini observer records, Pinocchio `8ba04fc` wires web-chat observers for OpenAI-compatible Chat Completions and Gemini, and Geppetto `e1be7f2` removes duplicated generic segment correlation keys.
 - Committed Pinocchio SQLite debug export update in `0c5d343`: added canonical Geppetto provider-call result and segment lifecycle tables/views, extended stored correlation fields, and updated debug reconcile tests.
 - Committed Pinocchio full canonical chatapp/UI cutover in `95fb755`: removed active `ChatInference*`/`ChatTokensDelta` payloads and UI wrappers, forwarded canonical backend payloads to the browser, preserved nested `CorrelationInfo` in timeline entities, and migrated legacy TUI/simple-chat consumers to canonical Geppetto text/reasoning/tool events.
 - Cleaned up post-cutover Geppetto event leftovers: removed unused `ChatEventHandler` and `ToolEventAggregator`, renamed `text_events.go` to `error_events.go`, keyed structured-sink streams by canonical segment correlation, and refreshed stale comments.
