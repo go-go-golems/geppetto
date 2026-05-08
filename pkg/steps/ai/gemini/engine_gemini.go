@@ -496,10 +496,24 @@ func geminiSegmentCorrelation(providerCallCorr events.Correlation, providerObjec
 
 func geminiToolCorrelation(providerCallCorr events.Correlation, toolCallID string, toolCallIndex int) events.Correlation {
 	corr := geminiSegmentCorrelation(providerCallCorr, toolCallID, toolCallIndex, events.SegmentTypeTool)
-	idx := int32(toolCallIndex)
+	idx := checkedInt32(toolCallIndex)
 	corr.ToolCallID = toolCallID
 	corr.ToolCallIndex = &idx
 	return corr
+}
+
+func checkedInt32(v int) int32 {
+	const (
+		maxInt32Value = int64(1<<31 - 1)
+		minInt32Value = -1 << 31
+	)
+	if int64(v) > maxInt32Value {
+		return int32(maxInt32Value)
+	}
+	if v < minInt32Value {
+		return int32(minInt32Value)
+	}
+	return int32(v)
 }
 
 func extractGeminiFinishReason(c *genai.Candidate) (string, bool) {

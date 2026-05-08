@@ -7,6 +7,9 @@ import (
 )
 
 const (
+	maxInt32Value = int64(1<<31 - 1)
+	minInt32Value = -1 << 31
+
 	SegmentTypeText      = "text"
 	SegmentTypeReasoning = "reasoning"
 	SegmentTypeTool      = "tool"
@@ -34,7 +37,7 @@ func BuildProviderCallCorrelation(provider, inferenceID, runID string, providerC
 		InferenceID:       inferenceID,
 		RunID:             runID,
 		ResponseID:        responseID,
-		ProviderCallIndex: int32(providerCallIndex),
+		ProviderCallIndex: checkedInt32(providerCallIndex),
 	}
 	if provider != "" && scopeID != "" {
 		corr.ProviderCallID = fmt.Sprintf("%s:%s:provider-call:%d", provider, scopeID, providerCallIndex)
@@ -51,7 +54,7 @@ func BuildSegmentCorrelation(parent Correlation, providerObjectID string, segmen
 	segmentType = strings.TrimSpace(segmentType)
 
 	corr := parent
-	idx := int32(segmentIndex)
+	idx := checkedInt32(segmentIndex)
 	corr.SegmentIndex = idx
 	corr.SegmentType = segmentType
 	corr.StreamKind = streamKindForSegmentType(segmentType)
@@ -88,11 +91,11 @@ func BuildChatCompletionsCorrelation(provider, responseID string, choiceIndex *i
 		CorrelationKey: chatCompletionsCorrelationKey(provider, responseID, choiceIndex, streamKind, toolCallID, toolCallIndex),
 	}
 	if choiceIndex != nil {
-		v := int32(*choiceIndex)
+		v := checkedInt32(*choiceIndex)
 		corr.ChoiceIndex = &v
 	}
 	if toolCallIndex != nil {
-		v := int32(*toolCallIndex)
+		v := checkedInt32(*toolCallIndex)
 		corr.ToolCallIndex = &v
 	}
 	return corr
@@ -113,11 +116,11 @@ func BuildResponsesCorrelation(provider, responseID, itemID string, outputIndex,
 		CorrelationKey: responsesCorrelationKey(provider, responseID, itemID, outputIndex, summaryIndex),
 	}
 	if outputIndex != nil {
-		v := int32(*outputIndex)
+		v := checkedInt32(*outputIndex)
 		corr.OutputIndex = &v
 	}
 	if summaryIndex != nil {
-		v := int32(*summaryIndex)
+		v := checkedInt32(*summaryIndex)
 		corr.SummaryIndex = &v
 	}
 	return corr
@@ -131,7 +134,7 @@ func BuildClaudeProviderCallCorrelation(provider, responseID string, providerCal
 	corr := Correlation{
 		Provider:          provider,
 		ResponseID:        responseID,
-		ProviderCallIndex: int32(providerCallIndex),
+		ProviderCallIndex: checkedInt32(providerCallIndex),
 	}
 	if responseID != "" {
 		corr.ProviderCallID = responseID
@@ -151,7 +154,7 @@ func BuildClaudeSegmentCorrelation(provider, providerCallID string, contentBlock
 	provider = strings.TrimSpace(provider)
 	providerCallID = strings.TrimSpace(providerCallID)
 	segmentType = strings.TrimSpace(segmentType)
-	idx := int32(contentBlockIndex)
+	idx := checkedInt32(contentBlockIndex)
 	corr := Correlation{
 		Provider:          provider,
 		ProviderCallID:    providerCallID,
@@ -166,6 +169,16 @@ func BuildClaudeSegmentCorrelation(provider, providerCallID string, contentBlock
 		corr.ParentCorrelationKey = fmt.Sprintf("%s:%s:provider-call", provider, providerCallID)
 	}
 	return corr
+}
+
+func checkedInt32(v int) int32 {
+	if int64(v) > maxInt32Value {
+		return int32(maxInt32Value)
+	}
+	if v < minInt32Value {
+		return int32(minInt32Value)
+	}
+	return int32(v)
 }
 
 func chatCompletionsCorrelationKey(provider, responseID string, choiceIndex *int, streamKind, toolCallID string, toolCallIndex *int) string {
