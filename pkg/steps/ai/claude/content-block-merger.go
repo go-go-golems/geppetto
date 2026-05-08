@@ -71,6 +71,10 @@ func (cbm *ContentBlockMerger) Response() *api.MessageResponse {
 	return cbm.response
 }
 
+func (cbm *ContentBlockMerger) Metadata() events.EventMetadata {
+	return cbm.metadata
+}
+
 func (cbm *ContentBlockMerger) Error() *api.Error {
 	return cbm.error
 }
@@ -137,6 +141,15 @@ func (cbm *ContentBlockMerger) updateUsage(event api.StreamingEvent) {
 	} else {
 		cbm.metadata.Usage.InputTokens = cbm.inputTokens
 	}
+
+	if cbm.response != nil {
+		cbm.response.Usage = api.Usage{
+			InputTokens:              cbm.metadata.Usage.InputTokens,
+			OutputTokens:             cbm.metadata.Usage.OutputTokens,
+			CacheCreationInputTokens: cbm.metadata.Usage.CacheCreationInputTokens,
+			CacheReadInputTokens:     cbm.metadata.Usage.CacheReadInputTokens,
+		}
+	}
 }
 
 func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, error) {
@@ -175,12 +188,18 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			}
 			cbm.metadata.Extra[StopReasonMetadataSlug] = event.Delta.StopReason
 			cbm.metadata.StopReason = &event.Delta.StopReason
+			if cbm.response != nil {
+				cbm.response.StopReason = event.Delta.StopReason
+			}
 		}
 		if event.Delta.StopSequence != "" {
 			if cbm.metadata.Extra == nil {
 				cbm.metadata.Extra = map[string]interface{}{}
 			}
 			cbm.metadata.Extra[StopSequenceMetadataSlug] = event.Delta.StopSequence
+			if cbm.response != nil {
+				cbm.response.StopSequence = event.Delta.StopSequence
+			}
 		}
 
 		cbm.updateUsage(event)
@@ -204,13 +223,16 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 				}
 				cbm.metadata.Extra[StopReasonMetadataSlug] = event.Message.StopReason
 				cbm.metadata.StopReason = &event.Message.StopReason
+				cbm.response.StopReason = event.Message.StopReason
 			}
 			if event.Message.StopSequence != "" {
 				if cbm.metadata.Extra == nil {
 					cbm.metadata.Extra = map[string]interface{}{}
 				}
 				cbm.metadata.Extra[StopSequenceMetadataSlug] = event.Message.StopSequence
+				cbm.response.StopSequence = event.Message.StopSequence
 			}
+			cbm.updateUsage(event)
 		}
 
 		// set duration on final

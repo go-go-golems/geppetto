@@ -18,6 +18,8 @@ LastUpdated: 2026-05-08T00:15:00-04:00
 
 ## Done
 
+- [x] Preserve Claude `message_delta` stop reason/usage and tool-use `message_stop` duration even when no transcript event is emitted.
+- [x] Add engine-level regression test proving persisted `inference_result` keeps `stop_reason=tool_use` and usage.
 - [x] Re-run CoinVault Haiku browser smoke after Geppetto dependency/workspace integration picked up this fix.
 - [x] Verify end-to-end SQLite trace has no synthetic post-tool `ChatInferenceFinished text:N`.
 - [x] Save final Haiku verification artifacts (`debug.sqlite`, `frontend-records.json`, `final-ui.png`, SQL checks).

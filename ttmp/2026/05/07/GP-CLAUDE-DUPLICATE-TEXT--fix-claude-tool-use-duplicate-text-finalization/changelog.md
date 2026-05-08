@@ -18,6 +18,8 @@ LastUpdated: 2026-05-08T00:15:00-04:00
 
 ## 2026-05-08
 
+- Fixed follow-up metadata regression from suppressing tool-use final events: `ClaudeEngine` now syncs merger metadata after every provider event, and the merger mirrors `message_delta` stop/usage metadata into the reconstructed response.
+- Added regression coverage for metadata-only Claude tool-use events so persisted turn `inference_result` keeps `stop_reason=tool_use`, usage, cache-token fields, and duration without emitting duplicate transcript text.
 - Verified the stronger Claude fix end-to-end in CoinVault with `PROFILE_SLUG=haiku devctl up --profile full-trace`; session `62ae60c5-e27a-4569-a2ed-4dd18bae0a80` produced `debug.sqlite`, `frontend-records.json`, and `final-ui.png` under the CoinVault observability browser-runs directory.
 - Confirmed via SQLite that three `message_stop` events after `stop_reason=tool_use` produced no immediate Geppetto `final` publish; only the normal final `end_turn` produced `final`.
 - Confirmed via backend pipeline SQLite that every `ChatInferenceFinished` had preceding real `ChatTokensDelta` content and none occurred directly after a tool event.

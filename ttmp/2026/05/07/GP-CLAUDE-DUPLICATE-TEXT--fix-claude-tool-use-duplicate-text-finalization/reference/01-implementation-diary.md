@@ -265,3 +265,34 @@ ok  github.com/go-go-golems/geppetto/pkg/steps/ai/claude  0.002s
 ### Conclusion
 
 The end-to-end browser/SQLite verification passed. The code fix in `38af6ed` is effective for the observed Haiku duplicate-message failure.
+
+## 2026-05-08 00:55 — Fixed metadata loss caused by suppressing tool-use final events
+
+A follow-up review pointed out a subtle regression in the stronger duplicate-message fix. Suppressing Claude `message_stop` final events is correct for transcript rendering, but `ClaudeEngine` was only copying merger metadata into the local inference metadata while iterating over events returned by `ContentBlockMerger.Add`. Claude `message_delta` carries `stop_reason=tool_use` and final usage, and the tool-use `message_stop` sets duration, but both now intentionally return no transcript event. That meant the updated metadata could remain inside the merger and not reach the persisted canonical `inference_result`.
+
+### Fix
+
+I kept the no-event behavior for transcript correctness, but made metadata propagation independent from event publication:
+
+- added `ContentBlockMerger.Metadata()` so the engine can inspect merger metadata after every provider event;
+- made `ClaudeEngine` call `syncClaudeEventMetadata(&metadata, completionMerger.Metadata())` immediately after every `Add`, even when `Add` returns no events;
+- kept event-specific metadata sync before publishing generated events;
+- made final response metadata handling avoid overwriting streamed `message_delta` usage with a zero-value message-start response;
+- mirrored `message_delta` stop reason/stop sequence and usage onto the reconstructed `MessageResponse` so `Response()` remains a complete representation;
+- updated `MessageStopType` handling to copy usage from an optional final message payload.
+
+### Regression coverage
+
+Added two tests:
+
+- `TestContentBlockMergerToolUseMessageDeltaMetadataPreservedWithoutEvent` verifies the merger keeps `stop_reason=tool_use`, usage, duration, and response fields even though `message_delta`/tool-use `message_stop` publish no transcript event.
+- `TestClaudeRunInferenceToolUsePreservesMessageDeltaMetadata` runs a fake Claude SSE tool-use stream end-to-end through `ClaudeEngine.RunInference` and verifies the persisted turn `inference_result` has `stop_reason=tool_use`, final usage, cache-token fields, and duration.
+
+### Validation
+
+```bash
+go test ./pkg/steps/ai/claude -count=1
+go test ./pkg/steps/ai/... -count=1
+```
+
+Both passed.

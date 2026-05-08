@@ -341,3 +341,84 @@ func TestContentBlockMerger(t *testing.T) {
 		})
 	}
 }
+
+func TestContentBlockMergerToolUseMessageDeltaMetadataPreservedWithoutEvent(t *testing.T) {
+	metadata := events.EventMetadata{}
+	merger := NewContentBlockMerger(metadata)
+
+	stream := []api.StreamingEvent{
+		{
+			Type: api.MessageStartType,
+			Message: &api.MessageResponse{
+				ID:    "msg_1",
+				Model: "claude-test",
+				Role:  "assistant",
+				Usage: api.Usage{InputTokens: 7},
+			},
+		},
+		{
+			Type:         api.ContentBlockStartType,
+			Index:        0,
+			ContentBlock: &api.ContentBlock{Type: api.ContentTypeText},
+		},
+		{
+			Type:  api.ContentBlockDeltaType,
+			Index: 0,
+			Delta: &api.Delta{Type: api.TextDeltaType, Text: "I'll inspect first."},
+		},
+		{Type: api.ContentBlockStopType, Index: 0},
+		{
+			Type:  api.ContentBlockStartType,
+			Index: 1,
+			ContentBlock: &api.ContentBlock{
+				Type: api.ContentTypeToolUse,
+				ID:   "tool_1",
+				Name: "sql_doc",
+			},
+		},
+		{
+			Type:  api.ContentBlockDeltaType,
+			Index: 1,
+			Delta: &api.Delta{Type: api.InputJSONDeltaType, PartialJSON: `{"topic":"inventory"}`},
+		},
+		{Type: api.ContentBlockStopType, Index: 1},
+		{
+			Type:  api.MessageDeltaType,
+			Delta: &api.Delta{StopReason: "tool_use"},
+			Usage: &api.Usage{
+				OutputTokens:             13,
+				CacheCreationInputTokens: 2,
+				CacheReadInputTokens:     5,
+			},
+		},
+		{Type: api.MessageStopType},
+	}
+
+	var allEvents []events.Event
+	for _, ev := range stream {
+		generated, err := merger.Add(ev)
+		require.NoError(t, err)
+		allEvents = append(allEvents, generated...)
+	}
+
+	require.Len(t, allEvents, 4)
+	assert.Equal(t, events.EventTypeToolCall, allEvents[3].Type())
+
+	gotMeta := merger.Metadata()
+	require.NotNil(t, gotMeta.StopReason)
+	assert.Equal(t, "tool_use", *gotMeta.StopReason)
+	require.NotNil(t, gotMeta.Usage)
+	assert.Equal(t, 7, gotMeta.Usage.InputTokens)
+	assert.Equal(t, 13, gotMeta.Usage.OutputTokens)
+	assert.Equal(t, 2, gotMeta.Usage.CacheCreationInputTokens)
+	assert.Equal(t, 5, gotMeta.Usage.CacheReadInputTokens)
+	require.NotNil(t, gotMeta.DurationMs)
+
+	response := merger.Response()
+	require.NotNil(t, response)
+	assert.Equal(t, "tool_use", response.StopReason)
+	assert.Equal(t, 7, response.Usage.InputTokens)
+	assert.Equal(t, 13, response.Usage.OutputTokens)
+	assert.Equal(t, 2, response.Usage.CacheCreationInputTokens)
+	assert.Equal(t, 5, response.Usage.CacheReadInputTokens)
+}
