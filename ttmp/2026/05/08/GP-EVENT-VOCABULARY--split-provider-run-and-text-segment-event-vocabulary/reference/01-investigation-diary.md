@@ -618,3 +618,32 @@ Both passed.
 ### Notes
 
 The provider-call result finish class comes from canonical `EventProviderCallFinished`; Claude tool-use and OpenAI tool-call finishes already set `tool_calls_pending` / `has_tool_calls` in canonical provider events, so no separate inference-result-builder change was required for the new observability rows.
+
+## 2026-05-08 09:55 — Phase 7: Pinocchio canonical protobuf contract
+
+### What changed
+
+Added the canonical chatapp protobuf contract in `../pinocchio/proto/pinocchio/chatapp/v1/chat.proto`:
+
+- `CorrelationInfo` mirrors the typed Geppetto correlation envelope, including run/provider-call/provider-native segment/tool IDs, indexes, stream kind, `correlation_key`, and `parent_correlation_key`;
+- `UsageInfo` carries provider token accounting for provider-call metadata/result payloads;
+- canonical run payloads: `ChatRunStarted`, `ChatRunFinished`, `ChatRunStopped`, `ChatRunFailed`;
+- canonical provider-call payloads: `ChatProviderCallStarted`, `ChatProviderCallMetadataUpdated`, `ChatProviderCallFinished`;
+- canonical text payloads: `ChatTextSegmentStarted`, `ChatTextDelta`, `ChatTextSegmentFinished`;
+- canonical reasoning payloads: `ChatReasoningSegmentStarted`, `ChatReasoningDelta`, `ChatReasoningSegmentFinished`;
+- canonical tool payloads: `ChatToolCallStarted`, `ChatToolCallArgumentsDelta`, `ChatToolCallRequested`, `ChatToolExecutionStarted`, `ChatToolResultReady`, `ChatToolCallFinished`.
+
+Regenerated Pinocchio Go protobufs and the web-chat TypeScript protobuf file. Added base registration for canonical run/provider-call/text payloads in `pkg/chatapp/chat.go`. I intentionally did **not** base-register canonical reasoning/tool event names yet because the existing reasoning/tool plugins already own several overlapping event names (`ChatReasoningDelta`, `ChatToolCallStarted`, `ChatToolResultReady`, etc.); those registrations need to move with the Phase 8 plugin/runtime migration to avoid duplicate schema registration.
+
+### Validation
+
+```bash
+cd ../pinocchio
+buf generate --template buf.chatapp.gen.yaml --path proto/pinocchio/chatapp/v1/chat.proto
+buf generate --template buf.chatapp.web.gen.yaml --path proto/pinocchio/chatapp/v1/chat.proto
+go test ./pkg/chatapp/... ./cmd/web-chat/... -count=1
+cd cmd/web-chat/web && npm run typecheck && npm run lint
+git commit -m "Add canonical chatapp protobuf events"
+```
+
+The first commit attempt correctly failed before commit because base-registering `ChatReasoningDelta` collided with the existing reasoning plugin schema registration, and Biome wanted generated TS imports sorted. I removed the overlapping base registrations, formatted the generated TS with Biome from the web root, reran validation, and the Pinocchio pre-commit hook passed (`go generate`, build/lint/vet, `go test ./...`, web typecheck, web lint).

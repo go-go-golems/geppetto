@@ -316,32 +316,32 @@ Goal: expose provider-call results and canonical segment records for SQLite/debu
 
 Goal: make `CorrelationInfo` canonical and remove old event payload names.
 
-- [ ] Update `../pinocchio/proto/pinocchio/chatapp/v1/chat.proto`.
-- [ ] Add `CorrelationInfo` message with all required correlation fields.
-- [ ] Add canonical run payloads:
-  - [ ] `ChatRunStarted`
-  - [ ] `ChatRunFinished`
-  - [ ] `ChatRunStopped`
-  - [ ] `ChatRunFailed`
-- [ ] Add canonical provider-call payloads:
-  - [ ] `ChatProviderCallStarted`
-  - [ ] `ChatProviderCallMetadataUpdated`
-  - [ ] `ChatProviderCallFinished`
-- [ ] Add canonical text payloads:
-  - [ ] `ChatTextSegmentStarted`
-  - [ ] `ChatTextDelta`
-  - [ ] `ChatTextSegmentFinished`
-- [ ] Add canonical reasoning payloads:
-  - [ ] `ChatReasoningSegmentStarted`
-  - [ ] `ChatReasoningDelta`
-  - [ ] `ChatReasoningSegmentFinished`
-- [ ] Add canonical tool payloads:
-  - [ ] `ChatToolCallStarted`
-  - [ ] `ChatToolCallArgumentsDelta`
-  - [ ] `ChatToolCallRequested`
-  - [ ] `ChatToolExecutionStarted`
-  - [ ] `ChatToolResultReady`
-  - [ ] `ChatToolCallFinished`
+- [x] Update `../pinocchio/proto/pinocchio/chatapp/v1/chat.proto`.
+- [x] Add `CorrelationInfo` message with all required correlation fields.
+- [x] Add canonical run payloads:
+  - [x] `ChatRunStarted`
+  - [x] `ChatRunFinished`
+  - [x] `ChatRunStopped`
+  - [x] `ChatRunFailed`
+- [x] Add canonical provider-call payloads:
+  - [x] `ChatProviderCallStarted`
+  - [x] `ChatProviderCallMetadataUpdated`
+  - [x] `ChatProviderCallFinished`
+- [x] Add canonical text payloads:
+  - [x] `ChatTextSegmentStarted`
+  - [x] `ChatTextDelta`
+  - [x] `ChatTextSegmentFinished`
+- [x] Add canonical reasoning payloads:
+  - [x] `ChatReasoningSegmentStarted`
+  - [x] `ChatReasoningDelta`
+  - [x] `ChatReasoningSegmentFinished`
+- [x] Add canonical tool payloads:
+  - [x] `ChatToolCallStarted`
+  - [x] `ChatToolCallArgumentsDelta`
+  - [x] `ChatToolCallRequested`
+  - [x] `ChatToolExecutionStarted`
+  - [x] `ChatToolResultReady`
+  - [x] `ChatToolCallFinished`
 - [ ] Remove or stop generating active payloads for:
   - [ ] `ChatMessageUpdate` as the universal text delta/final payload, if fully replaced;
   - [ ] old top-level provider fields duplicated outside `CorrelationInfo`;
@@ -349,10 +349,10 @@ Goal: make `CorrelationInfo` canonical and remove old event payload names.
   - [ ] `ChatTokensDelta`;
   - [ ] `ChatInferenceFinished`;
   - [ ] `ChatInferenceStopped`.
-- [ ] Regenerate Pinocchio Go protobufs.
-- [ ] Regenerate Pinocchio web/chat TypeScript protobufs if that repo owns any.
-- [ ] Update protobuf registration code/tests.
-- [ ] Run Pinocchio protobuf generation/check commands.
+- [x] Regenerate Pinocchio Go protobufs.
+- [x] Regenerate Pinocchio web/chat TypeScript protobufs if that repo owns any.
+- [x] Update protobuf registration code/tests.
+- [x] Run Pinocchio protobuf generation/check commands.
 
 ## Phase 8 — Replace Pinocchio runtime sink and projections
 
