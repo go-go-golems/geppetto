@@ -20,6 +20,8 @@ LastUpdated: 2026-05-08T05:55:00-04:00
 
 ## 2026-05-08
 
+- Revised the primary design guide to assume a hard cutover instead of a compatibility migration: old `EventFinal`/`EventPartialCompletion`/`ChatInferenceFinished` vocabulary is removed, not aliased, and typed `Correlation` / `CorrelationInfo` is mandatory for all canonical events.
+- Uploaded a new hard-cutover reMarkable copy named `GP-EVENT-VOCABULARY - hard cutover event vocabulary design`.
 - Created `GP-EVENT-VOCABULARY` ticket workspace.
 - Added `design-doc/01-provider-run-and-text-segment-event-vocabulary-design-guide.md`, a detailed intern-facing design guide for splitting chat run, provider call, text segment, reasoning segment, and tool lifecycles.
 - Added a typed correlation envelope proposal covering `session_id`, `run_id`, `inference_id`, `turn_id`, `provider_call_id`, provider-native response/item IDs, indexes, segment IDs, tool IDs, and normalized `correlation_key` values.

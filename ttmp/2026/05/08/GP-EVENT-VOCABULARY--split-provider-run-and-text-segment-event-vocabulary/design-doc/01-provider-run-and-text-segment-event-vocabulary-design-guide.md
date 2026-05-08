@@ -3,345 +3,266 @@ Title: Provider run and text segment event vocabulary design guide
 Ticket: GP-EVENT-VOCABULARY
 Status: active
 Topics:
-    - geppetto
-    - pinocchio
-    - streaming
-    - observability
-    - events
+  - geppetto
+  - pinocchio
+  - streaming
+  - observability
+  - events
 DocType: design-doc
 Intent: long-term
 Owners:
-    - manuel
+  - manuel
 RelatedFiles:
-    - Path: ../../../../../../../pinocchio/cmd/web-chat/app/debug_reconcile_schema.go
-      Note: Current SQLite reconcile schema for Geppetto/provider correlation fields
-    - Path: ../../../../../../../pinocchio/pkg/chatapp/runtime_sink.go
-      Note: Pinocchio mapping from EventFinal to ChatInferenceFinished and transcript-boundary behavior
-    - Path: ../../../../../../../pinocchio/proto/pinocchio/chatapp/v1/chat.proto
-      Note: Current chatapp protobuf payloads and provider correlation fields
-    - Path: pkg/events/chat-events.go
-      Note: |-
-        Current Geppetto event type vocabulary and overloaded start/final terminology.
-        Current Geppetto event vocabulary including overloaded start/final names
-    - Path: pkg/events/text_events.go
-      Note: |-
-        Current text event structs including EventPartialCompletion and EventFinal.
-        Current text event structs that should be split into segment lifecycle events
-    - Path: pkg/observability/observer.go
-      Note: Existing normalized trace identity fields that should become typed event correlation
-    - Path: pkg/steps/ai/claude/content-block-merger.go
-      Note: |-
-        Claude content block merger where provider envelope events and text/tool blocks are currently mapped.
-        Claude provider envelope/content-block mapping that motivates the split
-    - Path: pkg/steps/ai/openai/observability.go
-      Note: |-
-        Existing normalized correlation-key construction for OpenAI-compatible Chat Completions.
-        OpenAI Chat Completions normalized correlation key construction
-    - Path: pkg/steps/ai/openai_responses/observability.go
-      Note: |-
-        Existing normalized correlation-key construction for OpenAI Responses.
-        OpenAI Responses item-based correlation key construction
-    - Path: ttmp/2026/05/08/GP-EVENT-VOCABULARY--split-provider-run-and-text-segment-event-vocabulary/pinocchio/pkg/chatapp/runtime_sink.go
-      Note: Current mapping from Geppetto events into Pinocchio chatapp events and text segment state.
-    - Path: ttmp/2026/05/08/GP-EVENT-VOCABULARY--split-provider-run-and-text-segment-event-vocabulary/pinocchio/proto/pinocchio/chatapp/v1/chat.proto
-      Note: Current typed protobuf payloads and provider correlation fields.
+  - Path: pkg/events/chat-events.go
+    Note: Current Geppetto event type vocabulary that will be removed/replaced by the hard cutover.
+  - Path: pkg/events/text_events.go
+    Note: Current text event structs including EventPartialCompletion and EventFinal, both replaced by explicit segment events.
+  - Path: pkg/steps/ai/claude/content-block-merger.go
+    Note: Claude content block merger where provider envelope events and text/tool blocks are currently mapped.
+  - Path: pkg/steps/ai/openai/observability.go
+    Note: Existing normalized correlation-key construction for OpenAI-compatible Chat Completions.
+  - Path: pkg/steps/ai/openai_responses/observability.go
+    Note: Existing normalized correlation-key construction for OpenAI Responses.
+  - Path: ../pinocchio/pkg/chatapp/runtime_sink.go
+    Note: Current mapping from Geppetto EventFinal to Pinocchio ChatInferenceFinished, removed by this hard cutover.
+  - Path: ../pinocchio/proto/pinocchio/chatapp/v1/chat.proto
+    Note: Current typed protobuf payloads and provider correlation fields, replaced/reshaped around CorrelationInfo.
 ExternalSources: []
-Summary: Clean event vocabulary and correlation-ID design for separating provider-call, chat-run, text-segment, reasoning-segment, and tool-call lifecycles across Geppetto, Pinocchio, Sessionstream, and CoinVault.
-LastUpdated: 2026-05-08T05:55:00-04:00
-WhatFor: Guide a future implementation that removes the EventFinal/ChatInferenceFinished semantic ambiguity without losing provider correlation IDs.
+Summary: Hard-cutover design for replacing overloaded inference/text finalization events with explicit run, provider-call, text-segment, reasoning-segment, and tool lifecycle events plus mandatory typed correlation IDs.
+LastUpdated: 2026-05-08T06:25:00-04:00
+WhatFor: Guide an atomic implementation that removes EventFinal/ChatInferenceFinished semantic ambiguity and replaces metadata heuristics with typed correlation IDs.
 WhenToUse: Use before changing Geppetto event names, Pinocchio chatapp protobufs, runtime sinks, frontend timeline mapping, or SQLite trace exports.
 ---
-
 
 # Provider run and text segment event vocabulary design guide
 
 ## 1. Executive summary
 
-The system currently uses names that collapse three separate lifecycles into one ambiguous word: **inference**. A user-visible chat run can include multiple provider calls. A provider call can include multiple text blocks, reasoning blocks, and tool calls. A text block can start, receive deltas, and finish independently of whether the provider call has ended. The current names `EventFinal` in Geppetto and `ChatInferenceFinished` in Pinocchio blur those boundaries. That blur caused the Claude/Haiku duplicate-message bug: an Anthropic `message_stop` event, which only closes the provider message envelope, was converted into a Geppetto `EventFinal`, which Pinocchio converted into a `ChatInferenceFinished` text row.
+This ticket now assumes a **hard cutover**. We will not preserve the old event vocabulary as runtime compatibility aliases. The old vocabulary is the source of the ambiguity, so keeping it alive would keep the bug class alive. The implementation should remove the overloaded names and move every provider, runtime sink, protobuf payload, frontend parser, and SQLite export to the new canonical vocabulary in one coordinated branch set.
 
-The clean design is to split the vocabulary into explicit lifecycles:
+The system currently conflates these three different lifecycles:
 
 ```text
-Chat run lifecycle:        ChatRunStarted -> ChatRunFinished / ChatRunStopped
+1. Chat run lifecycle:        the whole user-visible assistant turn.
+2. Provider call lifecycle:   one call/message/response from a model provider.
+3. Text segment lifecycle:    one visible assistant text block/row.
+```
+
+That conflation shows up as the names `EventFinal` in Geppetto and `ChatInferenceFinished` in Pinocchio. Those names sound like run/provider lifecycle events, but the code often uses them as text-segment finalizers. Claude made the problem visible because Anthropic separates provider envelope events from content block events. A Claude `message_stop` closes the provider message envelope; it does not close visible assistant text. Treating it as `EventFinal` caused Pinocchio to create a second text segment and render duplicate assistant prose.
+
+The new canonical vocabulary is explicit:
+
+```text
+Chat run lifecycle:        ChatRunStarted -> ChatRunFinished / ChatRunStopped / ChatRunFailed
 Provider call lifecycle:   ProviderCallStarted -> ProviderCallMetadataUpdated -> ProviderCallFinished
 Text segment lifecycle:    TextSegmentStarted -> TextDelta -> TextSegmentFinished
 Reasoning lifecycle:       ReasoningSegmentStarted -> ReasoningDelta -> ReasoningSegmentFinished
-Tool lifecycle:            ToolCallStarted -> ToolCallArgumentsDelta -> ToolCallRequested/Finished -> ToolResultReady
+Tool lifecycle:            ToolCallStarted -> ToolCallArgumentsDelta -> ToolCallRequested -> ToolResultReady
 ```
 
-The equally important part is identity. We should not rely on `metadata.Extra` heuristics to discover which provider object, text segment, or tool call a message belongs to. Each emitted event should carry a typed correlation envelope. That envelope should include stable internal IDs and provider-native IDs where available:
+The equally important design choice is identity. Every new event must carry a typed correlation envelope. No new runtime logic may route by spelunking through `metadata.Extra`. `metadata.Extra` may remain as debug-only provider baggage, but it is not part of the routing or joining contract.
+
+The cutover removes the ambiguous old symbols. If code still compiles against `EventFinal` or `ChatInferenceFinished`, the migration is incomplete.
+
+## 2. Hard cutover contract
+
+A hard cutover means the old event vocabulary is not supported at runtime after the change lands. This is intentionally stricter than a compatibility migration.
+
+### 2.1 Removed symbols and replacements
+
+| Removed symbol | Replacement | Required downstream change |
+|---|---|---|
+| `EventTypeStart` / `EventPartialCompletionStart` | `EventProviderCallStarted` or `EventTextSegmentStarted` | Provider adapters must choose the actual lifecycle being started. |
+| `EventTypePartialCompletion` / `EventPartialCompletion` | `EventTextDelta` | Text deltas carry typed `Correlation`, including `segment_id` and `correlation_key`. |
+| `EventTypeFinal` / `EventFinal` | `EventTextSegmentFinished` **or** `EventProviderCallFinished` | Providers must stop using one event for both text and provider finalization. |
+| `EventTypePartialThinking` / `EventThinkingPartial` | `EventReasoningDelta` | Reasoning streams get their own segment lifecycle and correlation. |
+| `EventTypeToolCall` / `EventToolCall` | `EventToolCallStarted`, `EventToolCallArgumentsDelta`, `EventToolCallRequested` | Tool-call streaming and completed tool requests are distinct. |
+| `ChatInferenceStarted` | `ChatRunStarted` | Pinocchio run lifecycle becomes explicit. |
+| `ChatTokensDelta` | `ChatTextDelta` | Browser text streaming uses segment vocabulary. |
+| `ChatInferenceFinished` | `ChatTextSegmentFinished` | Finished text rows no longer masquerade as whole inference completion. |
+| `ChatInferenceStopped` | `ChatRunStopped` or `ChatTextSegmentStopped` | Stop semantics must say whether the run or a segment stopped. |
+
+The hard cutover rule is simple:
 
 ```text
-run_id / inference_id
-provider_call_id
-provider_response_id
-provider_item_id
-content_block_index / output_index / choice_index
-tool_call_id / tool_call_index
-segment_id
-correlation_key
-parent_correlation_key
+No new code handles legacy events.
+No new protobuf carries duplicate legacy scalar identity fields outside CorrelationInfo.
+No new SQLite view depends on old EventFinal/ChatInferenceFinished semantics.
 ```
 
-The recommended path is not to remove old events immediately. The first implementation should add explicit events and typed correlation fields while preserving compatibility projections. Pinocchio can continue to emit the old `ChatInferenceFinished` event name as a compatibility alias for `ChatTextSegmentFinished`, but code and docs should treat it as legacy. New code should not use provider envelope events such as Claude `message_stop`, OpenAI Responses `response.completed`, or Chat Completions EOF as text-segment finalizers.
+### 2.2 Atomic cutover scope
 
-## 2. Why this matters
-
-The user sees a continuous assistant answer, but the runtime sees a structured stream. When that stream contains only text, it is tempting to model the world with two events: "started" and "finished." Tool calling breaks that model. The assistant may write one sentence, request a tool, wait for the host to execute the tool, then write another sentence. Reasoning streams add another independent axis: the model may emit internal or summarized reasoning alongside visible assistant text.
-
-The old vocabulary makes the first text/tool boundary look like the end of the inference, even though it is only the end of a text segment. It also makes provider stop events look like text stop events, even though provider stop events are often metadata markers. Once those concepts share an event name, downstream consumers are forced to guess. Guessing shows up as code that says "if there is no active text segment, create one" or "if this event has a stop reason, maybe it is final text." That is the path to duplicate rows, missing metadata, and fragile SQLite debugging.
-
-The new design makes the event stream self-describing. A text segment event is always about transcript text. A provider call event is always about provider API lifecycle and result metadata. A chat run event is always about the user-visible turn. Correlation IDs make the relationship between those layers explicit instead of implicit.
-
-## 3. Current-state architecture
-
-### 3.1 Geppetto has a small event vocabulary with overloaded names
-
-The current Geppetto event constants live in `pkg/events/chat-events.go`. The file itself contains the warning sign: `EventTypeStart` through `EventTypeFinal` are commented as text-completion events, not whole-run events. The relevant constants are captured in `sources/geppetto-events-chat-event-types.lines.txt`.
-
-Current text-related event structs live in `pkg/events/text_events.go`, captured in `sources/geppetto-events-text-events.lines.txt`:
-
-- `EventPartialCompletionStart` uses event type `start`.
-- `EventPartialCompletion` carries `Delta` and cumulative `Completion`.
-- `EventFinal` carries final `Text`.
-- `EventInterrupt` and `EventError` carry stopped/error information.
-- `EventThinkingPartial` exists for reasoning deltas.
-
-This vocabulary is compact, but it lacks the nouns we need:
+The cutover must update these repositories together:
 
 ```text
-TextSegmentStarted
-TextSegmentFinished
-ProviderCallStarted
-ProviderCallFinished
-RunFinished
+Geppetto        event types, provider adapters, observability records, tests
+Pinocchio       chatapp protobufs, runtime sink, projections, plugins, debug export
+CoinVault       external protobuf mirror, websocket parser, timeline entities, tests
+Trace browser   SQLite views/pages/scripts that inspect event names and correlation
+Docs            provider/event semantics docs and ticket references
 ```
 
-As a result, `EventFinal` is used as a final text segment in some code paths and as provider-call finalization in others.
+The project is already operating in a multi-repo workspace, so an atomic local cutover is feasible. Partial compatibility is more expensive than atomic breakage because every compatibility branch preserves the ambiguous model we are trying to remove.
 
-### 3.2 Geppetto metadata already has run IDs but provider correlation is mostly Extra-based
+## 3. Vocabulary foundation
 
-`events.EventMetadata` already carries useful runtime-level identifiers:
+A new engineer should start with the mental model, not the code. The same assistant response is represented differently at each layer.
 
-```go
-SessionID
-InferenceID
-TurnID
-ID
-Extra
-```
+### 3.1 Chat run
 
-Those fields are defined in `pkg/events/chat-events.go` and captured in `sources/geppetto-events-chat-event-types.lines.txt`. The problem is not that IDs are absent. The problem is that provider-specific identity is mostly passed through `Extra` maps. For OpenAI-compatible Chat Completions and Responses, there is good normalization code, but it still flows through map keys such as:
+A **chat run** is the user-visible assistant turn. It begins when the user submits a prompt and ends when the assistant is finished, stopped, or failed. It can contain multiple provider calls and tool executions.
+
+Example:
 
 ```text
-provider
-response_id
-item_id
-choice_index
-stream_kind
-correlation_key
-tool_call_id
-tool_call_index
+User asks: "Compare low-stock and out-of-stock gold items."
+Run starts.
+Provider call 1 asks for sql_doc.
+Tool executes.
+Provider call 2 asks for sql_query.
+Tool executes.
+Provider call 3 writes the final answer.
+Run finishes.
 ```
 
-Pinocchio then extracts those keys by name. That has worked, but it is not a durable API. Identity should be typed on the event payloads or a typed event correlation envelope, not inferred from generic metadata.
+Run events should answer questions like:
 
-### 3.3 Geppetto observability already knows many correlation fields
+- Is the assistant currently working?
+- Did the user stop the run?
+- Did the run finish successfully?
+- Which run do all provider calls and transcript segments belong to?
 
-The observability record structure in `pkg/observability/observer.go`, captured in `sources/geppetto-observability-record.lines.txt`, already has the right shape for many fields:
+Run events should not carry visible assistant text deltas.
 
-```go
-Provider
-Model
-SessionID
-InferenceID
-TurnID
-MessageID
-ResponseID
-ItemID
-OutputIndex
-SummaryIndex
-ChoiceIndex
-StreamKind
-CorrelationKey
-ToolCallID
-ToolCallIndex
-```
+### 3.2 Provider call
 
-This is strong evidence that the system knows what identities matter. The design should promote those identities from trace metadata into first-class event correlation data.
+A **provider call** is one API call/message/response from a model provider. A chat run can contain several provider calls when tools are involved. Provider calls own metadata such as:
 
-### 3.4 OpenAI Chat Completions already builds normalized correlation keys
+- provider and model;
+- provider response/message ID;
+- stop reason;
+- usage;
+- duration;
+- finish class;
+- provider call index.
 
-`pkg/steps/ai/openai/observability.go`, captured in `sources/geppetto-openai-chat-observability.lines.txt`, constructs normalized keys for OpenAI-compatible Chat Completions. The current form is roughly:
+Provider-call events should answer questions like:
 
-```text
-<provider>-chat:<response_id>:choice:<choice_index>:reasoning
-<provider>-chat:<response_id>:choice:<choice_index>:content
-<provider>-chat:<response_id>:choice:<choice_index>:tool:<tool_call_id>
-<provider>-chat:<response_id>:choice:<choice_index>:tool-index:<tool_call_index>
-```
+- Which provider API call produced this stream object?
+- Did the provider stop because of `tool_use`, `stop`, `end_turn`, `max_tokens`, or an error?
+- What usage did the provider report for this call?
 
-That is the right idea. Chat Completions lacks provider-native item IDs for every stream component, so the normalized key is essential. The important lesson is that this key should be carried by explicit events, not smuggled through a map.
+Provider-call events should not create browser text rows.
 
-### 3.5 OpenAI Responses already has item-level provider identity
+### 3.3 Text segment
 
-`pkg/steps/ai/openai_responses/observability.go`, captured in `sources/geppetto-openai-responses-observability.lines.txt`, extracts:
+A **text segment** is one visible assistant text block or row. It begins, receives deltas, and finishes. A single chat run can contain several text segments.
 
-```text
-response_id
-item_id
-output_index
-summary_index
-correlation_key
-```
+Text-segment events should answer questions like:
 
-The Responses API is structurally closer to the new model because it already exposes typed output items. A `response.output_text.delta` belongs to a message item. A `response.function_call_arguments.delta` belongs to a function-call item. A `response.completed` belongs to the provider response envelope. The new event vocabulary should mirror that distinction.
+- Which visible text row should this delta append to?
+- When is that row finished?
+- Which provider object produced this text?
 
-### 3.6 Claude currently exposes the bug most clearly
+Text-segment events are the only events that create or finish assistant text rows.
 
-Claude streaming has provider message events and content block events:
+### 3.4 Reasoning segment
 
-```text
-message_start
-content_block_start text
-content_block_delta text_delta
-content_block_stop text
-content_block_start tool_use
-content_block_delta input_json_delta
-content_block_stop tool_use
-message_delta stop_reason=tool_use usage=...
-message_stop
-```
+A **reasoning segment** is a provider reasoning or summary stream. It is separate from visible assistant text. Some UIs render it, some collapse it, and some suppress it. It needs its own segment IDs because reasoning can appear concurrently with text or tool streams.
 
-`pkg/steps/ai/claude/content-block-merger.go`, captured in `sources/geppetto-claude-content-block-merger.lines.txt`, is where those events are converted to Geppetto events. After the recent bug fix, `message_delta` updates metadata and emits no transcript event; `message_stop` after `tool_use` also emits no transcript event. That is directionally correct, but the implementation still lacks explicit provider-call and text-segment events.
+### 3.5 Tool lifecycle
 
-The current text block stop path emits an empty-delta partial completion for a text block. That tells downstream consumers the cumulative text has stabilized, but it is not a clean "text segment finished" event. The current tool-use block stop path emits `EventToolCall`, which Pinocchio treats as a transcript boundary and uses to close any active text segment.
+A **tool call** is a model request for host-side execution. It may stream arguments before it is complete. The host then executes the tool and emits a result. Tool calls are transcript entities, but they are not text segments.
 
-### 3.7 Pinocchio maps Geppetto EventFinal to ChatInferenceFinished
+## 4. Current-state evidence
 
-The critical transformation happens in `../pinocchio/pkg/chatapp/runtime_sink.go`, captured in `sources/pinocchio-runtime-sink.lines.txt`. The direct path is:
+This design is based on source evidence captured in this ticket's `sources/` directory. The important observations are summarized here.
+
+### 4.1 Geppetto has overloaded start/final names
+
+`pkg/events/chat-events.go` defines `EventTypeStart`, `EventTypeFinal`, `EventTypePartialCompletion`, and `EventTypePartialThinking`. The source comment says start-to-final are for text completion. That is already a clue that these names are not run-level names. Evidence: `sources/geppetto-events-chat-event-types.lines.txt`.
+
+`pkg/events/text_events.go` defines `EventFinal` as a struct with a `Text` field. It does not distinguish "text segment finished" from "provider call finished." Evidence: `sources/geppetto-events-text-events.lines.txt`.
+
+### 4.2 Pinocchio maps EventFinal to ChatInferenceFinished
+
+`../pinocchio/pkg/chatapp/runtime_sink.go` contains the direct transformation:
 
 ```text
 Geppetto EventFinal
-  -> runtimeEventSink.PublishEvent
-  -> EventInferenceFinished
-  -> ChatMessageUpdate status=finished, segment_type=text
+  -> ensureTextSegmentID()
+  -> publish EventInferenceFinished
 ```
 
-The dangerous line is conceptually:
+That is the part of the system that transformed Claude `message_stop` finalization into a browser-visible text segment. Evidence: `sources/pinocchio-runtime-sink.lines.txt`.
 
-```go
-textMessageID, segment := s.ensureTextSegmentID()
-```
+The same file also closes active text when a tool event arrives. That boundary fallback made sense with the old vocabulary, but the new vocabulary should prefer explicit `TextSegmentFinished` before tool events.
 
-`ensureTextSegmentID()` creates a text segment if none is active. That is correct for non-streaming text-only final answers. It is wrong for lifecycle-only provider finalization. This is why Claude `message_stop` could manufacture `chat-msg-1:text:2` after a tool call.
+### 4.3 Existing observability already knows the right identity fields
 
-### 3.8 Pinocchio also closes text on transcript boundaries
+`pkg/observability/observer.go` already defines record fields for provider, model, response ID, item ID, output index, summary index, choice index, stream kind, correlation key, tool-call ID, and tool-call index. Evidence: `sources/geppetto-observability-record.lines.txt`.
 
-The same runtime sink has a second path that emits `EventInferenceFinished` without receiving `EventFinal`. Tool-related events are transcript boundaries. If text is active and a tool call arrives, Pinocchio calls `finishTextSegment()` and publishes a finished text update before forwarding the tool event to the tool plugin. This behavior is correct in the old model because tool rows must appear after the preceding assistant text row.
+This design promotes those fields from trace records and `metadata.Extra` into a typed event correlation envelope.
 
-The new design should keep the idea but remove the guesswork. Instead of "tool events imply a text finish if active," Geppetto should be able to emit `TextSegmentFinished` before `ToolCallStarted` when the provider stream says the text content block stopped. Pinocchio can keep the boundary fallback for compatibility but should not depend on it for new providers.
+### 4.4 OpenAI providers already build correlation keys
 
-### 3.9 Pinocchio protobufs already carry some provider correlation fields
+`pkg/steps/ai/openai/observability.go` constructs normalized keys for OpenAI-compatible Chat Completions. Evidence: `sources/geppetto-openai-chat-observability.lines.txt`.
 
-`../pinocchio/proto/pinocchio/chatapp/v1/chat.proto`, captured in `sources/pinocchio-chat-proto-correlation-fields.lines.txt`, defines correlation fields on several messages:
+`pkg/steps/ai/openai_responses/observability.go` extracts Responses API item IDs and builds item/output/summary correlation. Evidence: `sources/geppetto-openai-responses-observability.lines.txt`.
 
-- `ChatMessageUpdate` carries `provider`, `response_id`, `choice_index`, `stream_kind`, and `correlation_key`.
-- `ReasoningUpdate` carries `provider`, `response_id`, `item_id`, `output_index`, `summary_index`, `choice_index`, `stream_kind`, and `correlation_key`.
-- `ToolCallUpdate` and `ToolResultUpdate` carry `provider`, `response_id`, `choice_index`, `stream_kind`, `correlation_key`, and `tool_call_index`, plus the business-level `tool_call_id`.
+The problem is not lack of correlation thinking. The problem is lack of a shared typed contract.
 
-This is good but incomplete. The next vocabulary should include IDs for run, provider call, segment, and parent relationships explicitly. It should not require reconstructing those relationships from message ID suffixes or metadata maps.
+### 4.5 Pinocchio protobufs carry provider fields but not a canonical correlation envelope
 
-## 4. Problem statement and scope
+`../pinocchio/proto/pinocchio/chatapp/v1/chat.proto` currently repeats provider fields on `ChatMessageUpdate`, `ReasoningUpdate`, `ToolCallUpdate`, and `ToolResultUpdate`. Evidence: `sources/pinocchio-chat-proto-correlation-fields.lines.txt`.
 
-The problem is not only a Claude bug. The Claude bug is a symptom of a larger vocabulary and identity problem.
+The hard cutover replaces that repetition with one `CorrelationInfo` message embedded in every canonical payload.
 
-The current system lacks first-class event concepts for:
+## 5. Canonical event vocabulary
 
-1. **Provider calls.** A single user-visible run can call the provider multiple times during a tool loop. We need a stable `provider_call_id` and call index for each provider API call.
-2. **Text segments.** A visible assistant text row is a segment, not an inference. We need explicit segment started/delta/finished events.
-3. **Provider envelope metadata.** Stop reason, usage, duration, response ID, and finish class belong to provider-call lifecycle events or inference-result records, not to text finalization.
-4. **Typed correlation.** Provider identity should not be extracted from generic maps when it is needed for routing, projection, or debugging.
-5. **Compatibility aliases.** Old clients use `ChatInferenceStarted`, `ChatTokensDelta`, and `ChatInferenceFinished`. We need a migration path that does not break existing UI and SQLite tooling.
+### 5.1 Geppetto event names
 
-The scope of this ticket is design and implementation guidance for the clean vocabulary. The ticket does not itself implement the entire migration. It should give a future engineer a clear map of the changes and the IDs every message must carry.
-
-## 5. Design principles
-
-### Principle 1: Provider envelope events are not transcript events
-
-Provider envelope events include:
-
-```text
-Claude message_delta/message_stop
-OpenAI Responses response.completed
-OpenAI Chat Completions stream EOF / final usage chunk
-```
-
-These events are allowed to update provider-call metadata. They are not allowed to create or finish a text segment.
-
-### Principle 2: Text segment lifecycle must be explicit
-
-A text segment starts because the provider started a text item/block or because a non-streaming final text response is being adapted. A text segment finishes because the provider text item/block ended or because the adapter creates a compatibility segment for non-streaming text. Tool calls do not have to guess whether text is active if the provider adapter emitted a `TextSegmentFinished` event at the correct time.
-
-### Principle 3: Correlation is typed and repeated at every layer
-
-Every event that affects browser-visible state should carry a typed correlation envelope. Consumers should be able to join:
-
-```text
-provider object -> Geppetto event -> Pinocchio backend event -> Sessionstream transport -> frontend frame -> timeline entity
-```
-
-without parsing human-readable message IDs or peeking into opaque metadata maps.
-
-### Principle 4: Internal IDs and provider IDs serve different purposes
-
-Provider-native IDs are valuable but inconsistent. OpenAI Responses has item IDs. Chat Completions often has only response IDs, choice indexes, and tool-call indexes. Claude has message IDs and content block indexes; tool-use blocks also have tool IDs. Therefore each event should carry both:
-
-- provider-native IDs when available;
-- normalized internal IDs that are always present.
-
-### Principle 5: Compatibility should be explicit
-
-If Pinocchio continues to emit `ChatInferenceFinished`, it should be documented and implemented as a compatibility alias for `ChatTextSegmentFinished`, not as the conceptual event name.
-
-## 6. Proposed vocabulary
-
-### 6.1 Geppetto event families
-
-The new Geppetto vocabulary should separate provider lifecycle, transcript lifecycle, and execution lifecycle.
-
-| Family | Event name | Meaning | Renders transcript? |
+| Family | New event | Meaning | Transcript event? |
 |---|---|---|---|
-| Provider call | `ProviderCallStarted` | A provider API call/message/response started. | No |
-| Provider call | `ProviderCallMetadataUpdated` | Stop reason, usage, response IDs, or provider-call metadata changed. | No |
-| Provider call | `ProviderCallFinished` | The provider API call/message/response envelope ended. | No |
-| Text | `TextSegmentStarted` | A visible assistant text segment began. | Usually yes, initializes row |
-| Text | `TextDelta` | New visible assistant text arrived. | Yes |
-| Text | `TextSegmentFinished` | The visible assistant text segment ended. | Yes |
-| Reasoning | `ReasoningSegmentStarted` | A reasoning/summary segment began. | Maybe, depending on UI settings |
-| Reasoning | `ReasoningDelta` | Reasoning text arrived. | Maybe |
-| Reasoning | `ReasoningSegmentFinished` | Reasoning segment ended. | Maybe |
-| Tool | `ToolCallStarted` | Provider started/identified a tool call. | Yes, tool row |
-| Tool | `ToolCallArgumentsDelta` | Tool call arguments streamed. | Optional, useful for debugging/live UI |
-| Tool | `ToolCallRequested` | Tool call is complete and ready for host execution. | Yes |
-| Tool | `ToolExecutionStarted` | Host began executing the tool. | Yes |
-| Tool | `ToolResultReady` | Host produced a result. | Yes |
-| Run | `RunStarted` | Optional Geppetto run-level start if Geppetto owns a whole run. | No/summary |
-| Run | `RunFinished` | Optional run-level finish if Geppetto owns a whole run. | No/summary |
+| Run | `EventRunStarted` | The user-visible assistant run began. | No |
+| Run | `EventRunFinished` | The user-visible assistant run finished successfully. | No |
+| Run | `EventRunStopped` | The run was stopped/cancelled. | No |
+| Run | `EventRunFailed` | The run failed. | No |
+| Provider call | `EventProviderCallStarted` | One provider API call/message/response began. | No |
+| Provider call | `EventProviderCallMetadataUpdated` | Provider stop reason, usage, or IDs changed. | No |
+| Provider call | `EventProviderCallFinished` | One provider call envelope ended. | No |
+| Text | `EventTextSegmentStarted` | One assistant text segment began. | Yes |
+| Text | `EventTextDelta` | Visible assistant text delta arrived. | Yes |
+| Text | `EventTextSegmentFinished` | One assistant text segment finished. | Yes |
+| Reasoning | `EventReasoningSegmentStarted` | One reasoning segment began. | Optional UI |
+| Reasoning | `EventReasoningDelta` | Reasoning delta arrived. | Optional UI |
+| Reasoning | `EventReasoningSegmentFinished` | One reasoning segment finished. | Optional UI |
+| Tool | `EventToolCallStarted` | Provider started/identified a tool call. | Yes |
+| Tool | `EventToolCallArgumentsDelta` | Tool arguments streamed. | Optional UI/debug |
+| Tool | `EventToolCallRequested` | Tool call is complete and ready for execution. | Yes |
+| Tool | `EventToolExecutionStarted` | Host started executing the tool. | Yes |
+| Tool | `EventToolResultReady` | Host produced the tool result. | Yes |
+| Error | `EventError` | Provider/runtime error. | Yes/debug |
 
-The old events can remain during migration:
+### 5.2 Pinocchio backend event names
 
-| Legacy event | Compatibility interpretation |
+| Old event removed | New backend event |
 |---|---|
-| `EventPartialCompletion` | Alias/source for `TextDelta`. |
-| `EventFinal` | Deprecated; temporary alias for `TextSegmentFinished` only. |
-| `EventStart` | Deprecated; ambiguous between provider call and text stream start. |
-| `ChatInferenceFinished` | Pinocchio compatibility alias for `ChatTextSegmentFinished`. |
+| `ChatInferenceStarted` | `ChatRunStarted` |
+| `ChatTokensDelta` | `ChatTextDelta` |
+| `ChatInferenceFinished` | `ChatTextSegmentFinished` |
+| `ChatInferenceStopped` | `ChatRunStopped` / `ChatRunFailed` |
+| implicit provider metadata | `ChatProviderCallStarted`, `ChatProviderCallMetadataUpdated`, `ChatProviderCallFinished` |
+| existing reasoning plugin events | `ChatReasoningSegmentStarted`, `ChatReasoningDelta`, `ChatReasoningSegmentFinished` |
+| existing tool plugin events | `ChatToolCallStarted`, `ChatToolCallArgumentsDelta`, `ChatToolCallRequested`, `ChatToolResultReady`, `ChatToolCallFinished` |
 
-### 6.2 Correlation envelope API sketch
+There should be no runtime compatibility aliases. Frontend code must update to the new event names.
 
-The core API addition should be a typed correlation struct. Names can be refined during implementation, but the fields should be explicit.
+## 6. Mandatory correlation design
+
+The correlation design is not optional. Every canonical event carries `Correlation`. Every Pinocchio protobuf payload carries `CorrelationInfo`. The fields let SQLite, browser tests, and humans join the chain without heuristics.
+
+### 6.1 Geppetto Correlation struct
 
 ```go
 package events
@@ -349,29 +270,29 @@ package events
 type Correlation struct {
     // Application/runtime scope.
     SessionID   string `json:"session_id,omitempty"`
-    RunID       string `json:"run_id,omitempty"`       // Stable across one user-visible assistant run.
-    InferenceID string `json:"inference_id,omitempty"` // Existing ID; may alias RunID initially.
+    RunID       string `json:"run_id,omitempty"`
+    InferenceID string `json:"inference_id,omitempty"`
     TurnID      string `json:"turn_id,omitempty"`
 
     // Provider-call scope.
-    ProviderCallID    string `json:"provider_call_id,omitempty"`    // Internal stable ID per API call.
-    ProviderCallIndex int32  `json:"provider_call_index,omitempty"` // 1-based or 0-based; choose and document.
+    ProviderCallID    string `json:"provider_call_id,omitempty"`
+    ProviderCallIndex int32  `json:"provider_call_index,omitempty"`
     Provider          string `json:"provider,omitempty"`
     Model             string `json:"model,omitempty"`
-    ResponseID        string `json:"response_id,omitempty"` // Provider-native response/message ID.
+    ResponseID        string `json:"response_id,omitempty"`
 
     // Provider item/block scope.
-    ItemID            string `json:"item_id,omitempty"` // Responses item ID or provider-native block/item ID.
+    ItemID            string `json:"item_id,omitempty"`
     OutputIndex       *int32 `json:"output_index,omitempty"`
     SummaryIndex      *int32 `json:"summary_index,omitempty"`
     ChoiceIndex       *int32 `json:"choice_index,omitempty"`
-    ContentBlockIndex *int32 `json:"content_block_index,omitempty"` // Claude.
+    ContentBlockIndex *int32 `json:"content_block_index,omitempty"`
 
     // Transcript segment scope.
-    SegmentID      string `json:"segment_id,omitempty"`
-    SegmentIndex   int32  `json:"segment_index,omitempty"`
-    SegmentType    string `json:"segment_type,omitempty"` // text, reasoning, tool_call, tool_result.
-    StreamKind     string `json:"stream_kind,omitempty"`  // provider-normalized stream kind.
+    SegmentID    string `json:"segment_id,omitempty"`
+    SegmentIndex int32  `json:"segment_index,omitempty"`
+    SegmentType  string `json:"segment_type,omitempty"` // text, reasoning, tool_call, tool_result
+    StreamKind   string `json:"stream_kind,omitempty"`  // provider-normalized stream kind
 
     // Tool scope.
     ToolCallID    string `json:"tool_call_id,omitempty"`
@@ -383,118 +304,34 @@ type Correlation struct {
 }
 ```
 
-Important rules:
+### 6.2 Correlation requirements by event family
 
-- `ProviderCallID` is always set by Geppetto for provider-originated events, even if the provider has no response ID yet.
-- `CorrelationKey` is always set for provider-originated text, reasoning, and tool streams.
-- `SegmentID` is always set for segment lifecycle events.
-- `ToolCallID` remains the business/tool identity used to route tool results. It is not a substitute for `ProviderCallID` or `SegmentID`.
-- `metadata.Extra` may carry provider-specific debugging details, but routing and joins must not depend on it.
+| Event family | Required IDs |
+|---|---|
+| Run events | `session_id`, `run_id`, `inference_id`, `turn_id`, `correlation_key` |
+| Provider-call events | run IDs plus `provider_call_id`, `provider_call_index`, `provider`, `model`, `correlation_key` |
+| Text segment events | provider-call IDs plus `segment_id`, `segment_index`, `segment_type=text`, `stream_kind=text`, `correlation_key`, `parent_correlation_key` |
+| Reasoning events | provider-call IDs plus `segment_id`, `segment_type=reasoning`, `stream_kind=reasoning` or `reasoning_summary`, `correlation_key` |
+| Tool events | provider-call IDs plus `tool_call_id`, `tool_call_index` when available, `stream_kind=tool_call` or `tool_args`, `correlation_key` |
+| Tool result events | run IDs plus `tool_call_id`, `parent_correlation_key` pointing to tool call, result `correlation_key` |
 
-### 6.3 Text event API sketch
+### 6.3 Correlation key rules
 
-```go
-type EventTextSegmentStarted struct {
-    EventImpl
-    Correlation Correlation `json:"correlation"`
-    Text         string      `json:"text,omitempty"` // optional initial text, usually empty
-}
-
-type EventTextDelta struct {
-    EventImpl
-    Correlation Correlation `json:"correlation"`
-    Delta       string      `json:"delta"`
-    Text        string      `json:"text"` // cumulative text for compatibility/UI
-    Sequence    int64       `json:"sequence,omitempty"`
-}
-
-type EventTextSegmentFinished struct {
-    EventImpl
-    Correlation Correlation `json:"correlation"`
-    Text        string      `json:"text"`
-    FinishReason string     `json:"finish_reason,omitempty"` // text_block_stop, nonstreaming_final, interrupted, etc.
-}
-```
-
-`EventTextSegmentFinished` is the event that should become a Pinocchio `ChatTextSegmentFinished` backend event. During migration, Pinocchio may also emit the legacy event name `ChatInferenceFinished` for old consumers.
-
-### 6.4 Provider-call event API sketch
-
-```go
-type EventProviderCallStarted struct {
-    EventImpl
-    Correlation Correlation `json:"correlation"`
-    RequestID   string      `json:"request_id,omitempty"`
-}
-
-type EventProviderCallMetadataUpdated struct {
-    EventImpl
-    Correlation  Correlation `json:"correlation"`
-    StopReason   string      `json:"stop_reason,omitempty"`
-    StopSequence string      `json:"stop_sequence,omitempty"`
-    Usage        *Usage      `json:"usage,omitempty"`
-}
-
-type EventProviderCallFinished struct {
-    EventImpl
-    Correlation Correlation `json:"correlation"`
-    StopReason  string      `json:"stop_reason,omitempty"`
-    FinishClass string      `json:"finish_class,omitempty"`
-    Usage       *Usage      `json:"usage,omitempty"`
-    DurationMs  *int64      `json:"duration_ms,omitempty"`
-    HasToolCalls bool       `json:"has_tool_calls,omitempty"`
-}
-```
-
-These events should be non-transcript events. They are for observability, durable inference metadata, and orchestration state. A frontend may display them in a debug pane, but they do not create assistant text rows.
-
-### 6.5 Tool event API sketch
-
-```go
-type EventToolCallStarted struct {
-    EventImpl
-    Correlation Correlation `json:"correlation"`
-    ToolCallID  string      `json:"tool_call_id"`
-    ToolName    string      `json:"tool_name,omitempty"`
-}
-
-type EventToolCallArgumentsDelta struct {
-    EventImpl
-    Correlation Correlation `json:"correlation"`
-    ToolCallID  string      `json:"tool_call_id"`
-    Delta       string      `json:"delta"`
-    Arguments   string      `json:"arguments"` // cumulative JSON argument buffer
-    Sequence    int64       `json:"sequence,omitempty"`
-}
-
-type EventToolCallRequested struct {
-    EventImpl
-    Correlation Correlation `json:"correlation"`
-    ToolCallID  string      `json:"tool_call_id"`
-    ToolName    string      `json:"tool_name"`
-    Input       string      `json:"input"`
-}
-```
-
-The existing `EventToolCall` can be treated as `ToolCallRequested` during migration.
-
-## 7. Correlation key design by provider
-
-### 7.1 Global key rules
-
-A normalized `correlation_key` should be stable, readable, and specific enough to join all stream fragments for the same logical object.
+A normalized key is a stable join key, not a display label. It should be deterministic for all fragments of the same logical stream object.
 
 Rules:
 
-1. Prefix with provider family: `claude`, `openai-chat`, `openai-responses`, or the OpenAI-compatible provider name.
-2. Include provider call identity: `provider_call_id` or provider response ID.
-3. Include item/block/choice identity for the stream object.
-4. Include stream kind: `text`, `reasoning`, `reasoning_summary`, `tool_call`, `tool_args`, `provider_call`.
-5. Include provider-native tool IDs when available; otherwise include a tool index.
+1. Prefix with provider family.
+2. Include provider-call identity.
+3. Include provider-native item/block/choice/tool identity when available.
+4. Include stream kind.
+5. Never depend on rendered message IDs such as `chat-msg-1:text:2`.
 
-### 7.2 Claude correlation keys
+## 7. Provider-specific correlation plans
 
-Claude has a message ID on `message_start`, content block indexes on block events, and tool-use IDs for tool blocks. Later events may not repeat the message ID, so the merger must copy the active `ProviderCallID` and `ResponseID` into correlation for subsequent events.
+### 7.1 Claude
+
+Claude exposes message IDs and content block indexes. Tool-use blocks also expose tool IDs. Later events may not repeat the message ID, so the merger owns the active provider-call correlation.
 
 Recommended keys:
 
@@ -505,205 +342,174 @@ claude:<provider_call_id>:block:<content_block_index>:tool:<tool_call_id>
 claude:<provider_call_id>:block:<content_block_index>:tool-index:<tool_call_index>
 ```
 
-If `message.id` is known, use it as `response_id` and optionally in `provider_call_id` construction:
+Claude mapping table:
+
+| Anthropic event | New Geppetto event | Required correlation |
+|---|---|---|
+| `message_start` | `EventProviderCallStarted` | `provider_call_id`, `provider_call_index`, `provider=claude`, `model`, `response_id=message.id`, provider-call `correlation_key` |
+| `content_block_start type=text` | `EventTextSegmentStarted` | provider-call IDs, `content_block_index`, `segment_id`, `segment_type=text`, text `correlation_key` |
+| `content_block_delta text_delta` | `EventTextDelta` | same `segment_id` and `correlation_key`, sequence |
+| `content_block_stop type=text` | `EventTextSegmentFinished` | same `segment_id` and `correlation_key` |
+| `content_block_start type=tool_use` | `EventToolCallStarted` | provider-call IDs, `content_block_index`, `tool_call_id`, tool `correlation_key` |
+| `content_block_delta input_json_delta` | `EventToolCallArgumentsDelta` | same tool `correlation_key`, cumulative args, sequence |
+| `content_block_stop type=tool_use` | `EventToolCallRequested` | same tool `correlation_key`, complete input |
+| `message_delta` | `EventProviderCallMetadataUpdated` | provider-call IDs, stop reason, usage |
+| `message_stop` | `EventProviderCallFinished` | provider-call IDs, stop reason, usage, duration, finish class |
+
+Claude `message_delta` and `message_stop` never emit text events.
+
+### 7.2 OpenAI Responses
+
+OpenAI Responses exposes typed output items. Prefer provider-native `item_id` when available.
+
+Recommended keys:
 
 ```text
-provider_call_id = claude:msg_01ABC:call:1
-```
-
-If the provider message ID is not known yet, generate:
-
-```text
-provider_call_id = <inference_id>:provider-call:<call_index>
-```
-
-and attach `response_id` later when `message_start` arrives.
-
-Claude text event fields should be:
-
-| Event | Required correlation fields |
-|---|---|
-| `ProviderCallStarted` | `session_id`, `run_id`/`inference_id`, `turn_id`, `provider_call_id`, `provider_call_index`, `provider=claude`, `model`, `response_id` if known, `correlation_key=claude:<provider_call_id>:provider-call` |
-| `TextSegmentStarted` | all provider-call fields, `content_block_index`, `segment_id`, `segment_index`, `segment_type=text`, `stream_kind=text`, `correlation_key=claude:<provider_call_id>:block:<index>:text` |
-| `TextDelta` | same `segment_id` and `correlation_key`, plus sequence |
-| `TextSegmentFinished` | same `segment_id` and `correlation_key` |
-| `ToolCallStarted/Requested` | provider-call fields, `content_block_index`, `tool_call_id`, `tool_call_index`, `stream_kind=tool_call`, tool correlation key |
-| `ProviderCallMetadataUpdated` | provider-call fields, stop reason/usage; no text segment fields required |
-| `ProviderCallFinished` | provider-call fields, stop reason/usage/duration/finish class |
-
-### 7.3 OpenAI Responses correlation keys
-
-OpenAI Responses has strong provider-native item IDs. Recommended keys:
-
-```text
+openai-responses:<response_id>:provider-call
 openai-responses:<response_id>:item:<item_id>
 openai-responses:<response_id>:output:<output_index>:text
 openai-responses:<response_id>:item:<item_id>:summary:<summary_index>
 openai-responses:<response_id>:item:<item_id>:tool
 ```
 
-Prefer provider `item_id` when present. Use `output_index` as a fallback only when the provider event lacks `item_id`. Do not invent `item_id` for Chat Completions; use normalized keys there.
+Mapping table:
 
-### 7.4 OpenAI-compatible Chat Completions correlation keys
+| Responses event | New Geppetto event | Required correlation |
+|---|---|---|
+| first response event / `response.created` | `EventProviderCallStarted` | `provider_call_id`, `response_id`, provider-call key |
+| `response.output_item.added type=message` | `EventTextSegmentStarted` | `item_id`, `output_index`, `segment_id`, item key |
+| `response.output_text.delta` | `EventTextDelta` | same text segment key |
+| `response.output_item.done type=message` | `EventTextSegmentFinished` | same text segment key |
+| `response.reasoning_text.delta` | `EventReasoningDelta` | reasoning segment key with `item_id`/`summary_index` |
+| `response.output_item.done type=function_call` | `EventToolCallRequested` | tool `item_id`, tool call ID/name/input |
+| `response.completed` | `EventProviderCallFinished` | stop reason, usage, duration, no text finalization |
 
-Chat Completions usually lacks per-item IDs. Continue the current normalized shape:
+### 7.3 OpenAI-compatible Chat Completions
 
-```text
-<provider>-chat:<response_id>:choice:<choice_index>:content
-<provider>-chat:<response_id>:choice:<choice_index>:reasoning
-<provider>-chat:<response_id>:choice:<choice_index>:tool:<tool_call_id>
-<provider>-chat:<response_id>:choice:<choice_index>:tool-index:<tool_call_index>
-```
+Chat Completions lacks item IDs for content/reasoning streams. Use provider response ID plus choice index and stream kind. If response ID is missing on early chunks, use generated `provider_call_id` and fill `response_id` when known.
 
-The important addition is `provider_call_id`. Response IDs can be absent on early chunks or provider variants. A generated provider call ID gives every event a stable parent before response ID is available.
-
-### 7.5 Why `metadata.Extra` is not enough
-
-`metadata.Extra` is useful for provider-specific data, but it is not a contract. It is a `map[string]interface{}` with no schema, no compile-time guarantees, and no protobuf parity. The current Pinocchio runtime sink extracts keys like `response_id`, `choice_index`, `stream_kind`, and `correlation_key` from metadata maps. That is workable as a transition layer, but it should not be the primary design.
-
-New events should expose correlation through typed fields. The migration adapter can still populate `metadata.Extra` for old consumers.
-
-## 8. Correct provider mappings
-
-### 8.1 Claude mapping
-
-```mermaid
-sequenceDiagram
-    participant Anthropic
-    participant Geppetto
-    participant Pinocchio
-    participant Browser
-
-    Anthropic->>Geppetto: message_start(msg_1)
-    Geppetto-->>Pinocchio: ProviderCallStarted(provider_call_id, response_id=msg_1)
-
-    Anthropic->>Geppetto: content_block_start index=0 type=text
-    Geppetto->>Pinocchio: TextSegmentStarted(segment_id=...block:0:text)
-
-    Anthropic->>Geppetto: content_block_delta text_delta
-    Geppetto->>Pinocchio: TextDelta(segment_id, correlation_key)
-    Pinocchio->>Browser: ChatTextDelta / legacy ChatTokensDelta
-
-    Anthropic->>Geppetto: content_block_stop index=0
-    Geppetto->>Pinocchio: TextSegmentFinished(segment_id)
-    Pinocchio->>Browser: ChatTextSegmentFinished / legacy ChatInferenceFinished
-
-    Anthropic->>Geppetto: content_block_start index=1 type=tool_use
-    Geppetto-->>Pinocchio: ToolCallStarted(tool_call_id, block_index=1)
-
-    Anthropic->>Geppetto: content_block_delta input_json_delta
-    Geppetto-->>Pinocchio: ToolCallArgumentsDelta(tool_call_id)
-
-    Anthropic->>Geppetto: content_block_stop index=1
-    Geppetto->>Pinocchio: ToolCallRequested(tool_call_id, input)
-    Pinocchio->>Browser: ChatToolCallStarted
-
-    Anthropic->>Geppetto: message_delta stop_reason=tool_use usage=...
-    Geppetto-->>Pinocchio: ProviderCallMetadataUpdated(stop_reason, usage)
-
-    Anthropic->>Geppetto: message_stop
-    Geppetto-->>Pinocchio: ProviderCallFinished(stop_reason=tool_use, usage, duration)
-```
-
-The key point: `message_stop` emits no text event.
-
-### 8.2 OpenAI Responses mapping
+Recommended keys:
 
 ```text
-response.created / first event
-  -> ProviderCallStarted
-
-response.output_item.added type=message
-  -> TextSegmentStarted or ReasoningSegmentStarted depending item/content type
-
-response.output_text.delta
-  -> TextDelta
-
-response.output_item.done type=message
-  -> TextSegmentFinished if the text item is complete
-
-response.output_item.done type=function_call
-  -> ToolCallRequested
-
-response.completed
-  -> ProviderCallFinished
-  -> no text final unless a text item remained unclosed and the adapter explicitly closes it
+<provider>-chat:<response_id-or-provider_call_id>:provider-call
+<provider>-chat:<response_id-or-provider_call_id>:choice:<choice_index>:content
+<provider>-chat:<response_id-or-provider_call_id>:choice:<choice_index>:reasoning
+<provider>-chat:<response_id-or-provider_call_id>:choice:<choice_index>:tool:<tool_call_id>
+<provider>-chat:<response_id-or-provider_call_id>:choice:<choice_index>:tool-index:<tool_call_index>
 ```
 
-### 8.3 OpenAI Chat Completions mapping
+Mapping table:
 
-Chat Completions is less structured, but the same concepts apply.
+| Chat Completions stream condition | New Geppetto event | Required correlation |
+|---|---|---|
+| first chunk | `EventProviderCallStarted` | generated provider call ID, provider/model, response ID if available |
+| first non-empty `delta.content` for a choice | `EventTextSegmentStarted` | choice index, content key, segment ID |
+| `delta.content` | `EventTextDelta` | content key, segment ID |
+| first non-empty reasoning delta | `EventReasoningSegmentStarted` | reasoning key, segment ID |
+| reasoning delta | `EventReasoningDelta` | reasoning key |
+| `delta.tool_calls[index]` first seen | `EventToolCallStarted` | tool key by ID or index |
+| subsequent tool argument deltas | `EventToolCallArgumentsDelta` | same tool key |
+| `finish_reason=tool_calls` | `EventTextSegmentFinished` for active content only, `EventToolCallRequested`, `EventProviderCallFinished` | no extra text finalization |
+| `finish_reason=stop` | `EventTextSegmentFinished` for active content, `EventProviderCallFinished` | no provider EOF text event |
 
-```text
-first chunk
-  -> ProviderCallStarted
+## 8. Geppetto event API sketches
 
-delta.content first non-empty content for a stream key
-  -> TextSegmentStarted
+### 8.1 Base event shape
 
-delta.content
-  -> TextDelta
+Every new event embeds or exposes `Correlation` directly. It should not be necessary to inspect `EventMetadata.Extra` to route it.
 
-delta.reasoning first non-empty reasoning for a stream key
-  -> ReasoningSegmentStarted
-
-delta.reasoning
-  -> ReasoningDelta
-
-delta.tool_calls[index].function.arguments
-  -> ToolCallStarted / ToolCallArgumentsDelta
-
-finish_reason=tool_calls
-  -> TextSegmentFinished for active text streams, if not already closed
-  -> ToolCallRequested for completed tool calls
-  -> ProviderCallFinished(stop_reason=tool_calls)
-  -> no extra text final
-
-finish_reason=stop
-  -> TextSegmentFinished for active text stream
-  -> ProviderCallFinished(stop_reason=stop)
+```go
+type CorrelatedEvent interface {
+    events.Event
+    Correlation() events.Correlation
+}
 ```
 
-For Chat Completions, the provider adapter may need to synthesize segment started/finished based on deltas and finish reasons because the provider stream does not expose content block start/stop events.
+### 8.2 Text segment events
 
-## 9. Pinocchio chatapp vocabulary
+```go
+type EventTextSegmentStarted struct {
+    EventImpl
+    Corr Correlation `json:"correlation"`
+    Role string `json:"role,omitempty"`
+}
 
-### 9.1 New backend events
+type EventTextDelta struct {
+    EventImpl
+    Corr     Correlation `json:"correlation"`
+    Delta    string      `json:"delta"`
+    Text     string      `json:"text"`
+    Sequence int64       `json:"sequence,omitempty"`
+}
 
-Pinocchio should add explicit backend event names:
-
-```text
-ChatRunStarted
-ChatRunFinished
-ChatRunStopped
-ChatProviderCallStarted
-ChatProviderCallMetadataUpdated
-ChatProviderCallFinished
-ChatTextSegmentStarted
-ChatTextDelta
-ChatTextSegmentFinished
-ChatReasoningSegmentStarted
-ChatReasoningDelta
-ChatReasoningSegmentFinished
-ChatToolCallStarted
-ChatToolCallArgumentsDelta
-ChatToolCallRequested
-ChatToolResultReady
-ChatToolCallFinished
+type EventTextSegmentFinished struct {
+    EventImpl
+    Corr         Correlation `json:"correlation"`
+    Text         string      `json:"text"`
+    FinishReason string      `json:"finish_reason,omitempty"`
+}
 ```
 
-Legacy names can remain:
+### 8.3 Provider-call events
 
-```text
-ChatInferenceStarted  -> compatibility alias for ChatRunStarted
-ChatTokensDelta       -> compatibility alias for ChatTextDelta
-ChatInferenceFinished -> compatibility alias for ChatTextSegmentFinished
-ChatInferenceStopped  -> compatibility alias for ChatRunStopped or ChatTextSegmentStopped depending context
+```go
+type EventProviderCallStarted struct {
+    EventImpl
+    Corr Correlation `json:"correlation"`
+}
+
+type EventProviderCallMetadataUpdated struct {
+    EventImpl
+    Corr         Correlation `json:"correlation"`
+    StopReason   string      `json:"stop_reason,omitempty"`
+    StopSequence string      `json:"stop_sequence,omitempty"`
+    Usage        *Usage      `json:"usage,omitempty"`
+}
+
+type EventProviderCallFinished struct {
+    EventImpl
+    Corr         Correlation `json:"correlation"`
+    StopReason   string      `json:"stop_reason,omitempty"`
+    FinishClass  string      `json:"finish_class,omitempty"`
+    Usage        *Usage      `json:"usage,omitempty"`
+    DurationMs   *int64      `json:"duration_ms,omitempty"`
+    HasToolCalls bool        `json:"has_tool_calls,omitempty"`
+}
 ```
 
-### 9.2 Protobuf payload additions
+### 8.4 Tool events
 
-The current `ChatMessageUpdate` already has message text and several provider fields. The new design should add a common correlation message rather than repeatedly hand-copying fields across payload types.
+```go
+type EventToolCallStarted struct {
+    EventImpl
+    Corr       Correlation `json:"correlation"`
+    ToolCallID string      `json:"tool_call_id"`
+    ToolName   string      `json:"tool_name,omitempty"`
+}
+
+type EventToolCallArgumentsDelta struct {
+    EventImpl
+    Corr       Correlation `json:"correlation"`
+    ToolCallID string      `json:"tool_call_id"`
+    Delta      string      `json:"delta"`
+    Arguments  string      `json:"arguments"`
+    Sequence   int64       `json:"sequence,omitempty"`
+}
+
+type EventToolCallRequested struct {
+    EventImpl
+    Corr       Correlation `json:"correlation"`
+    ToolCallID string      `json:"tool_call_id"`
+    ToolName   string      `json:"tool_name"`
+    Input      string      `json:"input"`
+}
+```
+
+## 9. Pinocchio protobuf design
+
+### 9.1 Canonical CorrelationInfo
+
+Hard cutover means no duplicated top-level provider fields. Identity lives in `CorrelationInfo`.
 
 ```proto
 message CorrelationInfo {
@@ -737,9 +543,28 @@ message CorrelationInfo {
 }
 ```
 
-Then define new event payloads:
+### 9.2 Canonical payloads
 
 ```proto
+message ChatRunStarted {
+  CorrelationInfo correlation = 1;
+  string prompt = 2;
+}
+
+message ChatRunFinished {
+  CorrelationInfo correlation = 1;
+  string status = 2;
+}
+
+message ChatProviderCallFinished {
+  CorrelationInfo correlation = 1;
+  string stop_reason = 2;
+  string finish_class = 3;
+  Usage usage = 4;
+  optional int64 duration_ms = 5;
+  bool has_tool_calls = 6;
+}
+
 message ChatTextSegmentStarted {
   CorrelationInfo correlation = 1;
   string message_id = 2;
@@ -764,73 +589,101 @@ message ChatTextSegmentFinished {
   string finish_reason = 5;
 }
 
-message ChatProviderCallFinished {
+message ChatToolCallRequested {
   CorrelationInfo correlation = 1;
-  string stop_reason = 2;
-  string finish_class = 3;
-  Usage usage = 4;
-  optional int64 duration_ms = 5;
-  bool has_tool_calls = 6;
+  string message_id = 2;
+  string tool_call_id = 3;
+  string tool_name = 4;
+  string input = 5;
 }
 ```
 
-We can either add `CorrelationInfo` beside existing fields or first embed it while preserving existing scalar fields for compatibility. During migration, duplicate fields are acceptable. The important rule is that new code reads `correlation` first.
+The concrete `.proto` can split these by package/file if useful, but the architectural rule stays: every payload has one `CorrelationInfo` and no parallel identity fields.
 
-### 9.3 Runtime sink behavior
+## 10. Runtime behavior after cutover
 
-Pinocchio's runtime sink should become simpler with explicit events:
+### 10.1 Geppetto provider adapter pseudocode
+
+Claude is the cleanest example:
+
+```go
+case MessageStartType:
+    call := corr.NewProviderCall(provider="claude", responseID=event.Message.ID)
+    emit ProviderCallStarted(call)
+
+case ContentBlockStartType when block.Type == text:
+    segment := call.NewTextSegment(contentBlockIndex=event.Index)
+    emit TextSegmentStarted(segment)
+
+case ContentBlockDeltaType when delta.Type == text_delta:
+    segment.Append(delta.Text)
+    emit TextDelta(segment, delta.Text, segment.Text)
+
+case ContentBlockStopType when block.Type == text:
+    emit TextSegmentFinished(segment, segment.Text)
+
+case ContentBlockStartType when block.Type == tool_use:
+    tool := call.NewToolCall(block.ID, block.Name, event.Index)
+    emit ToolCallStarted(tool)
+
+case ContentBlockDeltaType when delta.Type == input_json_delta:
+    tool.AppendArgs(delta.PartialJSON)
+    emit ToolCallArgumentsDelta(tool, delta.PartialJSON, tool.Args)
+
+case ContentBlockStopType when block.Type == tool_use:
+    emit ToolCallRequested(tool, tool.Args)
+
+case MessageDeltaType:
+    call.UpdateMetadata(stopReason, usage)
+    emit ProviderCallMetadataUpdated(call)
+
+case MessageStopType:
+    call.DurationMs = elapsed
+    emit ProviderCallFinished(call)
+```
+
+### 10.2 Pinocchio runtime sink pseudocode
 
 ```go
 func (s *runtimeEventSink) PublishEvent(event gepevents.Event) error {
     switch ev := event.(type) {
-    case *events.EventTextSegmentStarted:
-        return s.publishTextSegmentStarted(ev)
-
-    case *events.EventTextDelta:
-        return s.publishTextDelta(ev)
-
-    case *events.EventTextSegmentFinished:
-        return s.publishTextSegmentFinished(ev)
+    case *events.EventRunStarted:
+        return publish(ChatRunStarted, runPayload(ev))
 
     case *events.EventProviderCallStarted:
-        return s.publishProviderCallStarted(ev)
+        return publish(ChatProviderCallStarted, providerCallStartedPayload(ev))
 
     case *events.EventProviderCallMetadataUpdated:
-        return s.publishProviderCallMetadataUpdated(ev)
+        return publish(ChatProviderCallMetadataUpdated, providerCallMetadataPayload(ev))
 
     case *events.EventProviderCallFinished:
-        return s.publishProviderCallFinished(ev)
+        return publish(ChatProviderCallFinished, providerCallFinishedPayload(ev))
 
-    case *events.EventFinal:
-        return s.publishLegacyFinalAsTextSegmentFinished(ev)
+    case *events.EventTextSegmentStarted:
+        return publish(ChatTextSegmentStarted, textStartedPayload(ev))
+
+    case *events.EventTextDelta:
+        return publish(ChatTextDelta, textDeltaPayload(ev))
+
+    case *events.EventTextSegmentFinished:
+        return publish(ChatTextSegmentFinished, textFinishedPayload(ev))
+
+    case *events.EventToolCallRequested:
+        return publish(ChatToolCallRequested, toolRequestedPayload(ev))
 
     default:
-        return s.engine.handleFeatureRuntimeEvent(...)
+        return featurePlugins.HandleRuntimeEvent(ev)
     }
 }
 ```
 
-The legacy `EventFinal` path should be guarded:
+There is no `case *events.EventFinal`. There is no `ensureTextSegmentID()` path for provider-call events.
 
-```go
-func (s *runtimeEventSink) publishLegacyFinalAsTextSegmentFinished(ev *events.EventFinal) error {
-    if !s.hasActiveText() && strings.TrimSpace(ev.Text) == "" {
-        // lifecycle-only final; ignore as transcript
-        return nil
-    }
-    // Existing compatibility behavior.
-}
-```
+## 11. SQLite and trace export design
 
-New explicit provider-call finished events must never call `ensureTextSegmentID()`.
+### 11.1 Required tables
 
-## 10. SQLite and observability design
-
-The debug SQLite export should make correlation visible without reconstructing state from string suffixes.
-
-### 10.1 New tables
-
-Add a provider-call result table:
+Add provider-call results:
 
 ```sql
 create table geppetto_inference_results (
@@ -859,7 +712,7 @@ create table geppetto_inference_results (
 );
 ```
 
-Add a segment table:
+Add canonical segments:
 
 ```sql
 create table geppetto_segments (
@@ -869,6 +722,7 @@ create table geppetto_segments (
   inference_id text,
   turn_id text,
   provider_call_id text,
+  provider_call_index integer,
   segment_id text,
   segment_index integer,
   segment_type text,
@@ -892,9 +746,9 @@ create table geppetto_segments (
 );
 ```
 
-### 10.2 Verification queries
+### 11.2 Verification queries
 
-For Claude tool-use metadata:
+Claude tool-use metadata should be directly verifiable:
 
 ```sql
 select
@@ -914,7 +768,7 @@ where provider = 'claude'
 order by provider_call_index;
 ```
 
-Expected for a tool loop:
+Expected:
 
 ```text
 provider_call_index  provider  stop_reason  finish_class          input_tokens  output_tokens
@@ -922,7 +776,7 @@ provider_call_index  provider  stop_reason  finish_class          input_tokens  
 2                    claude    end_turn     completed             ...           ...
 ```
 
-For text duplication:
+Text duplication should be directly verifiable:
 
 ```sql
 select
@@ -938,36 +792,32 @@ where segment_type = 'text'
 order by started_record_id;
 ```
 
-Expected:
+There should be no row whose only cause is a provider envelope stop.
 
-```text
-One row per actual provider text block or synthesized non-streaming text segment.
-No row appears merely because message_stop happened.
-```
+## 12. Implementation phases
 
-## 11. Implementation plan
-
-### Phase 1: Add typed correlation and new Geppetto events
+### Phase 1: Remove and replace Geppetto event vocabulary
 
 Files:
 
 ```text
 pkg/events/chat-events.go
 pkg/events/text_events.go
-pkg/events/provider_call_events.go   # new
-pkg/events/correlation.go            # new
-pkg/events/tool_events.go            # existing/new split as needed
+pkg/events/correlation.go
+pkg/events/provider_call_events.go
+pkg/events/segment_events.go
+pkg/events/tool_events.go
 ```
 
 Tasks:
 
-1. Add `events.Correlation`.
-2. Add `EventTextSegmentStarted`, `EventTextDelta`, `EventTextSegmentFinished`.
-3. Add `EventProviderCallStarted`, `EventProviderCallMetadataUpdated`, `EventProviderCallFinished`.
-4. Add compatibility helpers that can convert `EventPartialCompletion` and `EventFinal` into the new text events.
-5. Add tests for JSON serialization and correlation preservation.
+1. Add `Correlation`.
+2. Add run/provider/text/reasoning/tool event structs.
+3. Remove or stop exporting old overloaded event constructors.
+4. Update event JSON decoding to understand only canonical names.
+5. Update tests to use canonical names.
 
-### Phase 2: Update Claude first
+### Phase 2: Migrate Claude
 
 Files:
 
@@ -978,49 +828,50 @@ pkg/steps/ai/claude/content-block-merger_test.go
 pkg/steps/ai/claude/observability_test.go
 ```
 
-Claude is the best first provider because its event model naturally separates message envelopes from content blocks.
+Tasks:
 
-Pseudocode:
+1. Generate one provider-call correlation per Claude API call.
+2. Emit provider-call events from `message_start`, `message_delta`, and `message_stop`.
+3. Emit text segment events from text content blocks.
+4. Emit tool-call events from tool-use content blocks.
+5. Assert `message_stop` emits no text event.
+6. Assert `ProviderCallFinished` carries `stop_reason=tool_use` and usage for tool-use turns.
 
-```go
-case MessageStartType:
-    call = newProviderCall(event.Message.ID, model)
-    emit ProviderCallStarted(call.Correlation())
+### Phase 3: Migrate OpenAI Responses
 
-case ContentBlockStartType when text:
-    seg = newTextSegment(call, event.Index)
-    emit TextSegmentStarted(seg.Correlation())
+Files:
 
-case ContentBlockDeltaType when text_delta:
-    seg.Append(delta)
-    emit TextDelta(seg.Correlation(), delta, seg.Text())
-
-case ContentBlockStopType when text:
-    emit TextSegmentFinished(seg.Correlation(), seg.Text())
-
-case ContentBlockStartType when tool_use:
-    tool = newToolCall(call, event.Index, block.ID)
-    emit ToolCallStarted(tool.Correlation())
-
-case ContentBlockDeltaType when input_json_delta:
-    tool.Append(delta)
-    emit ToolCallArgumentsDelta(tool.Correlation(), delta, tool.Input()) // optional in UI
-
-case ContentBlockStopType when tool_use:
-    emit ToolCallRequested(tool.Correlation(), tool.ID, tool.Name, tool.Input())
-
-case MessageDeltaType:
-    call.UpdateStopReasonUsage(event)
-    emit ProviderCallMetadataUpdated(call.Correlation(), usage, stopReason)
-
-case MessageStopType:
-    call.DurationMs = time.Since(start)
-    emit ProviderCallFinished(call.Correlation(), stopReason, usage, duration)
+```text
+pkg/steps/ai/openai_responses/streaming.go
+pkg/steps/ai/openai_responses/observability.go
 ```
 
-No `message_stop` branch emits a text event.
+Tasks:
 
-### Phase 3: Update Pinocchio protobufs and runtime sink
+1. Use response IDs and item IDs as provider-native identity.
+2. Emit text/reasoning/tool segment events from output items.
+3. Emit provider-call finished from `response.completed`.
+4. Remove any provider-completed-to-text-final behavior.
+
+### Phase 4: Migrate OpenAI-compatible Chat Completions
+
+Files:
+
+```text
+pkg/steps/ai/openai/engine_openai.go
+pkg/steps/ai/openai/observability.go
+```
+
+Tasks:
+
+1. Generate provider-call IDs before response IDs are known.
+2. Emit text segment events from content deltas.
+3. Emit reasoning segment events from reasoning deltas.
+4. Emit tool-call argument events from streamed tool deltas.
+5. Emit provider-call finished from finish reasons/EOF.
+6. Ensure `finish_reason=tool_calls` does not emit duplicate text finished events.
+
+### Phase 5: Replace Pinocchio protobufs and runtime sink
 
 Files:
 
@@ -1035,191 +886,133 @@ Files:
 
 Tasks:
 
-1. Add `CorrelationInfo` message.
-2. Add new text segment and provider-call payloads.
-3. Regenerate Go and TypeScript protobufs.
-4. Teach `runtimeEventSink` to consume new Geppetto events.
-5. Keep legacy event names as projections for old UI code.
-6. Add a defensive guard for legacy `EventFinal` with no active text and empty text.
+1. Add `CorrelationInfo` and canonical payloads.
+2. Remove legacy event names from runtime paths.
+3. Regenerate Go protobufs.
+4. Update projections and plugins.
+5. Update tests.
 
-### Phase 4: Update OpenAI Responses and Chat Completions
-
-Files:
-
-```text
-pkg/steps/ai/openai_responses/streaming.go
-pkg/steps/ai/openai_responses/observability.go
-pkg/steps/ai/openai/engine_openai.go
-pkg/steps/ai/openai/observability.go
-```
-
-Tasks:
-
-1. Introduce provider-call IDs for each API request.
-2. Emit provider-call lifecycle events.
-3. Emit text segment events for content streams.
-4. Emit reasoning segment events for reasoning streams.
-5. Emit tool-call argument deltas and requested events.
-6. Ensure provider final/EOF events only emit provider-call finished, not text finalization.
-
-### Phase 5: Update SQLite debug export
-
-Files:
-
-```text
-../pinocchio/cmd/web-chat/app/debug_reconcile_schema.go
-../pinocchio/cmd/web-chat/app/debug_reconcile_geppetto.go
-../pinocchio/cmd/web-chat/app/debug_reconcile_views.go
-```
-
-Tasks:
-
-1. Add `geppetto_inference_results`.
-2. Add `geppetto_segments`.
-3. Populate from new observability records/events.
-4. Add views that join provider events to Geppetto events, backend events, frontend frames, and timeline entities by `correlation_key` and `segment_id`.
-
-### Phase 6: Update CoinVault frontend and trace browser
+### Phase 6: Update CoinVault and SQLite tooling
 
 Files:
 
 ```text
 ../2026-03-16--gec-rag/web/src/ws/*
 ../2026-03-16--gec-rag/web/src/pb/external/pinocchio/chat_pb.ts
-../2026-03-16--gec-rag/ttmp/.../SQLITE-TRACE-VERBS.../scripts/serve/trace_browser_app.js
+../pinocchio/cmd/web-chat/app/debug_reconcile_schema.go
+../pinocchio/cmd/web-chat/app/debug_reconcile_views.go
 ```
 
 Tasks:
 
-1. Mirror regenerated Pinocchio chatapp TypeScript protobufs.
-2. Preserve `CorrelationInfo` in frontend timeline entities.
-3. Add trace browser pages for provider-call results and segment lifecycles.
-4. Update tests to assert correlation IDs survive parsing and projection.
+1. Mirror regenerated TypeScript protobufs.
+2. Update websocket parsing for new event names and `CorrelationInfo`.
+3. Add `geppetto_inference_results` and `geppetto_segments` tables.
+4. Update trace-browser pages to inspect provider calls and segments.
+5. Add browser SQLite verification tests.
 
-## 12. Testing strategy
+## 13. Testing strategy
 
-### 12.1 Unit tests
+### 13.1 Compile-time tests
 
-Geppetto:
+The hard cutover should deliberately break old references. Use `rg` as a validation gate:
 
-- Claude `message_delta` emits `ProviderCallMetadataUpdated` but no text event.
-- Claude `message_stop` emits `ProviderCallFinished` but no text event.
-- Claude text block stop emits `TextSegmentFinished`.
-- Claude tool-use block stop emits `ToolCallRequested` with `tool_call_id`, `content_block_index`, `provider_call_id`, and `correlation_key`.
-- OpenAI Responses `response.completed` emits `ProviderCallFinished`, not `TextSegmentFinished`.
-- Chat Completions `finish_reason=tool_calls` emits provider-call finished and tool-call requested but no duplicate text finished.
+```bash
+rg "EventFinal|EventPartialCompletion|ChatInferenceFinished|ChatTokensDelta|ChatInferenceStarted" geppetto pinocchio 2026-03-16--gec-rag
+```
 
-Pinocchio:
+After implementation, remaining matches should be only in migration notes, archived docs, or intentionally named historical test fixtures.
 
-- `EventTextSegmentStarted/Delta/Finished` produce `ChatTextSegment*` payloads with `CorrelationInfo` intact.
-- Legacy `EventFinal("")` with no active text emits no `ChatInferenceFinished`.
-- Legacy `EventFinal("text")` still works for non-streaming compatibility.
-- Provider-call events do not call `ensureTextSegmentID()`.
+### 13.2 Provider tests
 
-### 12.2 Integration tests
+Claude:
 
-Use fake provider streams for:
+- `message_delta` emits `ProviderCallMetadataUpdated` only.
+- `message_stop` emits `ProviderCallFinished` only.
+- `content_block_stop text` emits `TextSegmentFinished`.
+- `content_block_stop tool_use` emits `ToolCallRequested`.
+- Every event has `provider_call_id` and `correlation_key`.
 
-1. Claude text-only answer.
-2. Claude text -> tool_use -> message_stop.
-3. Claude text -> tool_use -> tool result -> text -> end_turn.
-4. OpenAI Responses message item -> function call item -> completed.
-5. Chat Completions content deltas -> tool_calls finish reason.
+OpenAI Responses:
 
-### 12.3 Browser and SQLite tests
+- `response.completed` emits `ProviderCallFinished` only.
+- message output item done emits `TextSegmentFinished`.
+- function call item done emits `ToolCallRequested`.
 
-For a Haiku tool run, the SQLite should show:
+Chat Completions:
+
+- `finish_reason=tool_calls` emits provider-call finished and tool requested events, not an extra text segment.
+- streamed argument-only deltas preserve `tool_call_id` through stateful correlation.
+
+### 13.3 Pinocchio tests
+
+- `EventTextDelta` becomes `ChatTextDelta` with `CorrelationInfo` preserved.
+- `EventTextSegmentFinished` becomes `ChatTextSegmentFinished` with the same segment ID and correlation key.
+- `EventProviderCallFinished` becomes `ChatProviderCallFinished` and does not mutate text segment state.
+- Runtime sink has no `EventFinal` branch.
+
+### 13.4 SQLite/browser tests
+
+For Haiku:
 
 ```text
-geppetto_inference_results:
-  call 1 stop_reason=tool_use finish_class=tool_calls_pending
-  call 2 stop_reason=end_turn finish_class=completed
-
-geppetto_segments:
-  one text segment for each actual Claude text block
-  no segment created by message_stop
+provider call 1: stop_reason=tool_use, finish_class=tool_calls_pending
+provider call 2: stop_reason=end_turn, finish_class=completed
 ```
 
-The browser should show:
+Text segments:
 
 ```text
-assistant text
-_tool row_
-assistant text only if the provider sent post-tool text
+one row per actual Claude text block
+no text segment created by message_stop
 ```
 
-No duplicate intro text should appear after a tool row.
-
-## 13. Migration and compatibility notes
-
-### 13.1 Compatibility aliases
-
-Do not remove old event names immediately. Add new events and treat old names as aliases:
+Browser:
 
 ```text
-EventPartialCompletion -> TextDelta
-EventFinal             -> TextSegmentFinished (legacy only)
-ChatTokensDelta        -> ChatTextDelta
-ChatInferenceFinished  -> ChatTextSegmentFinished
+no duplicate assistant intro after tool rows
+all frontend entities retain CorrelationInfo
 ```
 
-### 13.2 Deprecation comments
+## 14. Deletion checklist
 
-Add comments near old constants:
+The hard cutover is complete only when this checklist is satisfied.
 
-```go
-// Deprecated: EventTypeFinal is a legacy text-segment finalization event.
-// It does not mean provider call finished or chat run finished. New providers
-// should emit EventTextSegmentFinished and EventProviderCallFinished instead.
-```
+- [ ] `EventFinal` constructor and type are removed or inaccessible to provider adapters.
+- [ ] `EventPartialCompletion` is replaced by `EventTextDelta`.
+- [ ] Pinocchio has no runtime branch mapping `EventFinal` to text output.
+- [ ] Pinocchio protobufs no longer define `ChatInferenceStarted`, `ChatTokensDelta`, or `ChatInferenceFinished` as active events.
+- [ ] CoinVault websocket parser no longer handles legacy event names.
+- [ ] SQLite reconcile views use canonical event names and `CorrelationInfo` fields.
+- [ ] Provider-call finished events are visible in SQLite as `geppetto_inference_results`.
+- [ ] Text segments are visible in SQLite as `geppetto_segments`.
+- [ ] Tests prove Claude `message_stop` never creates text.
+- [ ] Tests prove `ProviderCallFinished` carries stop reason and usage.
 
-### 13.3 Guard old finalization path
+## 15. Intern implementation notes
 
-Even after new events exist, old providers may emit `EventFinal`. Pinocchio should guard against lifecycle-only finals:
+If you are implementing this ticket, do not start by renaming strings. Start by drawing the lifecycle you are touching.
 
-```go
-if no active text && strings.TrimSpace(ev.Text) == "" {
-    return nil
-}
-```
+For any provider event, ask:
 
-This defensive guard prevents a single upstream mistake from creating a browser-visible duplicate.
+1. Is this about the whole chat run?
+2. Is this about one provider call?
+3. Is this about a visible text segment?
+4. Is this about reasoning?
+5. Is this about a tool call or result?
 
-## 14. Risks and alternatives
+Only after answering that should you choose an event type.
 
-### Alternative A: Keep old events and document the meanings
+Then assign correlation:
 
-This is not enough. Documentation helps, but the type system still allows a provider envelope event to be represented as `EventFinal`. The next provider integration could repeat the same mistake.
+1. What is the provider call ID?
+2. What is the provider-native response/message ID?
+3. What item/block/choice/tool index does this event belong to?
+4. What segment ID should the browser use?
+5. What normalized correlation key should SQLite join on?
+6. What is the parent correlation key?
 
-### Alternative B: Only add Pinocchio defensive guards
-
-A guard is useful, but it treats the symptom. It does not create a place for provider-call completion, provider usage, or per-call inference results. We still need explicit provider-call events or inference-result records.
-
-### Alternative C: Use metadata checkpoints only
-
-Metadata checkpoints would improve debugging but not transcript correctness. They also do not replace typed correlation on events. Use them only as optional deep tracing after the main event vocabulary is in place.
-
-### Risk: too many events
-
-The event stream will become more verbose. That is acceptable because the events represent real concepts. We can control UI noise by projecting only user-relevant events and keeping provider-call events in debug/inference-result views.
-
-### Risk: migration churn across repos
-
-This change touches Geppetto, Pinocchio, CoinVault, protobuf mirrors, and SQLite tooling. The phased plan preserves compatibility and lets us validate provider by provider.
-
-## 15. New intern checklist
-
-If you are implementing this ticket, follow this order:
-
-1. Read `pkg/events/chat-events.go` and `pkg/events/text_events.go` to understand current legacy event names.
-2. Read `../pinocchio/pkg/chatapp/runtime_sink.go` to see how `EventFinal` becomes `ChatInferenceFinished` today.
-3. Read `pkg/steps/ai/claude/content-block-merger.go` and identify which Claude provider events are envelope events versus content block events.
-4. Add typed `Correlation` and new Geppetto event structs.
-5. Update Claude first because its provider stream has the cleanest block/envelope separation.
-6. Add Pinocchio handlers for new text segment events.
-7. Preserve legacy projections until CoinVault and other clients have migrated.
-8. Add SQLite tables/views before relying on browser screenshots for validation.
-9. Use correlation keys in tests; do not assert by substring-matching rendered text.
+If any of those answers requires parsing a rendered message ID or looking inside `metadata.Extra`, the design is incomplete.
 
 ## 16. References
 
@@ -1247,12 +1040,10 @@ If you are implementing this ticket, follow this order:
 - `../pinocchio/cmd/web-chat/app/debug_reconcile_schema.go`
 - `../pinocchio/cmd/web-chat/app/debug_reconcile_views.go`
 
-### Captured evidence excerpts
+### Captured source evidence
 
-This ticket stores line-numbered evidence under:
+Line-numbered source excerpts are stored under:
 
 ```text
 ttmp/2026/05/08/GP-EVENT-VOCABULARY--split-provider-run-and-text-segment-event-vocabulary/sources/
 ```
-
-Use those excerpts when reviewing or discussing the design without reopening every source file.

@@ -213,3 +213,71 @@ Verified remote listing:
 ```text
 [f]	GP-EVENT-VOCABULARY - event vocabulary design
 ```
+
+## 2026-05-08 06:30 — Revised design for hard cutover and removed legacy compatibility framing
+
+### What changed
+
+After discussion, we decided the design should assume a hard cutover rather than a compatibility migration. I rewrote the primary design guide accordingly:
+
+```text
+design-doc/01-provider-run-and-text-segment-event-vocabulary-design-guide.md
+```
+
+The revised document now states that old names are removed rather than aliased:
+
+```text
+EventFinal              -> removed
+EventPartialCompletion  -> removed
+ChatInferenceStarted    -> removed
+ChatTokensDelta         -> removed
+ChatInferenceFinished   -> removed
+```
+
+The replacement vocabulary is canonical and mandatory:
+
+```text
+ChatRunStarted / ChatRunFinished
+ProviderCallStarted / ProviderCallMetadataUpdated / ProviderCallFinished
+TextSegmentStarted / TextDelta / TextSegmentFinished
+ReasoningSegmentStarted / ReasoningDelta / ReasoningSegmentFinished
+ToolCallStarted / ToolCallArgumentsDelta / ToolCallRequested / ToolResultReady
+```
+
+The correlation design was also made stricter. The revised guide now says every canonical event must carry typed `Correlation` / `CorrelationInfo`, and that new runtime logic must not route through `metadata.Extra`.
+
+### Why
+
+A compatibility migration would preserve the ambiguous model in runtime code. Since the old vocabulary caused the bug class, keeping it as an alias would make the design harder to reason about and harder to test. The hard cutover document is shorter, clearer, and makes the deletion checklist explicit.
+
+### Upload note
+
+The original reMarkable copy remains as the earlier migration-style design. I will upload a new copy with a different name so both versions are available for comparison.
+
+## 2026-05-08 06:35 — Uploaded hard-cutover reMarkable copy
+
+### Commands
+
+```bash
+remarquee upload bundle --dry-run \
+  index.md \
+  design-doc/01-provider-run-and-text-segment-event-vocabulary-design-guide.md \
+  reference/01-investigation-diary.md \
+  tasks.md \
+  changelog.md \
+  --name "GP-EVENT-VOCABULARY - hard cutover event vocabulary design" \
+  --remote-dir "/ai/2026/05/08/GP-EVENT-VOCABULARY" \
+  --toc-depth 2
+
+remarquee upload bundle ...
+
+remarquee cloud ls /ai/2026/05/08/GP-EVENT-VOCABULARY --long --non-interactive
+```
+
+### Result
+
+```text
+OK: uploaded GP-EVENT-VOCABULARY - hard cutover event vocabulary design.pdf -> /ai/2026/05/08/GP-EVENT-VOCABULARY
+[f]	GP-EVENT-VOCABULARY - event vocabulary design
+[f]	GP-EVENT-VOCABULARY - hard cutover event vocabulary design
+```

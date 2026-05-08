@@ -20,6 +20,8 @@ LastUpdated: 2026-05-08T05:55:00-04:00
 
 ## Done
 
+- [x] Revise primary design guide to assume a hard cutover with no legacy runtime aliases.
+- [x] Upload hard-cutover revision as a new reMarkable copy.
 - [x] Create `GP-EVENT-VOCABULARY` ticket workspace.
 - [x] Add primary design document and investigation diary.
 - [x] Capture line-numbered source evidence for Geppetto events, provider engines, observability, Pinocchio runtime sink, protobufs, plugins, and SQLite reconcile code.
