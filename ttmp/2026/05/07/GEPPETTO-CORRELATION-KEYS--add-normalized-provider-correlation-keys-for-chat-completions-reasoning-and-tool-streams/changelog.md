@@ -30,3 +30,15 @@ Propagated normalized provider correlation fields through Pinocchio chatapp, web
 - pinocchio/cmd/web-chat/app/debug_reconcile_schema.go — Adds correlation columns and indexes to Geppetto SQLite tables
 - pinocchio/cmd/web-chat/app/debug_reconcile_views.go — Adds correlation-key SQLite joins from provider to frontend
 
+## 2026-05-07
+
+Updated CoinVault to consume normalized Pinocchio correlation payloads and refreshed ticket analysis scripts.
+
+### Related Files
+
+- 2026-03-16--gec-rag/web/src/pb/external/pinocchio/chat_pb.ts — Mirrors regenerated Pinocchio chatapp payloads
+- 2026-03-16--gec-rag/web/src/ws/parsing.ts — Preserves correlation fields in timeline entity data
+- 2026-03-16--gec-rag/web/src/ws/parsing.test.ts — Covers reasoning/tool correlation metadata
+- 2026-03-16--gec-rag/ttmp/2026/05/07/COINVAULT-OBSERVABILITY--add-observer-correlation-export-for-coinvault-web-chat/scripts/analyze_debug_sqlite.sql — Displays normalized correlation columns
+- 2026-03-16--gec-rag/ttmp/2026/05/07/COINVAULT-OBSERVABILITY--add-observer-correlation-export-for-coinvault-web-chat/scripts/analyze_debug_sqlite.py — Joins frontend debug records by `correlationKey`
+
