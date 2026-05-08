@@ -13,13 +13,15 @@ Intent: short-term
 Owners:
   - manuel
 Summary: Changelog for the provider/run/text segment vocabulary design ticket.
-LastUpdated: 2026-05-08T05:55:00-04:00
+LastUpdated: 2026-05-08T07:20:00-04:00
 ---
 
 # Changelog
 
 ## 2026-05-08
 
+- Migrated Gemini and the local tool executor to canonical provider-call/text/tool lifecycle events, removed the remaining OpenAI Responses wrapper `NewStartEvent` emission, updated JS event collector handling for canonical tool execution/result events, added targeted tests, and saved validation output under `various/gemini-canonical-migration-validation.log`.
+- Added a dedicated Gemini canonical event migration analysis, source evidence, and Phase 5B task list after the deletion scan found active Gemini and local tool-executor legacy event emissions.
 - Migrated Pinocchio reasoning/tool plugins to canonical backend events with typed `CorrelationInfo`, including tool argument deltas.
 - Migrated Pinocchio core chat runtime/projections to canonical run/provider-call/text events and removed active `ChatInference*`/`ChatTokensDelta` emission from `pkg/chatapp`.
 - Added Pinocchio canonical `CorrelationInfo` and run/provider-call/text/reasoning/tool chatapp protobuf payloads, regenerated Go/TS bindings, and registered non-overlapping canonical base event schemas.

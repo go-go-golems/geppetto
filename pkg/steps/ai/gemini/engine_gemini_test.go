@@ -2,9 +2,12 @@ package gemini
 
 import (
 	"net/http"
+	"os"
 	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/go-go-golems/geppetto/pkg/events"
 	genai "github.com/google/generative-ai-go/genai"
 	"github.com/invopop/jsonschema"
 	"google.golang.org/api/option"
@@ -88,6 +91,48 @@ func TestGeminiClientOptions_CustomClientKeepsAPIKeyAndHTTPClient(t *testing.T) 
 	httpClient := &http.Client{Transport: http.DefaultTransport}
 	opts := geminiClientOptions("test-key", "https://example.test", httpClient)
 	assertGeminiClientOptions(t, opts, true, true, true)
+}
+
+func TestGeminiCanonicalCorrelationHelpersValidate(t *testing.T) {
+	metadata := events.EventMetadata{
+		SessionID:   "session-1",
+		InferenceID: "inference-1",
+		TurnID:      "turn-1",
+	}
+
+	providerCorr := geminiProviderCallCorrelation(metadata, metadata.InferenceID, "gemini-test")
+	if err := events.ValidateCanonicalEvent(events.NewProviderCallStartedEvent(metadata, providerCorr)); err != nil {
+		t.Fatalf("provider-call correlation should validate: %v", err)
+	}
+
+	textCorr := geminiSegmentCorrelation(providerCorr, "", 0, events.SegmentTypeText)
+	if err := events.ValidateCanonicalEvent(events.NewTextDeltaEvent(metadata, textCorr, "hi", "hi", 1)); err != nil {
+		t.Fatalf("text correlation should validate: %v", err)
+	}
+
+	toolCorr := geminiToolCorrelation(providerCorr, "tool-1", 0)
+	if err := events.ValidateCanonicalEvent(events.NewToolCallRequestedEvent(metadata, toolCorr, "tool-1", "lookup", `{"q":"x"}`)); err != nil {
+		t.Fatalf("tool correlation should validate: %v", err)
+	}
+}
+
+func TestGeminiEngineDoesNotCallLegacyEventConstructors(t *testing.T) {
+	b, err := os.ReadFile("engine_gemini.go")
+	if err != nil {
+		t.Fatalf("read engine_gemini.go: %v", err)
+	}
+	src := string(b)
+	for _, forbidden := range []string{
+		"NewStartEvent(",
+		"NewPartialCompletionEvent(",
+		"NewFinalEvent(",
+		"NewThinkingPartialEvent(",
+		"NewToolCallEvent(",
+	} {
+		if strings.Contains(src, forbidden) {
+			t.Fatalf("Gemini engine still calls legacy event constructor %s", forbidden)
+		}
+	}
 }
 
 func assertGeminiClientOptions(t *testing.T, opts []option.ClientOption, wantAPIKey, wantHTTPClient, wantEndpoint bool) {

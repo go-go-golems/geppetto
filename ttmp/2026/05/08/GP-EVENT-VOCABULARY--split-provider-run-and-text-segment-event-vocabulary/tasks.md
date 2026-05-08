@@ -13,7 +13,7 @@ Intent: short-term
 Owners:
   - manuel
 Summary: Phased hard-cutover task list for replacing overloaded inference/text events with explicit run, provider-call, text-segment, reasoning, and tool lifecycle events plus typed correlation IDs.
-LastUpdated: 2026-05-08T06:45:00-04:00
+LastUpdated: 2026-05-08T07:20:00-04:00
 ---
 
 # Tasks
@@ -281,6 +281,54 @@ Goal: synthesize explicit segment/provider lifecycles for the less-structured Ch
   - [ ] correlation keys match documented shape.
 - [x] Run `go test ./pkg/steps/ai/openai -count=1`.
 
+## Phase 5B — Migrate Gemini and local tool execution events
+
+Goal: cover the remaining active Geppetto runtime paths before deleting legacy text/tool events.
+
+- [x] Add dedicated Gemini migration analysis document:
+  - [x] `analysis/01-gemini-canonical-event-migration-analysis.md`.
+- [x] Capture source evidence:
+  - [x] `sources/geppetto-gemini-engine-legacy-events.lines.txt`;
+  - [x] `sources/geppetto-tool-executor-legacy-events.lines.txt`;
+  - [x] `various/gemini-and-tool-executor-legacy-event-inventory.txt`.
+- [x] Update `pkg/steps/ai/gemini/engine_gemini.go` to create a provider-call correlation before `GenerateContentStream`.
+- [x] Emit `EventProviderCallStarted` before processing the Gemini stream.
+- [x] Emit `EventProviderCallMetadataUpdated` when Gemini usage or finish reason metadata is observed.
+- [x] Emit `EventProviderCallFinished` at stream EOF with stop reason, finish class, usage, duration, and `has_tool_calls`.
+- [x] Text stream handling:
+  - [x] emit `EventTextSegmentStarted` only when the first non-empty `genai.Text` arrives;
+  - [x] emit `EventTextDelta` for text deltas with monotonically increasing sequence;
+  - [x] emit `EventTextSegmentFinished` only for an actually-started text segment;
+  - [x] never use provider EOF/final metadata to manufacture a text segment.
+- [x] Function-call handling:
+  - [x] preserve existing generated Gemini tool-call IDs when provider-native IDs are absent;
+  - [x] emit `EventToolCallStarted` for each observed `genai.FunctionCall`;
+  - [x] emit `EventToolCallRequested` with JSON input when the complete function call is available;
+  - [x] skip `EventToolCallArgumentsDelta` unless Gemini exposes partial argument chunks;
+  - [x] preserve `turns.NewToolCallBlock` output behavior.
+- [x] Preserve current return-turn and inference-result persistence behavior.
+- [x] Update/add Gemini tests:
+  - [ ] text-only stream fixture;
+  - [ ] function-call-only stream fixture;
+  - [ ] mixed text and function-call stream fixture;
+  - [ ] empty/safety response fixture;
+  - [ ] stream error path fixture;
+  - [x] no legacy start/partial/final/tool-call constructors remain in Gemini engine source;
+  - [x] Gemini canonical correlation helpers validate provider-call/text/tool events.
+- [x] Update `pkg/inference/tools/base_executor.go`:
+  - [x] replace `EventToolCallExecute` with `EventToolExecutionStarted`;
+  - [x] replace `EventToolCallExecutionResult` with `EventToolResultReady` plus `EventToolCallFinished`;
+  - [x] carry typed tool correlation via context where available, or build minimal execution-only tool correlation without using `metadata.Extra` routing.
+- [x] Update tool-executor tests for canonical execution/result events.
+- [x] Update JS event collector payload encoding/test expectations for canonical tool execution/result events.
+- [x] Save validation output:
+  - [x] `various/gemini-canonical-migration-validation.log`.
+- [x] Run `go test ./pkg/steps/ai/gemini ./pkg/inference/tools -count=1`.
+- [x] Run `go test ./pkg/steps/ai/... -count=1`.
+- [x] Run `go test ./pkg/inference/... -count=1`.
+- [x] Run `go test ./pkg/js/modules/geppetto -count=1`.
+- [x] Run `go test ./... -count=1`.
+
 ## Phase 6 — Update Geppetto inference result and observability output
 
 Goal: expose provider-call results and canonical segment records for SQLite/debugging without guessing from emitted transcript events.
@@ -474,8 +522,9 @@ Goal: prove the hard cutover is complete and no old runtime vocabulary remains.
 
 - [ ] Run Geppetto tests:
   - [ ] `cd geppetto && go test ./pkg/events/... -count=1`
+  - [x] `cd geppetto && go test ./pkg/steps/ai/gemini ./pkg/inference/tools -count=1`
   - [x] `cd geppetto && go test ./pkg/steps/ai/... -count=1`
-  - [ ] `cd geppetto && go test ./...`
+  - [x] `cd geppetto && go test ./...`
 - [ ] Run Pinocchio tests:
   - [x] `cd pinocchio && go test ./pkg/chatapp/... -count=1`
   - [ ] `cd pinocchio && go test ./cmd/web-chat/... -count=1`
@@ -551,6 +600,7 @@ Suggested commit sequence. Keep each commit compiling if possible, but do not me
 - [ ] Geppetto commit 2: migrate Claude.
 - [ ] Geppetto commit 3: migrate OpenAI Responses.
 - [ ] Geppetto commit 4: migrate OpenAI Chat Completions.
+- [ ] Geppetto commit 4B: migrate Gemini and local tool execution events.
 - [ ] Geppetto commit 5: remove legacy event names and update docs.
 - [ ] Pinocchio commit 1: replace protobufs with `CorrelationInfo` and canonical messages.
 - [ ] Pinocchio commit 2: replace runtime sink/projections/plugins.
@@ -565,6 +615,8 @@ The migration is complete when all of these are true:
 
 - [ ] No active runtime code emits or consumes `EventFinal`.
 - [ ] No active runtime code emits or consumes `EventPartialCompletion`.
+- [ ] Gemini emits only canonical provider-call/text/tool events.
+- [ ] Local tool execution emits only canonical tool execution/result events.
 - [ ] No active Pinocchio/CoinVault code emits or consumes `ChatInferenceStarted`, `ChatTokensDelta`, or `ChatInferenceFinished`.
 - [ ] Every canonical event carries typed correlation.
 - [ ] Every Pinocchio protobuf payload carries `CorrelationInfo`.

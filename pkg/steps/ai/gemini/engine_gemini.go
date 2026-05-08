@@ -308,8 +308,15 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
 	runtimeattrib.AddRuntimeAttributionToExtra(metadata.Extra, t)
 
-	// Publish start event
-	e.publishEvent(ctx, events.NewStartEvent(metadata))
+	// Publish provider-call start event. Gemini does not expose a stable
+	// response ID before the stream starts, so the provider-call ID is scoped by
+	// inference/message metadata and provider-call index.
+	inferenceScopeID := metadata.InferenceID
+	if inferenceScopeID == "" {
+		inferenceScopeID = metadata.ID.String()
+	}
+	providerCallCorr := geminiProviderCallCorrelation(metadata, inferenceScopeID, modelName)
+	e.publishEvent(ctx, events.NewProviderCallStartedEvent(metadata, providerCallCorr))
 
 	// Streaming mode always on for engines in this architecture
 	log.Debug().Int("num_blocks", len(t.Blocks)).Str("model", modelName).Msg("Gemini RunInference started (streaming)")
@@ -319,6 +326,10 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	chunkCount := 0
 	finalStopReason := ""
 	var finalUsage *events.Usage
+	textSegmentStarted := false
+	textSequence := int64(0)
+	textCorr := events.Correlation{}
+	toolCallIndex := 0
 	var pendingCalls []struct {
 		id, name string
 		args     map[string]any
@@ -342,13 +353,16 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 		// diagnose truncation (max tokens), refusals/safety, etc.
 		//
 		// We use reflection to avoid tight coupling to a specific generative-ai-go version.
+		var chunkUsage *events.Usage
 		if resp != nil {
 			if u, ok := extractGeminiUsage(resp); ok {
 				finalUsage = u
+				chunkUsage = u
 			}
 		}
 		// Extract text and function calls
 		delta := ""
+		chunkStopReason := ""
 		if resp != nil && len(resp.Candidates) > 0 {
 			for _, cand := range resp.Candidates {
 				// Capture finish reason from any candidate that has it (keep the last seen).
@@ -356,6 +370,7 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 				// even when Content is nil (e.g., safety blocked or empty responses).
 				if fr, ok := extractGeminiFinishReason(cand); ok {
 					finalStopReason = fr
+					chunkStopReason = fr
 				}
 				if cand.Content == nil {
 					continue
@@ -377,17 +392,32 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 							id, name string
 							args     map[string]any
 						}{id: id, name: v.Name, args: args})
-						// Publish ToolCall event with JSON string input
 						inputBytes, _ := json.Marshal(args)
-						e.publishEvent(ctx, events.NewToolCallEvent(metadata, events.ToolCall{ID: id, Name: v.Name, Input: string(inputBytes)}))
+						toolCorr := geminiToolCorrelation(providerCallCorr, id, toolCallIndex)
+						toolCallIndex++
+						e.publishEvent(ctx, events.NewToolCallStartedEvent(metadata, toolCorr, id, v.Name))
+						e.publishEvent(ctx, events.NewToolCallRequestedEvent(metadata, toolCorr, id, v.Name, string(inputBytes)))
 					}
 				}
 			}
 		}
-		if delta != "" {
-			message += delta
-			e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, delta, message))
+		if chunkUsage != nil || chunkStopReason != "" {
+			e.publishEvent(ctx, events.NewProviderCallMetadataUpdatedEvent(metadata, providerCallCorr, finalStopReason, "", finalUsage))
 		}
+		if delta != "" {
+			if !textSegmentStarted {
+				textSegmentStarted = true
+				textCorr = geminiSegmentCorrelation(providerCallCorr, "", 0, events.SegmentTypeText)
+				e.publishEvent(ctx, events.NewTextSegmentStartedEvent(metadata, textCorr, "assistant"))
+			}
+			message += delta
+			textSequence++
+			e.publishEvent(ctx, events.NewTextDeltaEvent(metadata, textCorr, delta, message, textSequence))
+		}
+	}
+
+	if message != "" && textSegmentStarted {
+		e.publishEvent(ctx, events.NewTextSegmentFinishedEvent(metadata, textCorr, message, finalStopReason))
 	}
 
 	// Append assistant text and tool_call blocks in the turn
@@ -427,10 +457,35 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 		e.Msg("Gemini RunInference completion metadata")
 	}
 
-	e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
+	finishClass := string(result.FinishClass)
+	e.publishEvent(ctx, events.NewProviderCallFinishedEvent(metadata, providerCallCorr, finalStopReason, finishClass, metadata.Usage, metadata.DurationMs, len(pendingCalls) > 0))
 
 	log.Debug().Int("final_text_len", len(message)).Int("tool_call_count", len(pendingCalls)).Msg("Gemini RunInference completed (streaming)")
 	return t, nil
+}
+
+func geminiProviderCallCorrelation(metadata events.EventMetadata, inferenceScopeID, modelName string) events.Correlation {
+	corr := events.BuildProviderCallCorrelation("gemini", inferenceScopeID, "", 0, "")
+	corr.SessionID = metadata.SessionID
+	corr.TurnID = metadata.TurnID
+	corr.Model = modelName
+	return corr
+}
+
+func geminiSegmentCorrelation(providerCallCorr events.Correlation, providerObjectID string, segmentIndex int, segmentType string) events.Correlation {
+	corr := events.BuildSegmentCorrelation(providerCallCorr, providerObjectID, segmentIndex, segmentType)
+	corr.SessionID = providerCallCorr.SessionID
+	corr.TurnID = providerCallCorr.TurnID
+	corr.Model = providerCallCorr.Model
+	return corr
+}
+
+func geminiToolCorrelation(providerCallCorr events.Correlation, toolCallID string, toolCallIndex int) events.Correlation {
+	corr := geminiSegmentCorrelation(providerCallCorr, toolCallID, toolCallIndex, events.SegmentTypeTool)
+	idx := int32(toolCallIndex)
+	corr.ToolCallID = toolCallID
+	corr.ToolCallIndex = &idx
+	return corr
 }
 
 func extractGeminiFinishReason(c *genai.Candidate) (string, bool) {

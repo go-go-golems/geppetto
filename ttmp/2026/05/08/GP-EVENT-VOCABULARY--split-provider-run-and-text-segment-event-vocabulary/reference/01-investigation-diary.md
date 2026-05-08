@@ -15,7 +15,7 @@ Owners:
 RelatedFiles: []
 ExternalSources: []
 Summary: Chronological investigation and delivery notes for the provider/run/text segment event vocabulary design ticket.
-LastUpdated: 2026-05-08T05:55:00-04:00
+LastUpdated: 2026-05-08T07:20:00-04:00
 WhatFor: Preserve how the vocabulary design was researched, written, validated, and delivered.
 WhenToUse: Read before implementing or updating GP-EVENT-VOCABULARY.
 ---
@@ -709,3 +709,118 @@ The Pinocchio pre-commit hook passed (`go generate`, web build, Go build/lint/ve
 ### Remaining Phase 8 work
 
 The main semantic runtime cutover is done. Remaining polish is to decide whether timeline entity protobufs should gain full nested `CorrelationInfo`; current backend payloads preserve it, while compatibility UI/timeline entities still expose selected flattened fields for the existing frontend.
+
+## 2026-05-08 07:20 — Added Gemini migration analysis before legacy event deletion
+
+### What happened
+
+While preparing to remove the remaining legacy Geppetto chat event types, a deletion scan showed that Gemini still emits active legacy runtime events:
+
+```bash
+cd geppetto
+rg "New(Start|Final|PartialCompletion|ThinkingPartial|ToolCall)Event|Event(Start|Final|PartialCompletion|ThinkingPartial|ToolCall)\b|EventType(Start|Final|PartialCompletion|PartialThinking|ToolCall)\b|ToolCallExecutionResult|ToolCallExecute|NewTool(Result|CallExecute|CallExecutionResult)" -n --glob '!ttmp/**'
+```
+
+The important active matches were:
+
+```text
+pkg/steps/ai/gemini/engine_gemini.go
+pkg/inference/tools/base_executor.go
+```
+
+I added a dedicated analysis document:
+
+```text
+analysis/01-gemini-canonical-event-migration-analysis.md
+```
+
+I also captured source evidence and a focused inventory:
+
+```text
+sources/geppetto-gemini-engine-legacy-events.lines.txt
+sources/geppetto-tool-executor-legacy-events.lines.txt
+various/gemini-and-tool-executor-legacy-event-inventory.txt
+```
+
+### Why it matters
+
+We cannot delete `EventFinal`, `EventPartialCompletion`, `EventToolCall`, `EventToolCallExecute`, or `EventToolCallExecutionResult` while Gemini and the local tool executor still depend on them. Those matches are active runtime behavior, not old docs.
+
+### Decision
+
+Inserted a new Phase 5B task section before the Geppetto observability/deletion phases. Phase 5B covers:
+
+- Gemini provider-call lifecycle events;
+- Gemini text segment lifecycle events;
+- Gemini function-call to canonical tool lifecycle mapping;
+- preserving Gemini turn output and inference-result persistence;
+- canonicalizing local tool execution start/result events;
+- adding targeted Gemini/tool-executor tests before the final deletion gate.
+
+### Next review focus
+
+Before removing `pkg/events/text_events.go` legacy structs or `pkg/events/tool_events.go` legacy structs, reviewers should verify that:
+
+1. Gemini emits `EventProviderCallStarted`, `EventTextDelta`, `EventTextSegmentFinished`, `EventToolCallRequested`, and `EventProviderCallFinished` as appropriate.
+2. Gemini does not emit `NewStartEvent`, `NewPartialCompletionEvent`, `NewFinalEvent`, or `NewToolCallEvent`.
+3. `BaseToolExecutor` emits `EventToolExecutionStarted`, `EventToolResultReady`, and `EventToolCallFinished` instead of legacy execution/result events.
+4. No new routing relies on `metadata.Extra` for tool or segment joins.
+
+## 2026-05-08 07:45 — Migrated Gemini and local tool execution to canonical events
+
+### What changed
+
+Updated `pkg/steps/ai/gemini/engine_gemini.go` so Gemini no longer emits legacy text/tool events:
+
+- provider stream start now emits `EventProviderCallStarted`;
+- usage/finish-reason observations emit `EventProviderCallMetadataUpdated`;
+- actual text starts `EventTextSegmentStarted`, streams `EventTextDelta`, and only finishes with `EventTextSegmentFinished` if text was seen;
+- Gemini function calls emit `EventToolCallStarted` and `EventToolCallRequested` with the existing generated tool-call IDs preserved;
+- stream completion emits `EventProviderCallFinished` with stop reason, finish class, usage, duration, and `has_tool_calls`;
+- `turns.NewAssistantTextBlock`, `turns.NewToolCallBlock`, and canonical inference-result persistence behavior remain intact.
+
+Updated `pkg/inference/tools/base_executor.go` so local tool execution no longer emits legacy execution events:
+
+- `PublishStart` now emits `EventToolExecutionStarted`;
+- `PublishResult` now emits `EventToolResultReady` followed by `EventToolCallFinished`;
+- added `WithCurrentToolCorrelation` / `CurrentToolCorrelationFromContext` so future callers can carry provider-request correlation into host-side execution without using `metadata.Extra` routing;
+- when no provider correlation is present, the executor builds a minimal execution-only correlation from the tool-call ID.
+
+Removed the remaining OpenAI Responses wrapper-level `NewStartEvent` emission from `pkg/steps/ai/openai_responses/engine.go`; the streaming/non-streaming implementations already publish canonical provider-call lifecycle events.
+
+Updated the JavaScript event collector to expose canonical payloads for text/reasoning/tool lifecycle events and adjusted the tool-loop collector test from legacy `tool-call-execute` / `tool-call-execution-result` names to `tool-execution-started` / `tool-result-ready`.
+
+Added targeted tests:
+
+```text
+pkg/steps/ai/gemini/engine_gemini_test.go
+pkg/inference/tools/base_executor_events_test.go
+pkg/js/modules/geppetto/module_test.go
+```
+
+### Validation
+
+Saved validation output to:
+
+```text
+various/gemini-canonical-migration-validation.log
+```
+
+Commands run:
+
+```bash
+cd geppetto
+rg "New(Start|PartialCompletion|Final|ThinkingPartial|ToolCall)Event|NewToolCallExecuteEvent|NewToolCallExecutionResultEvent|EventType(Start|PartialCompletion|Final|PartialThinking)\b|EventTypeToolCallExecute|EventTypeToolCallExecutionResult|EventToolCallExecute|EventToolCallExecutionResult" pkg/steps/ai/gemini pkg/inference/tools -g '!**/*_test.go' -n
+
+go test ./pkg/steps/ai/gemini ./pkg/inference/tools -count=1
+go test ./pkg/steps/ai/... -count=1
+go test ./pkg/inference/... -count=1
+go test ./pkg/js/modules/geppetto -count=1
+go test ./... -count=1
+```
+
+The runtime deletion scan for Gemini/tool executor returned no matches, and the final full `go test ./... -count=1` passed.
+
+### Remaining work
+
+Legacy event definitions still exist in `pkg/events` because other event package helpers, printers, structured sinks, JS bindings, tests, examples, and docs still refer to them. The next cutover step is to remove or rewrite those consumers so `chat-events.go`, `text_events.go`, and `tool_events.go` can be cleaned out completely.

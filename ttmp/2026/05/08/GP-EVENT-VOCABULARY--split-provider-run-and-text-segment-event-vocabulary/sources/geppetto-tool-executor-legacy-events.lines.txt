@@ -1,0 +1,46 @@
+    80			return ""
+    81		}
+    82		var tmp any
+    83		if err := json.Unmarshal(call.Arguments, &tmp); err == nil {
+    84			if bts, err2 := json.Marshal(tmp); err2 == nil {
+    85				return string(bts)
+    86			}
+    87		}
+    88		return string(call.Arguments)
+    89	}
+    90	
+    91	func (b *BaseToolExecutor) PublishStart(ctx context.Context, call ToolCall, masked string) {
+    92		events.PublishEventToContext(ctx, events.NewToolCallExecuteEvent(
+    93			events.EventMetadata{},
+    94			events.ToolCall{ID: call.ID, Name: call.Name, Input: masked},
+    95		))
+    96	}
+    97	
+    98	func (b *BaseToolExecutor) PublishResult(ctx context.Context, call ToolCall, res *ToolResult) {
+    99		payload := ""
+   100		if res != nil && res.Result != nil {
+   101			if bts, err := json.Marshal(res.Result); err == nil {
+   102				payload = string(bts)
+   103			} else {
+   104				payload = fmt.Sprintf("%v", res.Result)
+   105			}
+   106		}
+   107		if res != nil && res.Error != "" {
+   108			if payload == "" {
+   109				payload = fmt.Sprintf("Error: %s", res.Error)
+   110			} else {
+   111				payload = fmt.Sprintf("%s | Error: %s", payload, res.Error)
+   112			}
+   113		}
+   114		events.PublishEventToContext(ctx, events.NewToolCallExecutionResultEvent(
+   115			events.EventMetadata{},
+   116			events.ToolResult{ID: call.ID, Name: call.Name, Result: payload},
+   117		))
+   118	}
+   119	
+   120	func (b *BaseToolExecutor) ShouldRetry(_ context.Context, attempt int, _ *ToolResult, _ error) (bool, time.Duration) {
+   121		if b.config.ToolErrorHandling != ToolErrorRetry {
+   122			return false, 0
+   123		}
+   124		if attempt >= b.config.RetryConfig.MaxRetries {
+   125			return false, 0
