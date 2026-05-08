@@ -225,22 +225,24 @@ func TestOpenAIObservabilityAddsToolCorrelationFields(t *testing.T) {
 		t.Fatalf("RunInference: %v", err)
 	}
 
-	var toolProvider *geppettoobs.Record
+	var toolProviders []geppettoobs.Record
 	for _, rec := range obs.snapshot() {
 		if rec.Stage == geppettoobs.StageProviderRoutedEvent && rec.StreamKind == "tool_call" {
-			toolProvider = &rec
-			break
+			toolProviders = append(toolProviders, rec)
 		}
 	}
-	if toolProvider == nil {
-		t.Fatalf("missing tool provider record in %#v", obs.snapshot())
+	if len(toolProviders) != 2 {
+		t.Fatalf("expected two tool provider records in %#v", obs.snapshot())
 	}
-	if toolProvider.ToolCallID != "call_1" || toolProvider.ToolCallIndex == nil || *toolProvider.ToolCallIndex != 0 {
-		t.Fatalf("unexpected tool provider fields: %#v", toolProvider)
+	for _, toolProvider := range toolProviders {
+		if toolProvider.ToolCallID != "call_1" || toolProvider.ToolCallIndex == nil || *toolProvider.ToolCallIndex != 0 {
+			t.Fatalf("unexpected tool provider fields: %#v", toolProvider)
+		}
+		if toolProvider.CorrelationKey != "openai-chat:chatcmpl-tool:choice:0:tool:call_1" {
+			t.Fatalf("unexpected tool correlation key: %q", toolProvider.CorrelationKey)
+		}
 	}
-	if toolProvider.CorrelationKey != "openai-chat:chatcmpl-tool:choice:0:tool:call_1" {
-		t.Fatalf("unexpected tool correlation key: %q", toolProvider.CorrelationKey)
-	}
+	toolProvider := toolProviders[0]
 	toolPublish := findGeppettoRecord(obs.snapshot(), geppettoobs.StageGeppettoPublishStarted, string(events.EventTypeToolCall), "")
 	if toolPublish == nil {
 		t.Fatalf("missing tool publish record")

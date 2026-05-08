@@ -250,6 +250,7 @@ func (e *OpenAIEngine) RunInference(
 	chunkCount := 0
 	currentResponseID := ""
 	currentChoiceIndex := (*int)(nil)
+	toolCallIDTracker := chatToolCallIDTracker{}
 	for {
 		select {
 		case <-ctx.Done():
@@ -284,6 +285,7 @@ func (e *OpenAIEngine) RunInference(
 			if response.ChoiceIndex != nil {
 				currentChoiceIndex = cloneIntPtr(response.ChoiceIndex)
 			}
+			response = toolCallIDTracker.Enrich(response)
 			e.observeProviderEvent(ctx, metadata, req.Model, response)
 
 			delta := response.DeltaText

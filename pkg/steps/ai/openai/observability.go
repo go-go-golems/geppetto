@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
@@ -116,6 +118,43 @@ func (e *OpenAIEngine) chatProviderRecordBase(metadata events.EventMetadata, mod
 		rec.EventType = defaultChatCompletionEventType
 	}
 	return rec
+}
+
+type chatToolCallIDTracker map[string]string
+
+func (t chatToolCallIDTracker) Enrich(ev chatStreamEvent) chatStreamEvent {
+	if len(ev.ToolCalls) == 0 {
+		return ev
+	}
+	if t == nil {
+		return ev
+	}
+	enriched := ev
+	enriched.ToolCalls = make([]ChatToolCall, len(ev.ToolCalls))
+	copy(enriched.ToolCalls, ev.ToolCalls)
+	for i := range enriched.ToolCalls {
+		call := &enriched.ToolCalls[i]
+		if call.Index == nil {
+			continue
+		}
+		key := chatToolCallTrackerKey(ev.ChoiceIndex, call.Index)
+		if call.ID != "" {
+			t[key] = call.ID
+			continue
+		}
+		if rememberedID := t[key]; rememberedID != "" {
+			call.ID = rememberedID
+		}
+	}
+	return enriched
+}
+
+func chatToolCallTrackerKey(choiceIndex, toolCallIndex *int) string {
+	choice := 0
+	if choiceIndex != nil {
+		choice = *choiceIndex
+	}
+	return fmt.Sprintf("%d:%d", choice, *toolCallIndex)
 }
 
 func chatProviderEventType(ev chatStreamEvent) string {
@@ -280,24 +319,45 @@ func intFromAny(v any) (int, bool) {
 	case int:
 		return tv, true
 	case int32:
-		return int(tv), true
+		return intFromSigned64(int64(tv))
 	case int64:
-		return int(tv), true
+		return intFromSigned64(tv)
 	case uint:
-		return int(tv), true
+		return intFromUnsigned64(uint64(tv))
 	case uint32:
-		return int(tv), true
+		return intFromUnsigned64(uint64(tv))
 	case uint64:
-		return int(tv), true
+		return intFromUnsigned64(tv)
 	case float64:
-		return int(tv), tv == float64(int(tv))
+		return intFromFloat64(tv)
 	case string:
-		var i int
-		_, err := fmt.Sscanf(strings.TrimSpace(tv), "%d", &i)
-		return i, err == nil
+		return intFromString(tv)
 	default:
 		return 0, false
 	}
+}
+
+func intFromString(v string) (int, bool) {
+	i, err := strconv.Atoi(strings.TrimSpace(v))
+	return i, err == nil
+}
+
+func intFromSigned64(v int64) (int, bool) {
+	i, err := strconv.Atoi(strconv.FormatInt(v, 10))
+	return i, err == nil
+}
+
+func intFromUnsigned64(v uint64) (int, bool) {
+	i, err := strconv.Atoi(strconv.FormatUint(v, 10))
+	return i, err == nil
+}
+
+func intFromFloat64(v float64) (int, bool) {
+	if math.IsNaN(v) || math.IsInf(v, 0) || math.Trunc(v) != v {
+		return 0, false
+	}
+	i, err := strconv.Atoi(strconv.FormatFloat(v, 'f', 0, 64))
+	return i, err == nil
 }
 
 func cloneIntPtr(v *int) *int {
