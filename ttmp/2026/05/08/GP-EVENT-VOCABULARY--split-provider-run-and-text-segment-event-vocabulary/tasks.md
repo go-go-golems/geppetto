@@ -42,25 +42,25 @@ Goal: start from a known-good multi-repo workspace and make the hard cutover mea
   - [ ] `pinocchio`
   - [ ] `2026-03-16--gec-rag` / CoinVault
   - [ ] optional `sessionstream` only if transport schemas or event wrappers require changes.
-- [ ] Confirm `go.work` points at local repos used by CoinVault:
-  - [ ] `./geppetto`
-  - [ ] `./pinocchio`
-  - [ ] `./sessionstream`
-  - [ ] `./2026-03-16--gec-rag`
-- [ ] Record baseline validation before changing code:
-  - [ ] `cd geppetto && go test ./pkg/steps/ai/... -count=1`
-  - [ ] `cd pinocchio && go test ./pkg/chatapp/... -count=1`
-  - [ ] `cd 2026-03-16--gec-rag && go test ./internal/webchat ./cmd/coinvault/cmds -count=1`
-  - [ ] `cd 2026-03-16--gec-rag/web && pnpm run typecheck`
-  - [ ] `cd 2026-03-16--gec-rag/web && pnpm run test:unit -- src/ws/parsing.test.ts src/ws/wsManager.test.ts`
-- [ ] Inventory all legacy symbol references and save the output under this ticket's `sources/` or `various/` directory:
-  - [ ] `rg "EventFinal|EventPartialCompletion|EventTypeFinal|EventTypePartialCompletion" geppetto`
-  - [ ] `rg "ChatInferenceStarted|ChatInferenceFinished|ChatTokensDelta|ChatInferenceStopped" pinocchio 2026-03-16--gec-rag`
-  - [ ] `rg "response_id|correlation_key|metadata.Extra|choice_index|tool_call_index" geppetto pinocchio 2026-03-16--gec-rag`
+- [x] Confirm `go.work` points at local repos used by CoinVault:
+  - [x] `./geppetto`
+  - [x] `./pinocchio`
+  - [x] `./sessionstream`
+  - [x] `./2026-03-16--gec-rag`
+- [x] Record baseline validation before changing code:
+  - [x] `cd geppetto && go test ./pkg/steps/ai/... -count=1`
+  - [x] `cd pinocchio && go test ./pkg/chatapp/... -count=1`
+  - [x] `cd 2026-03-16--gec-rag && go test ./internal/webchat ./cmd/coinvault/cmds -count=1`
+  - [x] `cd 2026-03-16--gec-rag/web && pnpm run typecheck`
+  - [x] `cd 2026-03-16--gec-rag/web && pnpm run test:unit -- src/ws/parsing.test.ts src/ws/wsManager.test.ts`
+- [x] Inventory all legacy symbol references and save the output under this ticket's `sources/` or `various/` directory:
+  - [x] `rg "EventFinal|EventPartialCompletion|EventTypeFinal|EventTypePartialCompletion" geppetto`
+  - [x] `rg "ChatInferenceStarted|ChatInferenceFinished|ChatTokensDelta|ChatInferenceStopped" pinocchio 2026-03-16--gec-rag`
+  - [x] `rg "response_id|correlation_key|metadata.Extra|choice_index|tool_call_index" geppetto pinocchio 2026-03-16--gec-rag`
 - [ ] Decide whether to do the implementation as one large branch or chained commits; even with separate commits, do not merge until the entire cutover compiles end-to-end.
-- [ ] Protect unrelated working-tree changes:
-  - [ ] keep existing CoinVault `SQLITE-TRACE-VERBS` modifications out of this migration unless intentionally included;
-  - [ ] keep browser-run artifacts untracked unless explicitly required.
+- [x] Protect unrelated working-tree changes:
+  - [x] keep existing CoinVault `SQLITE-TRACE-VERBS` modifications out of this migration unless intentionally included;
+  - [x] keep browser-run artifacts untracked unless explicitly required.
 
 ## Phase 1 — Geppetto canonical event and correlation contracts
 
@@ -442,8 +442,8 @@ Goal: make CoinVault consume only canonical Pinocchio chatapp events.
   - [ ] parsing tests for tool-call argument deltas;
   - [ ] correlation preservation assertions.
 - [ ] Run:
-  - [ ] `cd 2026-03-16--gec-rag/web && pnpm run typecheck`
-  - [ ] `cd 2026-03-16--gec-rag/web && pnpm run test:unit -- src/ws/parsing.test.ts src/ws/wsManager.test.ts`
+  - [x] `cd 2026-03-16--gec-rag/web && pnpm run typecheck`
+  - [x] `cd 2026-03-16--gec-rag/web && pnpm run test:unit -- src/ws/parsing.test.ts src/ws/wsManager.test.ts`
 
 ## Phase 11 — Update CoinVault backend/debug scripts and trace browser
 
@@ -472,19 +472,19 @@ Goal: prove the hard cutover is complete and no old runtime vocabulary remains.
 
 - [ ] Run Geppetto tests:
   - [ ] `cd geppetto && go test ./pkg/events/... -count=1`
-  - [ ] `cd geppetto && go test ./pkg/steps/ai/... -count=1`
+  - [x] `cd geppetto && go test ./pkg/steps/ai/... -count=1`
   - [ ] `cd geppetto && go test ./...`
 - [ ] Run Pinocchio tests:
-  - [ ] `cd pinocchio && go test ./pkg/chatapp/... -count=1`
+  - [x] `cd pinocchio && go test ./pkg/chatapp/... -count=1`
   - [ ] `cd pinocchio && go test ./cmd/web-chat/... -count=1`
   - [ ] `cd pinocchio && go test ./...` if practical.
 - [ ] Run CoinVault tests:
-  - [ ] `cd 2026-03-16--gec-rag && go test ./internal/webchat ./cmd/coinvault/cmds -count=1`
-  - [ ] `cd 2026-03-16--gec-rag/web && pnpm run typecheck`
+  - [x] `cd 2026-03-16--gec-rag && go test ./internal/webchat ./cmd/coinvault/cmds -count=1`
+  - [x] `cd 2026-03-16--gec-rag/web && pnpm run typecheck`
   - [ ] `cd 2026-03-16--gec-rag/web && pnpm run test:unit`
 - [ ] Run hard deletion search and inspect every match:
-  - [ ] `rg "EventFinal|EventPartialCompletion|EventTypeFinal|EventTypePartialCompletion" geppetto`
-  - [ ] `rg "ChatInferenceStarted|ChatInferenceFinished|ChatTokensDelta|ChatInferenceStopped" pinocchio 2026-03-16--gec-rag`
+  - [x] `rg "EventFinal|EventPartialCompletion|EventTypeFinal|EventTypePartialCompletion" geppetto`
+  - [x] `rg "ChatInferenceStarted|ChatInferenceFinished|ChatTokensDelta|ChatInferenceStopped" pinocchio 2026-03-16--gec-rag`
   - [ ] remaining matches are only historical docs, archived tickets, or explicit deprecation notes; no active runtime code remains.
 - [ ] Confirm no new routing logic reads correlation from `metadata.Extra`:
   - [ ] `rg "metadata\.Extra|Extra\[\"response_id\"|Extra\[\"correlation_key\"" geppetto pinocchio`

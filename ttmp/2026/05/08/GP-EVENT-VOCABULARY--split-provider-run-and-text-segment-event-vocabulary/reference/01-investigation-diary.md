@@ -313,3 +313,79 @@ The tasks explicitly remove the old compatibility item that said to keep aliases
 ### Correlation emphasis
 
 The checklist makes typed correlation mandatory at each layer. It includes specific checks for `Correlation` / `CorrelationInfo`, provider-call IDs, segment IDs, tool-call IDs, normalized `correlation_key`, and removal of routing through `metadata.Extra`.
+
+## 2026-05-08 05:45 — Phase 0 baseline and legacy inventory
+
+### What happened
+
+Started the hard-cutover implementation task-by-task. The workspace was clean in Geppetto and Pinocchio. CoinVault still has unrelated existing working-tree state:
+
+```text
+M  ttmp/2026/05/07/SQLITE-TRACE-VERBS--design-sqlite-trace-inspection-verbs/scripts/serve/trace_browser_app.js
+?? ttmp/2026/05/07/COINVAULT-OBSERVABILITY--add-observer-correlation-export-for-coinvault-web-chat/various/
+```
+
+Confirmed `go.work` points at the local repos needed for the migration:
+
+```text
+./2026-03-16--gec-rag
+./geppetto
+./glazed
+./pinocchio
+./sessionstream
+```
+
+Saved a legacy symbol/correlation inventory to:
+
+```text
+various/phase-0/legacy-symbol-inventory.txt
+```
+
+The inventory has 1252 lines and includes references for:
+
+```text
+EventFinal
+EventPartialCompletion
+EventTypeFinal
+EventTypePartialCompletion
+ChatInferenceStarted
+ChatInferenceFinished
+ChatTokensDelta
+ChatInferenceStopped
+response_id
+correlation_key
+metadata.Extra
+choice_index
+tool_call_index
+```
+
+### Baseline validation
+
+Saved baseline validation output to:
+
+```text
+various/phase-0/baseline-validation.log
+```
+
+Commands and results:
+
+```bash
+cd geppetto && go test ./pkg/steps/ai/... -count=1
+# ok
+
+cd pinocchio && go test ./pkg/chatapp/... -count=1
+# ok
+
+cd 2026-03-16--gec-rag && go test ./internal/webchat ./cmd/coinvault/cmds -count=1
+# ok
+
+cd 2026-03-16--gec-rag/web && pnpm run typecheck
+# ok
+
+cd 2026-03-16--gec-rag/web && pnpm run test:unit -- src/ws/parsing.test.ts src/ws/wsManager.test.ts
+# 8 files, 29 tests passed
+```
+
+### Next
+
+Begin Phase 1 in Geppetto by adding the canonical `Correlation` envelope and new run/provider/text/reasoning/tool event structs before touching provider adapters.
