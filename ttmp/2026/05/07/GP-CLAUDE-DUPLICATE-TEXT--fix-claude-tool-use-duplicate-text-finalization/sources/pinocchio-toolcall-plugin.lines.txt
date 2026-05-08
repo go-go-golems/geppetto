@@ -1,0 +1,76 @@
+   60			reg.RegisterUIEvent(UIToolResultReady, &chatappv1.ToolResultUpdate{}),
+   61			reg.RegisterTimelineEntity(TimelineEntityToolCall, &chatappv1.ToolCallEntity{}),
+   62			reg.RegisterTimelineEntity(TimelineEntityToolResult, &chatappv1.ToolResultEntity{}),
+   63		} {
+   64			if err != nil {
+   65				return err
+   66			}
+   67		}
+   68		return nil
+   69	}
+   70	
+   71	// HandleRuntimeEvent handles tool call events from the geppetto engine.
+   72	func (p *ToolCallPlugin) HandleRuntimeEvent(ctx context.Context, runtime chatapp.RuntimeEventContext, event gepevents.Event) (bool, error) {
+   73		switch ev := event.(type) {
+   74		case *gepevents.EventToolCall:
+   75			return true, runtime.Publish(ctx, EventToolCallStarted, applyToolCallProviderInfo(&chatappv1.ToolCallUpdate{
+   76				MessageId:  runtime.MessageID,
+   77				ToolCallId: ev.ToolCall.ID,
+   78				ToolName:   ev.ToolCall.Name,
+   79				Input:      ev.ToolCall.Input,
+   80				Status:     "pending",
+   81			}, reasoningProviderInfoFromMetadata(ev.Metadata())))
+   82	
+   83		case *gepevents.EventToolCallExecute:
+   84			return true, runtime.Publish(ctx, EventToolCallUpdated, applyToolCallProviderInfo(&chatappv1.ToolCallUpdate{
+   85				MessageId:  runtime.MessageID,
+   86				ToolCallId: ev.ToolCall.ID,
+   87				ToolName:   ev.ToolCall.Name,
+   88				Input:      ev.ToolCall.Input,
+   89				Executing:  true,
+   90				Status:     "executing",
+   91			}, reasoningProviderInfoFromMetadata(ev.Metadata())))
+   92	
+   93		case *gepevents.EventToolResult:
+   94			providerInfo := reasoningProviderInfoFromMetadata(ev.Metadata())
+   95			if err := runtime.Publish(ctx, EventToolResultReady, applyToolResultProviderInfo(&chatappv1.ToolResultUpdate{
+   96				MessageId:  runtime.MessageID,
+   97				ToolCallId: ev.ToolResult.ID,
+   98				ToolName:   ev.ToolResult.Name,
+   99				Result:     ev.ToolResult.Result,
+  100				Status:     "success",
+  101			}, providerInfo)); err != nil {
+  102				return true, err
+  103			}
+  104			return true, runtime.Publish(ctx, EventToolCallFinished, applyToolCallProviderInfo(&chatappv1.ToolCallUpdate{
+  105				MessageId:  runtime.MessageID,
+  106				ToolCallId: ev.ToolResult.ID,
+  107				ToolName:   ev.ToolResult.Name,
+  108				Status:     "completed",
+  109			}, providerInfo))
+  110	
+  111		case *gepevents.EventToolCallExecutionResult:
+  112			providerInfo := reasoningProviderInfoFromMetadata(ev.Metadata())
+  113			if err := runtime.Publish(ctx, EventToolResultReady, applyToolResultProviderInfo(&chatappv1.ToolResultUpdate{
+  114				MessageId:  runtime.MessageID,
+  115				ToolCallId: ev.ToolResult.ID,
+  116				ToolName:   ev.ToolResult.Name,
+  117				Result:     ev.ToolResult.Result,
+  118				Status:     "success",
+  119			}, providerInfo)); err != nil {
+  120				return true, err
+  121			}
+  122			return true, runtime.Publish(ctx, EventToolCallFinished, applyToolCallProviderInfo(&chatappv1.ToolCallUpdate{
+  123				MessageId:  runtime.MessageID,
+  124				ToolCallId: ev.ToolResult.ID,
+  125				ToolName:   ev.ToolResult.Name,
+  126				Status:     "completed",
+  127			}, providerInfo))
+  128	
+  129		default:
+  130			return false, nil
+  131		}
+  132	}
+  133	
+  134	// ProjectUI projects tool call backend events into UI events.
+  135	func (p *ToolCallPlugin) ProjectUI(_ context.Context, ev sessionstream.Event, _ *sessionstream.Session, _ sessionstream.TimelineView) ([]sessionstream.UIEvent, bool, error) {

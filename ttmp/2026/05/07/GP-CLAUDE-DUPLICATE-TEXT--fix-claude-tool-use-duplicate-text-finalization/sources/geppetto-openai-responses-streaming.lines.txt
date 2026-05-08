@@ -1,0 +1,709 @@
+  100			var m map[string]any
+  101			if err := json.Unmarshal([]byte(raw), &m); err != nil {
+  102				return nil
+  103			}
+  104			if respObj, ok := m["response"].(map[string]any); ok {
+  105				if id, ok := respObj["id"].(string); ok && id != "" {
+  106					currentResponseID = id
+  107				}
+  108			}
+  109			if id, ok := m["response_id"].(string); ok && id != "" {
+  110				currentResponseID = id
+  111			}
+  112			providerEventType := normalizeResponsesEventName(eventName)
+  113			if providerEventType == "" {
+  114				if typ, ok := m["type"].(string); ok {
+  115					providerEventType = normalizeResponsesEventName(typ)
+  116				}
+  117			}
+  118			e.observeProviderEvent(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m)
+  119			appendAssistantChunk := func(chunk string) {
+  120				if chunk == "" {
+  121					return
+  122				}
+  123				message += chunk
+  124				sayBuf.WriteString(chunk)
+  125				e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, chunk, message))
+  126			}
+  127			backfillAssistantChunk := func(itemID, fullChunk string) {
+  128				if fullChunk == "" {
+  129					return
+  130				}
+  131				current := message
+  132				if itemID != "" {
+  133					if streamed := assistantByItem[itemID]; streamed != "" {
+  134						current = streamed
+  135					}
+  136				}
+  137				if strings.HasSuffix(current, fullChunk) {
+  138					return
+  139				}
+  140				overlap := 0
+  141				maxOverlap := len(fullChunk)
+  142				if len(current) < maxOverlap {
+  143					maxOverlap = len(current)
+  144				}
+  145				for i := maxOverlap; i > 0; i-- {
+  146					if strings.HasSuffix(current, fullChunk[:i]) {
+  147						overlap = i
+  148						break
+  149					}
+  150				}
+  151				missing := fullChunk[overlap:]
+  152				if missing == "" {
+  153					return
+  154				}
+  155				if itemID != "" {
+  156					assistantByItem[itemID] += missing
+  157				}
+  158				appendAssistantChunk(missing)
+  159			}
+  160			backfillReasoningText := func(fullText string) {
+  161				if fullText == "" {
+  162					return
+  163				}
+  164				current := currentReasoningText.String()
+  165				if strings.HasSuffix(current, fullText) {
+  166					return
+  167				}
+  168				overlap := 0
+  169				maxOverlap := len(fullText)
+  170				if len(current) < maxOverlap {
+  171					maxOverlap = len(current)
+  172				}
+  173				for i := maxOverlap; i > 0; i-- {
+  174					if strings.HasSuffix(current, fullText[:i]) {
+  175						overlap = i
+  176						break
+  177					}
+  178				}
+  179				missing := fullText[overlap:]
+  180				if missing == "" {
+  181					return
+  182				}
+  183				currentReasoningText.WriteString(missing)
+  184				normalized := streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), missing)
+  185				thinkBuf.WriteString(normalized)
+  186				e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, normalized, thinkBuf.String()))
+  187			}
+  188			chunkFromValue := func(v any) string {
+  189				switch tv := v.(type) {
+  190				case string:
+  191					return tv
+  192				default:
+  193					if tv == nil {
+  194						return ""
+  195					}
+  196					b, err := json.Marshal(tv)
+  197					if err != nil {
+  198						return ""
+  199					}
+  200					return string(b)
+  201				}
+  202			}
+  203			switch providerEventType {
+  204			case "response.output_item.added":
+  205				if it, ok := m["item"].(map[string]any); ok {
+  206					if typ, ok := it["type"].(string); ok {
+  207						switch typ {
+  208						case "reasoning":
+  209							currentReasoningItemID = ""
+  210							currentReasoningText.Reset()
+  211							currentReasoningSummary.Reset()
+  212							currentReasoningEncryptedContent = ""
+  213							currentReasoningOutputIndex = nil
+  214							currentReasoningSummaryIndex = nil
+  215							currentReasoningStatus = ""
+  216							if v, ok := it["id"].(string); ok && v != "" {
+  217								currentReasoningItemID = v
+  218							}
+  219							if status, ok := it["status"].(string); ok && status != "" {
+  220								currentReasoningStatus = status
+  221							}
+  222							if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+  223								currentReasoningOutputIndex = &idx
+  224							}
+  225							e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", providerData("openai_responses", currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
+  226							// Capture encrypted reasoning content when present.
+  227							if enc, ok := it["encrypted_content"].(string); ok && enc != "" {
+  228								currentReasoningEncryptedContent = enc
+  229							}
+  230						case "message":
+  231							e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-started", nil))
+  232							if v, ok := it["id"].(string); ok && v != "" {
+  233								latestMessageItemID = v
+  234							}
+  235							if status, ok := it["status"].(string); ok && status != "" {
+  236								latestMessageStatus = status
+  237							}
+  238							if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+  239								latestMessageOutputIndex = &idx
+  240							}
+  241						case "web_search_call":
+  242							itemID := ""
+  243							if v, ok := it["id"].(string); ok {
+  244								itemID = v
+  245							}
+  246							if act, ok := it["action"].(map[string]any); ok {
+  247								if at, ok := act["type"].(string); ok && at == "search" {
+  248									q := ""
+  249									if v, ok := act["query"].(string); ok {
+  250										q = v
+  251									}
+  252									e.publishEvent(ctx, events.NewWebSearchStarted(metadata, itemID, q))
+  253								}
+  254								if at, ok := act["type"].(string); ok && at == "open_page" {
+  255									u := ""
+  256									if v, ok := act["url"].(string); ok {
+  257										u = v
+  258									}
+  259									e.publishEvent(ctx, events.NewWebSearchOpenPage(metadata, itemID, u))
+  260								}
+  261							}
+  262						}
+  263					}
+  264				}
+  265			case "response.web_search_call.in_progress":
+  266				itemID := ""
+  267				if v, ok := m["item_id"].(string); ok {
+  268					itemID = v
+  269				}
+  270				// Query will be available later in output_item.done, so emit without query for now
+  271				e.publishEvent(ctx, events.NewWebSearchStarted(metadata, itemID, ""))
+  272			case "response.web_search_call.searching":
+  273				itemID := ""
+  274				if v, ok := m["item_id"].(string); ok {
+  275					itemID = v
+  276				}
+  277				e.publishEvent(ctx, events.NewWebSearchSearching(metadata, itemID))
+  278			case "response.web_search_call.completed":
+  279				itemID := ""
+  280				if v, ok := m["item_id"].(string); ok {
+  281					itemID = v
+  282				}
+  283				e.publishEvent(ctx, events.NewWebSearchDone(metadata, itemID))
+  284			case "error":
+  285				// Provider-level error event during streaming
+  286				if errObj, ok := m["error"].(map[string]any); ok {
+  287					msgStr := ""
+  288					if v, ok := errObj["message"].(string); ok {
+  289						msgStr = v
+  290					}
+  291					codeStr := ""
+  292					if v, ok := errObj["code"].(string); ok {
+  293						codeStr = v
+  294					}
+  295					if msgStr == "" {
+  296						msgStr = "responses stream error"
+  297					}
+  298					if codeStr != "" {
+  299						streamErr = fmt.Errorf("responses stream error (%s): %s", codeStr, msgStr)
+  300					} else {
+  301						streamErr = errors.New(msgStr)
+  302					}
+  303				} else {
+  304					streamErr = fmt.Errorf("responses stream error")
+  305				}
+  306				e.publishEvent(ctx, events.NewErrorEvent(metadata, streamErr))
+  307				if tap != nil {
+  308					tap.OnProviderObject("stream.error", m)
+  309				}
+  310			case "response.failed":
+  311				// Response failed; try to extract nested error
+  312				if respObj, ok := m["response"].(map[string]any); ok {
+  313					if errObj, ok2 := respObj["error"].(map[string]any); ok2 {
+  314						msgStr := ""
+  315						if v, ok := errObj["message"].(string); ok {
+  316							msgStr = v
+  317						}
+  318						codeStr := ""
+  319						if v, ok := errObj["code"].(string); ok {
+  320							codeStr = v
+  321						}
+  322						if msgStr == "" {
+  323							msgStr = "responses failed"
+  324						}
+  325						if codeStr != "" {
+  326							streamErr = fmt.Errorf("responses failed (%s): %s", codeStr, msgStr)
+  327						} else {
+  328							streamErr = errors.New(msgStr)
+  329						}
+  330					} else {
+  331						streamErr = fmt.Errorf("responses failed")
+  332					}
+  333				} else {
+  334					streamErr = fmt.Errorf("responses failed")
+  335				}
+  336				e.publishEvent(ctx, events.NewErrorEvent(metadata, streamErr))
+  337				if tap != nil {
+  338					tap.OnProviderObject("response.failed", m)
+  339				}
+  340			case "response.reasoning_summary_part.added":
+  341				if itemID := itemIDFromProviderObject(m); itemID != "" {
+  342					currentReasoningItemID = itemID
+  343				}
+  344				if idx, ok := intFromProviderNumber(m["summary_index"]); ok {
+  345					currentReasoningSummaryIndex = &idx
+  346					lastReasoningSummaryIndex = &idx
+  347				}
+  348				// Start of a summary piece – forward as streaming info event
+  349				e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-started", providerData("openai_responses", currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
+  350			case "response.reasoning_summary_text.delta":
+  351				if itemID := itemIDFromProviderObject(m); itemID != "" {
+  352					currentReasoningItemID = itemID
+  353					lastReasoningItemID = itemID
+  354				}
+  355				if idx, ok := intFromProviderNumber(m["summary_index"]); ok {
+  356					currentReasoningSummaryIndex = &idx
+  357					lastReasoningSummaryIndex = &idx
+  358				}
+  359				if v, ok := m["delta"].(string); ok && v != "" {
+  360					before := summaryBuf.Len()
+  361					normalized := streamhelpers.NormalizeReasoningSummaryDelta(summaryBuf.String(), v)
+  362					e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(v), len(normalized), before+len(normalized))
+  363					summaryBuf.WriteString(normalized)
+  364					currentReasoningSummary.WriteString(normalized)
+  365					// Emit thinking partials for live reasoning summary text
+  366					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, normalized, summaryBuf.String()))
+  367				} else if s, ok := m["text"].(string); ok && s != "" {
+  368					before := summaryBuf.Len()
+  369					normalized := streamhelpers.NormalizeReasoningSummaryDelta(summaryBuf.String(), s)
+  370					e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(s), len(normalized), before+len(normalized))
+  371					summaryBuf.WriteString(normalized)
+  372					currentReasoningSummary.WriteString(normalized)
+  373					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, normalized, summaryBuf.String()))
+  374				}
+  375			case "response.reasoning_summary_part.done":
+  376				if itemID := itemIDFromProviderObject(m); itemID != "" {
+  377					currentReasoningItemID = itemID
+  378					lastReasoningItemID = itemID
+  379				}
+  380				if idx, ok := intFromProviderNumber(m["summary_index"]); ok {
+  381					currentReasoningSummaryIndex = &idx
+  382					lastReasoningSummaryIndex = &idx
+  383				}
+  384				// End of a summary piece – forward as streaming info event
+  385				e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-ended", providerData("openai_responses", currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
+  386			case "response.reasoning_text.delta":
+  387				if itemID := itemIDFromProviderObject(m); itemID != "" {
+  388					currentReasoningItemID = itemID
+  389					lastReasoningItemID = itemID
+  390				}
+  391				if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+  392					currentReasoningOutputIndex = &idx
+  393					lastReasoningOutputIndex = &idx
+  394				}
+  395				if d, ok := m["delta"].(string); ok && d != "" {
+  396					before := thinkBuf.Len()
+  397					normalized := streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), d)
+  398					e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(d), len(normalized), before+len(normalized))
+  399					thinkBuf.WriteString(normalized)
+  400					currentReasoningText.WriteString(d)
+  401					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, d, thinkBuf.String()))
+  402				} else if s, ok := m["text"].(string); ok && s != "" {
+  403					before := thinkBuf.Len()
+  404					normalized := streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), s)
+  405					e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(s), len(normalized), before+len(normalized))
+  406					thinkBuf.WriteString(normalized)
+  407					currentReasoningText.WriteString(s)
+  408					e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, s, thinkBuf.String()))
+  409				}
+  410			case "response.reasoning_text.done":
+  411				if s, ok := m["text"].(string); ok && s != "" {
+  412					// Done payloads can repeat already-streamed deltas for the current
+  413					// item, but some providers send reasoning text only in the done
+  414					// event. Backfill any missing suffix and emit the canonical
+  415					// EventThinkingPartial so live reasoning renderers see the update.
+  416					backfillReasoningText(s)
+  417				}
+  418			case "response.output_item.done":
+  419				if it, ok := m["item"].(map[string]any); ok {
+  420					if typ, ok := it["type"].(string); ok {
+  421						switch typ {
+  422						case "reasoning":
+  423							if itemID := itemIDFromProviderObject(m); itemID != "" {
+  424								currentReasoningItemID = itemID
+  425								lastReasoningItemID = itemID
+  426							}
+  427							if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+  428								currentReasoningOutputIndex = &idx
+  429								lastReasoningOutputIndex = &idx
+  430							}
+  431							e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-ended", providerData("openai_responses", currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
+  432							// Append a reasoning block with encrypted content if present.
+  433							rb := turns.Block{Kind: turns.BlockKindReasoning}
+  434							payload := map[string]any{}
+  435							if id, ok := it["id"].(string); ok && id != "" {
+  436								rb.ID = id
+  437								payload[turns.PayloadKeyItemID] = id
+  438							}
+  439							if currentReasoningItemID != "" && rb.ID == "" {
+  440								rb.ID = currentReasoningItemID
+  441								payload[turns.PayloadKeyItemID] = currentReasoningItemID
+  442							}
+  443							if status, ok := it["status"].(string); ok && status != "" {
+  444								currentReasoningStatus = status
+  445							}
+  446							if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+  447								currentReasoningOutputIndex = &idx
+  448								lastReasoningOutputIndex = &idx
+  449							}
+  450							if terminalText := reasoningTextFromProviderContent(it["content"]); terminalText != "" {
+  451								backfillReasoningText(terminalText)
+  452							}
+  453							if text := strings.TrimSpace(currentReasoningText.String()); text != "" {
+  454								payload[turns.PayloadKeyText] = text
+  455							}
+  456							enc := currentReasoningEncryptedContent
+  457							if v, ok := it["encrypted_content"].(string); ok && v != "" {
+  458								enc = v
+  459							}
+  460							if enc != "" {
+  461								payload[turns.PayloadKeyEncryptedContent] = enc
+  462							}
+  463							summary := reasoningSummaryEntriesFromPayload(it)
+  464							if len(summary) == 0 {
+  465								summary = reasoningSummaryEntriesFromText(currentReasoningSummary.String())
+  466							}
+  467							if len(summary) > 0 {
+  468								payload[turns.PayloadKeySummary] = summary
+  469							}
+  470							rb.Payload = payload
+  471							setOpenAIResponsesBlockMetadata(&rb, currentResponseID, currentReasoningOutputIndex, "reasoning", currentReasoningStatus)
+  472							turns.AppendBlock(t, rb)
+  473							currentReasoningItemID = ""
+  474							currentReasoningText.Reset()
+  475							currentReasoningSummary.Reset()
+  476							currentReasoningEncryptedContent = ""
+  477							currentReasoningOutputIndex = nil
+  478							currentReasoningSummaryIndex = nil
+  479							currentReasoningStatus = ""
+  480							if tap != nil {
+  481								tap.OnProviderObject("output.reasoning", it)
+  482							}
+  483						case "message":
+  484							e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-ended", nil))
+  485							itemID := ""
+  486							if v, ok := it["id"].(string); ok && v != "" {
+  487								latestMessageItemID = v
+  488								itemID = v
+  489							}
+  490							if status, ok := it["status"].(string); ok && status != "" {
+  491								latestMessageStatus = status
+  492							}
+  493							if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+  494								latestMessageOutputIndex = &idx
+  495							}
+  496							if rawContent, ok := it["content"].([]any); ok {
+  497								for _, item := range rawContent {
+  498									content, ok := item.(map[string]any)
+  499									if !ok {
+  500										continue
+  501									}
+  502									typ, _ := content["type"].(string)
+  503									switch typ {
+  504									case "output_text", "text":
+  505										if s, ok := content["text"].(string); ok && s != "" {
+  506											backfillAssistantChunk(itemID, s)
+  507										}
+  508									case "output_json":
+  509										backfillAssistantChunk(itemID, chunkFromValue(content["json"]))
+  510									}
+  511								}
+  512							}
+  513							if tap != nil {
+  514								tap.OnProviderObject("output.message", it)
+  515							}
+  516						case "function_call":
+  517							// finalize function_call and publish ToolCall event
+  518							name := ""
+  519							if v, ok := it["name"].(string); ok {
+  520								name = v
+  521							}
+  522							callID := ""
+  523							if v, ok := it["call_id"].(string); ok {
+  524								callID = v
+  525							}
+  526							itemID := ""
+  527							if v, ok := it["id"].(string); ok {
+  528								itemID = v
+  529							}
+  530							args := ""
+  531							if v, ok := it["arguments"].(string); ok && v != "" {
+  532								args = v
+  533							}
+  534							status := ""
+  535							if v, ok := it["status"].(string); ok && v != "" {
+  536								status = v
+  537							}
+  538							var outputIndex *int
+  539							if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+  540								outputIndex = &idx
+  541							}
+  542							if args == "" {
+  543								if pc := callsByItem[itemID]; pc != nil {
+  544									args = pc.args.String()
+  545								}
+  546							}
+  547							if callID != "" && name != "" {
+  548								e.publishEvent(ctx, events.NewToolCallEvent(metadata, events.ToolCall{ID: callID, Name: name, Input: args}))
+  549								var b strings.Builder
+  550								b.WriteString(args)
+  551								finalCalls = append(finalCalls, pendingCall{callID: callID, name: name, itemID: itemID, outputIndex: outputIndex, status: status, args: b})
+  552							}
+  553						case "web_search_call":
+  554							// Extract search query from action if available
+  555							query := ""
+  556							if action, ok := it["action"].(map[string]any); ok {
+  557								if q, ok := action["query"].(string); ok {
+  558									query = q
+  559								}
+  560							}
+  561							itemID := ""
+  562							if v, ok := it["id"].(string); ok {
+  563								itemID = v
+  564							}
+  565							// Log the final query info at debug level
+  566							if query != "" {
+  567								log.Debug().Str("query", query).Str("item_id", itemID).Msg("Responses: web_search completed with query")
+  568							}
+  569							// Note: Don't emit another Done event here, already emitted by response.web_search_call.completed
+  570						}
+  571					}
+  572				}
+  573			case "response.output_text.delta":
+  574				// Stream assistant text deltas
+  575				itemID := ""
+  576				if v, ok := m["item_id"].(string); ok && v != "" {
+  577					itemID = v
+  578				}
+  579				if d, ok := m["delta"].(string); ok && d != "" {
+  580					if itemID != "" {
+  581						assistantByItem[itemID] += d
+  582					}
+  583					appendAssistantChunk(d)
+  584					log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta")
+  585				} else if tv, ok := m["text"].(map[string]any); ok {
+  586					if d, ok := tv["delta"].(string); ok && d != "" {
+  587						if itemID != "" {
+  588							assistantByItem[itemID] += d
+  589						}
+  590						appendAssistantChunk(d)
+  591						log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta (nested)")
+  592					}
+  593				}
+  594				if tap != nil {
+  595					tap.OnSSE(eventName, []byte(raw))
+  596				}
+  597			case "response.output_json.delta":
+  598				itemID := ""
+  599				if v, ok := m["item_id"].(string); ok && v != "" {
+  600					itemID = v
+  601				}
+  602				if d, ok := m["delta"].(string); ok && d != "" {
+  603					if itemID != "" {
+  604						assistantByItem[itemID] += d
+  605					}
+  606					appendAssistantChunk(d)
+  607				}
+  608				if tap != nil {
+  609					tap.OnSSE(eventName, []byte(raw))
+  610				}
+  611			case "response.output_json.done":
+  612				itemID := ""
+  613				if v, ok := m["item_id"].(string); ok && v != "" {
+  614					itemID = v
+  615				}
+  616				if j, ok := m["json"]; ok {
+  617					backfillAssistantChunk(itemID, chunkFromValue(j))
+  618				}
+  619				if tap != nil {
+  620					tap.OnSSE(eventName, []byte(raw))
+  621				}
+  622			case "response.output_text.annotation.added":
+  623				if ann, ok := m["annotation"].(map[string]any); ok {
+  624					title, _ := ann["title"].(string)
+  625					url, _ := ann["url"].(string)
+  626					var startPtr, endPtr, outPtr, contPtr, annPtr *int
+  627					if v, ok := ann["start_index"].(float64); ok {
+  628						i := int(v)
+  629						startPtr = &i
+  630					}
+  631					if v, ok := ann["end_index"].(float64); ok {
+  632						i := int(v)
+  633						endPtr = &i
+  634					}
+  635					if v, ok := m["output_index"].(float64); ok {
+  636						i := int(v)
+  637						outPtr = &i
+  638					}
+  639					if v, ok := m["content_index"].(float64); ok {
+  640						i := int(v)
+  641						contPtr = &i
+  642					}
+  643					if v, ok := m["annotation_index"].(float64); ok {
+  644						i := int(v)
+  645						annPtr = &i
+  646					}
+  647					e.publishEvent(ctx, events.NewCitation(metadata, title, url, startPtr, endPtr, outPtr, contPtr, annPtr))
+  648				}
+  649			case "response.function_call_arguments.delta":
+  650				// Accumulate function_call arguments by item_id
+  651				itemID := ""
+  652				if v, ok := m["item_id"].(string); ok {
+  653					itemID = v
+  654				}
+  655				if itemID != "" {
+  656					pc := callsByItem[itemID]
+  657					if pc == nil {
+  658						pc = &pendingCall{itemID: itemID}
+  659						callsByItem[itemID] = pc
+  660					}
+  661					if d, ok := m["delta"].(string); ok && d != "" {
+  662						pc.args.WriteString(d)
+  663					}
+  664				}
+  665			case "response.function_call_arguments.done":
+  666				itemID := ""
+  667				if v, ok := m["item_id"].(string); ok {
+  668					itemID = v
+  669				}
+  670				if d, ok := m["arguments"].(string); ok && d != "" {
+  671					if pc := callsByItem[itemID]; pc != nil {
+  672						pc.args.Reset()
+  673						pc.args.WriteString(d)
+  674					}
+  675				}
+  676			// No assistant text in this event; only arguments aggregation
+  677			case "response.completed":
+  678				if totals, ok := parseUsageTotalsFromEnvelope(m); ok {
+  679					inputTokens = totals.inputTokens
+  680					outputTokens = totals.outputTokens
+  681					cachedTokens = totals.cachedTokens
+  682					reasoningTokens = totals.reasoningTokens
+  683				}
+  684				// optional stop reason, sometimes nested
+  685				if sr, ok := m["stop_reason"].(string); ok && sr != "" {
+  686					stopReason = &sr
+  687				} else if respObj, ok := m["response"].(map[string]any); ok {
+  688					if sr, ok := respObj["stop_reason"].(string); ok && sr != "" {
+  689						stopReason = &sr
+  690					}
+  691				}
+  692				if tap != nil {
+  693					tap.OnProviderObject("response.completed", m)
+  694				}
+  695			}
+  696			return nil
+  697		}
+  698		for {
+  699			line, err := reader.ReadString('\n')
+  700			if err != nil && err != io.EOF {
+  701				log.Debug().Err(err).Msg("Responses: error reading SSE line")
+  702				break
+  703			}
+  704			line = strings.TrimRight(line, "\r\n")
+  705			if line == "" {
+  706				_ = flush()
+  707				eventName = ""
+  708				if err == io.EOF {
+  709					break
+  710				}
+  711				continue
+  712			}
+  713			if strings.HasPrefix(line, "event:") {
+  714				eventName = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
+  715				continue
+  716			}
+  717			if strings.HasPrefix(line, "data:") {
+  718				if dataBuf.Len() > 0 {
+  719					dataBuf.WriteByte('\n')
+  720				}
+  721				dataBuf.WriteString(strings.TrimSpace(strings.TrimPrefix(line, "data:")))
+  722				if tap != nil {
+  723					tap.OnSSE(eventName, []byte(strings.TrimSpace(strings.TrimPrefix(line, "data:"))))
+  724				}
+  725				if err == io.EOF {
+  726					_ = flush()
+  727					break
+  728				}
+  729				continue
+  730			}
+  731			if err == io.EOF {
+  732				_ = flush()
+  733				break
+  734			}
+  735		}
+  736	
+  737		if inputTokens > 0 || outputTokens > 0 || cachedTokens > 0 {
+  738			if metadata.Usage == nil {
+  739				metadata.Usage = &events.Usage{}
+  740			}
+  741			metadata.Usage.InputTokens = inputTokens
+  742			metadata.Usage.OutputTokens = outputTokens
+  743			metadata.Usage.CachedTokens = cachedTokens
+  744		}
+  745		if metadata.Extra == nil {
+  746			metadata.Extra = map[string]any{}
+  747		}
+  748		if reasoningTokens > 0 {
+  749			metadata.Extra["reasoning_tokens"] = reasoningTokens
+  750		}
+  751		metadata.Extra["thinking_text"] = thinkBuf.String()
+  752		metadata.Extra["saying_text"] = sayBuf.String()
+  753		if summaryBuf.Len() > 0 {
+  754			metadata.Extra["reasoning_summary_text"] = summaryBuf.String()
+  755			// Publish a friendly info event with the complete summary and provider identity when available.
+  756			data := providerData("openai_responses", currentResponseID, lastReasoningItemID, lastReasoningOutputIndex, lastReasoningSummaryIndex)
+  757			if data == nil {
+  758				data = map[string]any{}
+  759			}
+  760			data["text"] = summaryBuf.String()
+  761			e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary", data))
+  762		}
+  763		if stopReason != nil {
+  764			metadata.StopReason = stopReason
+  765		}
+  766		d := time.Since(startTime).Milliseconds()
+  767		dm := int64(d)
+  768		metadata.DurationMs = &dm
+  769		if streamErr != nil {
+  770			log.Debug().Err(streamErr).Msg("Responses: stream ended with provider error")
+  771			return nil, streamErr
+  772		}
+  773		if strings.TrimSpace(message) != "" {
+  774			ab := turns.NewAssistantTextBlock(message)
+  775			if latestMessageItemID != "" {
+  776				if ab.Payload == nil {
+  777					ab.Payload = map[string]any{}
+  778				}
+  779				ab.Payload[turns.PayloadKeyItemID] = latestMessageItemID
+  780			}
+  781			setOpenAIResponsesBlockMetadata(&ab, currentResponseID, latestMessageOutputIndex, "message", latestMessageStatus)
+  782			turns.AppendBlock(t, ab)
+  783		}
+  784		// Append tool_call blocks captured via Responses API
+  785		for _, pc := range finalCalls {
+  786			var args any
+  787			if err := json.Unmarshal([]byte(pc.args.String()), &args); err != nil {
+  788				args = map[string]any{}
+  789			}
+  790			b := turns.NewToolCallBlock(pc.callID, pc.name, args)
+  791			// Preserve provider output item id so we can reference it later if needed
+  792			if b.Payload == nil {
+  793				b.Payload = map[string]any{}
+  794			}
+  795			if pc.itemID != "" {
+  796				b.Payload[turns.PayloadKeyItemID] = pc.itemID
+  797			}
+  798			setOpenAIResponsesBlockMetadata(&b, currentResponseID, pc.outputIndex, "function_call", pc.status)
+  799			turns.AppendBlock(t, b)
+  800		}
+  801		result := engine.BuildInferenceResultFromEventMetadata(metadata, responsesInferenceProvider(e.settings), len(finalCalls) > 0)
+  802		if err := engine.PersistInferenceResult(t, result); err != nil {
+  803			log.Warn().Err(err).Msg("Responses: failed to persist canonical inference_result")
+  804		}
+  805		e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
+  806		return t, nil
+  807	
+  808	}

@@ -1,0 +1,120 @@
+    1	package chatapp
+    2	
+    3	import (
+    4		"context"
+    5		"strings"
+    6	
+    7		chatappv1 "github.com/go-go-golems/pinocchio/pkg/chatapp/pb/proto/pinocchio/chatapp/v1"
+    8		sessionstream "github.com/go-go-golems/sessionstream/pkg/sessionstream"
+    9		"google.golang.org/protobuf/proto"
+   10	)
+   11	
+   12	func baseUIProjection(_ context.Context, ev sessionstream.Event, _ *sessionstream.Session, _ sessionstream.TimelineView) ([]sessionstream.UIEvent, error) {
+   13		payload, ok := ev.Payload.(*chatappv1.ChatMessageUpdate)
+   14		if !ok || payload == nil {
+   15			return nil, nil
+   16		}
+   17		cloned := proto.Clone(payload)
+   18		switch ev.Name {
+   19		case EventUserMessageAccepted:
+   20			return []sessionstream.UIEvent{{Name: UIMessageAccepted, Payload: cloned}}, nil
+   21		case EventInferenceStarted:
+   22			return []sessionstream.UIEvent{{Name: UIMessageStarted, Payload: cloned}}, nil
+   23		case EventTokensDelta:
+   24			return []sessionstream.UIEvent{{Name: UIMessageAppended, Payload: cloned}}, nil
+   25		case EventInferenceFinished:
+   26			return []sessionstream.UIEvent{{Name: UIMessageFinished, Payload: cloned}}, nil
+   27		case EventInferenceStopped:
+   28			return []sessionstream.UIEvent{{Name: UIMessageStopped, Payload: cloned}}, nil
+   29		default:
+   30			return nil, nil
+   31		}
+   32	}
+   33	
+   34	func baseTimelineProjection(_ context.Context, ev sessionstream.Event, _ *sessionstream.Session, view sessionstream.TimelineView) ([]sessionstream.TimelineEntity, error) {
+   35		payload, ok := ev.Payload.(*chatappv1.ChatMessageUpdate)
+   36		if !ok || payload == nil {
+   37			return nil, nil
+   38		}
+   39		messageID := strings.TrimSpace(payload.GetMessageId())
+   40		if messageID == "" {
+   41			return nil, nil
+   42		}
+   43		entity, hadEntity := currentChatMessageEntity(view, messageID)
+   44		switch ev.Name {
+   45		case EventUserMessageAccepted:
+   46			entity.MessageId = messageID
+   47			entity.Role = "user"
+   48			entity.Content = firstNonEmpty(payload.GetContent(), payload.GetText())
+   49			entity.Text = entity.Content
+   50			entity.Streaming = false
+   51		case EventInferenceStarted:
+   52			content := firstNonEmpty(payload.GetContent(), payload.GetText())
+   53			if content == "" && !hadEntity {
+   54				return nil, nil
+   55			}
+   56			entity.MessageId = messageID
+   57			entity.Role = firstNonEmpty(payload.GetRole(), "assistant")
+   58			entity.Status = "streaming"
+   59			entity.Streaming = true
+   60			if prompt := payload.GetPrompt(); prompt != "" {
+   61				entity.Prompt = prompt
+   62			}
+   63			if content != "" {
+   64				entity.Content = content
+   65				entity.Text = content
+   66			}
+   67		case EventTokensDelta:
+   68			content := firstNonEmpty(payload.GetContent(), payload.GetText())
+   69			if content == "" && !hadEntity {
+   70				return nil, nil
+   71			}
+   72			entity.MessageId = messageID
+   73			entity.Role = firstNonEmpty(payload.GetRole(), "assistant")
+   74			entity.Content = content
+   75			entity.Text = content
+   76			entity.Status = "streaming"
+   77			entity.Streaming = true
+   78			if prompt := payload.GetPrompt(); prompt != "" {
+   79				entity.Prompt = prompt
+   80			}
+   81		case EventInferenceFinished:
+   82			content := firstNonEmpty(payload.GetContent(), payload.GetText(), entity.GetContent(), entity.GetText())
+   83			if content == "" && !hadEntity {
+   84				return nil, nil
+   85			}
+   86			entity.MessageId = messageID
+   87			entity.Role = firstNonEmpty(payload.GetRole(), "assistant")
+   88			entity.Content = content
+   89			entity.Text = content
+   90			entity.Status = "finished"
+   91			entity.Streaming = false
+   92			if prompt := payload.GetPrompt(); prompt != "" {
+   93				entity.Prompt = prompt
+   94			}
+   95		case EventInferenceStopped:
+   96			content := firstNonEmpty(payload.GetContent(), payload.GetText(), entity.GetContent(), entity.GetText())
+   97			entity.MessageId = messageID
+   98			entity.Role = firstNonEmpty(payload.GetRole(), "assistant")
+   99			entity.Content = content
+  100			entity.Text = content
+  101			entity.Status = "stopped"
+  102			entity.Streaming = false
+  103			if prompt := payload.GetPrompt(); prompt != "" {
+  104				entity.Prompt = prompt
+  105			}
+  106			if errText := payload.GetError(); errText != "" {
+  107				entity.Error = errText
+  108			}
+  109		default:
+  110			return nil, nil
+  111		}
+  112		entity.ParentMessageId = payload.GetParentMessageId()
+  113		entity.Segment = payload.GetSegment()
+  114		entity.SegmentType = payload.GetSegmentType()
+  115		entity.Final = payload.GetFinal()
+  116		return []sessionstream.TimelineEntity{{Kind: TimelineEntityChatMessage, Id: messageID, Payload: entity}}, nil
+  117	}
+  118	
+  119	func currentChatMessageEntity(view sessionstream.TimelineView, id string) (*chatappv1.ChatMessageEntity, bool) {
+  120		entity, ok := view.Get(TimelineEntityChatMessage, id)

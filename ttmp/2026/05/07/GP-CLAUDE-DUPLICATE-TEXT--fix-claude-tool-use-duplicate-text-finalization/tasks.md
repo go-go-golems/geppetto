@@ -18,6 +18,9 @@ LastUpdated: 2026-05-08T00:15:00-04:00
 
 ## Done
 
+- [x] Upload bug-analysis and event-semantics guide bundle to reMarkable.
+- [x] Write provider-to-Geppetto-to-Pinocchio event semantics intern guide.
+- [x] Capture source evidence snippets for Geppetto and Pinocchio mapping code/docs.
 - [x] Create docmgr ticket workspace and bug analysis guide.
 - [x] Correlate CoinVault Haiku duplicate through provider, backend, transport, frontend, and timeline records.
 - [x] Add regression coverage for Claude `tool_use` stop finalization.

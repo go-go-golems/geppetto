@@ -1,0 +1,51 @@
+  120	- `pinocchio/cmd/web-chat/web/src/ws/wsManager.test.ts`
+  121	- `pinocchio/cmd/web-chat/web/src/webchat/rendererRegistry.ts`
+  122	- `pinocchio/cmd/web-chat/web/src/webchat/cards.tsx`
+  123	- `pinocchio/cmd/web-chat/web/src/webchat/ChatWidget.tsx`
+  124	
+  125	## Architecture at a glance
+  126	
+  127	Here is the end-to-end flow you should be aiming for.
+  128	
+  129	```text
+  130	1. React submits a message
+  131	   -> POST /api/chat/sessions/:id/messages
+  132	
+  133	2. App server resolves runtime/profile
+  134	   -> pinocchio runtime composer
+  135	   -> geppetto engine + middleware chain
+  136	
+  137	3. App service submits a command to sessionstream
+  138	   -> ChatStartInference
+  139	
+  140	4. Chat handler publishes canonical backend events
+  141	   -> ChatUserMessageAccepted
+  142	   -> ChatInferenceStarted
+  143	   -> ChatTokensDelta
+  144	   -> ChatInferenceFinished
+  145	   -> app-owned feature events when applicable
+  146	
+  147	5. sessionstream projections derive outputs
+  148	   -> TimelineEntity records for hydration
+  149	   -> UIEvent frames for live delivery
+  150	
+  151	6. WebSocket transport fans UI events to subscribers
+  152	   -> snapshot first
+  153	   -> live UI events after subscribe
+  154	
+  155	7. React updates state from snapshot + UI events
+  156	   -> timeline entities map to cards/messages/widgets
+  157	```
+  158	
+  159	The virtue of this model is that the frontend does not invent truth. It renders truth derived by the backend.
+  160	
+  161	## Suggested application layout
+  162	
+  163	A practical layout for a new app looks like this:
+  164	
+  165	```text
+  166	cmd/my-chat-app/
+  167	  main.go
+  168	  app/
+  169	    server.go
+  170	    contracts.go

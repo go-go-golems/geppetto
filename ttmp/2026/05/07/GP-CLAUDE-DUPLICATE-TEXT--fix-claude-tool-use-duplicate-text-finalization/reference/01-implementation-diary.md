@@ -110,3 +110,52 @@ ordinal 8 ChatInferenceFinished chat-msg-1:text:2
 This means the first fix was too weak. Emitting `EventFinal` with empty text still causes downstream Pinocchio/CoinVault logic to finalize cached accumulated text as a new segment. For `stop_reason=tool_use`, Claude `message_stop` must emit no final event at all. The lifecycle/tool-turn boundary is already represented by the tool-call event and the next inference turn.
 
 I updated the fix accordingly: `MessageStopType` now returns no events when the stop reason is `tool_use`, and the regression test now expects no final event for that case.
+
+## 2026-05-08 00:35 — Wrote provider-to-chatapp event semantics intern guide
+
+After stepping back from the single Haiku duplicate and reviewing the whole provider-to-Geppetto-to-Pinocchio chain, I wrote a second design document:
+
+```text
+design/02-provider-to-chatapp-event-semantics-guide.md
+```
+
+The guide explains the distinction between run lifecycle, text segment lifecycle, and tool lifecycle. It maps current behavior for OpenAI Chat Completions, OpenAI Responses, and Anthropic Claude into Geppetto events and then into Pinocchio chatapp events. It also identifies the naming problem: `ChatInferenceFinished` is a legacy name that often means "text segment finished," not "whole assistant run finished."
+
+The guide includes:
+
+- canonical event sequences for `text -> tool -> text -> final` and `text -> tool -> final`;
+- current OpenAI Chat Completions mapping;
+- current OpenAI Responses mapping;
+- current Anthropic mapping after the fix in this ticket;
+- Pinocchio runtime sink details;
+- documentation verification against Pinocchio docs;
+- proposed clearer future event names;
+- SQLite verification SQL for tracing duplicates across the full pipeline.
+
+This was written as an onboarding document for a new intern so future debugging does not collapse provider envelope completion, text segment finalization, and run completion into one ambiguous concept.
+
+## 2026-05-08 00:45 — Uploaded event semantics guide to reMarkable
+
+I uploaded a bundled PDF containing both the original bug-analysis guide and the new provider-to-chatapp event semantics guide to reMarkable.
+
+### Commands
+
+```bash
+remarquee status
+remarquee cloud account --non-interactive
+remarquee upload bundle --dry-run \
+  ttmp/2026/05/07/GP-CLAUDE-DUPLICATE-TEXT--fix-claude-tool-use-duplicate-text-finalization/design/01-bug-analysis-and-implementation-guide.md \
+  ttmp/2026/05/07/GP-CLAUDE-DUPLICATE-TEXT--fix-claude-tool-use-duplicate-text-finalization/design/02-provider-to-chatapp-event-semantics-guide.md \
+  --name "GP-CLAUDE-DUPLICATE-TEXT - event semantics guide" \
+  --remote-dir "/ai/2026/05/07/GP-CLAUDE-DUPLICATE-TEXT" \
+  --toc-depth 2
+remarquee upload bundle ...
+remarquee cloud ls /ai/2026/05/07/GP-CLAUDE-DUPLICATE-TEXT --long --non-interactive
+```
+
+### Result
+
+```text
+OK: uploaded GP-CLAUDE-DUPLICATE-TEXT - event semantics guide.pdf -> /ai/2026/05/07/GP-CLAUDE-DUPLICATE-TEXT
+[f]	GP-CLAUDE-DUPLICATE-TEXT - event semantics guide
+```
