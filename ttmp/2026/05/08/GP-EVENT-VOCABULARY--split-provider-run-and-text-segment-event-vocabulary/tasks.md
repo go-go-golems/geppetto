@@ -121,16 +121,17 @@ Goal: define the new vocabulary and typed identity envelope before provider adap
   - [x] `EventToolExecutionStarted`
   - [x] `EventToolResultReady`
   - [x] `EventToolCallFinished` if host-side completion needs a distinct event.
-- [ ] Remove or make inaccessible the legacy constructors/types from active provider code:
-  - [ ] `NewStartEvent`
-  - [ ] `NewPartialCompletionEvent`
-  - [ ] `NewFinalEvent`
-  - [ ] `NewThinkingPartialEvent`
-  - [ ] legacy `EventToolCall` if replaced by `EventToolCallRequested`.
-- [ ] Update `NewEventFromJson` / event decoding to use only canonical event type strings.
+- [x] Remove or make inaccessible the legacy constructors/types from active provider code:
+  - [x] `NewStartEvent`
+  - [x] `NewPartialCompletionEvent`
+  - [x] `NewFinalEvent`
+  - [x] `NewThinkingPartialEvent`
+  - [x] legacy `EventToolCall` if replaced by `EventToolCallRequested`.
+- [x] Update `NewEventFromJson` / event decoding to use only canonical event type strings.
   - [x] Add `NewEventFromJson` decoding support for canonical event type strings while legacy events still exist during staged implementation.
+  - [x] Remove legacy event decoding branches after provider/runtime cutover.
 - [x] Add canonical validation guard for typed-correlation invariants (`ValidateCanonicalEvent`).
-- [ ] Update event printer/structured sinks so canonical events render clearly.
+- [x] Update event printer/structured sinks so canonical events render clearly.
 - [x] Add Geppetto event serialization tests:
   - [x] every event round-trips through JSON;
   - [x] every event preserves `Correlation`;
@@ -533,10 +534,10 @@ Goal: prove the hard cutover is complete and no old runtime vocabulary remains.
   - [x] `cd 2026-03-16--gec-rag && go test ./internal/webchat ./cmd/coinvault/cmds -count=1`
   - [x] `cd 2026-03-16--gec-rag/web && pnpm run typecheck`
   - [ ] `cd 2026-03-16--gec-rag/web && pnpm run test:unit`
-- [ ] Run hard deletion search and inspect every match:
+- [x] Run hard deletion search and inspect every match:
   - [x] `rg "EventFinal|EventPartialCompletion|EventTypeFinal|EventTypePartialCompletion" geppetto`
   - [x] `rg "ChatInferenceStarted|ChatInferenceFinished|ChatTokensDelta|ChatInferenceStopped" pinocchio 2026-03-16--gec-rag`
-  - [ ] remaining matches are only historical docs, archived tickets, or explicit deprecation notes; no active runtime code remains.
+  - [x] remaining Geppetto matches are only historical docs/tickets or explicit deletion notes; no active runtime code remains.
 - [ ] Confirm no new routing logic reads correlation from `metadata.Extra`:
   - [ ] `rg "metadata\.Extra|Extra\[\"response_id\"|Extra\[\"correlation_key\"" geppetto pinocchio`
   - [ ] remaining uses are debug-only or old docs.
@@ -613,8 +614,8 @@ Suggested commit sequence. Keep each commit compiling if possible, but do not me
 
 The migration is complete when all of these are true:
 
-- [ ] No active runtime code emits or consumes `EventFinal`.
-- [ ] No active runtime code emits or consumes `EventPartialCompletion`.
+- [x] No active runtime code emits or consumes `EventFinal`.
+- [x] No active runtime code emits or consumes `EventPartialCompletion`.
 - [ ] Gemini emits only canonical provider-call/text/tool events.
 - [ ] Local tool execution emits only canonical tool execution/result events.
 - [ ] No active Pinocchio/CoinVault code emits or consumes `ChatInferenceStarted`, `ChatTokensDelta`, or `ChatInferenceFinished`.

@@ -123,20 +123,20 @@ func TestRunInference_StreamingErrorReturnsFailureAndNoFinalEvent(t *testing.T) 
 	}
 
 	var errorEvents int
-	var finalEvents int
+	var providerFinishedEvents int
 	for _, event := range sink.snapshot() {
 		if event.Type() == events.EventTypeError {
 			errorEvents++
 		}
-		if event.Type() == events.EventTypeFinal {
-			finalEvents++
+		if event.Type() == events.EventTypeProviderCallFinished {
+			providerFinishedEvents++
 		}
 	}
 	if errorEvents == 0 {
 		t.Fatalf("expected at least one error event")
 	}
-	if finalEvents != 0 {
-		t.Fatalf("did not expect final success event on streaming failure, got %d", finalEvents)
+	if providerFinishedEvents != 0 {
+		t.Fatalf("did not expect provider-call success finish event on streaming failure, got %d", providerFinishedEvents)
 	}
 }
 

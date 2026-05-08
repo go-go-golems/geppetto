@@ -20,9 +20,9 @@ func TestFilteringSink_PassThrough_NoStructured(t *testing.T) {
 
 	// Two partials and a final without any structured tags
 	in := []events.Event{
-		events.NewPartialCompletionEvent(meta, "Hello, ", "Hello, "),
-		events.NewPartialCompletionEvent(meta, "world!", "Hello, world!"),
-		events.NewFinalEvent(meta, "Hello, world!"),
+		newTextDeltaEvent(meta, "Hello, ", "Hello, "),
+		newTextDeltaEvent(meta, "world!", "Hello, world!"),
+		newTextFinalEvent(meta, "Hello, world!"),
 	}
 
 	for _, ev := range in {
@@ -32,18 +32,18 @@ func TestFilteringSink_PassThrough_NoStructured(t *testing.T) {
 	// Expect same number of forwarded events
 	require.Equal(t, len(in), len(col.list))
 
-	// Check partials preserved
-	p1, ok := col.list[0].(*events.EventPartialCompletion)
+	// Check text deltas preserved
+	p1, ok := col.list[0].(*events.EventTextDelta)
 	require.True(t, ok)
 	assert.Equal(t, "Hello, ", p1.Delta)
-	assert.Equal(t, "Hello, ", p1.Completion)
+	assert.Equal(t, "Hello, ", p1.Text)
 
-	p2, ok := col.list[1].(*events.EventPartialCompletion)
+	p2, ok := col.list[1].(*events.EventTextDelta)
 	require.True(t, ok)
 	assert.Equal(t, "world!", p2.Delta)
-	assert.Equal(t, "Hello, world!", p2.Completion)
+	assert.Equal(t, "Hello, world!", p2.Text)
 
-	f, ok := col.list[2].(*events.EventFinal)
+	f, ok := col.list[2].(*events.EventTextSegmentFinished)
 	require.True(t, ok)
 	assert.Equal(t, "Hello, world!", f.Text)
 }
@@ -58,7 +58,7 @@ func TestFilteringSink_ContextLifecycle(t *testing.T) {
 	meta := events.EventMetadata{ID: id}
 
 	// First partial creates stream state and stream context
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "x", "x")))
+	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(meta, "x", "x")))
 
 	// Access internal state for this stream
 	st := sink.getState(meta)
@@ -73,7 +73,7 @@ func TestFilteringSink_ContextLifecycle(t *testing.T) {
 	}
 
 	// Final should cancel and remove state
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, "x")))
+	require.NoError(t, sink.PublishEvent(newTextFinalEvent(meta, "x")))
 
 	// st.ctx must be cancelled shortly
 	select {

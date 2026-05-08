@@ -61,10 +61,6 @@ func TestBaseToolExecutorPublishesCanonicalToolLifecycleEvents(t *testing.T) {
 		if err := events.ValidateCanonicalEvent(event); err != nil {
 			t.Fatalf("event %d should validate as canonical: %v", i, err)
 		}
-		switch event.(type) {
-		case *events.EventToolCallExecute, *events.EventToolCallExecutionResult:
-			t.Fatalf("event %d used legacy tool execution type %T", i, event)
-		}
 	}
 }
 

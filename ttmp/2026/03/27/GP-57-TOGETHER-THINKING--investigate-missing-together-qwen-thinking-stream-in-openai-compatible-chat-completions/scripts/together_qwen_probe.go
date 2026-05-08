@@ -354,11 +354,11 @@ func runGeppetto(s *gepsettings.InferenceSettings, prompt string, system string)
 	for i, ev := range sink.Snapshot() {
 		fmt.Printf("[%03d] type=%s", i, ev.Type())
 		switch e := ev.(type) {
-		case *events.EventThinkingPartial:
-			fmt.Printf(" delta=%q cumulative=%q", e.Delta, e.Completion)
-		case *events.EventPartialCompletion:
-			fmt.Printf(" delta=%q cumulative=%q", e.Delta, e.Completion)
-		case *events.EventFinal:
+		case *events.EventReasoningDelta:
+			fmt.Printf(" delta=%q cumulative=%q", e.Delta, e.Text)
+		case *events.EventTextDelta:
+			fmt.Printf(" delta=%q cumulative=%q", e.Delta, e.Text)
+		case *events.EventTextSegmentFinished:
 			fmt.Printf(" text=%q", e.Text)
 		case *events.EventError:
 			fmt.Printf(" error=%q", e.ErrorString)

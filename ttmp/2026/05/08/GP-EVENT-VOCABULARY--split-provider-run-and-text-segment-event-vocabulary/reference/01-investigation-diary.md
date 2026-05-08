@@ -824,3 +824,43 @@ The runtime deletion scan for Gemini/tool executor returned no matches, and the 
 ### Remaining work
 
 Legacy event definitions still exist in `pkg/events` because other event package helpers, printers, structured sinks, JS bindings, tests, examples, and docs still refer to them. The next cutover step is to remove or rewrite those consumers so `chat-events.go`, `text_events.go`, and `tool_events.go` can be cleaned out completely.
+
+## 2026-05-08 08:35 — Removed legacy Geppetto text/tool event definitions from active code
+
+### What changed
+
+After Gemini and local tool execution were migrated, I removed the legacy Geppetto event definitions from active code:
+
+- deleted legacy text lifecycle types/constructors from `pkg/events/text_events.go` while keeping `EventError` and `EventInterrupt`;
+- deleted `pkg/events/tool_events.go` containing legacy provider/tool-execution event structs;
+- removed legacy event type constants and `NewEventFromJson` decoder cases from `pkg/events/chat-events.go`;
+- removed legacy `EventImpl` helper casts (`ToText`, `ToPartialCompletion`, `ToToolCall`);
+- migrated `pkg/events/structuredsink` from `EventPartialCompletion`/`EventFinal` to canonical `EventTextDelta`/`EventTextSegmentFinished`;
+- migrated event printers and the tool-event aggregator to canonical text/reasoning/tool lifecycle events;
+- updated the event-router handler interface to canonical text handlers;
+- updated the OpenAI tools example and the Together probe script under `ttmp` so the full workspace still compiles.
+
+### Validation
+
+Saved validation output to:
+
+```text
+various/legacy-event-deletion-validation.log
+```
+
+Commands run:
+
+```bash
+cd geppetto
+rg "EventTypeStatus|EventTypeToolResult\\b|EventTypeToolCallExecute|EventTypeToolCallExecutionResult|EventTypeStart\\b|EventTypeFinal\\b|EventTypePartialCompletion\\b|EventTypePartialThinking\\b|EventPartialCompletionStart|EventPartialCompletion\\b|EventThinkingPartial|EventFinal\\b|EventText\\b|EventToolCall\\b|EventToolResult\\b|EventToolCallExecute|EventToolCallExecutionResult|NewStartEvent|NewTextEvent|NewPartialCompletionEvent|NewThinkingPartialEvent|NewFinalEvent|NewToolCallEvent|NewToolResultEvent|NewToolCallExecuteEvent|NewToolCallExecutionResultEvent|ToPartialCompletion|ToToolCall|ToText\\(" \
+  -n --glob '!ttmp/**' --glob '!pkg/doc/**' --glob '!cmd/examples/streaming-inference/README.md'
+
+go test ./pkg/events/... ./pkg/steps/ai/openai_responses ./pkg/inference/fixtures ./cmd/examples/advanced/openai-tools -count=1
+go test ./... -count=1
+```
+
+The active-runtime deletion scan returned no matches, and `go test ./... -count=1` passed.
+
+### Remaining work
+
+Old event names still appear in historical docs, archived ticket notes, and a few documentation examples. They no longer compile as active runtime symbols. The remaining cleanup is documentation-only unless downstream repos still mirror old names.

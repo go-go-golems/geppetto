@@ -33,18 +33,6 @@ const (
 	EventTypeReasoningDelta           EventType = "reasoning-delta"
 	EventTypeReasoningSegmentFinished EventType = "reasoning-segment-finished"
 
-	// EventTypeStart to EventTypeFinal are legacy text completion events. They
-	// are kept temporarily while providers and consumers hard-cut over to the
-	// canonical run/provider-call/text-segment vocabulary above.
-	EventTypeStart             EventType = "start"
-	EventTypeFinal             EventType = "final"
-	EventTypePartialCompletion EventType = "partial"
-	// Separate legacy partial stream for reasoning/summary thinking text.
-	EventTypePartialThinking EventType = "partial-thinking"
-
-	// TODO(manuel, 2024-07-04) I'm not sure if this is needed
-	EventTypeStatus EventType = "status"
-
 	// Canonical tool lifecycle events.
 	EventTypeToolCallStarted        EventType = "tool-call-started"
 	EventTypeToolCallArgumentsDelta EventType = "tool-call-arguments-delta"
@@ -53,16 +41,8 @@ const (
 	EventTypeToolResultReady        EventType = "tool-result-ready"
 	EventTypeToolCallFinished       EventType = "tool-call-finished"
 
-	// TODO(manuel, 2024-07-04) Should potentially have a EventTypeText for a block stop here
-	// Model requested a tool call (received from provider stream)
-	EventTypeToolCall   EventType = "tool-call"
-	EventTypeToolResult EventType = "tool-result"
-
-	// Execution-phase events (we are actually executing tools locally)
-	EventTypeToolCallExecute         EventType = "tool-call-execute"
-	EventTypeToolCallExecutionResult EventType = "tool-call-execution-result"
-	EventTypeError                   EventType = "error"
-	EventTypeInterrupt               EventType = "interrupt"
+	EventTypeError     EventType = "error"
+	EventTypeInterrupt EventType = "interrupt"
 
 	// Informational/logging events (emitted by engines, middlewares or tools)
 	EventTypeLog  EventType = "log"
@@ -380,48 +360,6 @@ func NewEventFromJson(b []byte) (Event, error) {
 			return nil, fmt.Errorf("could not cast event to EventToolCallFinished")
 		}
 		return ret, nil
-	case EventTypeStart:
-		ret, ok := ToTypedEvent[EventPartialCompletionStart](e)
-		if !ok {
-			return nil, fmt.Errorf("could not cast event to EventPartialCompletionStart")
-		}
-		return ret, nil
-	case EventTypePartialCompletion:
-		ret, ok := ToTypedEvent[EventPartialCompletion](e)
-		if !ok {
-			return nil, fmt.Errorf("could not cast event to EventPartialCompletion")
-		}
-		return ret, nil
-	case EventTypePartialThinking:
-		ret, ok := ToTypedEvent[EventThinkingPartial](e)
-		if !ok {
-			return nil, fmt.Errorf("could not cast event to EventThinkingPartial")
-		}
-		return ret, nil
-	case EventTypeToolCall:
-		ret, ok := ToTypedEvent[EventToolCall](e)
-		if !ok {
-			return nil, fmt.Errorf("could not cast event to EventToolCall")
-		}
-		return ret, nil
-	case EventTypeToolResult:
-		ret, ok := ToTypedEvent[EventToolResult](e)
-		if !ok {
-			return nil, fmt.Errorf("could not cast event to EventToolResult")
-		}
-		return ret, nil
-	case EventTypeToolCallExecute:
-		ret, ok := ToTypedEvent[EventToolCallExecute](e)
-		if !ok {
-			return nil, fmt.Errorf("could not cast event to EventToolCallExecute")
-		}
-		return ret, nil
-	case EventTypeToolCallExecutionResult:
-		ret, ok := ToTypedEvent[EventToolCallExecutionResult](e)
-		if !ok {
-			return nil, fmt.Errorf("could not cast event to EventToolCallExecutionResult")
-		}
-		return ret, nil
 	case EventTypeError:
 		ret, ok := ToTypedEvent[EventError](e)
 		if !ok {
@@ -434,14 +372,6 @@ func NewEventFromJson(b []byte) (Event, error) {
 			return nil, fmt.Errorf("could not cast event to EventInterrupt")
 		}
 		return ret, nil
-	case EventTypeFinal:
-		ret, ok := ToTypedEvent[EventFinal](e)
-		if !ok {
-			return nil, fmt.Errorf("could not cast event to EventFinal")
-		}
-		return ret, nil
-
-	case EventTypeStatus:
 	case EventTypeLog:
 		ret, ok := ToTypedEvent[EventLog](e)
 		if !ok {
@@ -635,28 +565,4 @@ func ToTypedEvent[T any](e Event) (*T, bool) {
 	}
 
 	return ret, true
-}
-
-func (e *EventImpl) ToText() (EventText, bool) {
-	ret, ok := ToTypedEvent[EventText](e)
-	if !ok || ret == nil {
-		return EventText{}, false
-	}
-	return *ret, true
-}
-
-func (e *EventImpl) ToPartialCompletion() (EventPartialCompletion, bool) {
-	ret, ok := ToTypedEvent[EventPartialCompletion](e)
-	if !ok || ret == nil {
-		return EventPartialCompletion{}, false
-	}
-	return *ret, true
-}
-
-func (e *EventImpl) ToToolCall() (EventToolCall, bool) {
-	ret, ok := ToTypedEvent[EventToolCall](e)
-	if !ok || ret == nil {
-		return EventToolCall{}, false
-	}
-	return *ret, true
 }

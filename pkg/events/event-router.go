@@ -17,9 +17,8 @@ import (
 // ChatEventHandler defines an interface for handling different chat events.
 // Moved from pinocchio/cmd/experiments/web-ui/client/client.go
 type ChatEventHandler interface {
-	HandlePartialCompletion(ctx context.Context, e *EventPartialCompletion) error
-	HandleText(ctx context.Context, e *EventText) error
-	HandleFinal(ctx context.Context, e *EventFinal) error
+	HandleTextDelta(ctx context.Context, e *EventTextDelta) error
+	HandleTextSegmentFinished(ctx context.Context, e *EventTextSegmentFinished) error
 	HandleError(ctx context.Context, e *EventError) error
 	HandleInterrupt(ctx context.Context, e *EventInterrupt) error
 	// Add other event types as needed

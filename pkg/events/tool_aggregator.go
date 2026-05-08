@@ -42,40 +42,41 @@ func (a *ToolEventAggregator) Entries() []ToolEventEntry {
 // Handle consumes an Event and updates entries when it is tool-related.
 func (a *ToolEventAggregator) Handle(e Event) {
 	switch ev := e.(type) {
-	case *EventToolCall:
-		if ev.ToolCall.ID == "" {
+	case *EventToolCallStarted:
+		if ev.ToolCallID == "" {
 			return
 		}
-		idx := a.ensure(ev.ToolCall.ID)
+		idx := a.ensure(ev.ToolCallID)
 		a.entries[idx].ProviderCalled = true
-		a.entries[idx].Name = ev.ToolCall.Name
-		if ev.ToolCall.Input != "" {
-			a.entries[idx].Input = ev.ToolCall.Input
-		}
-	case *EventToolCallExecute:
-		if ev.ToolCall.ID == "" {
+		a.entries[idx].Name = ev.ToolName
+	case *EventToolCallRequested:
+		if ev.ToolCallID == "" {
 			return
 		}
-		idx := a.ensure(ev.ToolCall.ID)
+		idx := a.ensure(ev.ToolCallID)
+		a.entries[idx].ProviderCalled = true
+		a.entries[idx].Name = ev.ToolName
+		if ev.Input != "" {
+			a.entries[idx].Input = ev.Input
+		}
+	case *EventToolExecutionStarted:
+		if ev.ToolCallID == "" {
+			return
+		}
+		idx := a.ensure(ev.ToolCallID)
 		a.entries[idx].ExecStarted = true
-		if ev.ToolCall.Name != "" {
-			a.entries[idx].Name = ev.ToolCall.Name
+		if ev.ToolName != "" {
+			a.entries[idx].Name = ev.ToolName
 		}
-		if ev.ToolCall.Input != "" && a.entries[idx].Input == "" {
-			a.entries[idx].Input = ev.ToolCall.Input
+		if ev.Input != "" && a.entries[idx].Input == "" {
+			a.entries[idx].Input = ev.Input
 		}
-	case *EventToolResult:
-		if ev.ToolResult.ID == "" {
+	case *EventToolResultReady:
+		if ev.ToolCallID == "" {
 			return
 		}
-		idx := a.ensure(ev.ToolResult.ID)
-		a.entries[idx].Result = ev.ToolResult.Result
-	case *EventToolCallExecutionResult:
-		if ev.ToolResult.ID == "" {
-			return
-		}
-		idx := a.ensure(ev.ToolResult.ID)
-		a.entries[idx].Result = ev.ToolResult.Result
+		idx := a.ensure(ev.ToolCallID)
+		a.entries[idx].Result = ev.Result
 	}
 }
 

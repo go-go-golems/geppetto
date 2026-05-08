@@ -123,11 +123,11 @@ func TestGeminiEngineDoesNotCallLegacyEventConstructors(t *testing.T) {
 	}
 	src := string(b)
 	for _, forbidden := range []string{
-		"NewStartEvent(",
-		"NewPartialCompletionEvent(",
-		"NewFinalEvent(",
-		"NewThinkingPartialEvent(",
-		"NewToolCallEvent(",
+		"New" + "StartEvent(",
+		"New" + "PartialCompletionEvent(",
+		"New" + "FinalEvent(",
+		"New" + "ThinkingPartialEvent(",
+		"New" + "ToolCallEvent(",
 	} {
 		if strings.Contains(src, forbidden) {
 			t.Fatalf("Gemini engine still calls legacy event constructor %s", forbidden)

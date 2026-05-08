@@ -233,17 +233,17 @@ func (c *TestOpenAIToolsCommand) RunIntoWriter(ctx context.Context, parsedValues
 				}
 			}
 		}
-		// Print thinking partials as raw text
-		if string(ev.Type()) == string(events.EventTypePartialThinking) {
-			if tp, ok := events.ToTypedEvent[events.EventThinkingPartial](ev); ok && tp != nil {
+		// Print reasoning deltas as raw text
+		if ev.Type() == events.EventTypeReasoningDelta {
+			if tp, ok := events.ToTypedEvent[events.EventReasoningDelta](ev); ok && tp != nil {
 				if tp.Delta != "" {
 					if _, writeErr := fmt.Fprint(w, tp.Delta); writeErr != nil {
-						log.Error().Err(writeErr).Msg("failed to write thinking delta")
+						log.Error().Err(writeErr).Msg("failed to write reasoning delta")
 					}
 				}
 			}
 		}
-		if string(ev.Type()) == "final" {
+		if ev.Type() == events.EventTypeProviderCallFinished {
 			extra := meta.Extra
 			var rt any
 			if extra != nil {
