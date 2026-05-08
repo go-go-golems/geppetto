@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -28,12 +29,24 @@ import (
 
 // GeminiEngine implements the Engine interface for Google's Gemini API
 type GeminiEngine struct {
-	settings *settings.InferenceSettings
+	settings            *settings.InferenceSettings
+	observer            geppettoobs.Observer
+	observabilityConfig geppettoobs.Config
 }
 
+// EngineOption configures a GeminiEngine.
+type EngineOption func(*GeminiEngine)
+
 // NewGeminiEngine creates a new Gemini inference engine with the given settings.
-func NewGeminiEngine(settings *settings.InferenceSettings) (*GeminiEngine, error) {
-	return &GeminiEngine{settings: settings}, nil
+func NewGeminiEngine(settings *settings.InferenceSettings, opts ...EngineOption) (*GeminiEngine, error) {
+	ret := &GeminiEngine{settings: settings, observabilityConfig: geppettoobs.DefaultConfig()}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(ret)
+		}
+	}
+	ret.observabilityConfig = ret.observabilityConfig.Normalized()
+	return ret, nil
 }
 
 type geminiAPIKeyTransport struct {
@@ -349,6 +362,7 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 			return nil, err
 		}
 		chunkCount++
+		e.publishProviderRecord(ctx, metadata, providerCallCorr, "gemini.stream.chunk", resp)
 		// Best-effort: capture provider usage metadata + finish reason so callers can
 		// diagnose truncation (max tokens), refusals/safety, etc.
 		//
@@ -704,6 +718,7 @@ func buildToolSignatureHint(reg tools.ToolRegistry) string {
 
 // publishEvent publishes an event to all configured sinks and any sinks carried in context.
 func (e *GeminiEngine) publishEvent(ctx context.Context, event events.Event) {
+	e.publishEventRecord(ctx, event)
 	events.PublishEventToContext(ctx, event)
 }
 

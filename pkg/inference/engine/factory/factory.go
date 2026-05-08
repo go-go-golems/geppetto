@@ -40,6 +40,7 @@ type StandardEngineFactory struct {
 	openAIResponsesOptions []openai_responses.EngineOption
 	openAIOptions          []openai.EngineOption
 	claudeOptions          []claude.EngineOption
+	geminiOptions          []gemini.EngineOption
 }
 
 // StandardEngineFactoryOption configures StandardEngineFactory.
@@ -67,6 +68,13 @@ func WithOpenAIOptions(opts ...openai.EngineOption) StandardEngineFactoryOption 
 func WithClaudeOptions(opts ...claude.EngineOption) StandardEngineFactoryOption {
 	return func(f *StandardEngineFactory) {
 		f.claudeOptions = append(f.claudeOptions, opts...)
+	}
+}
+
+// WithGeminiOptions passes options to Gemini engines created by the factory.
+func WithGeminiOptions(opts ...gemini.EngineOption) StandardEngineFactoryOption {
+	return func(f *StandardEngineFactory) {
+		f.geminiOptions = append(f.geminiOptions, opts...)
 	}
 }
 
@@ -126,7 +134,7 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSetting
 		return claude.NewClaudeEngine(settings, f.claudeOptions...)
 
 	case string(types.ApiTypeGemini):
-		return gemini.NewGeminiEngine(settings)
+		return gemini.NewGeminiEngine(settings, f.geminiOptions...)
 
 	default:
 		supported := strings.Join(f.SupportedProviders(), ", ")
