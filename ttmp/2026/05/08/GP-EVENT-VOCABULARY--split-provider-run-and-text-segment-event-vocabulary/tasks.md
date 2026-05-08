@@ -142,31 +142,31 @@ Goal: define the new vocabulary and typed identity envelope before provider adap
 
 Goal: centralize identity construction so providers do not each invent ad hoc metadata maps.
 
-- [ ] Add a provider-call correlation builder package/helper, e.g. `pkg/events/correlationbuilder` or provider-local helpers with shared tests.
-- [ ] Implement provider-call ID generation:
-  - [ ] stable across all events in one provider API call;
-  - [ ] independent of provider response ID because some providers reveal response IDs late;
-  - [ ] includes `InferenceID` or `RunID` plus `ProviderCallIndex`.
-- [ ] Implement segment ID generation:
-  - [ ] stable across start/delta/finish for the segment;
-  - [ ] includes provider call identity and stream object identity;
-  - [ ] does not depend on rendered Pinocchio message IDs.
+- [x] Add a provider-call correlation builder package/helper, e.g. `pkg/events/correlationbuilder` or provider-local helpers with shared tests.
+- [x] Implement provider-call ID generation:
+  - [x] stable across all events in one provider API call;
+  - [x] independent of provider response ID because some providers reveal response IDs late;
+  - [x] includes `InferenceID` or `RunID` plus `ProviderCallIndex`.
+- [x] Implement segment ID generation:
+  - [x] stable across start/delta/finish for the segment;
+  - [x] includes provider call identity and stream object identity;
+  - [x] does not depend on rendered Pinocchio message IDs.
 - [ ] Implement normalized correlation-key builders for:
-  - [ ] Claude provider calls;
-  - [ ] Claude text blocks;
-  - [ ] Claude tool-use blocks;
-  - [ ] OpenAI Responses provider calls;
-  - [ ] OpenAI Responses output items and summaries;
-  - [ ] OpenAI-compatible Chat Completions content streams;
-  - [ ] OpenAI-compatible Chat Completions reasoning streams;
-  - [ ] OpenAI-compatible Chat Completions tool streams by ID or index.
+  - [x] Claude provider calls;
+  - [x] Claude text blocks;
+  - [x] Claude tool-use blocks;
+  - [x] OpenAI Responses provider calls;
+  - [x] OpenAI Responses output items and summaries;
+  - [x] OpenAI-compatible Chat Completions content streams;
+  - [x] OpenAI-compatible Chat Completions reasoning streams;
+  - [x] OpenAI-compatible Chat Completions tool streams by ID or index.
 - [ ] Add invariant helpers/tests:
-  - [ ] provider-call events must have `ProviderCallID` and provider-call `CorrelationKey`;
-  - [ ] text events must have `SegmentID`, `SegmentType=text`, and text `CorrelationKey`;
-  - [ ] tool events must have `ToolCallID` when provider supplies it, or `ToolCallIndex` fallback;
-  - [ ] no canonical event requires `metadata.Extra` for routing.
-- [ ] Decide whether `RunID` aliases `InferenceID` initially or becomes a new generated ID.
-- [ ] Document the decision in the design guide if it changes.
+  - [x] provider-call events must have `ProviderCallID` and provider-call `CorrelationKey`;
+  - [x] text events must have `SegmentID`, `SegmentType=text`, and text `CorrelationKey`;
+  - [x] tool events must have `ToolCallID` when provider supplies it, or `ToolCallIndex` fallback;
+  - [x] no canonical event requires `metadata.Extra` for routing.
+- [x] Decide whether `RunID` aliases `InferenceID` initially or becomes a new generated ID.
+- [x] Document the decision in the implementation diary; design guide unchanged because this preserves the optional RunID plan.
 
 ## Phase 3 — Migrate Claude/Anthropic first
 

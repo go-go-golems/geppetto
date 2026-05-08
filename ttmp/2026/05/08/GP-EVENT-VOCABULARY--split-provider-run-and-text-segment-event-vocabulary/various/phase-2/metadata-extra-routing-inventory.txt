@@ -1,0 +1,69 @@
+# Phase 2 metadata.Extra routing inventory
+
+Generated: 2026-05-08
+
+## Canonical event/correlation package references
+
+## Provider adapter metadata.Extra references (still legacy/debug until migration)
+pkg/steps/ai/claude/content-block-merger_test.go:333:					// No StepMetadata anymore; expose via merger.metadata.Extra
+pkg/steps/ai/claude/content-block-merger_test.go:334:					tt.checkMetadata(t, merger.metadata.Extra)
+pkg/steps/ai/openai/engine_openai.go:212:	if metadata.Extra == nil {
+pkg/steps/ai/openai/engine_openai.go:213:		metadata.Extra = map[string]interface{}{}
+pkg/steps/ai/openai/engine_openai.go:215:	metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
+pkg/steps/ai/openai/engine_openai.go:216:	runtimeattrib.AddRuntimeAttributionToExtra(metadata.Extra, t)
+pkg/steps/ai/openai/engine_openai.go:347:	if metadata.Extra == nil {
+pkg/steps/ai/openai/engine_openai.go:348:		metadata.Extra = map[string]any{}
+pkg/steps/ai/openai/engine_openai.go:350:	metadata.Extra["thinking_text"] = thinkingBuf.String()
+pkg/steps/ai/openai/engine_openai.go:351:	metadata.Extra["saying_text"] = message
+pkg/steps/ai/openai/engine_openai.go:353:		metadata.Extra["reasoning_tokens"] = reasoningTokens
+pkg/steps/ai/claude/content-block-merger.go:89:	if cbm.metadata.Extra != nil {
+pkg/steps/ai/claude/content-block-merger.go:90:		if v, ok := cbm.metadata.Extra[StopReasonMetadataSlug].(string); ok && v == "tool_use" {
+pkg/steps/ai/claude/content-block-merger.go:168:		if cbm.metadata.Extra == nil {
+pkg/steps/ai/claude/content-block-merger.go:169:			cbm.metadata.Extra = map[string]interface{}{}
+pkg/steps/ai/claude/content-block-merger.go:171:		cbm.metadata.Extra[ModelMetadataSlug] = event.Message.Model
+pkg/steps/ai/claude/content-block-merger.go:172:		cbm.metadata.Extra[MessageIdMetadataSlug] = event.Message.ID
+pkg/steps/ai/claude/content-block-merger.go:173:		cbm.metadata.Extra[RoleMetadataSlug] = event.Message.Role
+pkg/steps/ai/claude/content-block-merger.go:186:			if cbm.metadata.Extra == nil {
+pkg/steps/ai/claude/content-block-merger.go:187:				cbm.metadata.Extra = map[string]interface{}{}
+pkg/steps/ai/claude/content-block-merger.go:189:			cbm.metadata.Extra[StopReasonMetadataSlug] = event.Delta.StopReason
+pkg/steps/ai/claude/content-block-merger.go:196:			if cbm.metadata.Extra == nil {
+pkg/steps/ai/claude/content-block-merger.go:197:				cbm.metadata.Extra = map[string]interface{}{}
+pkg/steps/ai/claude/content-block-merger.go:199:			cbm.metadata.Extra[StopSequenceMetadataSlug] = event.Delta.StopSequence
+pkg/steps/ai/claude/content-block-merger.go:221:				if cbm.metadata.Extra == nil {
+pkg/steps/ai/claude/content-block-merger.go:222:					cbm.metadata.Extra = map[string]interface{}{}
+pkg/steps/ai/claude/content-block-merger.go:224:				cbm.metadata.Extra[StopReasonMetadataSlug] = event.Message.StopReason
+pkg/steps/ai/claude/content-block-merger.go:229:				if cbm.metadata.Extra == nil {
+pkg/steps/ai/claude/content-block-merger.go:230:					cbm.metadata.Extra = map[string]interface{}{}
+pkg/steps/ai/claude/content-block-merger.go:232:				cbm.metadata.Extra[StopSequenceMetadataSlug] = event.Message.StopSequence
+pkg/steps/ai/openai/observability.go:56:	applyChatProviderDataToRecord(&rec, metadata.Extra)
+pkg/steps/ai/openai/observability.go:248:	if metadata.Extra == nil {
+pkg/steps/ai/openai/observability.go:249:		metadata.Extra = map[string]any{}
+pkg/steps/ai/openai/observability.go:251:		copyExtra := make(map[string]any, len(metadata.Extra)+len(data))
+pkg/steps/ai/openai/observability.go:252:		for k, v := range metadata.Extra {
+pkg/steps/ai/openai/observability.go:253:			copyExtra[k] = v
+pkg/steps/ai/openai/observability.go:255:		metadata.Extra = copyExtra
+pkg/steps/ai/openai/observability.go:258:		metadata.Extra[k] = v
+pkg/steps/ai/openai_responses/engine_test.go:381:				if s, ok := e.Metadata().Extra["thinking_text"].(string); ok {
+pkg/steps/ai/openai_responses/engine_test.go:646:				if s, ok := e.Metadata().Extra["reasoning_summary_text"].(string); ok {
+pkg/steps/ai/openai_responses/engine_test.go:840:				if s, ok := e.Metadata().Extra["thinking_text"].(string); ok {
+pkg/steps/ai/openai_responses/engine_test.go:1022:			if s, ok := e.Metadata().Extra["thinking_text"].(string); ok {
+pkg/steps/ai/openai_responses/engine_test.go:1383:				if v, ok := e.Metadata().Extra["reasoning_tokens"].(int); ok {
+pkg/steps/ai/openai_responses/streaming.go:745:	if metadata.Extra == nil {
+pkg/steps/ai/openai_responses/streaming.go:746:		metadata.Extra = map[string]any{}
+pkg/steps/ai/openai_responses/streaming.go:749:		metadata.Extra["reasoning_tokens"] = reasoningTokens
+pkg/steps/ai/openai_responses/streaming.go:751:	metadata.Extra["thinking_text"] = thinkBuf.String()
+pkg/steps/ai/openai_responses/streaming.go:752:	metadata.Extra["saying_text"] = sayBuf.String()
+pkg/steps/ai/openai_responses/streaming.go:754:		metadata.Extra["reasoning_summary_text"] = summaryBuf.String()
+pkg/steps/ai/openai/engine_openai_test.go:131:					if s, ok := e.Metadata().Extra["thinking_text"].(string); ok {
+pkg/steps/ai/openai_responses/nonstreaming.go:113:			if metadata.Extra == nil {
+pkg/steps/ai/openai_responses/nonstreaming.go:114:				metadata.Extra = map[string]any{}
+pkg/steps/ai/openai_responses/nonstreaming.go:116:			metadata.Extra["reasoning_tokens"] = totals.reasoningTokens
+pkg/steps/ai/claude/engine_claude.go:146:	if metadata.Extra == nil {
+pkg/steps/ai/claude/engine_claude.go:147:		metadata.Extra = map[string]interface{}{}
+pkg/steps/ai/claude/engine_claude.go:149:	metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
+pkg/steps/ai/claude/engine_claude.go:150:	runtimeattrib.AddRuntimeAttributionToExtra(metadata.Extra, t)
+pkg/steps/ai/claude/engine_claude.go:275:			dst.Extra[k] = v
+pkg/steps/ai/openai_responses/engine.go:143:	if metadata.Extra == nil {
+pkg/steps/ai/openai_responses/engine.go:144:		metadata.Extra = map[string]any{}
+pkg/steps/ai/openai_responses/engine.go:147:		metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
+pkg/steps/ai/openai_responses/engine.go:149:	runtimeattrib.AddRuntimeAttributionToExtra(metadata.Extra, t)

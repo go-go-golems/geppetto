@@ -238,25 +238,7 @@ func chatProviderDataFromEvent(provider string, ev chatStreamEvent) map[string]a
 }
 
 func chatCorrelationKey(provider, responseID string, choiceIndex *int, streamKind, toolCallID string, toolCallIndex *int) string {
-	provider = strings.TrimSpace(provider)
-	responseID = strings.TrimSpace(responseID)
-	streamKind = strings.TrimSpace(streamKind)
-	if provider == "" || responseID == "" || streamKind == "" || streamKind == "unknown" {
-		return ""
-	}
-	choice := 0
-	if choiceIndex != nil {
-		choice = *choiceIndex
-	}
-	if streamKind == "tool_call" {
-		if toolCallID != "" {
-			return fmt.Sprintf("%s-chat:%s:choice:%d:tool:%s", provider, responseID, choice, toolCallID)
-		}
-		if toolCallIndex != nil {
-			return fmt.Sprintf("%s-chat:%s:choice:%d:tool-index:%d", provider, responseID, choice, *toolCallIndex)
-		}
-	}
-	return fmt.Sprintf("%s-chat:%s:choice:%d:%s", provider, responseID, choice, streamKind)
+	return events.BuildChatCompletionsCorrelation(provider, responseID, choiceIndex, streamKind, toolCallID, toolCallIndex).CorrelationKey
 }
 
 func metadataWithChatProviderData(metadata events.EventMetadata, data map[string]any) events.EventMetadata {

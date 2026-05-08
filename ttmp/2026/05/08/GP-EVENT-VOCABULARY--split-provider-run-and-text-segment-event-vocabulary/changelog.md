@@ -20,6 +20,7 @@ LastUpdated: 2026-05-08T05:55:00-04:00
 
 ## 2026-05-08
 
+- Started Phase 2 by centralizing provider-call, segment, Chat Completions, Responses, and Claude correlation builders; OpenAI observability helpers now delegate to shared builders.
 - Added `ValidateCanonicalEvent` to enforce canonical typed-correlation invariants for provider-call, segment, and tool events.
 - Began Phase 1 by adding canonical Geppetto `Correlation` and run/provider-call/text/reasoning/tool event structs with JSON round-trip tests; `go test ./pkg/events/... -count=1` passed.
 - Started Phase 0 implementation work: captured a legacy symbol/correlation inventory under `various/phase-0/legacy-symbol-inventory.txt` and saved baseline validation output under `various/phase-0/baseline-validation.log`; all baseline Geppetto, Pinocchio, CoinVault backend, and targeted frontend checks passed.

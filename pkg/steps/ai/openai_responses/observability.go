@@ -161,22 +161,7 @@ func providerData(provider, responseID, itemID string, outputIndex, summaryIndex
 }
 
 func responsesCorrelationKey(provider, responseID, itemID string, outputIndex, summaryIndex *int) string {
-	provider = strings.TrimSpace(provider)
-	responseID = strings.TrimSpace(responseID)
-	itemID = strings.TrimSpace(itemID)
-	if provider == "" || responseID == "" {
-		return ""
-	}
-	if itemID != "" {
-		return provider + ":" + responseID + ":item:" + itemID
-	}
-	if outputIndex != nil && summaryIndex != nil {
-		return provider + ":" + responseID + ":output:" + strconv.Itoa(*outputIndex) + ":summary:" + strconv.Itoa(*summaryIndex)
-	}
-	if outputIndex != nil {
-		return provider + ":" + responseID + ":output:" + strconv.Itoa(*outputIndex)
-	}
-	return provider + ":" + responseID
+	return events.BuildResponsesCorrelation(provider, responseID, itemID, outputIndex, summaryIndex).CorrelationKey
 }
 
 func applyProviderDataToRecord(rec *geppettoobs.Record, data map[string]interface{}) {

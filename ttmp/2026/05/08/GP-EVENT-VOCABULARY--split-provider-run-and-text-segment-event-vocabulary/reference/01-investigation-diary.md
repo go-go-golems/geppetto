@@ -467,3 +467,39 @@ go test ./pkg/events -count=1
 ```
 
 Passed.
+
+## 2026-05-08 06:55 — Phase 2 started: centralized correlation builders
+
+### What changed
+
+Added centralized correlation builders in `pkg/events/correlation_builders.go`:
+
+- `BuildProviderCallCorrelation` for response-ID-independent provider-call identity;
+- `BuildSegmentCorrelation` for transcript segment identity nested under a provider call;
+- `BuildChatCompletionsCorrelation` for OpenAI-compatible Chat Completions content/reasoning/tool streams;
+- `BuildResponsesCorrelation` for OpenAI Responses response/item/output/summary streams;
+- `BuildClaudeProviderCallCorrelation` and `BuildClaudeSegmentCorrelation` for Claude envelope/content-block identity.
+
+Updated the existing OpenAI Chat Completions and OpenAI Responses observability correlation-key helpers to delegate to these shared builders rather than duplicating string construction locally.
+
+### RunID decision
+
+For the initial hard cutover implementation, `RunID` remains optional and the generic provider-call builder uses `RunID` when present, otherwise `InferenceID`. This keeps provider-call IDs stable before provider response IDs are known while avoiding a premature run-ID generator change. If a later runtime layer introduces a first-class run ID, the builder API already has a `runID` slot.
+
+### Validation
+
+```bash
+go test ./pkg/events ./pkg/steps/ai/openai ./pkg/steps/ai/openai_responses -count=1
+```
+
+Passed.
+
+### Metadata.Extra routing inventory
+
+Captured a Phase 2 inventory at:
+
+```text
+various/phase-2/metadata-extra-routing-inventory.txt
+```
+
+The canonical `pkg/events` package has no `metadata.Extra` references. Remaining provider adapter references are legacy/debug metadata and will be retired as providers migrate to canonical events.
