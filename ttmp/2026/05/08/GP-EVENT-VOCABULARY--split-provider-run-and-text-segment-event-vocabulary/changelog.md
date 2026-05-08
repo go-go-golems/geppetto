@@ -20,6 +20,7 @@ LastUpdated: 2026-05-08T05:55:00-04:00
 
 ## 2026-05-08
 
+- Replaced the short TODO section in `tasks.md` with a detailed phase-by-phase hard-cutover migration checklist covering Geppetto, Pinocchio, CoinVault, SQLite export, trace browser updates, validation gates, commit strategy, and final acceptance criteria.
 - Revised the primary design guide to assume a hard cutover instead of a compatibility migration: old `EventFinal`/`EventPartialCompletion`/`ChatInferenceFinished` vocabulary is removed, not aliased, and typed `Correlation` / `CorrelationInfo` is mandatory for all canonical events.
 - Uploaded a new hard-cutover reMarkable copy named `GP-EVENT-VOCABULARY - hard cutover event vocabulary design`.
 - Created `GP-EVENT-VOCABULARY` ticket workspace.

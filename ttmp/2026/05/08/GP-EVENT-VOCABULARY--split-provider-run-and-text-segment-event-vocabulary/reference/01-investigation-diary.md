@@ -281,3 +281,35 @@ OK: uploaded GP-EVENT-VOCABULARY - hard cutover event vocabulary design.pdf -> /
 [f]	GP-EVENT-VOCABULARY - event vocabulary design
 [f]	GP-EVENT-VOCABULARY - hard cutover event vocabulary design
 ```
+
+## 2026-05-08 06:45 — Expanded tasks into phased hard-cutover migration checklist
+
+### What changed
+
+I rewrote `tasks.md` from a short TODO list into a detailed phase-by-phase hard-cutover migration checklist. The checklist now covers the full cross-repo path:
+
+1. workspace and baseline gates;
+2. Geppetto canonical event/correlation contracts;
+3. correlation builders and invariants;
+4. Claude migration;
+5. OpenAI Responses migration;
+6. OpenAI-compatible Chat Completions migration;
+7. Geppetto inference-result and segment observability;
+8. Pinocchio protobuf replacement;
+9. Pinocchio runtime/projection replacement;
+10. Pinocchio SQLite export updates;
+11. CoinVault protobuf mirror/frontend parser updates;
+12. trace browser and debug script updates;
+13. deletion gates for old vocabulary;
+14. browser/SQLite validation matrix;
+15. documentation/reMarkable delivery;
+16. suggested commit strategy;
+17. final acceptance criteria.
+
+### Important hard-cutover constraint
+
+The tasks explicitly remove the old compatibility item that said to keep aliases for `EventFinal` and `ChatInferenceFinished`. The new task list states that the migration is complete only when no active runtime code emits or consumes the old vocabulary.
+
+### Correlation emphasis
+
+The checklist makes typed correlation mandatory at each layer. It includes specific checks for `Correlation` / `CorrelationInfo`, provider-call IDs, segment IDs, tool-call IDs, normalized `correlation_key`, and removal of routing through `metadata.Extra`.
