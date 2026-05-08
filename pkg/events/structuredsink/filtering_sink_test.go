@@ -75,24 +75,30 @@ func newMeta() events.EventMetadata {
 	return events.EventMetadata{ID: uuid.New(), SessionID: "run", InferenceID: "inf", TurnID: "turn"}
 }
 
+func newTextCorr(meta events.EventMetadata) events.Correlation {
+	providerCorr := events.BuildProviderCallCorrelation("test", meta.InferenceID, "", 0, "")
+	providerCorr.SessionID = meta.SessionID
+	providerCorr.TurnID = meta.TurnID
+	return events.BuildSegmentCorrelation(providerCorr, meta.ID.String(), 0, events.SegmentTypeText)
+}
+
+func newTextDeltaEvent(meta events.EventMetadata, delta, text string) *events.EventTextDelta {
+	return events.NewTextDeltaEvent(meta, newTextCorr(meta), delta, text, 0)
+}
+
+func newTextFinalEvent(meta events.EventMetadata, text string) *events.EventTextSegmentFinished {
+	return events.NewTextSegmentFinishedEvent(meta, newTextCorr(meta), text, "")
+}
+
 func collectTextParts(list []events.Event) ([]string, string) {
 	var partials []string
 	var final string
 	for _, ev := range list {
 		switch v := ev.(type) {
-		case *events.EventPartialCompletion:
+		case *events.EventTextDelta:
 			partials = append(partials, v.Delta)
-		case *events.EventFinal:
+		case *events.EventTextSegmentFinished:
 			final = v.Text
-		case *events.EventImpl:
-			if pc, ok := v.ToPartialCompletion(); ok {
-				partials = append(partials, pc.Delta)
-				continue
-			}
-			if tf, ok := v.ToText(); ok {
-				final = tf.Text
-				continue
-			}
 		}
 	}
 	return partials, final
@@ -103,9 +109,9 @@ func feedParts(t *testing.T, sink *FilteringSink, meta events.EventMetadata, par
 	completion := ""
 	for _, p := range parts {
 		completion += p
-		require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, p, completion)))
+		require.NoError(t, sink.PublishEvent(newTextDeltaEvent(meta, p, completion)))
 	}
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, completion)))
+	require.NoError(t, sink.PublishEvent(newTextFinalEvent(meta, completion)))
 	return completion
 }
 
@@ -118,8 +124,8 @@ func TestFilteringSink_CloseTagSinglePartial(t *testing.T) {
 	full := "Hello <core:x:v1>abc</core:x:v1> world"
 
 	// send as a single partial and then final
-	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: full})
-	_ = sink.PublishEvent(events.NewFinalEvent(meta, full))
+	_ = sink.PublishEvent(newTextDeltaEvent(meta, full, full))
+	_ = sink.PublishEvent(newTextFinalEvent(meta, full))
 
 	// assert extractor saw correct lifecycle
 	require.NotNil(t, ex.last)
@@ -149,9 +155,9 @@ func TestFilteringSink_CloseTagSplitAcrossPartials(t *testing.T) {
 	p2 := "core:x:v1> Z"
 	full := p1 + p2
 
-	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p1})
-	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p2})
-	_ = sink.PublishEvent(events.NewFinalEvent(meta, full))
+	_ = sink.PublishEvent(newTextDeltaEvent(meta, p1, p1))
+	_ = sink.PublishEvent(newTextDeltaEvent(meta, p2, full))
+	_ = sink.PublishEvent(newTextFinalEvent(meta, full))
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.started)
@@ -181,9 +187,9 @@ func TestFilteringSink_CloseTagBoundaryBeforeGt(t *testing.T) {
 	p2 := "> suffix"
 	full := p1 + p2
 
-	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p1})
-	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p2})
-	_ = sink.PublishEvent(events.NewFinalEvent(meta, full))
+	_ = sink.PublishEvent(newTextDeltaEvent(meta, p1, p1))
+	_ = sink.PublishEvent(newTextDeltaEvent(meta, p2, full))
+	_ = sink.PublishEvent(newTextFinalEvent(meta, full))
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.completed)
@@ -202,8 +208,8 @@ func TestFilteringSink_MalformedAtFinal_DefaultErrorEvents(t *testing.T) {
 	meta := newMeta()
 	p1 := "M <core:x:v1>abc"
 
-	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p1})
-	_ = sink.PublishEvent(events.NewFinalEvent(meta, p1))
+	_ = sink.PublishEvent(newTextDeltaEvent(meta, p1, p1))
+	_ = sink.PublishEvent(newTextFinalEvent(meta, p1))
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.completed)
@@ -225,8 +231,8 @@ func TestFilteringSink_UnknownExtractor_FlushesAsText(t *testing.T) {
 	meta := newMeta()
 	full := "X <core:unknown:v1>abc</core:unknown:v1> Y"
 
-	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: full})
-	_ = sink.PublishEvent(events.NewFinalEvent(meta, full))
+	_ = sink.PublishEvent(newTextDeltaEvent(meta, full, full))
+	_ = sink.PublishEvent(newTextFinalEvent(meta, full))
 
 	// No extractor session should be created
 	assert.Nil(t, ex.last)
@@ -585,7 +591,7 @@ func TestFilteringSink_FinalOnly_ValidBlock(t *testing.T) {
 
 	meta := newMeta()
 	full := "before <core:x:v1>abc</core:x:v1> after"
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, full)))
+	require.NoError(t, sink.PublishEvent(newTextFinalEvent(meta, full)))
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.started)
@@ -604,7 +610,7 @@ func TestFilteringSink_FinalOnly_Malformed(t *testing.T) {
 
 	meta := newMeta()
 	full := "before <core:x:v1>abc"
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, full)))
+	require.NoError(t, sink.PublishEvent(newTextFinalEvent(meta, full)))
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.completed)
@@ -623,7 +629,7 @@ func TestFilteringSink_FinalOnly_UnknownExtractor(t *testing.T) {
 
 	meta := newMeta()
 	full := "before <core:unknown:v1>abc</core:unknown:v1> after"
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, full)))
+	require.NoError(t, sink.PublishEvent(newTextFinalEvent(meta, full)))
 
 	assert.Nil(t, ex.last)
 
@@ -772,13 +778,13 @@ func TestFilteringSink_MultipleStreamsInterleaved(t *testing.T) {
 	metaB := newMeta()
 
 	// Alternate partials between streams
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaA, "A1 <core:x:v1>", "A1 <core:x:v1>")))
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaB, "B1 <core:x:v1>", "B1 <core:x:v1>")))
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaA, "payloadA</core:x:v1> A2", "A1 <core:x:v1>payloadA</core:x:v1> A2")))
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaB, "payloadB</core:x:v1> B2", "B1 <core:x:v1>payloadB</core:x:v1> B2")))
+	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(metaA, "A1 <core:x:v1>", "A1 <core:x:v1>")))
+	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(metaB, "B1 <core:x:v1>", "B1 <core:x:v1>")))
+	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(metaA, "payloadA</core:x:v1> A2", "A1 <core:x:v1>payloadA</core:x:v1> A2")))
+	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(metaB, "payloadB</core:x:v1> B2", "B1 <core:x:v1>payloadB</core:x:v1> B2")))
 
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(metaA, "A1 <core:x:v1>payloadA</core:x:v1> A2")))
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(metaB, "B1 <core:x:v1>payloadB</core:x:v1> B2")))
+	require.NoError(t, sink.PublishEvent(newTextFinalEvent(metaA, "A1 <core:x:v1>payloadA</core:x:v1> A2")))
+	require.NoError(t, sink.PublishEvent(newTextFinalEvent(metaB, "B1 <core:x:v1>payloadB</core:x:v1> B2")))
 
 	// Should have two sessions (one per stream)
 	require.Len(t, ex.sessions, 2)
@@ -806,12 +812,12 @@ func TestFilteringSink_ZeroLengthDeltas_Outside(t *testing.T) {
 	sink := NewFilteringSink(col, Options{}, ex)
 
 	meta := newMeta()
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", "")))
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "prefix ", "prefix ")))
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", "prefix ")))
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "<core:x:v1>abc</core:x:v1>", "prefix <core:x:v1>abc</core:x:v1>")))
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", "prefix <core:x:v1>abc</core:x:v1>")))
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, "prefix <core:x:v1>abc</core:x:v1>")))
+	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(meta, "", "")))
+	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(meta, "prefix ", "prefix ")))
+	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(meta, "", "prefix ")))
+	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(meta, "<core:x:v1>abc</core:x:v1>", "prefix <core:x:v1>abc</core:x:v1>")))
+	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(meta, "", "prefix <core:x:v1>abc</core:x:v1>")))
+	require.NoError(t, sink.PublishEvent(newTextFinalEvent(meta, "prefix <core:x:v1>abc</core:x:v1>")))
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.completed)
@@ -828,15 +834,15 @@ func TestFilteringSink_ZeroLengthDeltas_InsideCapture(t *testing.T) {
 
 	meta := newMeta()
 	completion := ""
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "<core:x:v1>", "<core:x:v1>")))
+	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(meta, "<core:x:v1>", "<core:x:v1>")))
 	completion = "<core:x:v1>"
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", completion)))
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "abc", completion+"abc")))
+	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(meta, "", completion)))
+	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(meta, "abc", completion+"abc")))
 	completion = completion + "abc"
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", completion)))
-	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "</core:x:v1>", completion+"</core:x:v1>")))
+	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(meta, "", completion)))
+	require.NoError(t, sink.PublishEvent(newTextDeltaEvent(meta, "</core:x:v1>", completion+"</core:x:v1>")))
 	completion = completion + "</core:x:v1>"
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, completion)))
+	require.NoError(t, sink.PublishEvent(newTextFinalEvent(meta, completion)))
 
 	require.NotNil(t, ex.last)
 	assert.True(t, ex.last.completed)

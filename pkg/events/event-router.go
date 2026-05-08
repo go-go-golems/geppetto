@@ -14,17 +14,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/helpers"
 )
 
-// ChatEventHandler defines an interface for handling different chat events.
-// Moved from pinocchio/cmd/experiments/web-ui/client/client.go
-type ChatEventHandler interface {
-	HandlePartialCompletion(ctx context.Context, e *EventPartialCompletion) error
-	HandleText(ctx context.Context, e *EventText) error
-	HandleFinal(ctx context.Context, e *EventFinal) error
-	HandleError(ctx context.Context, e *EventError) error
-	HandleInterrupt(ctx context.Context, e *EventInterrupt) error
-	// Add other event types as needed
-}
-
 type EventRouter struct {
 	logger     watermill.LoggerAdapter
 	Publisher  message.Publisher
@@ -110,11 +99,6 @@ func (e *EventRouter) Close() error {
 
 	return nil
 }
-
-// RegisterChatEventHandler sets up event publishing for a chat step and registers a handler
-// function that dispatches events to the provided ChatEventHandler.
-// This introduces a dependency from the events package to the chat package.
-// RegisterChatEventHandler removed: use sinks with engines and manual AddHandler
 
 func (e *EventRouter) AddHandler(name string, topic string, f func(msg *message.Message) error) {
 	e.AddHandlerWithOptions(name, topic, f)

@@ -1,0 +1,345 @@
+{
+  "profile": "haiku",
+  "api": "claude",
+  "sessionId": "c3e0c807-b761-4ae2-8ee7-dac9e7bd4bb5",
+  "href": "http://127.0.0.1:5174/?sessionId=c3e0c807-b761-4ae2-8ee7-dac9e7bd4bb5",
+  "terminalOk": true,
+  "entryCount": 54,
+  "sqliteBytes": 585728,
+  "uploadStatus": 200,
+  "uploadHeaders": {
+    "Vary": "Origin",
+    "accept-ranges": "bytes",
+    "content-disposition": "attachment; filename=\"pinocchio-stream-debug-c3e0c807-b761-4ae2-8ee7-dac9e7bd4bb5.sqlite\"",
+    "content-length": "585728",
+    "content-type": "application/vnd.sqlite3",
+    "last-modified": "Fri, 08 May 2026 14:08:41 GMT",
+    "x-content-type-options": "nosniff",
+    "date": "Fri, 08 May 2026 14:08:41 GMT",
+    "connection": "close"
+  },
+  "uploadError": "",
+  "bodyText": "Web Chat (haiku)\nprofile\nanyscale-base\ncerebras-base\ncerebras-llama-3.1-8b\nclaude-base\ncodestral\ndefault\ngemini-2.5-flash\ngemini-2.5-flash-lite\ngemini-2.5-pro\ngemini-3-pro\ngemini-base\ngemma3\ngpt-5-low\ngpt-5-mini\ngpt-5-nano\ngpt-5-nano-low\ngroq-base\ngroq-oss-20b\nhaiku\nhaiku-4.5\nkimi\nlitellm\nlitellm-base\nllama3b\nmistral\nmistral-anyscale\nmistral-base\nmixtral-anyscale\nollama\nollama-codellama\nollama-mistral\nollama-openai-base\nopenai-responses-base\nopenrouter-base\nopenrouter-oss-20b\ntogether-base\ntogether-qwen-3.5-9b\nwafer-base\nwafer-deepseek-v4-pro\nwafer-deepseek-v4-pro-fast\nwafer-deepseek-v4-pro-max\nwafer-deepseek-v4-pro-no-thinking\nwafer-glm-5.1\nwafer-qwen3.5-397b\nz-ai-base\nz-ai-glm-5v-turbo\nws: connected\nseq: 14\nq: 0\nfinished\nExport \u25be\nUser\nsent at 10:08:39 AM\n\nReply with exactly one short sentence containing haiku and CORRELATION-SMOKE. Do not use markdown.\n\nAssistant\nsent at 10:08:40 AM\n\npinocchio:agent_transaction_mode_switch:v1\n\nCopy\nmode_switch:\n  analysis: |\n    \u2022 User is asking for a haiku containing specific text, not financial analysis\n    \u2022 This requires creative writing, not transaction categorization\n    \u2022 Current financial_analyst mode is inappropriate for this task\n    \u2022 A general assistant mode would be optimal for creative writing requests\n  new_mode: general_assistant\n\n\n</pinocchio:agent_transaction_mode_switch:v1>\n\nNumbers fade to mist, CORRELATION-SMOKE rises, truth obscured by haze.\n\nEnter to send \u00b7 Shift+Enter for newline\nSend\nNew conv\nStream Debug (45)",
+  "analysis": {
+    "tables": [
+      "backend_pipeline",
+      "backend_pipeline_entities",
+      "backend_pipeline_ui_events",
+      "backend_records",
+      "backend_transport",
+      "backend_transport_snapshot_entities",
+      "frontend_lifecycle",
+      "frontend_parsed_frames",
+      "frontend_raw_ws",
+      "frontend_records",
+      "frontend_snapshot_entities",
+      "frontend_snapshots",
+      "frontend_ui_events",
+      "geppetto_emitted_events",
+      "geppetto_inference_results",
+      "geppetto_provider_events",
+      "geppetto_records",
+      "geppetto_segments",
+      "meta",
+      "sqlite_sequence",
+      "timeline_entities",
+      "turns"
+    ],
+    "views": [
+      "backend_pipeline_errors",
+      "backend_transport_errors",
+      "delivery_chain",
+      "entity_kind_summary",
+      "extra_transport_fanout",
+      "frontend_dropped_entities",
+      "frontend_parsed_no_mutation",
+      "geppetto_correlation_to_frontend",
+      "geppetto_inference_result_summary",
+      "geppetto_provider_to_emitted",
+      "geppetto_publish_errors",
+      "geppetto_reasoning_sequence",
+      "geppetto_reasoning_to_frontend",
+      "geppetto_segment_lifecycle",
+      "geppetto_summary_without_item_id",
+      "geppetto_text_segments",
+      "missing_transport_fanout",
+      "tombstoned_entities"
+    ],
+    "counts": {
+      "backend_records": 100,
+      "backend_pipeline": 14,
+      "backend_pipeline_ui_events": 30,
+      "frontend_records": 54,
+      "frontend_parsed_frames": 18,
+      "frontend_ui_events": 15,
+      "geppetto_records": 35,
+      "geppetto_provider_events": 13,
+      "geppetto_emitted_events": 0,
+      "geppetto_inference_results": 1,
+      "geppetto_segments": 9,
+      "timeline_entities": 2,
+      "turns": 1
+    },
+    "distinct_geppetto_events": [
+      [
+        "text-delta",
+        14
+      ],
+      [
+        "content_block_delta",
+        7
+      ],
+      [
+        "provider-call-finished",
+        2
+      ],
+      [
+        "text-segment-finished",
+        2
+      ],
+      [
+        "text-segment-started",
+        2
+      ],
+      [
+        "content_block_start",
+        1
+      ],
+      [
+        "content_block_stop",
+        1
+      ],
+      [
+        "message_delta",
+        1
+      ],
+      [
+        "message_start",
+        1
+      ],
+      [
+        "message_stop",
+        1
+      ],
+      [
+        "ping",
+        1
+      ],
+      [
+        "provider-call-metadata-updated",
+        1
+      ],
+      [
+        "provider-call-started",
+        1
+      ]
+    ],
+    "distinct_backend_events": [
+      [
+        "ChatTextDelta",
+        6
+      ],
+      [
+        "ChatProviderCallFinished",
+        1
+      ],
+      [
+        "ChatProviderCallMetadataUpdated",
+        1
+      ],
+      [
+        "ChatProviderCallStarted",
+        1
+      ],
+      [
+        "ChatRunFinished",
+        1
+      ],
+      [
+        "ChatRunStarted",
+        1
+      ],
+      [
+        "ChatTextSegmentFinished",
+        1
+      ],
+      [
+        "ChatTextSegmentStarted",
+        1
+      ],
+      [
+        "ChatUserMessageAccepted",
+        1
+      ]
+    ],
+    "distinct_frontend_frames": [
+      [
+        "ChatTextDelta",
+        6
+      ],
+      [
+        "",
+        3
+      ],
+      [
+        "ChatAgentModePreviewCleared",
+        1
+      ],
+      [
+        "ChatProviderCallFinished",
+        1
+      ],
+      [
+        "ChatProviderCallMetadataUpdated",
+        1
+      ],
+      [
+        "ChatProviderCallStarted",
+        1
+      ],
+      [
+        "ChatRunFinished",
+        1
+      ],
+      [
+        "ChatRunStarted",
+        1
+      ],
+      [
+        "ChatTextSegmentFinished",
+        1
+      ],
+      [
+        "ChatTextSegmentStarted",
+        1
+      ],
+      [
+        "ChatUserMessageAccepted",
+        1
+      ]
+    ],
+    "inference_results": [
+      [
+        "claude",
+        "claude-haiku-4-5-20251001",
+        "msg_017UJ7kJadbKkfCo71eg5U7p",
+        null,
+        "msg_017UJ7kJadbKkfCo71eg5U7p",
+        "end_turn",
+        "",
+        0,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:provider-call"
+      ]
+    ],
+    "segments": [
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        0,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-segment-started",
+        "segment_started"
+      ],
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        3,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        106,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        154,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        261,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        384,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        483,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "",
+        536,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        null,
+        "content_block_stop",
+        536,
+        "claude:msg_017UJ7kJadbKkfCo71eg5U7p:block:0:text",
+        "text-segment-finished",
+        "segment_finished"
+      ]
+    ],
+    "correlation_nonempty": 22,
+    "segment_nonempty": 9,
+    "provider_call_nonempty": 22,
+    "frontend_corr_nonempty": 13,
+    "backend_corr_nonempty": 26,
+    "provider_to_emitted_rows": 13,
+    "inference_summary_rows": 1,
+    "segment_lifecycle_rows": 9,
+    "text_segment_rows": 9
+  }
+}

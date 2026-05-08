@@ -52,7 +52,11 @@ func (e *ClaudeEngine) observePublishStarted(ctx context.Context, event events.E
 	if info, ok := event.(*events.EventInfo); ok {
 		rec.InfoMessage = info.Message
 	}
+	geppettoobs.EnrichRecordFromEvent(&rec, event)
 	e.observe(ctx, rec)
+	for _, derived := range geppettoobs.DerivedRecordsFromEvent(rec, event) {
+		e.observe(ctx, derived)
+	}
 }
 
 func (e *ClaudeEngine) observeProviderEvent(ctx context.Context, metadata events.EventMetadata, model string, ev api.StreamingEvent) {
@@ -70,6 +74,7 @@ func (e *ClaudeEngine) claudeProviderRecordBase(metadata events.EventMetadata, m
 		model = ev.Message.Model
 	}
 	rec := geppettoobs.Record{
+		Kind:        geppettoobs.RecordKindProviderEvent,
 		Provider:    e.inferenceProvider(),
 		Model:       model,
 		SessionID:   metadata.SessionID,

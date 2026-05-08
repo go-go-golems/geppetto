@@ -1,0 +1,471 @@
+    50		Provider        string
+    51		ResponseID      string
+    52		ItemID          string
+    53		OutputIndex     int32
+    54		HasOutputIndex  bool
+    55		ChoiceIndex     int32
+    56		HasChoiceIndex  bool
+    57		StreamKind      string
+    58		CorrelationKey  string
+    59	}
+    60	
+    61	type reasoningSegmentState struct {
+    62		Current  int32
+    63		Active   bool
+    64		Provider reasoningProviderInfo
+    65	}
+    66	
+    67	type reasoningProviderInfo struct {
+    68		Provider       string
+    69		ResponseID     string
+    70		ItemID         string
+    71		OutputIndex    *int32
+    72		SummaryIndex   *int32
+    73		ChoiceIndex    *int32
+    74		StreamKind     string
+    75		CorrelationKey string
+    76		ToolCallID     string
+    77		ToolCallIndex  *int32
+    78	}
+    79	
+    80	// NewReasoningPlugin creates a new ReasoningPlugin.
+    81	func NewReasoningPlugin() chatapp.ChatPlugin {
+    82		return &ReasoningPlugin{
+    83			segments:       map[reasoningKey]reasoningSegmentState{},
+    84			activeByParent: map[string]reasoningKey{},
+    85			nextSegment:    map[string]int32{},
+    86		}
+    87	}
+    88	
+    89	// RegisterSchemas registers the reasoning event and UI event payload schemas.
+    90	func (p *ReasoningPlugin) RegisterSchemas(reg *sessionstream.SchemaRegistry) error {
+    91		for _, err := range []error{
+    92			reg.RegisterEvent(ReasoningStartedEventName, &chatappv1.ReasoningUpdate{}),
+    93			reg.RegisterEvent(ReasoningDeltaEventName, &chatappv1.ReasoningUpdate{}),
+    94			reg.RegisterEvent(ReasoningFinishedEventName, &chatappv1.ReasoningUpdate{}),
+    95			reg.RegisterUIEvent(ReasoningStartedUIName, &chatappv1.ReasoningUpdate{}),
+    96			reg.RegisterUIEvent(ReasoningAppendedUIName, &chatappv1.ReasoningUpdate{}),
+    97			reg.RegisterUIEvent(ReasoningFinishedUIName, &chatappv1.ReasoningUpdate{}),
+    98		} {
+    99			if err != nil {
+   100				return err
+   101			}
+   102		}
+   103		return nil
+   104	}
+   105	
+   106	// HandleRuntimeEvent handles EventThinkingPartial and EventInfo events.
+   107	func (p *ReasoningPlugin) HandleRuntimeEvent(ctx context.Context, runtime chatapp.RuntimeEventContext, event gepevents.Event) (bool, error) {
+   108		parentMessageID := strings.TrimSpace(runtime.MessageID)
+   109		if parentMessageID == "" {
+   110			return false, nil
+   111		}
+   112	
+   113		switch ev := event.(type) {
+   114		case *gepevents.EventThinkingPartial:
+   115			providerInfo := reasoningProviderInfoFromMetadata(ev.Metadata())
+   116			reasoningMessageID, segment, providerInfo := p.ensureReasoningSegment(parentMessageID, providerInfo)
+   117			return true, runtime.Publish(ctx, ReasoningDeltaEventName, applyReasoningProviderInfo(&chatappv1.ReasoningUpdate{
+   118				MessageId:       reasoningMessageID,
+   119				ParentMessageId: parentMessageID,
+   120				Segment:         segment,
+   121				Role:            "thinking",
+   122				Chunk:           ev.Delta,
+   123				Content:         ev.Completion,
+   124				Text:            ev.Completion,
+   125				Status:          "streaming",
+   126				Streaming:       true,
+   127				Source:          "thinking",
+   128				SegmentType:     "thinking",
+   129			}, providerInfo))
+   130		case *gepevents.EventInfo:
+   131			switch ev.Message {
+   132			case "thinking-started":
+   133				providerInfo := reasoningProviderInfoFromData(ev.Data)
+   134				reasoningMessageID, segment, providerInfo := p.startReasoningSegment(parentMessageID, providerInfo)
+   135				return true, runtime.Publish(ctx, ReasoningStartedEventName, applyReasoningProviderInfo(&chatappv1.ReasoningUpdate{
+   136					MessageId:       reasoningMessageID,
+   137					ParentMessageId: parentMessageID,
+   138					Segment:         segment,
+   139					Role:            "thinking",
+   140					Status:          "streaming",
+   141					Streaming:       true,
+   142					Source:          "thinking",
+   143					SegmentType:     "thinking",
+   144				}, providerInfo))
+   145			case "thinking-ended":
+   146				providerInfo := reasoningProviderInfoFromData(ev.Data)
+   147				reasoningMessageID, segment, providerInfo, key, ok := p.currentReasoningSegment(parentMessageID, providerInfo)
+   148				if !ok {
+   149					return false, nil
+   150				}
+   151				p.finishReasoningSegment(key)
+   152				return true, runtime.Publish(ctx, ReasoningFinishedEventName, applyReasoningProviderInfo(&chatappv1.ReasoningUpdate{
+   153					MessageId:       reasoningMessageID,
+   154					ParentMessageId: parentMessageID,
+   155					Segment:         segment,
+   156					Role:            "thinking",
+   157					Status:          "finished",
+   158					Streaming:       false,
+   159					Source:          "thinking",
+   160					SegmentType:     "thinking",
+   161				}, providerInfo))
+   162			case "reasoning-summary-started", "reasoning-summary-ended":
+   163				p.updateReasoningProviderInfo(parentMessageID, reasoningProviderInfoFromData(ev.Data))
+   164				return false, nil
+   165			case "reasoning-summary":
+   166				providerInfo := reasoningProviderInfoFromData(ev.Data)
+   167				reasoningMessageID, segment, providerInfo, key := p.summaryReasoningSegment(parentMessageID, providerInfo)
+   168				p.finishReasoningSegment(key)
+   169				text := infoText(ev.Data)
+   170				return true, runtime.Publish(ctx, ReasoningFinishedEventName, applyReasoningProviderInfo(&chatappv1.ReasoningUpdate{
+   171					MessageId:       reasoningMessageID,
+   172					ParentMessageId: parentMessageID,
+   173					Segment:         segment,
+   174					Role:            "thinking",
+   175					Content:         text,
+   176					Text:            text,
+   177					Status:          "finished",
+   178					Streaming:       false,
+   179					Source:          "summary",
+   180					SegmentType:     "thinking",
+   181				}, providerInfo))
+   182			default:
+   183				return false, nil
+   184			}
+   185		default:
+   186			return false, nil
+   187		}
+   188	}
+   189	
+   190	// ProjectUI projects reasoning backend events into UI events.
+   191	func (p *ReasoningPlugin) ProjectUI(_ context.Context, ev sessionstream.Event, _ *sessionstream.Session, view sessionstream.TimelineView) ([]sessionstream.UIEvent, bool, error) {
+   192		payload, ok := reasoningProjectedPayload(ev, view)
+   193		if !ok {
+   194			return nil, false, nil
+   195		}
+   196		switch ev.Name {
+   197		case ReasoningStartedEventName:
+   198			return []sessionstream.UIEvent{{Name: ReasoningStartedUIName, Payload: payload}}, true, nil
+   199		case ReasoningDeltaEventName:
+   200			return []sessionstream.UIEvent{{Name: ReasoningAppendedUIName, Payload: payload}}, true, nil
+   201		case ReasoningFinishedEventName:
+   202			return []sessionstream.UIEvent{{Name: ReasoningFinishedUIName, Payload: payload}}, true, nil
+   203		default:
+   204			return nil, false, nil
+   205		}
+   206	}
+   207	
+   208	// ProjectTimeline projects reasoning backend events into ChatMessage timeline entities.
+   209	// Thinking entities use role "thinking" and accumulate content across deltas.
+   210	func (p *ReasoningPlugin) ProjectTimeline(_ context.Context, ev sessionstream.Event, _ *sessionstream.Session, view sessionstream.TimelineView) ([]sessionstream.TimelineEntity, bool, error) {
+   211		payload, ok := reasoningProjectedPayload(ev, view)
+   212		if !ok {
+   213			return nil, false, nil
+   214		}
+   215		messageID := payload.GetMessageId()
+   216		if messageID == "" {
+   217			return nil, true, nil
+   218		}
+   219		entity, hadEntity := currentReasoningEntity(view, messageID)
+   220		content := payload.GetContent()
+   221		if content == "" {
+   222			content = entity.GetContent()
+   223			if content == "" {
+   224				content = entity.GetText()
+   225			}
+   226		}
+   227		if content == "" && !hadEntity {
+   228			return nil, true, nil
+   229		}
+   230	
+   231		entity.MessageId = messageID
+   232		entity.Role = "thinking"
+   233		entity.Content = content
+   234		entity.Text = content
+   235		entity.ParentMessageId = payload.GetParentMessageId()
+   236		entity.Segment = payload.GetSegment()
+   237		entity.SegmentType = "thinking"
+   238	
+   239		switch ev.Name {
+   240		case ReasoningStartedEventName, ReasoningDeltaEventName:
+   241			entity.Status = "streaming"
+   242			entity.Streaming = true
+   243		case ReasoningFinishedEventName:
+   244			entity.Status = "finished"
+   245			entity.Streaming = false
+   246		default:
+   247			return nil, false, nil
+   248		}
+   249	
+   250		return []sessionstream.TimelineEntity{{Kind: chatapp.TimelineEntityChatMessage, Id: messageID, Payload: entity}}, true, nil
+   251	}
+   252	
+   253	// ReasoningEntityID returns the first thinking segment ID for a given parent message ID.
+   254	func ReasoningEntityID(messageID string) string {
+   255		return ReasoningSegmentEntityID(messageID, 1)
+   256	}
+   257	
+   258	// ReasoningSegmentEntityID returns the thinking message ID for a specific parent
+   259	// assistant message and reasoning segment number.
+   260	func ReasoningSegmentEntityID(messageID string, segment int32) string {
+   261		messageID = strings.TrimSpace(messageID)
+   262		if messageID == "" || segment <= 0 {
+   263			return ""
+   264		}
+   265		return fmt.Sprintf("%s:thinking:%d", messageID, segment)
+   266	}
+   267	
+   268	func (p *ReasoningPlugin) startReasoningSegment(parentMessageID string, providerInfo reasoningProviderInfo) (string, int32, reasoningProviderInfo) {
+   269		p.mu.Lock()
+   270		defer p.mu.Unlock()
+   271		p.ensureStateLocked()
+   272	
+   273		key := reasoningKeyFromProviderInfo(parentMessageID, providerInfo)
+   274		state := p.segments[key]
+   275		if !state.Active {
+   276			state.Current = p.nextSegmentLocked(parentMessageID)
+   277			state.Active = true
+   278		}
+   279		state.Provider = state.Provider.merge(providerInfo)
+   280		p.segments[key] = state
+   281		p.activeByParent[parentMessageID] = key
+   282		return ReasoningSegmentEntityID(parentMessageID, state.Current), state.Current, state.Provider
+   283	}
+   284	
+   285	func (p *ReasoningPlugin) ensureReasoningSegment(parentMessageID string, providerInfo reasoningProviderInfo) (string, int32, reasoningProviderInfo) {
+   286		p.mu.Lock()
+   287		defer p.mu.Unlock()
+   288		p.ensureStateLocked()
+   289	
+   290		key := p.resolveReasoningKeyLocked(parentMessageID, providerInfo)
+   291		state := p.segments[key]
+   292		if !state.Active {
+   293			state.Current = p.nextSegmentLocked(parentMessageID)
+   294			state.Active = true
+   295		}
+   296		state.Provider = state.Provider.merge(providerInfo)
+   297		p.segments[key] = state
+   298		p.activeByParent[parentMessageID] = key
+   299		return ReasoningSegmentEntityID(parentMessageID, state.Current), state.Current, state.Provider
+   300	}
+   301	
+   302	func (p *ReasoningPlugin) currentReasoningSegment(parentMessageID string, providerInfo reasoningProviderInfo) (string, int32, reasoningProviderInfo, reasoningKey, bool) {
+   303		p.mu.Lock()
+   304		defer p.mu.Unlock()
+   305		p.ensureStateLocked()
+   306	
+   307		key := p.resolveReasoningKeyLocked(parentMessageID, providerInfo)
+   308		state := p.segments[key]
+   309		if !state.Active || state.Current <= 0 {
+   310			return "", 0, reasoningProviderInfo{}, reasoningKey{}, false
+   311		}
+   312		state.Provider = state.Provider.merge(providerInfo)
+   313		p.segments[key] = state
+   314		return ReasoningSegmentEntityID(parentMessageID, state.Current), state.Current, state.Provider, key, true
+   315	}
+   316	
+   317	func (p *ReasoningPlugin) summaryReasoningSegment(parentMessageID string, providerInfo reasoningProviderInfo) (string, int32, reasoningProviderInfo, reasoningKey) {
+   318		p.mu.Lock()
+   319		defer p.mu.Unlock()
+   320		p.ensureStateLocked()
+   321	
+   322		key := p.resolveReasoningKeyLocked(parentMessageID, providerInfo)
+   323		state := p.segments[key]
+   324		if state.Current <= 0 {
+   325			state.Current = p.nextSegmentLocked(parentMessageID)
+   326		}
+   327		state.Active = false
+   328		state.Provider = state.Provider.merge(providerInfo)
+   329		p.segments[key] = state
+   330		return ReasoningSegmentEntityID(parentMessageID, state.Current), state.Current, state.Provider, key
+   331	}
+   332	
+   333	func (p *ReasoningPlugin) finishReasoningSegment(key reasoningKey) {
+   334		p.mu.Lock()
+   335		defer p.mu.Unlock()
+   336		p.ensureStateLocked()
+   337	
+   338		state := p.segments[key]
+   339		state.Active = false
+   340		p.segments[key] = state
+   341		if active, ok := p.activeByParent[key.ParentMessageID]; ok && active == key {
+   342			delete(p.activeByParent, key.ParentMessageID)
+   343		}
+   344	}
+   345	
+   346	func (p *ReasoningPlugin) updateReasoningProviderInfo(parentMessageID string, providerInfo reasoningProviderInfo) {
+   347		p.mu.Lock()
+   348		defer p.mu.Unlock()
+   349		p.ensureStateLocked()
+   350	
+   351		key := p.resolveReasoningKeyLocked(parentMessageID, providerInfo)
+   352		state := p.segments[key]
+   353		if state.Current <= 0 {
+   354			state.Current = p.nextSegmentLocked(parentMessageID)
+   355		}
+   356		state.Provider = state.Provider.merge(providerInfo)
+   357		p.segments[key] = state
+   358	}
+   359	
+   360	func (p *ReasoningPlugin) ensureStateLocked() {
+   361		if p.segments == nil {
+   362			p.segments = map[reasoningKey]reasoningSegmentState{}
+   363		}
+   364		if p.activeByParent == nil {
+   365			p.activeByParent = map[string]reasoningKey{}
+   366		}
+   367		if p.nextSegment == nil {
+   368			p.nextSegment = map[string]int32{}
+   369		}
+   370	}
+   371	
+   372	func (p *ReasoningPlugin) nextSegmentLocked(parentMessageID string) int32 {
+   373		p.nextSegment[parentMessageID]++
+   374		return p.nextSegment[parentMessageID]
+   375	}
+   376	
+   377	func (p *ReasoningPlugin) resolveReasoningKeyLocked(parentMessageID string, providerInfo reasoningProviderInfo) reasoningKey {
+   378		key := reasoningKeyFromProviderInfo(parentMessageID, providerInfo)
+   379		if key.HasProviderIdentity() {
+   380			return key
+   381		}
+   382		if active, ok := p.activeByParent[parentMessageID]; ok {
+   383			if state := p.segments[active]; state.Active {
+   384				return active
+   385			}
+   386		}
+   387		return key
+   388	}
+   389	
+   390	func reasoningKeyFromProviderInfo(parentMessageID string, providerInfo reasoningProviderInfo) reasoningKey {
+   391		key := reasoningKey{
+   392			ParentMessageID: strings.TrimSpace(parentMessageID),
+   393			Provider:        providerInfo.Provider,
+   394			ResponseID:      providerInfo.ResponseID,
+   395			ItemID:          providerInfo.ItemID,
+   396		}
+   397		if providerInfo.OutputIndex != nil {
+   398			key.OutputIndex = *providerInfo.OutputIndex
+   399			key.HasOutputIndex = true
+   400		}
+   401		if providerInfo.ChoiceIndex != nil {
+   402			key.ChoiceIndex = *providerInfo.ChoiceIndex
+   403			key.HasChoiceIndex = true
+   404		}
+   405		key.StreamKind = providerInfo.StreamKind
+   406		key.CorrelationKey = providerInfo.CorrelationKey
+   407		if !key.HasProviderIdentity() {
+   408			return reasoningKey{ParentMessageID: key.ParentMessageID}
+   409		}
+   410		return key
+   411	}
+   412	
+   413	func (key reasoningKey) HasProviderIdentity() bool {
+   414		return key.Provider != "" || key.ResponseID != "" || key.ItemID != "" || key.HasOutputIndex || key.HasChoiceIndex || key.StreamKind != "" || key.CorrelationKey != ""
+   415	}
+   416	
+   417	func (info reasoningProviderInfo) merge(next reasoningProviderInfo) reasoningProviderInfo {
+   418		if next.Provider != "" {
+   419			info.Provider = next.Provider
+   420		}
+   421		if next.ResponseID != "" {
+   422			info.ResponseID = next.ResponseID
+   423		}
+   424		if next.ItemID != "" {
+   425			info.ItemID = next.ItemID
+   426		}
+   427		if next.OutputIndex != nil {
+   428			info.OutputIndex = cloneInt32Ptr(next.OutputIndex)
+   429		}
+   430		if next.SummaryIndex != nil {
+   431			info.SummaryIndex = cloneInt32Ptr(next.SummaryIndex)
+   432		}
+   433		if next.ChoiceIndex != nil {
+   434			info.ChoiceIndex = cloneInt32Ptr(next.ChoiceIndex)
+   435		}
+   436		if next.StreamKind != "" {
+   437			info.StreamKind = next.StreamKind
+   438		}
+   439		if next.CorrelationKey != "" {
+   440			info.CorrelationKey = next.CorrelationKey
+   441		}
+   442		if next.ToolCallID != "" {
+   443			info.ToolCallID = next.ToolCallID
+   444		}
+   445		if next.ToolCallIndex != nil {
+   446			info.ToolCallIndex = cloneInt32Ptr(next.ToolCallIndex)
+   447		}
+   448		return info
+   449	}
+   450	
+   451	func applyReasoningProviderInfo(update *chatappv1.ReasoningUpdate, info reasoningProviderInfo) *chatappv1.ReasoningUpdate {
+   452		if update == nil {
+   453			return nil
+   454		}
+   455		update.Provider = info.Provider
+   456		update.ResponseId = info.ResponseID
+   457		update.ItemId = info.ItemID
+   458		update.OutputIndex = cloneInt32Ptr(info.OutputIndex)
+   459		update.SummaryIndex = cloneInt32Ptr(info.SummaryIndex)
+   460		update.ChoiceIndex = cloneInt32Ptr(info.ChoiceIndex)
+   461		update.StreamKind = info.StreamKind
+   462		update.CorrelationKey = info.CorrelationKey
+   463		return update
+   464	}
+   465	
+   466	func reasoningProviderInfoFromMetadata(metadata gepevents.EventMetadata) reasoningProviderInfo {
+   467		return reasoningProviderInfoFromData(metadata.Extra)
+   468	}
+   469	
+   470	func reasoningProviderInfoFromData(data map[string]interface{}) reasoningProviderInfo {
+   471		if len(data) == 0 {
+   472			return reasoningProviderInfo{}
+   473		}
+   474		info := reasoningProviderInfo{}
+   475		if v, ok := data["provider"].(string); ok {
+   476			info.Provider = strings.TrimSpace(v)
+   477		}
+   478		if v, ok := data["response_id"].(string); ok {
+   479			info.ResponseID = strings.TrimSpace(v)
+   480		}
+   481		if v, ok := data["item_id"].(string); ok {
+   482			info.ItemID = strings.TrimSpace(v)
+   483		}
+   484		if v, ok := int32FromAny(data["output_index"]); ok {
+   485			info.OutputIndex = &v
+   486		}
+   487		if v, ok := int32FromAny(data["summary_index"]); ok {
+   488			info.SummaryIndex = &v
+   489		}
+   490		if v, ok := int32FromAny(data["choice_index"]); ok {
+   491			info.ChoiceIndex = &v
+   492		}
+   493		if v, ok := data["stream_kind"].(string); ok {
+   494			info.StreamKind = strings.TrimSpace(v)
+   495		}
+   496		if v, ok := data["correlation_key"].(string); ok {
+   497			info.CorrelationKey = strings.TrimSpace(v)
+   498		}
+   499		if v, ok := data["tool_call_id"].(string); ok {
+   500			info.ToolCallID = strings.TrimSpace(v)
+   501		}
+   502		if v, ok := int32FromAny(data["tool_call_index"]); ok {
+   503			info.ToolCallIndex = &v
+   504		}
+   505		return info
+   506	}
+   507	
+   508	func int32FromAny(v any) (int32, bool) {
+   509		const (
+   510			minInt32 = int64(-1 << 31)
+   511			maxInt32 = int64(1<<31 - 1)
+   512		)
+   513		fromInt64 := func(n int64) (int32, bool) {
+   514			if n < minInt32 || n > maxInt32 {
+   515				return 0, false
+   516			}
+   517			return int32(n), true
+   518		}
+   519		fromUint64 := func(n uint64) (int32, bool) {
+   520			if n > uint64(maxInt32) {

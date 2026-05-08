@@ -1,0 +1,94 @@
+pkg/steps/ai/gemini/engine_gemini.go:312:	e.publishEvent(ctx, events.NewStartEvent(metadata))
+pkg/steps/ai/gemini/engine_gemini.go:382:						e.publishEvent(ctx, events.NewToolCallEvent(metadata, events.ToolCall{ID: id, Name: v.Name, Input: string(inputBytes)}))
+pkg/steps/ai/gemini/engine_gemini.go:389:			e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, delta, message))
+pkg/steps/ai/gemini/engine_gemini.go:430:	e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
+pkg/inference/tools/base_executor.go:92:	events.PublishEventToContext(ctx, events.NewToolCallExecuteEvent(
+pkg/inference/tools/base_executor.go:114:	events.PublishEventToContext(ctx, events.NewToolCallExecutionResultEvent(
+pkg/events/structuredsink/filtering_sink_fuzz_test.go:104:		require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, p, completion)))
+pkg/events/structuredsink/filtering_sink_fuzz_test.go:106:	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, completion)))
+pkg/events/structuredsink/filtering_sink_test.go:106:		require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, p, completion)))
+pkg/events/structuredsink/filtering_sink_test.go:108:	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, completion)))
+pkg/events/structuredsink/filtering_sink_test.go:121:	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: full})
+pkg/events/structuredsink/filtering_sink_test.go:122:	_ = sink.PublishEvent(events.NewFinalEvent(meta, full))
+pkg/events/structuredsink/filtering_sink_test.go:152:	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p1})
+pkg/events/structuredsink/filtering_sink_test.go:153:	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p2})
+pkg/events/structuredsink/filtering_sink_test.go:154:	_ = sink.PublishEvent(events.NewFinalEvent(meta, full))
+pkg/events/structuredsink/filtering_sink_test.go:184:	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p1})
+pkg/events/structuredsink/filtering_sink_test.go:185:	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p2})
+pkg/events/structuredsink/filtering_sink_test.go:186:	_ = sink.PublishEvent(events.NewFinalEvent(meta, full))
+pkg/events/structuredsink/filtering_sink_test.go:205:	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: p1})
+pkg/events/structuredsink/filtering_sink_test.go:206:	_ = sink.PublishEvent(events.NewFinalEvent(meta, p1))
+pkg/events/structuredsink/filtering_sink_test.go:228:	_ = sink.PublishEvent(&events.EventPartialCompletion{EventImpl: events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta}, Delta: full})
+pkg/events/structuredsink/filtering_sink_test.go:229:	_ = sink.PublishEvent(events.NewFinalEvent(meta, full))
+pkg/events/structuredsink/filtering_sink_test.go:588:	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, full)))
+pkg/events/structuredsink/filtering_sink_test.go:607:	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, full)))
+pkg/events/structuredsink/filtering_sink_test.go:626:	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, full)))
+pkg/events/structuredsink/filtering_sink_test.go:775:	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaA, "A1 <core:x:v1>", "A1 <core:x:v1>")))
+pkg/events/structuredsink/filtering_sink_test.go:776:	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaB, "B1 <core:x:v1>", "B1 <core:x:v1>")))
+pkg/events/structuredsink/filtering_sink_test.go:777:	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaA, "payloadA</core:x:v1> A2", "A1 <core:x:v1>payloadA</core:x:v1> A2")))
+pkg/events/structuredsink/filtering_sink_test.go:778:	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(metaB, "payloadB</core:x:v1> B2", "B1 <core:x:v1>payloadB</core:x:v1> B2")))
+pkg/events/structuredsink/filtering_sink_test.go:780:	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(metaA, "A1 <core:x:v1>payloadA</core:x:v1> A2")))
+pkg/events/structuredsink/filtering_sink_test.go:781:	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(metaB, "B1 <core:x:v1>payloadB</core:x:v1> B2")))
+pkg/events/structuredsink/filtering_sink_test.go:809:	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", "")))
+pkg/events/structuredsink/filtering_sink_test.go:810:	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "prefix ", "prefix ")))
+pkg/events/structuredsink/filtering_sink_test.go:811:	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", "prefix ")))
+pkg/events/structuredsink/filtering_sink_test.go:812:	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "<core:x:v1>abc</core:x:v1>", "prefix <core:x:v1>abc</core:x:v1>")))
+pkg/events/structuredsink/filtering_sink_test.go:813:	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", "prefix <core:x:v1>abc</core:x:v1>")))
+pkg/events/structuredsink/filtering_sink_test.go:814:	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, "prefix <core:x:v1>abc</core:x:v1>")))
+pkg/events/structuredsink/filtering_sink_test.go:831:	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "<core:x:v1>", "<core:x:v1>")))
+pkg/events/structuredsink/filtering_sink_test.go:833:	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", completion)))
+pkg/events/structuredsink/filtering_sink_test.go:834:	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "abc", completion+"abc")))
+pkg/events/structuredsink/filtering_sink_test.go:836:	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "", completion)))
+pkg/events/structuredsink/filtering_sink_test.go:837:	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "</core:x:v1>", completion+"</core:x:v1>")))
+pkg/events/structuredsink/filtering_sink_test.go:839:	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, completion)))
+pkg/events/structuredsink/filtering_sink_additional_test.go:23:		events.NewPartialCompletionEvent(meta, "Hello, ", "Hello, "),
+pkg/events/structuredsink/filtering_sink_additional_test.go:24:		events.NewPartialCompletionEvent(meta, "world!", "Hello, world!"),
+pkg/events/structuredsink/filtering_sink_additional_test.go:25:		events.NewFinalEvent(meta, "Hello, world!"),
+pkg/events/structuredsink/filtering_sink_additional_test.go:61:	require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, "x", "x")))
+pkg/events/structuredsink/filtering_sink_additional_test.go:76:	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, "x")))
+pkg/events/chat-events.go:37:	EventTypeToolCallStarted        EventType = "tool-call-started"
+pkg/events/chat-events.go:38:	EventTypeToolCallArgumentsDelta EventType = "tool-call-arguments-delta"
+pkg/events/chat-events.go:39:	EventTypeToolCallRequested      EventType = "tool-call-requested"
+pkg/events/chat-events.go:42:	EventTypeToolCallFinished       EventType = "tool-call-finished"
+pkg/events/chat-events.go:45:	EventTypeToolCallExecute         EventType = "tool-call-execute"
+pkg/events/chat-events.go:46:	EventTypeToolCallExecutionResult EventType = "tool-call-execution-result"
+pkg/events/chat-events.go:56:	EventTypeToolCall   EventType = "tool-call"
+pkg/events/chat-events.go:59:	// EventTypeStart to EventTypeFinal are legacy text completion events. They
+pkg/events/chat-events.go:62:	EventTypeStart             EventType = "start"
+pkg/events/chat-events.go:63:	EventTypeFinal             EventType = "final"
+pkg/events/chat-events.go:64:	EventTypePartialCompletion EventType = "partial"
+pkg/events/chat-events.go:347:	case EventTypeToolCallStarted:
+pkg/events/chat-events.go:353:	case EventTypeToolCallArgumentsDelta:
+pkg/events/chat-events.go:359:	case EventTypeToolCallRequested:
+pkg/events/chat-events.go:377:	case EventTypeToolCallFinished:
+pkg/events/chat-events.go:383:	case EventTypeStart:
+pkg/events/chat-events.go:389:	case EventTypePartialCompletion:
+pkg/events/chat-events.go:401:	case EventTypeToolCall:
+pkg/events/chat-events.go:413:	case EventTypeToolCallExecute:
+pkg/events/chat-events.go:419:	case EventTypeToolCallExecutionResult:
+pkg/events/chat-events.go:437:	case EventTypeFinal:
+pkg/events/printer.go:215:			if e.Type() == EventTypeStart {
+pkg/events/printer.go:220:			} else if e.Type() == EventTypeFinal {
+pkg/events/tool_events.go:17:func NewToolCallEvent(metadata EventMetadata, toolCall ToolCall) *EventToolCall {
+pkg/events/tool_events.go:20:			Type_:     EventTypeToolCall,
+pkg/events/tool_events.go:60:func NewToolCallExecuteEvent(metadata EventMetadata, toolCall ToolCall) *EventToolCallExecute {
+pkg/events/tool_events.go:63:			Type_:     EventTypeToolCallExecute,
+pkg/events/tool_events.go:79:func NewToolCallExecutionResultEvent(metadata EventMetadata, toolResult ToolResult) *EventToolCallExecutionResult {
+pkg/events/tool_events.go:82:			Type_:     EventTypeToolCallExecutionResult,
+pkg/events/structuredsink/filtering_sink.go:183:	if t == events.EventTypePartialCompletion {
+pkg/events/structuredsink/filtering_sink.go:186:	if t == events.EventTypeFinal {
+pkg/events/structuredsink/filtering_sink.go:293:		EventImpl:  events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta},
+pkg/events/structuredsink/filtering_sink.go:328:		out := events.NewFinalEvent(meta, st.filteredCompletion.String())
+pkg/events/canonical_tool_events.go:11:	return &EventToolCallStarted{EventImpl: EventImpl{Type_: EventTypeToolCallStarted, Metadata_: metadata}, Correlation_: corr, ToolCallID: toolCallID, ToolName: toolName}
+pkg/events/canonical_tool_events.go:28:	return &EventToolCallArgumentsDelta{EventImpl: EventImpl{Type_: EventTypeToolCallArgumentsDelta, Metadata_: metadata}, Correlation_: corr, ToolCallID: toolCallID, Delta: delta, Arguments: arguments, Sequence: sequence}
+pkg/events/canonical_tool_events.go:44:	return &EventToolCallRequested{EventImpl: EventImpl{Type_: EventTypeToolCallRequested, Metadata_: metadata}, Correlation_: corr, ToolCallID: toolCallID, ToolName: toolName, Input: input}
+pkg/events/canonical_tool_events.go:93:	return &EventToolCallFinished{EventImpl: EventImpl{Type_: EventTypeToolCallFinished, Metadata_: metadata}, Correlation_: corr, ToolCallID: toolCallID, ToolName: toolName, Status: status}
+pkg/events/text_events.go:9:func NewStartEvent(metadata EventMetadata) *EventPartialCompletionStart {
+pkg/events/text_events.go:12:			Type_:     EventTypeStart,
+pkg/events/text_events.go:46:func NewFinalEvent(metadata EventMetadata, text string) *EventFinal {
+pkg/events/text_events.go:49:			Type_:     EventTypeFinal,
+pkg/events/text_events.go:88:			Type_:     EventTypeStart,
+pkg/events/text_events.go:111:func NewPartialCompletionEvent(metadata EventMetadata, delta string, completion string) *EventPartialCompletion {
+pkg/events/text_events.go:114:			Type_:     EventTypePartialCompletion,
+pkg/events/correlation_validation.go:30:	case EventTypeToolCallStarted, EventTypeToolCallArgumentsDelta, EventTypeToolCallRequested,
+pkg/events/correlation_validation.go:31:		EventTypeToolExecutionStarted, EventTypeToolResultReady, EventTypeToolCallFinished:

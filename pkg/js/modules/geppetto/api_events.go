@@ -160,36 +160,62 @@ func (c *jsEventCollector) encodeEventPayload(ev events.Event) map[string]any {
 	}
 
 	switch e := ev.(type) {
-	case *events.EventPartialCompletion:
+	case events.CorrelatedEvent:
+		payload["correlation"] = cloneJSONValue(e.Correlation())
+	}
+
+	switch e := ev.(type) {
+	case *events.EventTextDelta:
 		payload["delta"] = e.Delta
-		payload["completion"] = e.Completion
-	case *events.EventThinkingPartial:
-		payload["delta"] = e.Delta
-		payload["completion"] = e.Completion
-	case *events.EventToolCall:
-		payload["toolCall"] = map[string]any{
-			"id":    e.ToolCall.ID,
-			"name":  e.ToolCall.Name,
-			"input": e.ToolCall.Input,
-		}
-	case *events.EventToolResult:
-		payload["toolResult"] = map[string]any{
-			"id":     e.ToolResult.ID,
-			"result": e.ToolResult.Result,
-		}
-	case *events.EventToolCallExecute:
-		payload["toolCall"] = map[string]any{
-			"id":    e.ToolCall.ID,
-			"name":  e.ToolCall.Name,
-			"input": e.ToolCall.Input,
-		}
-	case *events.EventToolCallExecutionResult:
-		payload["toolResult"] = map[string]any{
-			"id":     e.ToolResult.ID,
-			"result": e.ToolResult.Result,
-		}
-	case *events.EventFinal:
 		payload["text"] = e.Text
+		payload["sequence"] = e.Sequence
+	case *events.EventTextSegmentFinished:
+		payload["text"] = e.Text
+		payload["finishReason"] = e.FinishReason
+	case *events.EventReasoningDelta:
+		payload["delta"] = e.Delta
+		payload["text"] = e.Text
+		payload["sequence"] = e.Sequence
+	case *events.EventReasoningSegmentFinished:
+		payload["text"] = e.Text
+		payload["finishReason"] = e.FinishReason
+	case *events.EventToolCallStarted:
+		payload["toolCall"] = map[string]any{
+			"id":   e.ToolCallID,
+			"name": e.ToolName,
+		}
+	case *events.EventToolCallArgumentsDelta:
+		payload["toolCall"] = map[string]any{
+			"id":        e.ToolCallID,
+			"delta":     e.Delta,
+			"arguments": e.Arguments,
+			"sequence":  e.Sequence,
+		}
+	case *events.EventToolCallRequested:
+		payload["toolCall"] = map[string]any{
+			"id":    e.ToolCallID,
+			"name":  e.ToolName,
+			"input": e.Input,
+		}
+	case *events.EventToolExecutionStarted:
+		payload["toolCall"] = map[string]any{
+			"id":    e.ToolCallID,
+			"name":  e.ToolName,
+			"input": e.Input,
+		}
+	case *events.EventToolResultReady:
+		payload["toolResult"] = map[string]any{
+			"id":     e.ToolCallID,
+			"name":   e.ToolName,
+			"result": e.Result,
+			"status": e.Status,
+		}
+	case *events.EventToolCallFinished:
+		payload["toolCall"] = map[string]any{
+			"id":     e.ToolCallID,
+			"name":   e.ToolName,
+			"status": e.Status,
+		}
 	case *events.EventError:
 		payload["error"] = e.ErrorString
 	case *events.EventInterrupt:

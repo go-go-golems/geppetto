@@ -59,6 +59,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	var dataBuf strings.Builder
 	var inputTokens, outputTokens, cachedTokens, reasoningTokens int
 	var stopReason *string
+	responseCompleted := false
 	var streamErr error
 	var thinkBuf strings.Builder
 	var sayBuf strings.Builder
@@ -90,6 +91,42 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	var latestMessageItemID string
 	var latestMessageOutputIndex *int
 	var latestMessageStatus string
+	inferenceScopeID := metadata.InferenceID
+	if inferenceScopeID == "" {
+		inferenceScopeID = metadata.ID.String()
+	}
+	providerCallCorr := events.BuildProviderCallCorrelation("openai_responses", inferenceScopeID, "", 0, "")
+	providerCallCorr.Model = reqBody.Model
+	providerCallCorr.TurnID = metadata.TurnID
+	e.publishEvent(ctx, events.NewProviderCallStartedEvent(metadata, providerCallCorr))
+	responseProviderCallCorr := func() events.Correlation {
+		corr := providerCallCorr
+		corr.ResponseID = currentResponseID
+		return corr
+	}
+	responsesSegmentCorr := func(itemID string, outputIndex, summaryIndex *int, segmentType string) events.Correlation {
+		corr := events.BuildResponsesCorrelation("openai_responses", currentResponseID, itemID, outputIndex, summaryIndex)
+		corr.ProviderCallID = providerCallCorr.ProviderCallID
+		corr.ProviderCallIndex = providerCallCorr.ProviderCallIndex
+		corr.ParentCorrelationKey = providerCallCorr.CorrelationKey
+		corr.Model = reqBody.Model
+		corr.TurnID = metadata.TurnID
+		corr.SegmentType = segmentType
+		corr.StreamKind = streamKindForResponsesSegment(segmentType)
+		if corr.SegmentID == "" && corr.CorrelationKey != "" {
+			corr.SegmentID = corr.CorrelationKey
+		}
+		return corr
+	}
+	toolCorr := func(itemID, callID string, outputIndex *int) events.Correlation {
+		corr := responsesSegmentCorr(itemID, outputIndex, nil, events.SegmentTypeTool)
+		if callID != "" {
+			corr.ToolCallID = callID
+		} else {
+			corr.ToolCallID = itemID
+		}
+		return corr
+	}
 	log.Trace().Msg("Responses: starting SSE read loop")
 	flush := func() error {
 		if dataBuf.Len() == 0 {
@@ -116,13 +153,17 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 			}
 		}
 		e.observeProviderEvent(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m)
-		appendAssistantChunk := func(chunk string) {
+		appendAssistantChunk := func(itemID string, outputIndex *int, chunk string) {
 			if chunk == "" {
 				return
 			}
 			message += chunk
 			sayBuf.WriteString(chunk)
-			e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, chunk, message))
+			text := message
+			if itemID != "" && assistantByItem[itemID] != "" {
+				text = assistantByItem[itemID]
+			}
+			e.publishEvent(ctx, events.NewTextDeltaEvent(metadata, responsesSegmentCorr(itemID, outputIndex, nil, events.SegmentTypeText), chunk, text, 0))
 		}
 		backfillAssistantChunk := func(itemID, fullChunk string) {
 			if fullChunk == "" {
@@ -155,7 +196,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 			if itemID != "" {
 				assistantByItem[itemID] += missing
 			}
-			appendAssistantChunk(missing)
+			appendAssistantChunk(itemID, latestMessageOutputIndex, missing)
 		}
 		backfillReasoningText := func(fullText string) {
 			if fullText == "" {
@@ -183,7 +224,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 			currentReasoningText.WriteString(missing)
 			normalized := streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), missing)
 			thinkBuf.WriteString(normalized)
-			e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, normalized, thinkBuf.String()))
+			e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), normalized, thinkBuf.String(), 0))
 		}
 		chunkFromValue := func(v any) string {
 			switch tv := v.(type) {
@@ -222,13 +263,12 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 						if idx, ok := intFromProviderNumber(m["output_index"]); ok {
 							currentReasoningOutputIndex = &idx
 						}
-						e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-started", providerData("openai_responses", currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
+						e.publishEvent(ctx, events.NewReasoningSegmentStartedEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), "provider"))
 						// Capture encrypted reasoning content when present.
 						if enc, ok := it["encrypted_content"].(string); ok && enc != "" {
 							currentReasoningEncryptedContent = enc
 						}
 					case "message":
-						e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-started", nil))
 						if v, ok := it["id"].(string); ok && v != "" {
 							latestMessageItemID = v
 						}
@@ -238,6 +278,28 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 						if idx, ok := intFromProviderNumber(m["output_index"]); ok {
 							latestMessageOutputIndex = &idx
 						}
+						e.publishEvent(ctx, events.NewTextSegmentStartedEvent(metadata, responsesSegmentCorr(latestMessageItemID, latestMessageOutputIndex, nil, events.SegmentTypeText), "assistant"))
+					case "function_call":
+						itemID := ""
+						if v, ok := it["id"].(string); ok && v != "" {
+							itemID = v
+						}
+						callID := ""
+						if v, ok := it["call_id"].(string); ok && v != "" {
+							callID = v
+						}
+						name := ""
+						if v, ok := it["name"].(string); ok && v != "" {
+							name = v
+						}
+						var outputIndex *int
+						if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+							outputIndex = &idx
+						}
+						if itemID != "" {
+							callsByItem[itemID] = &pendingCall{callID: callID, name: name, itemID: itemID, outputIndex: outputIndex}
+						}
+						e.publishEvent(ctx, events.NewToolCallStartedEvent(metadata, toolCorr(itemID, callID, outputIndex), callID, name))
 					case "web_search_call":
 						itemID := ""
 						if v, ok := it["id"].(string); ok {
@@ -362,15 +424,14 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(v), len(normalized), before+len(normalized))
 				summaryBuf.WriteString(normalized)
 				currentReasoningSummary.WriteString(normalized)
-				// Emit thinking partials for live reasoning summary text
-				e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, normalized, summaryBuf.String()))
+				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), normalized, summaryBuf.String(), 0))
 			} else if s, ok := m["text"].(string); ok && s != "" {
 				before := summaryBuf.Len()
 				normalized := streamhelpers.NormalizeReasoningSummaryDelta(summaryBuf.String(), s)
 				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(s), len(normalized), before+len(normalized))
 				summaryBuf.WriteString(normalized)
 				currentReasoningSummary.WriteString(normalized)
-				e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, normalized, summaryBuf.String()))
+				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), normalized, summaryBuf.String(), 0))
 			}
 		case "response.reasoning_summary_part.done":
 			if itemID := itemIDFromProviderObject(m); itemID != "" {
@@ -398,21 +459,21 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(d), len(normalized), before+len(normalized))
 				thinkBuf.WriteString(normalized)
 				currentReasoningText.WriteString(d)
-				e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, d, thinkBuf.String()))
+				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), d, thinkBuf.String(), 0))
 			} else if s, ok := m["text"].(string); ok && s != "" {
 				before := thinkBuf.Len()
 				normalized := streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), s)
 				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(s), len(normalized), before+len(normalized))
 				thinkBuf.WriteString(normalized)
 				currentReasoningText.WriteString(s)
-				e.publishEvent(ctx, events.NewThinkingPartialEvent(metadata, s, thinkBuf.String()))
+				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), s, thinkBuf.String(), 0))
 			}
 		case "response.reasoning_text.done":
 			if s, ok := m["text"].(string); ok && s != "" {
 				// Done payloads can repeat already-streamed deltas for the current
 				// item, but some providers send reasoning text only in the done
 				// event. Backfill any missing suffix and emit the canonical
-				// EventThinkingPartial so live reasoning renderers see the update.
+				// reasoning delta so live reasoning renderers see the update.
 				backfillReasoningText(s)
 			}
 		case "response.output_item.done":
@@ -428,7 +489,6 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 							currentReasoningOutputIndex = &idx
 							lastReasoningOutputIndex = &idx
 						}
-						e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-ended", providerData("openai_responses", currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
 						// Append a reasoning block with encrypted content if present.
 						rb := turns.Block{Kind: turns.BlockKindReasoning}
 						payload := map[string]any{}
@@ -470,6 +530,9 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 						rb.Payload = payload
 						setOpenAIResponsesBlockMetadata(&rb, currentResponseID, currentReasoningOutputIndex, "reasoning", currentReasoningStatus)
 						turns.AppendBlock(t, rb)
+						finalReasoningText := strings.TrimSpace(currentReasoningText.String())
+						finalReasoningStatus := currentReasoningStatus
+						e.publishEvent(ctx, events.NewReasoningSegmentFinishedEvent(metadata, responsesSegmentCorr(lastReasoningItemID, lastReasoningOutputIndex, lastReasoningSummaryIndex, events.SegmentTypeReasoning), finalReasoningText, finalReasoningStatus))
 						currentReasoningItemID = ""
 						currentReasoningText.Reset()
 						currentReasoningSummary.Reset()
@@ -481,7 +544,6 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 							tap.OnProviderObject("output.reasoning", it)
 						}
 					case "message":
-						e.publishEvent(ctx, events.NewInfoEvent(metadata, "output-ended", nil))
 						itemID := ""
 						if v, ok := it["id"].(string); ok && v != "" {
 							latestMessageItemID = v
@@ -510,6 +572,11 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 								}
 							}
 						}
+						segmentText := message
+						if itemID != "" && assistantByItem[itemID] != "" {
+							segmentText = assistantByItem[itemID]
+						}
+						e.publishEvent(ctx, events.NewTextSegmentFinishedEvent(metadata, responsesSegmentCorr(itemID, latestMessageOutputIndex, nil, events.SegmentTypeText), segmentText, latestMessageStatus))
 						if tap != nil {
 							tap.OnProviderObject("output.message", it)
 						}
@@ -545,7 +612,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 							}
 						}
 						if callID != "" && name != "" {
-							e.publishEvent(ctx, events.NewToolCallEvent(metadata, events.ToolCall{ID: callID, Name: name, Input: args}))
+							e.publishEvent(ctx, events.NewToolCallRequestedEvent(metadata, toolCorr(itemID, callID, outputIndex), callID, name, args))
 							var b strings.Builder
 							b.WriteString(args)
 							finalCalls = append(finalCalls, pendingCall{callID: callID, name: name, itemID: itemID, outputIndex: outputIndex, status: status, args: b})
@@ -580,14 +647,14 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 				if itemID != "" {
 					assistantByItem[itemID] += d
 				}
-				appendAssistantChunk(d)
+				appendAssistantChunk(itemID, latestMessageOutputIndex, d)
 				log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta")
 			} else if tv, ok := m["text"].(map[string]any); ok {
 				if d, ok := tv["delta"].(string); ok && d != "" {
 					if itemID != "" {
 						assistantByItem[itemID] += d
 					}
-					appendAssistantChunk(d)
+					appendAssistantChunk(itemID, latestMessageOutputIndex, d)
 					log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta (nested)")
 				}
 			}
@@ -603,7 +670,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 				if itemID != "" {
 					assistantByItem[itemID] += d
 				}
-				appendAssistantChunk(d)
+				appendAssistantChunk(itemID, latestMessageOutputIndex, d)
 			}
 			if tap != nil {
 				tap.OnSSE(eventName, []byte(raw))
@@ -658,8 +725,12 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 					pc = &pendingCall{itemID: itemID}
 					callsByItem[itemID] = pc
 				}
+				if idx, ok := intFromProviderNumber(m["output_index"]); ok {
+					pc.outputIndex = &idx
+				}
 				if d, ok := m["delta"].(string); ok && d != "" {
 					pc.args.WriteString(d)
+					e.publishEvent(ctx, events.NewToolCallArgumentsDeltaEvent(metadata, toolCorr(itemID, pc.callID, pc.outputIndex), toolCorr(itemID, pc.callID, pc.outputIndex).ToolCallID, d, pc.args.String(), 0))
 				}
 			}
 		case "response.function_call_arguments.done":
@@ -675,6 +746,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 			}
 		// No assistant text in this event; only arguments aggregation
 		case "response.completed":
+			responseCompleted = true
 			if totals, ok := parseUsageTotalsFromEnvelope(m); ok {
 				inputTokens = totals.inputTokens
 				outputTokens = totals.outputTokens
@@ -802,7 +874,31 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	if err := engine.PersistInferenceResult(t, result); err != nil {
 		log.Warn().Err(err).Msg("Responses: failed to persist canonical inference_result")
 	}
-	e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
+	finishClass := "completed"
+	if !responseCompleted {
+		finishClass = "stream_closed"
+	}
+	if len(finalCalls) > 0 {
+		finishClass = "tool_calls_pending"
+	}
+	stopReasonValue := ""
+	if metadata.StopReason != nil {
+		stopReasonValue = *metadata.StopReason
+	}
+	e.publishEvent(ctx, events.NewProviderCallFinishedEvent(metadata, responseProviderCallCorr(), stopReasonValue, finishClass, metadata.Usage, metadata.DurationMs, len(finalCalls) > 0))
 	return t, nil
 
+}
+
+func streamKindForResponsesSegment(segmentType string) string {
+	switch segmentType {
+	case events.SegmentTypeText:
+		return events.StreamKindContent
+	case events.SegmentTypeReasoning:
+		return events.StreamKindReasoning
+	case events.SegmentTypeTool:
+		return events.StreamKindToolCall
+	default:
+		return ""
+	}
 }

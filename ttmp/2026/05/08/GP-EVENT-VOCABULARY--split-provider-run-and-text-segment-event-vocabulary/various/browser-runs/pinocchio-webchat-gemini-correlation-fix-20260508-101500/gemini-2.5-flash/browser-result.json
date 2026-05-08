@@ -1,0 +1,326 @@
+{
+  "profile": "gemini-2.5-flash",
+  "api": "gemini",
+  "sessionId": "6dad55bf-18ad-4a88-9890-38920cb41016",
+  "href": "http://127.0.0.1:5174/?sessionId=6dad55bf-18ad-4a88-9890-38920cb41016",
+  "terminalOk": true,
+  "entryCount": 72,
+  "sqliteBytes": 827392,
+  "uploadStatus": 200,
+  "uploadHeaders": {
+    "Vary": "Origin",
+    "accept-ranges": "bytes",
+    "content-disposition": "attachment; filename=\"pinocchio-stream-debug-6dad55bf-18ad-4a88-9890-38920cb41016.sqlite\"",
+    "content-length": "827392",
+    "content-type": "application/vnd.sqlite3",
+    "last-modified": "Fri, 08 May 2026 14:15:19 GMT",
+    "x-content-type-options": "nosniff",
+    "date": "Fri, 08 May 2026 14:15:19 GMT",
+    "connection": "close"
+  },
+  "uploadError": "",
+  "bodyText": "Web Chat (gemini-2.5-flash)\nprofile\nanyscale-base\ncerebras-base\ncerebras-llama-3.1-8b\nclaude-base\ncodestral\ndefault\ngemini-2.5-flash\ngemini-2.5-flash-lite\ngemini-2.5-pro\ngemini-3-pro\ngemini-base\ngemma3\ngpt-5-low\ngpt-5-mini\ngpt-5-nano\ngpt-5-nano-low\ngroq-base\ngroq-oss-20b\nhaiku\nhaiku-4.5\nkimi\nlitellm\nlitellm-base\nllama3b\nmistral\nmistral-anyscale\nmistral-base\nmixtral-anyscale\nollama\nollama-codellama\nollama-mistral\nollama-openai-base\nopenai-responses-base\nopenrouter-base\nopenrouter-oss-20b\ntogether-base\ntogether-qwen-3.5-9b\nwafer-base\nwafer-deepseek-v4-pro\nwafer-deepseek-v4-pro-fast\nwafer-deepseek-v4-pro-max\nwafer-deepseek-v4-pro-no-thinking\nwafer-glm-5.1\nwafer-qwen3.5-397b\nz-ai-base\nz-ai-glm-5v-turbo\nws: connected\nseq: 19\nq: 0\nfinished\nExport \u25be\nUser\nsent at 10:15:01 AM\n\nReply with exactly one short sentence containing gemini-2.5-flash and CORRELATION-SMOKE. Do not use markdown.\n\nAssistant\nsent at 10:15:17 AM\n\nThe gemini-2.5-flash model shows CORRELATION-SMOKE in its output.\n\nagentmode: mode switched\nfrom financial_analyst\nto financial_analyst\nsent at 10:15:17 AM\nWhat is the user trying to accomplish? The user is testing the assistant's ability to follow a specific output instruction (generate a sentence) and simultaneously perform a mode switch analysis.\nWhat capabilities are needed? The ability to parse and follow precise output formatting and content instructions, independent of a specific domain.\nIs the current mode optimal for this task? No. The financial_analyst mode is designed for analyzing financial transactions and proposing categories. The current request is a meta-instruction for output generation, not a financial analysis task.\nIf switching, what specific benefits would the new mode provide? None of the other available modes (category_regexp_designer, category_regexp_reviewer) are designed for the task of generating a specific, arbitrary sentence. Therefore, switching to another available mode would not provide a specific benefit for this meta-instruction, as all provided modes are domain-specific and do not cover general instruction following. Given no more appropriate available mode, a switch is not recommended.\nEnter to send \u00b7 Shift+Enter for newline\nSend\nNew conv\nStream Debug (72)",
+  "analysis": {
+    "tables": [
+      "backend_pipeline",
+      "backend_pipeline_entities",
+      "backend_pipeline_ui_events",
+      "backend_records",
+      "backend_transport",
+      "backend_transport_snapshot_entities",
+      "frontend_lifecycle",
+      "frontend_parsed_frames",
+      "frontend_raw_ws",
+      "frontend_records",
+      "frontend_snapshot_entities",
+      "frontend_snapshots",
+      "frontend_ui_events",
+      "geppetto_emitted_events",
+      "geppetto_inference_results",
+      "geppetto_provider_events",
+      "geppetto_records",
+      "geppetto_segments",
+      "meta",
+      "sqlite_sequence",
+      "timeline_entities",
+      "turns"
+    ],
+    "views": [
+      "backend_pipeline_errors",
+      "backend_transport_errors",
+      "delivery_chain",
+      "entity_kind_summary",
+      "extra_transport_fanout",
+      "frontend_dropped_entities",
+      "frontend_parsed_no_mutation",
+      "geppetto_correlation_to_frontend",
+      "geppetto_inference_result_summary",
+      "geppetto_provider_to_emitted",
+      "geppetto_publish_errors",
+      "geppetto_reasoning_sequence",
+      "geppetto_reasoning_to_frontend",
+      "geppetto_segment_lifecycle",
+      "geppetto_summary_without_item_id",
+      "geppetto_text_segments",
+      "missing_transport_fanout",
+      "tombstoned_entities"
+    ],
+    "counts": {
+      "backend_records": 117,
+      "backend_pipeline": 19,
+      "backend_pipeline_ui_events": 42,
+      "frontend_records": 72,
+      "frontend_parsed_frames": 24,
+      "frontend_ui_events": 21,
+      "geppetto_records": 31,
+      "geppetto_provider_events": 6,
+      "geppetto_emitted_events": 25,
+      "geppetto_inference_results": 1,
+      "geppetto_segments": 8,
+      "timeline_entities": 3,
+      "turns": 1
+    },
+    "distinct_geppetto_events": [
+      [
+        "text-delta",
+        12
+      ],
+      [
+        "gemini.stream.chunk",
+        6
+      ],
+      [
+        "provider-call-metadata-updated",
+        6
+      ],
+      [
+        "provider-call-finished",
+        2
+      ],
+      [
+        "text-segment-finished",
+        2
+      ],
+      [
+        "text-segment-started",
+        2
+      ],
+      [
+        "provider-call-started",
+        1
+      ]
+    ],
+    "distinct_backend_events": [
+      [
+        "ChatProviderCallMetadataUpdated",
+        6
+      ],
+      [
+        "ChatAgentModePreviewUpdated",
+        4
+      ],
+      [
+        "ChatAgentModeCommitted",
+        1
+      ],
+      [
+        "ChatProviderCallFinished",
+        1
+      ],
+      [
+        "ChatProviderCallStarted",
+        1
+      ],
+      [
+        "ChatRunFinished",
+        1
+      ],
+      [
+        "ChatRunStarted",
+        1
+      ],
+      [
+        "ChatTextDelta",
+        1
+      ],
+      [
+        "ChatTextSegmentFinished",
+        1
+      ],
+      [
+        "ChatTextSegmentStarted",
+        1
+      ],
+      [
+        "ChatUserMessageAccepted",
+        1
+      ]
+    ],
+    "distinct_frontend_frames": [
+      [
+        "ChatProviderCallMetadataUpdated",
+        6
+      ],
+      [
+        "ChatAgentModePreviewUpdated",
+        4
+      ],
+      [
+        "",
+        3
+      ],
+      [
+        "ChatAgentModePreviewCleared",
+        2
+      ],
+      [
+        "ChatAgentModeCommitted",
+        1
+      ],
+      [
+        "ChatProviderCallFinished",
+        1
+      ],
+      [
+        "ChatProviderCallStarted",
+        1
+      ],
+      [
+        "ChatRunFinished",
+        1
+      ],
+      [
+        "ChatRunStarted",
+        1
+      ],
+      [
+        "ChatTextDelta",
+        1
+      ],
+      [
+        "ChatTextSegmentFinished",
+        1
+      ],
+      [
+        "ChatTextSegmentStarted",
+        1
+      ],
+      [
+        "ChatUserMessageAccepted",
+        1
+      ]
+    ],
+    "inference_results": [
+      [
+        "gemini",
+        "gemini-2.5-flash",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0",
+        null,
+        "",
+        "FinishReasonStop",
+        "completed",
+        0,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0"
+      ]
+    ],
+    "segments": [
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "",
+        0,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-segment-started",
+        "segment_started"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "",
+        87,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "",
+        349,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "",
+        617,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "",
+        867,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "",
+        1145,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "",
+        1294,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-delta",
+        "segment_updated"
+      ],
+      [
+        "text",
+        "content",
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        null,
+        "FinishReasonStop",
+        1294,
+        "gemini:59cd2ab8-c506-4f03-ae5b-28a1b695caad:provider-call:0:segment:0:text",
+        "text-segment-finished",
+        "segment_finished"
+      ]
+    ],
+    "correlation_nonempty": 31,
+    "segment_nonempty": 8,
+    "provider_call_nonempty": 31,
+    "frontend_corr_nonempty": 13,
+    "backend_corr_nonempty": 26,
+    "provider_to_emitted_rows": 54,
+    "inference_summary_rows": 1,
+    "segment_lifecycle_rows": 8,
+    "text_segment_rows": 8
+  }
+}

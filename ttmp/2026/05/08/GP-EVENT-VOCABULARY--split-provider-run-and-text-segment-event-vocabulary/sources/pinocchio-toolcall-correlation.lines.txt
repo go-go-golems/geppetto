@@ -1,0 +1,46 @@
+   250		if update.GetToolCallId() != "" {
+   251			entity.ToolCallId = update.GetToolCallId()
+   252		}
+   253		if update.GetToolName() != "" {
+   254			entity.ToolName = update.GetToolName()
+   255		}
+   256		if update.GetInput() != "" {
+   257			entity.Input = update.GetInput()
+   258		}
+   259		return entity
+   260	}
+   261	
+   262	func applyToolCallProviderInfo(update *chatappv1.ToolCallUpdate, info reasoningProviderInfo) *chatappv1.ToolCallUpdate {
+   263		if update == nil {
+   264			return nil
+   265		}
+   266		update.Provider = info.Provider
+   267		update.ResponseId = info.ResponseID
+   268		update.ChoiceIndex = cloneInt32Ptr(info.ChoiceIndex)
+   269		update.StreamKind = info.StreamKind
+   270		update.CorrelationKey = info.CorrelationKey
+   271		update.ToolCallIndex = cloneInt32Ptr(info.ToolCallIndex)
+   272		if update.StreamKind == "" && update.CorrelationKey != "" {
+   273			update.StreamKind = "tool_call"
+   274		}
+   275		return update
+   276	}
+   277	
+   278	func applyToolResultProviderInfo(update *chatappv1.ToolResultUpdate, info reasoningProviderInfo) *chatappv1.ToolResultUpdate {
+   279		if update == nil {
+   280			return nil
+   281		}
+   282		update.Provider = info.Provider
+   283		update.ResponseId = info.ResponseID
+   284		update.ChoiceIndex = cloneInt32Ptr(info.ChoiceIndex)
+   285		update.StreamKind = info.StreamKind
+   286		update.CorrelationKey = info.CorrelationKey
+   287		update.ToolCallIndex = cloneInt32Ptr(info.ToolCallIndex)
+   288		if update.StreamKind == "" && update.CorrelationKey != "" {
+   289			update.StreamKind = "tool_call"
+   290		}
+   291		return update
+   292	}
+   293	
+   294	// Ensure ToolCallPlugin implements ChatPlugin.
+   295	var _ chatapp.ChatPlugin = (*ToolCallPlugin)(nil)

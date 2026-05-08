@@ -101,9 +101,9 @@ func feedPartsFuzz(t *testing.T, sink *FilteringSink, meta events.EventMetadata,
 	completion := ""
 	for _, p := range parts {
 		completion += p
-		require.NoError(t, sink.PublishEvent(events.NewPartialCompletionEvent(meta, p, completion)))
+		require.NoError(t, sink.PublishEvent(newTextDeltaEvent(meta, p, completion)))
 	}
-	require.NoError(t, sink.PublishEvent(events.NewFinalEvent(meta, completion)))
+	require.NoError(t, sink.PublishEvent(newTextFinalEvent(meta, completion)))
 }
 
 // Property: For a known extractor, arbitrary segmentations of a valid tagged block

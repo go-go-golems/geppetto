@@ -1,0 +1,26 @@
+$ rg legacy constructors in Gemini/tool executor runtime
+
+$ go test ./pkg/steps/ai/gemini ./pkg/inference/tools -count=1
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/gemini	0.006s
+ok  	github.com/go-go-golems/geppetto/pkg/inference/tools	0.003s
+
+$ go test ./pkg/steps/ai/... -count=1
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/claude	0.053s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api	0.005s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/gemini	0.008s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/openai	0.009s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses	0.023s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib	0.004s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/settings	0.008s
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/gemini	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/ollama	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/streamhelpers	0.002s
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/types	[no test files]
+
+$ go test ./pkg/js/modules/geppetto -count=1
+passed after updating JS collector expectations from legacy tool-call-execute/tool-call-execution-result to canonical tool-execution-started/tool-result-ready.
+
+$ go test ./... -count=1
+passed after JS collector update.

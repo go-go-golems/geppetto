@@ -103,7 +103,7 @@ func handleTextFormat(w io.Writer, e Event, options PrinterOptions, isFirst *boo
 	switch p := e.(type) {
 	case *EventError:
 		return fmt.Errorf("error event: %v", p.Error_)
-	case *EventPartialCompletion:
+	case *EventTextDelta:
 		if *isFirst && options.Name != "" {
 			*isFirst = false
 			if _, err := fmt.Fprintf(w, "\n%s: \n", options.Name); err != nil {
@@ -112,7 +112,10 @@ func handleTextFormat(w io.Writer, e Event, options PrinterOptions, isFirst *boo
 		}
 		_, err := w.Write([]byte(p.Delta))
 		return err
-	case *EventFinal, *EventText:
+	case *EventReasoningDelta:
+		_, err := w.Write([]byte(p.Delta))
+		return err
+	case *EventTextSegmentFinished:
 		// Add metadata if requested
 		if options.IncludeMetadata {
 			metaBytes, err := yaml.Marshal(e.Metadata())
@@ -125,15 +128,15 @@ func handleTextFormat(w io.Writer, e Event, options PrinterOptions, isFirst *boo
 			// Step metadata removed
 		}
 		return nil
-	case *EventToolCall:
-		toolCallBytes, err := yaml.Marshal(p.ToolCall)
+	case *EventToolCallRequested:
+		toolCallBytes, err := yaml.Marshal(map[string]any{"id": p.ToolCallID, "name": p.ToolName, "input": p.Input})
 		if err != nil {
 			return err
 		}
 		_, err = fmt.Fprintf(w, "%s\n", toolCallBytes)
 		return err
-	case *EventToolResult:
-		toolResultBytes, err := yaml.Marshal(p.ToolResult)
+	case *EventToolResultReady:
+		toolResultBytes, err := yaml.Marshal(map[string]any{"id": p.ToolCallID, "name": p.ToolName, "result": p.Result, "status": p.Status})
 		if err != nil {
 			return err
 		}
@@ -181,16 +184,18 @@ func handleStructuredFormat(w io.Writer, e Event, options PrinterOptions, marsha
 	}
 
 	switch p := e.(type) {
-	case *EventPartialCompletion:
+	case *EventTextDelta:
 		output.Content = p.Delta
-	case *EventFinal:
+	case *EventTextSegmentFinished:
 		output.Content = p.Text
-	case *EventText:
+	case *EventReasoningDelta:
+		output.Content = p.Delta
+	case *EventReasoningSegmentFinished:
 		output.Content = p.Text
-	case *EventToolCall:
-		output.Content = p.ToolCall
-	case *EventToolResult:
-		output.Content = p.ToolResult
+	case *EventToolCallRequested:
+		output.Content = map[string]any{"id": p.ToolCallID, "name": p.ToolName, "input": p.Input}
+	case *EventToolResultReady:
+		output.Content = map[string]any{"id": p.ToolCallID, "name": p.ToolName, "result": p.Result, "status": p.Status}
 	case *EventError:
 		output.Content = p.Error_
 	case *EventLog:
@@ -211,16 +216,9 @@ func handleStructuredFormat(w io.Writer, e Event, options PrinterOptions, marsha
 	} else if options.IncludeMetadata {
 		output.Metadata = e.Metadata()
 		importantMeta := extractImportantMetadata(e.Metadata())
-		if importantMeta != nil {
-			if e.Type() == EventTypeStart {
-				output = structuredOutput{
-					Type:    e.Type(),
-					Content: importantMeta,
-				}
-			} else if e.Type() == EventTypeFinal {
-				// include on content side when final
-				output.Content = map[string]interface{}{"final": output.Content, "meta": importantMeta}
-			}
+		if importantMeta != nil && e.Type() == EventTypeTextSegmentFinished {
+			// include on content side when the text segment finishes
+			output.Content = map[string]interface{}{"final": output.Content, "meta": importantMeta}
 		}
 	}
 
@@ -236,7 +234,7 @@ func handleStructuredFormat(w io.Writer, e Event, options PrinterOptions, marsha
 func extractImportantMetadata(metadata EventMetadata) map[string]interface{} {
 
 	//nolint:exhaustive
-	// provide a compact subset for start-like content
+	// provide a compact subset for lifecycle summary output
 	{
 		result := map[string]interface{}{
 			"model": metadata.Model,

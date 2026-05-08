@@ -80,7 +80,7 @@ type FilteringSink struct {
 	opts       Options
 	exByKey    map[string]Extractor // key: package+"\x00"+type+"\x00"+version
 	mu         sync.Mutex
-	byStreamID map[uuid.UUID]*streamState
+	byStreamID map[string]*streamState
 	baseCtx    context.Context
 }
 
@@ -95,7 +95,7 @@ func NewFilteringSink(next events.EventSink, opts Options, extractors ...Extract
 		next:       next,
 		opts:       o,
 		exByKey:    ex,
-		byStreamID: make(map[uuid.UUID]*streamState),
+		byStreamID: make(map[string]*streamState),
 		baseCtx:    context.Background(),
 	}
 }
@@ -116,7 +116,7 @@ func NewFilteringSinkWithContext(ctx context.Context, next events.EventSink, opt
 		next:       next,
 		opts:       o,
 		exByKey:    ex,
-		byStreamID: make(map[uuid.UUID]*streamState),
+		byStreamID: make(map[string]*streamState),
 		baseCtx:    ctx,
 	}
 }
@@ -127,7 +127,7 @@ func extractorKey(pkg, typ, ver string) string { return pkg + "\x00" + typ + "\x
 
 // Parser state per message stream
 type streamState struct {
-	id uuid.UUID
+	id string
 	// contexts: stream-scoped and current item-scoped
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -176,36 +176,49 @@ func (b *tagLagBuffer) reset(capacity int) {
 	b.capacity = capacity
 }
 
-// PublishEvent implements events.EventSink. It intercepts partial/final text events
-// and forwards filtered variants while publishing extractor-defined typed events.
+// PublishEvent implements events.EventSink. It intercepts canonical text segment
+// delta/finish events and forwards filtered variants while publishing
+// extractor-defined typed events.
 func (f *FilteringSink) PublishEvent(ev events.Event) error {
 	t := ev.Type()
-	if t == events.EventTypePartialCompletion {
+	if t == events.EventTypeTextDelta {
 		return f.handlePartial(ev)
 	}
-	if t == events.EventTypeFinal {
+	if t == events.EventTypeTextSegmentFinished {
 		return f.handleFinal(ev)
 	}
 	return f.next.PublishEvent(ev)
 }
 
-func (f *FilteringSink) getState(meta events.EventMetadata) *streamState {
+func streamStateKey(meta events.EventMetadata, corr events.Correlation) string {
+	if corr.SegmentID != "" {
+		return corr.SegmentID
+	}
+	if corr.CorrelationKey != "" {
+		return corr.CorrelationKey
+	}
+	return meta.ID.String()
+}
+
+func (f *FilteringSink) getState(meta events.EventMetadata, corr events.Correlation) *streamState {
+	key := streamStateKey(meta, corr)
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	st, ok := f.byStreamID[meta.ID]
+	st, ok := f.byStreamID[key]
 	if !ok {
-		st = &streamState{id: meta.ID}
+		st = &streamState{id: key}
 		// #nosec G118 -- stream context is canceled in deleteState when the stream finalizes.
 		st.ctx, st.cancel = context.WithCancel(f.baseCtx)
-		f.byStreamID[meta.ID] = st
+		f.byStreamID[key] = st
 	}
 	return st
 }
 
-func (f *FilteringSink) deleteState(meta events.EventMetadata) {
+func (f *FilteringSink) deleteState(meta events.EventMetadata, corr events.Correlation) {
+	key := streamStateKey(meta, corr)
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if st, ok := f.byStreamID[meta.ID]; ok {
+	if st, ok := f.byStreamID[key]; ok {
 		if st.itemCancel != nil {
 			st.itemCancel()
 			st.itemCancel = nil
@@ -213,7 +226,7 @@ func (f *FilteringSink) deleteState(meta events.EventMetadata) {
 		if st.cancel != nil {
 			st.cancel()
 		}
-		delete(f.byStreamID, meta.ID)
+		delete(f.byStreamID, key)
 	}
 }
 
@@ -250,22 +263,29 @@ func (f *FilteringSink) publishAll(ctx context.Context, meta events.EventMetadat
 
 func (f *FilteringSink) handlePartial(ev events.Event) error {
 	var (
-		delta string
-		meta  events.EventMetadata
-		ok    bool
+		delta    string
+		fullText string
+		sequence int64
+		meta     events.EventMetadata
+		corr     events.Correlation
+		ok       bool
 	)
-	// Typed partials only
-	if pcTyped, isTyped := ev.(*events.EventPartialCompletion); isTyped {
-		delta = pcTyped.Delta
-		meta = pcTyped.Metadata()
+	// Typed canonical text deltas only.
+	if textDelta, isTyped := ev.(*events.EventTextDelta); isTyped {
+		delta = textDelta.Delta
+		fullText = textDelta.Text
+		sequence = textDelta.Sequence
+		meta = textDelta.Metadata()
+		corr = textDelta.Correlation()
 		ok = true
 	}
 	if !ok {
 		// pass-through on unknown
 		return f.next.PublishEvent(ev)
 	}
+	_ = fullText
 
-	st := f.getState(meta)
+	st := f.getState(meta, corr)
 	if f.opts.Debug {
 		log.Trace().Str("stream", meta.ID.String()).Str("event", "partial").Str("delta", delta).Msg("incoming")
 	}
@@ -288,12 +308,8 @@ func (f *FilteringSink) handlePartial(ev events.Event) error {
 	// Maintain filtered completion consistency once we know there is content to forward.
 	st.filteredCompletion.WriteString(filteredDelta)
 
-	// Forward filtered partial only when there is delta content to deliver downstream.
-	fwd := &events.EventPartialCompletion{
-		EventImpl:  events.EventImpl{Type_: events.EventTypePartialCompletion, Metadata_: meta},
-		Delta:      filteredDelta,
-		Completion: st.filteredCompletion.String(),
-	}
+	// Forward filtered text delta only when there is delta content to deliver downstream.
+	fwd := events.NewTextDeltaEvent(meta, corr, filteredDelta, st.filteredCompletion.String(), sequence)
 	if err := f.next.PublishEvent(fwd); err != nil {
 		return err
 	}
@@ -301,11 +317,12 @@ func (f *FilteringSink) handlePartial(ev events.Event) error {
 }
 
 func (f *FilteringSink) handleFinal(ev events.Event) error {
-	// Handle typed EventFinal directly first
-	if fe, ok := ev.(*events.EventFinal); ok {
+	// Handle typed canonical text segment finish directly first.
+	if fe, ok := ev.(*events.EventTextSegmentFinished); ok {
 		meta := fe.Metadata()
-		st := f.getState(meta)
-		// Process only the raw tail we haven't seen via partials
+		corr := fe.Correlation()
+		st := f.getState(meta, corr)
+		// Process only the raw tail we haven't seen via deltas.
 		full := fe.Text
 		prefix := st.rawSeen.String()
 		delta := full
@@ -325,8 +342,8 @@ func (f *FilteringSink) handleFinal(ev events.Event) error {
 			st.filteredCompletion.WriteString(malformedOut.String())
 			_ = f.publishAll(st.ctx, meta, typed)
 		}
-		out := events.NewFinalEvent(meta, st.filteredCompletion.String())
-		f.deleteState(meta)
+		out := events.NewTextSegmentFinishedEvent(meta, corr, st.filteredCompletion.String(), fe.FinishReason)
+		f.deleteState(meta, corr)
 		return f.next.PublishEvent(out)
 	}
 

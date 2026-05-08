@@ -159,3 +159,140 @@ remarquee cloud ls /ai/2026/05/07/GP-CLAUDE-DUPLICATE-TEXT --long --non-interact
 OK: uploaded GP-CLAUDE-DUPLICATE-TEXT - event semantics guide.pdf -> /ai/2026/05/07/GP-CLAUDE-DUPLICATE-TEXT
 [f]	GP-CLAUDE-DUPLICATE-TEXT - event semantics guide
 ```
+
+## 2026-05-08 00:25 — End-to-end Haiku verification passed
+
+I re-ran CoinVault with the local workspace Geppetto after commit `38af6ed Suppress Claude tool-use message stop final`.
+
+### Startup
+
+```bash
+cd /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/2026-03-16--gec-rag
+devctl down || true
+PROFILE_SLUG=haiku devctl up --profile full-trace
+```
+
+I first found stale listeners from the interrupted previous run on ports `18933` and `5173`, killed them, then restarted cleanly. `devctl status` showed both `coinvault-api` and `coinvault-vite` alive.
+
+### Browser run
+
+- Frontend: `http://127.0.0.1:5173/`
+- Profile/model: `haiku`
+- Session: `62ae60c5-e27a-4569-a2ed-4dd18bae0a80`
+- Prompt: the same low-stock vs out-of-stock gold comparison prompt used in the multi-model smoke.
+
+### Artifacts
+
+```text
+../2026-03-16--gec-rag/ttmp/2026/05/07/COINVAULT-OBSERVABILITY--add-observer-correlation-export-for-coinvault-web-chat/various/browser-runs/haiku-after-geppetto-fix-20260508-001503/
+```
+
+Important files:
+
+```text
+haiku/debug.sqlite
+haiku/frontend-records.json
+haiku/final-ui.png
+haiku/sqlite-counts.txt
+haiku/backend-message-sequence.txt
+haiku/duplicate-finished-check.txt
+haiku/provider-message-stop-check.txt
+01-run-report.md
+```
+
+### SQLite counts
+
+```text
+geppetto_records    235
+frontend_records    177
+backend_records     471
+provider_events     181
+backend_pipeline    58
+frontend_ui_events  56
+timeline_entities   12
+```
+
+### Provider-level check
+
+`provider-message-stop-check.txt` showed three tool-use message stops and none produced a Geppetto final publish:
+
+```text
+stop_rec  last_stop_reas  next_pub_r  next_pub_type   next_provider_re  verdict
+56        tool_use        70          start           69                ok
+114       tool_use        128         start           127               ok
+268       tool_use        282         start           281               ok
+466       end_turn        467         final                             ok
+```
+
+This proves the Claude `message_stop` after `stop_reason=tool_use` no longer becomes a text-final event. The only `final` publish followed the final `end_turn`.
+
+### Backend event check
+
+`duplicate-finished-check.txt` showed each `ChatInferenceFinished` had preceding token deltas and none occurred directly after a tool event:
+
+```text
+ordinal  message_id         prev_token_ord  prev_tool_ord  prev_ord  verdict
+6        chat-msg-1:text:1  5                              5         ok
+14       chat-msg-1:text:2  13              10             13        ok
+24       chat-msg-1:text:3  23              18             23        ok
+58       chat-msg-1:text:4  56              28             57        ok
+```
+
+The previous bad pattern was absent:
+
+```text
+ChatInferenceFinished chat-msg-*:text:1
+ChatToolCallStarted
+ChatInferenceFinished chat-msg-*:text:2  # no real text delta; duplicate
+```
+
+The final browser UI also showed no duplicated intro paragraph after the first tool call.
+
+### Local test
+
+I also re-ran the focused Claude merger tests:
+
+```bash
+go test ./pkg/steps/ai/claude -run 'TestContentBlockMerger' -count=1
+```
+
+Result:
+
+```text
+ok  github.com/go-go-golems/geppetto/pkg/steps/ai/claude  0.002s
+```
+
+### Conclusion
+
+The end-to-end browser/SQLite verification passed. The code fix in `38af6ed` is effective for the observed Haiku duplicate-message failure.
+
+## 2026-05-08 00:55 — Fixed metadata loss caused by suppressing tool-use final events
+
+A follow-up review pointed out a subtle regression in the stronger duplicate-message fix. Suppressing Claude `message_stop` final events is correct for transcript rendering, but `ClaudeEngine` was only copying merger metadata into the local inference metadata while iterating over events returned by `ContentBlockMerger.Add`. Claude `message_delta` carries `stop_reason=tool_use` and final usage, and the tool-use `message_stop` sets duration, but both now intentionally return no transcript event. That meant the updated metadata could remain inside the merger and not reach the persisted canonical `inference_result`.
+
+### Fix
+
+I kept the no-event behavior for transcript correctness, but made metadata propagation independent from event publication:
+
+- added `ContentBlockMerger.Metadata()` so the engine can inspect merger metadata after every provider event;
+- made `ClaudeEngine` call `syncClaudeEventMetadata(&metadata, completionMerger.Metadata())` immediately after every `Add`, even when `Add` returns no events;
+- kept event-specific metadata sync before publishing generated events;
+- made final response metadata handling avoid overwriting streamed `message_delta` usage with a zero-value message-start response;
+- mirrored `message_delta` stop reason/stop sequence and usage onto the reconstructed `MessageResponse` so `Response()` remains a complete representation;
+- updated `MessageStopType` handling to copy usage from an optional final message payload.
+
+### Regression coverage
+
+Added two tests:
+
+- `TestContentBlockMergerToolUseMessageDeltaMetadataPreservedWithoutEvent` verifies the merger keeps `stop_reason=tool_use`, usage, duration, and response fields even though `message_delta`/tool-use `message_stop` publish no transcript event.
+- `TestClaudeRunInferenceToolUsePreservesMessageDeltaMetadata` runs a fake Claude SSE tool-use stream end-to-end through `ClaudeEngine.RunInference` and verifies the persisted turn `inference_result` has `stop_reason=tool_use`, final usage, cache-token fields, and duration.
+
+### Validation
+
+```bash
+go test ./pkg/steps/ai/claude -count=1
+go test ./pkg/steps/ai/... -count=1
+```
+
+Both passed.

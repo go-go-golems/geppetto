@@ -290,7 +290,7 @@ func BuildReport(outDir string) (string, error) {
 				model = mid
 			}
 		}
-		if l.Type == string(events.EventTypeFinal) {
+		if l.Type == string(events.EventTypeTextSegmentFinished) {
 			if txt, ok := l.Event["text"].(string); ok {
 				finalText = txt
 			}

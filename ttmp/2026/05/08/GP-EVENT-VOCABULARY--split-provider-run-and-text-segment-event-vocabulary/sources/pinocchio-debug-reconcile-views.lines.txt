@@ -1,0 +1,221 @@
+    50			   FROM backend_transport bt
+    51			   JOIN backend_records br ON br.id = bt.record_id
+    52			  WHERE bt.error IS NOT NULL AND bt.error != ''`,
+    53	
+    54			// Geppetto reasoning/provider sequence for OpenAI Responses debugging.
+    55			`CREATE VIEW geppetto_reasoning_sequence AS
+    56			 SELECT record_id, ts, stage, event_type, info_message, message_id, response_id, item_id,
+    57			        output_index, summary_index, choice_index, stream_kind, correlation_key,
+    58			        tool_call_id, tool_call_index, delta_len, normalized_delta_len, buffer_len, error
+    59			   FROM geppetto_records
+    60			  WHERE COALESCE(event_type, '') LIKE '%reasoning%'
+    61			     OR COALESCE(event_type, '') LIKE '%summary%'
+    62			     OR COALESCE(info_message, '') LIKE '%thinking%'
+    63			     OR COALESCE(info_message, '') LIKE '%reasoning%'
+    64			  ORDER BY ts, record_id`,
+    65	
+    66			// Summary-related Geppetto records missing provider item IDs.
+    67			`CREATE VIEW geppetto_summary_without_item_id AS
+    68			 SELECT *
+    69			   FROM geppetto_records
+    70			  WHERE (COALESCE(event_type, '') LIKE '%summary%'
+    71			     OR COALESCE(info_message, '') LIKE '%summary%')
+    72			    AND COALESCE(item_id, '') = ''`,
+    73	
+    74			// Geppetto publish errors.
+    75			`CREATE VIEW geppetto_publish_errors AS
+    76			 SELECT *
+    77			   FROM geppetto_records
+    78			  WHERE stage = 'geppetto_publish_error'
+    79			     OR COALESCE(error, '') != ''`,
+    80	
+    81			// Provider records next to emitted Geppetto events by provider item id.
+    82			`CREATE VIEW geppetto_provider_to_emitted AS
+    83			 SELECT p.record_id AS provider_record_id,
+    84			        p.provider_event_type,
+    85			        p.response_id,
+    86			        p.item_id,
+    87			        p.correlation_key,
+    88			        p.stream_kind,
+    89			        p.tool_call_id,
+    90			        e.record_id AS emitted_record_id,
+    91			        e.geppetto_event_type,
+    92			        e.info_message
+    93			   FROM geppetto_provider_events p
+    94			   LEFT JOIN geppetto_emitted_events e
+    95			     ON ((COALESCE(e.item_id, '') = COALESCE(p.item_id, '') AND COALESCE(e.item_id, '') != '')
+    96			      OR (COALESCE(e.correlation_key, '') = COALESCE(p.correlation_key, '') AND COALESCE(e.correlation_key, '') != ''))`,
+    97	
+    98			// Provider reasoning deltas correlated through Geppetto publish records,
+    99			// backend Sessionstream ordinals, frontend parsed frames, UI mutations, and
+   100			// persisted timeline entities. ReasoningUpdate payloads now expose provider
+   101			// IDs directly; row order still disambiguates multiple deltas for one item.
+   102			`CREATE VIEW geppetto_reasoning_to_frontend AS
+   103			 WITH
+   104			 provider_delta AS (
+   105			   SELECT row_number() OVER (ORDER BY record_id) AS rn,
+   106			          record_id AS provider_record_id,
+   107			          response_id,
+   108			          item_id,
+   109			          output_index,
+   110			          summary_index,
+   111			          json_extract(object_json, '$.delta') AS provider_delta
+   112			     FROM geppetto_records
+   113			    WHERE stage = 'provider_normalize_delta'
+   114			      AND event_type = 'response.reasoning_summary_text.delta'
+   115			 ),
+   116			 geppetto_delta AS (
+   117			   SELECT row_number() OVER (ORDER BY record_id) AS rn,
+   118			          record_id AS geppetto_event_record_id,
+   119			          json_extract(event_json, '$.delta') AS geppetto_delta,
+   120			          message_id AS geppetto_message_id
+   121			     FROM geppetto_records
+   122			    WHERE stage = 'geppetto_publish_done'
+   123			      AND event_type = 'partial-thinking'
+   124			 ),
+   125			 backend_reasoning AS (
+   126			   SELECT row_number() OVER (ORDER BY CAST(br.ordinal AS INTEGER)) AS rn,
+   127			          br.ordinal AS backend_ordinal,
+   128			          bp.event_name AS backend_event_name,
+   129			          json_extract(bpue.payload_json, '$.messageId') AS backend_message_id,
+   130			          json_extract(bpue.payload_json, '$.provider') AS backend_provider,
+   131			          json_extract(bpue.payload_json, '$.responseId') AS backend_response_id,
+   132			          json_extract(bpue.payload_json, '$.itemId') AS backend_item_id,
+   133			          json_extract(bpue.payload_json, '$.outputIndex') AS backend_output_index,
+   134			          json_extract(bpue.payload_json, '$.summaryIndex') AS backend_summary_index,
+   135			          json_extract(bpue.payload_json, '$.chunk') AS backend_chunk
+   136			     FROM backend_pipeline bp
+   137			     JOIN backend_records br ON br.id = bp.record_id
+   138			     JOIN backend_pipeline_ui_events bpue ON bpue.record_id = br.id
+   139			    WHERE bp.event_name = 'ChatReasoningDelta'
+   140			      AND bpue.source = 'uiEvents'
+   141			 ),
+   142			 frontend_reasoning AS (
+   143			   SELECT row_number() OVER (ORDER BY CAST(fr.ordinal AS INTEGER)) AS rn,
+   144			          fr.ordinal AS frontend_ordinal,
+   145			          fpf.name AS frontend_event_name,
+   146			          json_extract(fpf.frame_json, '$.payload.messageId') AS frontend_message_id,
+   147			          json_extract(fpf.frame_json, '$.payload.provider') AS frontend_provider,
+   148			          json_extract(fpf.frame_json, '$.payload.responseId') AS frontend_response_id,
+   149			          json_extract(fpf.frame_json, '$.payload.itemId') AS frontend_item_id,
+   150			          json_extract(fpf.frame_json, '$.payload.outputIndex') AS frontend_output_index,
+   151			          json_extract(fpf.frame_json, '$.payload.summaryIndex') AS frontend_summary_index,
+   152			          json_extract(fpf.frame_json, '$.payload.chunk') AS frontend_chunk
+   153			     FROM frontend_parsed_frames fpf
+   154			     JOIN frontend_records fr ON fr.id = fpf.record_id
+   155			    WHERE fpf.name = 'ChatReasoningAppended'
+   156			 ),
+   157			 frontend_mutation AS (
+   158			   SELECT fr.ordinal,
+   159			          fui.name AS frontend_ui_event_name,
+   160			          fui.message_id AS ui_mutation_message_id
+   161			     FROM frontend_ui_events fui
+   162			     JOIN frontend_records fr ON fr.id = fui.record_id
+   163			    WHERE fui.name = 'ChatReasoningAppended'
+   164			 )
+   165			 SELECT pd.rn,
+   166			        pd.provider_record_id,
+   167			        pd.response_id,
+   168			        pd.item_id AS provider_item_id,
+   169			        pd.output_index,
+   170			        pd.summary_index,
+   171			        pd.provider_delta,
+   172			        gd.geppetto_event_record_id,
+   173			        gd.geppetto_delta,
+   174			        gd.geppetto_message_id,
+   175			        br.backend_ordinal,
+   176			        br.backend_event_name,
+   177			        br.backend_message_id,
+   178			        br.backend_provider,
+   179			        br.backend_response_id,
+   180			        br.backend_item_id,
+   181			        br.backend_output_index,
+   182			        br.backend_summary_index,
+   183			        br.backend_chunk,
+   184			        fr.frontend_ordinal,
+   185			        fr.frontend_event_name,
+   186			        fr.frontend_message_id,
+   187			        fr.frontend_provider,
+   188			        fr.frontend_response_id,
+   189			        fr.frontend_item_id,
+   190			        fr.frontend_output_index,
+   191			        fr.frontend_summary_index,
+   192			        fr.frontend_chunk,
+   193			        fm.frontend_ui_event_name,
+   194			        fm.ui_mutation_message_id,
+   195			        te.entity_id AS timeline_entity_id,
+   196			        te.created_ordinal AS timeline_created_ordinal,
+   197			        te.last_event_ordinal AS timeline_last_event_ordinal
+   198			   FROM provider_delta pd
+   199			   JOIN geppetto_delta gd ON gd.rn = pd.rn
+   200			   JOIN backend_reasoning br ON br.rn = pd.rn
+   201			   JOIN frontend_reasoning fr ON fr.rn = pd.rn
+   202			   LEFT JOIN frontend_mutation fm ON fm.ordinal = fr.frontend_ordinal
+   203			   LEFT JOIN timeline_entities te ON te.entity_id = fr.frontend_message_id`,
+   204	
+   205			// Generic provider/backend/frontend correlation by normalized correlation key.
+   206			`CREATE VIEW geppetto_correlation_to_frontend AS
+   207			 WITH
+   208			 provider_records AS (
+   209			   SELECT record_id, provider_event_type, response_id, item_id, choice_index,
+   210			          stream_kind, correlation_key, tool_call_id, tool_call_index, object_json
+   211			     FROM geppetto_provider_events
+   212			    WHERE COALESCE(correlation_key, '') != ''
+   213			 ),
+   214			 backend_events AS (
+   215			   SELECT br.ordinal AS backend_ordinal,
+   216			          bpue.name AS backend_event_name,
+   217			          json_extract(bpue.payload_json, '$.messageId') AS backend_message_id,
+   218			          json_extract(bpue.payload_json, '$.correlationKey') AS backend_correlation_key,
+   219			          json_extract(bpue.payload_json, '$.streamKind') AS backend_stream_kind,
+   220			          json_extract(bpue.payload_json, '$.chunk') AS backend_chunk,
+   221			          json_extract(bpue.payload_json, '$.toolCallId') AS backend_tool_call_id
+   222			     FROM backend_pipeline_ui_events bpue
+   223			     JOIN backend_records br ON br.id = bpue.record_id
+   224			    WHERE bpue.source = 'uiEvents'
+   225			 ),
+   226			 frontend_events AS (
+   227			   SELECT fr.ordinal AS frontend_ordinal,
+   228			          fpf.name AS frontend_event_name,
+   229			          json_extract(fpf.frame_json, '$.payload.messageId') AS frontend_message_id,
+   230			          json_extract(fpf.frame_json, '$.payload.correlationKey') AS frontend_correlation_key,
+   231			          json_extract(fpf.frame_json, '$.payload.streamKind') AS frontend_stream_kind,
+   232			          json_extract(fpf.frame_json, '$.payload.chunk') AS frontend_chunk,
+   233			          json_extract(fpf.frame_json, '$.payload.toolCallId') AS frontend_tool_call_id
+   234			     FROM frontend_parsed_frames fpf
+   235			     JOIN frontend_records fr ON fr.id = fpf.record_id
+   236			    WHERE fpf.frame_type = 'ui-event'
+   237			 )
+   238			 SELECT p.record_id AS provider_record_id,
+   239			        p.provider_event_type,
+   240			        p.response_id,
+   241			        p.item_id,
+   242			        p.choice_index,
+   243			        p.stream_kind,
+   244			        p.correlation_key,
+   245			        p.tool_call_id,
+   246			        b.backend_ordinal,
+   247			        b.backend_event_name,
+   248			        b.backend_message_id,
+   249			        b.backend_chunk,
+   250			        b.backend_tool_call_id,
+   251			        f.frontend_ordinal,
+   252			        f.frontend_event_name,
+   253			        f.frontend_message_id,
+   254			        f.frontend_chunk,
+   255			        f.frontend_tool_call_id
+   256			   FROM provider_records p
+   257			   LEFT JOIN backend_events b ON b.backend_correlation_key = p.correlation_key
+   258			   LEFT JOIN frontend_events f ON f.frontend_correlation_key = p.correlation_key`,
+   259	
+   260			// Frontend parsed frames with no corresponding UI event mutation.
+   261			`CREATE VIEW frontend_parsed_no_mutation AS
+   262			 SELECT pf.record_id, pf.frame_type, pf.name, fr.ordinal
+   263			   FROM frontend_parsed_frames pf
+   264			   JOIN frontend_records fr ON fr.id = pf.record_id
+   265			  WHERE pf.frame_type = 'ui-event'
+   266			    AND NOT EXISTS (
+   267			      SELECT 1 FROM frontend_ui_events fue
+   268			       WHERE fue.record_id = pf.record_id
+   269			    )`,
+   270	

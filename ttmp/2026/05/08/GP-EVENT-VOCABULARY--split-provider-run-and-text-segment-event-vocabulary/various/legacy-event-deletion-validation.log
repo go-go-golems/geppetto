@@ -1,0 +1,88 @@
+$ rg legacy event symbols in active Geppetto runtime (excluding docs/tickets)
+
+$ go test ./pkg/events/... ./pkg/steps/ai/openai_responses ./pkg/inference/fixtures ./cmd/examples/advanced/openai-tools -count=1
+ok  	github.com/go-go-golems/geppetto/pkg/events	0.004s
+ok  	github.com/go-go-golems/geppetto/pkg/events/structuredsink	0.012s
+ok  	github.com/go-go-golems/geppetto/pkg/events/structuredsink/parsehelpers	0.004s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses	0.015s
+?   	github.com/go-go-golems/geppetto/pkg/inference/fixtures	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/advanced/openai-tools	[no test files]
+
+$ go test ./... -count=1
+?   	github.com/go-go-golems/geppetto/cmd/examples/advanced/claude-tools	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/advanced/generic-tool-calling	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/advanced/middleware-inference	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/advanced/openai-tools	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/inference	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/internal/bootstrap	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/internal/runnerexample	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/runner-glazed-full-flags	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/runner-glazed-registry-flags	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/runner-registry	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/runner-simple	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/runner-streaming	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/runner-tools	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/scopedjs-dbserver	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/scopedjs-tool	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/examples/streaming-inference	[no test files]
+ok  	github.com/go-go-golems/geppetto/cmd/tools/gen-dts	0.008s
+ok  	github.com/go-go-golems/geppetto/cmd/tools/gen-meta	0.012s
+?   	github.com/go-go-golems/geppetto/cmd/tools/geppetto-lint	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/tools/turnsdatalint	[no test files]
+?   	github.com/go-go-golems/geppetto/cmd/tools/turnsrefactor	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/analysis/turnsdatalint	0.277s
+?   	github.com/go-go-golems/geppetto/pkg/analysis/turnsrefactor	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/cli/bootstrap	0.083s
+ok  	github.com/go-go-golems/geppetto/pkg/doc	0.042s
+ok  	github.com/go-go-golems/geppetto/pkg/embeddings	0.669s
+?   	github.com/go-go-golems/geppetto/pkg/embeddings/config	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/engineprofiles	0.151s
+ok  	github.com/go-go-golems/geppetto/pkg/events	0.005s
+ok  	github.com/go-go-golems/geppetto/pkg/events/structuredsink	0.021s
+ok  	github.com/go-go-golems/geppetto/pkg/events/structuredsink/parsehelpers	0.005s
+?   	github.com/go-go-golems/geppetto/pkg/helpers	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/inference/engine	0.004s
+ok  	github.com/go-go-golems/geppetto/pkg/inference/engine/factory	0.037s
+?   	github.com/go-go-golems/geppetto/pkg/inference/fixtures	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/inference/middleware	0.007s
+ok  	github.com/go-go-golems/geppetto/pkg/inference/middlewarecfg	0.020s
+ok  	github.com/go-go-golems/geppetto/pkg/inference/runner	0.056s
+ok  	github.com/go-go-golems/geppetto/pkg/inference/session	0.006s
+?   	github.com/go-go-golems/geppetto/pkg/inference/tokencount	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/inference/tokencount/factory	0.008s
+ok  	github.com/go-go-golems/geppetto/pkg/inference/toolloop	0.020s
+ok  	github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder	0.009s
+ok  	github.com/go-go-golems/geppetto/pkg/inference/tools	0.010s
+ok  	github.com/go-go-golems/geppetto/pkg/inference/tools/scopeddb	0.030s
+ok  	github.com/go-go-golems/geppetto/pkg/inference/tools/scopedjs	0.088s
+?   	github.com/go-go-golems/geppetto/pkg/js	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/js/modules/geppetto	0.108s
+ok  	github.com/go-go-golems/geppetto/pkg/js/runtime	0.009s
+?   	github.com/go-go-golems/geppetto/pkg/js/runtimebridge	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/observability	0.007s
+?   	github.com/go-go-golems/geppetto/pkg/sections	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/security	0.002s
+?   	github.com/go-go-golems/geppetto/pkg/steps	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/claude	0.029s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api	0.005s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/gemini	0.008s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/openai	0.009s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses	0.020s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib	0.004s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/settings	0.008s
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/gemini	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/ollama	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/streamhelpers	0.003s
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/types	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/parse	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/turns	0.004s
+ok  	github.com/go-go-golems/geppetto/pkg/turns/serde	0.006s
+?   	github.com/go-go-golems/geppetto/pkg/turns/toolblocks	[no test files]
+?   	github.com/go-go-golems/geppetto/ttmp/2026/02/12/GP-001-UPDATE-GLAZED--migrate-geppetto-and-pinocchio-to-glazed-facade-packages/scripts	[no test files]
+?   	github.com/go-go-golems/geppetto/ttmp/2026/02/20/GP-02-IMPROVE-INFERENCE-ARGUMENTS--extend-inference-metadata-for-provider-specific-arguments/scripts/test_glazed_pointer_nil	[no test files]
+?   	github.com/go-go-golems/geppetto/ttmp/2026/02/20/GP-16-UNIFY-TURNS-KEYS-CODEGEN-MERGE--unify-turns-key-constants-codegen-after-gp-02-merge-conflict/scripts	[no test files]
+?   	github.com/go-go-golems/geppetto/ttmp/2026/03/16/GP-35--preserve-javascript-error-messages-in-scopedjs-promise-rejections/scripts	[no test files]
+?   	github.com/go-go-golems/geppetto/ttmp/2026/03/27/GP-57-TOGETHER-THINKING--investigate-missing-together-qwen-thinking-stream-in-openai-compatible-chat-completions/scripts	[no test files]
+?   	github.com/go-go-golems/geppetto/ttmp/2026/04/22/GP-53-OPENAI-RESPONSES-MULTIMODAL-MEDIA--add-multimodal-media-support-to-geppetto-openai-responses/scripts	[no test files]

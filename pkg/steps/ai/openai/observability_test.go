@@ -124,9 +124,9 @@ func TestOpenAIObservabilityCapturesPublishStartedAndProviderRecords(t *testing.
 		t.Fatalf("provider ObjectJSON missing raw fields: %s", string(providerRec.ObjectJSON))
 	}
 
-	partialStarted := findGeppettoRecord(records, geppettoobs.StageGeppettoPublishStarted, string(events.EventTypePartialCompletion), "")
+	partialStarted := findGeppettoRecord(records, geppettoobs.StageGeppettoPublishStarted, string(events.EventTypeTextDelta), "")
 	if partialStarted == nil {
-		t.Fatalf("missing partial publish-started record in %#v", records)
+		t.Fatalf("missing text-delta publish-started record in %#v", records)
 	}
 	if len(partialStarted.EventJSON) != 0 || len(partialStarted.MetadataJSON) != 0 {
 		t.Fatalf("publish-started should stay compact and omit full JSON payloads: %#v", partialStarted)
@@ -160,8 +160,8 @@ func TestOpenAIObservabilityEventsLevelEmitsPublishStartedOnly(t *testing.T) {
 	if rec := findGeppettoRecord(records, geppettoobs.StageProviderRoutedEvent, "chat.completion.chunk", ""); rec != nil {
 		t.Fatalf("did not expect provider record at events trace level: %#v", rec)
 	}
-	if rec := findGeppettoRecord(records, geppettoobs.StageGeppettoPublishStarted, string(events.EventTypeFinal), ""); rec == nil {
-		t.Fatalf("expected final publish-started record at events trace level in %#v", records)
+	if rec := findGeppettoRecord(records, geppettoobs.StageGeppettoPublishStarted, string(events.EventTypeProviderCallFinished), ""); rec == nil {
+		t.Fatalf("expected provider-call-finished publish-started record at events trace level in %#v", records)
 	}
 	if rec := findGeppettoRecord(records, geppettoobs.StageGeppettoPublishDone, "", ""); rec != nil {
 		t.Fatalf("did not expect publish-done records: %#v", rec)
@@ -197,12 +197,12 @@ func TestOpenAIObservabilityAddsChatCorrelationFields(t *testing.T) {
 	if reasoningRec.CorrelationKey != "openai-chat:chatcmpl-corr:choice:0:reasoning" {
 		t.Fatalf("unexpected reasoning correlation key: %q", reasoningRec.CorrelationKey)
 	}
-	partialThinking := findGeppettoRecord(obs.snapshot(), geppettoobs.StageGeppettoPublishStarted, string(events.EventTypePartialThinking), "")
-	if partialThinking == nil {
-		t.Fatalf("missing partial thinking publish record")
+	reasoningPublish := findGeppettoRecord(obs.snapshot(), geppettoobs.StageGeppettoPublishStarted, string(events.EventTypeReasoningDelta), "")
+	if reasoningPublish == nil {
+		t.Fatalf("missing reasoning delta publish record")
 	}
-	if partialThinking.CorrelationKey != reasoningRec.CorrelationKey || partialThinking.StreamKind != "reasoning" {
-		t.Fatalf("thinking publish did not preserve correlation data: %#v", partialThinking)
+	if reasoningPublish.CorrelationKey != reasoningRec.CorrelationKey || reasoningPublish.StreamKind != "reasoning" {
+		t.Fatalf("reasoning publish did not preserve correlation data: %#v", reasoningPublish)
 	}
 }
 
@@ -243,9 +243,9 @@ func TestOpenAIObservabilityAddsToolCorrelationFields(t *testing.T) {
 		}
 	}
 	toolProvider := toolProviders[0]
-	toolPublish := findGeppettoRecord(obs.snapshot(), geppettoobs.StageGeppettoPublishStarted, string(events.EventTypeToolCall), "")
+	toolPublish := findGeppettoRecord(obs.snapshot(), geppettoobs.StageGeppettoPublishStarted, string(events.EventTypeToolCallRequested), "")
 	if toolPublish == nil {
-		t.Fatalf("missing tool publish record")
+		t.Fatalf("missing tool requested publish record")
 	}
 	if toolPublish.CorrelationKey != toolProvider.CorrelationKey || toolPublish.ToolCallID != "call_1" {
 		t.Fatalf("tool publish did not preserve correlation data: %#v", toolPublish)

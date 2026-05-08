@@ -1,0 +1,160 @@
+     1	package plugins
+     2	
+     3	import (
+     4		"context"
+     5		"fmt"
+     6		"strconv"
+     7		"strings"
+     8		"sync"
+     9	
+    10		gepevents "github.com/go-go-golems/geppetto/pkg/events"
+    11		chatapp "github.com/go-go-golems/pinocchio/pkg/chatapp"
+    12		chatappv1 "github.com/go-go-golems/pinocchio/pkg/chatapp/pb/proto/pinocchio/chatapp/v1"
+    13		sessionstream "github.com/go-go-golems/sessionstream/pkg/sessionstream"
+    14		"google.golang.org/protobuf/proto"
+    15	)
+    16	
+    17	const (
+    18		// ReasoningStartedEventName is the backend event published when a thinking stream begins.
+    19		ReasoningStartedEventName = "ChatReasoningStarted"
+    20		// ReasoningDeltaEventName is the backend event published for each thinking token delta.
+    21		ReasoningDeltaEventName = "ChatReasoningDelta"
+    22		// ReasoningFinishedEventName is the backend event published when thinking ends or a reasoning summary arrives.
+    23		ReasoningFinishedEventName = "ChatReasoningFinished"
+    24	
+    25		// ReasoningStartedUIName is the UI event emitted when a thinking stream begins.
+    26		ReasoningStartedUIName = "ChatReasoningStarted"
+    27		// ReasoningAppendedUIName is the UI event emitted for each thinking token delta.
+    28		ReasoningAppendedUIName = "ChatReasoningAppended"
+    29		// ReasoningFinishedUIName is the UI event emitted when thinking ends.
+    30		ReasoningFinishedUIName = "ChatReasoningFinished"
+    31	)
+    32	
+    33	// ReasoningPlugin is a ChatPlugin that handles thinking/reasoning streams from
+    34	// geppetto inference engines. It translates EventThinkingPartial and EventInfo
+    35	// (thinking-started, thinking-ended, reasoning-summary) into sessionstream
+    36	// events, and projects them into ChatMessage timeline entities with role "thinking".
+    37	//
+    38	// Each contiguous thinking phase gets its own segment ID derived from the
+    39	// parent assistant message ID (for example, "chat-msg-5:thinking:1",
+    40	// "chat-msg-5:thinking:2").
+    41	type ReasoningPlugin struct {
+    42		mu             sync.Mutex
+    43		segments       map[reasoningKey]reasoningSegmentState
+    44		activeByParent map[string]reasoningKey
+    45		nextSegment    map[string]int32
+    46	}
+    47	
+    48	type reasoningKey struct {
+    49		ParentMessageID string
+    50		Provider        string
+    51		ResponseID      string
+    52		ItemID          string
+    53		OutputIndex     int32
+    54		HasOutputIndex  bool
+    55		ChoiceIndex     int32
+    56		HasChoiceIndex  bool
+    57		StreamKind      string
+    58		CorrelationKey  string
+    59	}
+    60	
+    61	type reasoningSegmentState struct {
+    62		Current  int32
+    63		Active   bool
+    64		Provider reasoningProviderInfo
+    65	}
+    66	
+    67	type reasoningProviderInfo struct {
+    68		Provider       string
+    69		ResponseID     string
+    70		ItemID         string
+    71		OutputIndex    *int32
+    72		SummaryIndex   *int32
+    73		ChoiceIndex    *int32
+    74		StreamKind     string
+    75		CorrelationKey string
+    76		ToolCallID     string
+    77		ToolCallIndex  *int32
+    78	}
+    79	
+    80	// NewReasoningPlugin creates a new ReasoningPlugin.
+    81	func NewReasoningPlugin() chatapp.ChatPlugin {
+    82		return &ReasoningPlugin{
+    83			segments:       map[reasoningKey]reasoningSegmentState{},
+    84			activeByParent: map[string]reasoningKey{},
+    85			nextSegment:    map[string]int32{},
+    86		}
+    87	}
+    88	
+    89	// RegisterSchemas registers the reasoning event and UI event payload schemas.
+    90	func (p *ReasoningPlugin) RegisterSchemas(reg *sessionstream.SchemaRegistry) error {
+    91		for _, err := range []error{
+    92			reg.RegisterEvent(ReasoningStartedEventName, &chatappv1.ReasoningUpdate{}),
+    93			reg.RegisterEvent(ReasoningDeltaEventName, &chatappv1.ReasoningUpdate{}),
+    94			reg.RegisterEvent(ReasoningFinishedEventName, &chatappv1.ReasoningUpdate{}),
+    95			reg.RegisterUIEvent(ReasoningStartedUIName, &chatappv1.ReasoningUpdate{}),
+    96			reg.RegisterUIEvent(ReasoningAppendedUIName, &chatappv1.ReasoningUpdate{}),
+    97			reg.RegisterUIEvent(ReasoningFinishedUIName, &chatappv1.ReasoningUpdate{}),
+    98		} {
+    99			if err != nil {
+   100				return err
+   101			}
+   102		}
+   103		return nil
+   104	}
+   105	
+   106	// HandleRuntimeEvent handles EventThinkingPartial and EventInfo events.
+   107	func (p *ReasoningPlugin) HandleRuntimeEvent(ctx context.Context, runtime chatapp.RuntimeEventContext, event gepevents.Event) (bool, error) {
+   108		parentMessageID := strings.TrimSpace(runtime.MessageID)
+   109		if parentMessageID == "" {
+   110			return false, nil
+   111		}
+   112	
+   113		switch ev := event.(type) {
+   114		case *gepevents.EventThinkingPartial:
+   115			providerInfo := reasoningProviderInfoFromMetadata(ev.Metadata())
+   116			reasoningMessageID, segment, providerInfo := p.ensureReasoningSegment(parentMessageID, providerInfo)
+   117			return true, runtime.Publish(ctx, ReasoningDeltaEventName, applyReasoningProviderInfo(&chatappv1.ReasoningUpdate{
+   118				MessageId:       reasoningMessageID,
+   119				ParentMessageId: parentMessageID,
+   120				Segment:         segment,
+   121				Role:            "thinking",
+   122				Chunk:           ev.Delta,
+   123				Content:         ev.Completion,
+   124				Text:            ev.Completion,
+   125				Status:          "streaming",
+   126				Streaming:       true,
+   127				Source:          "thinking",
+   128				SegmentType:     "thinking",
+   129			}, providerInfo))
+   130		case *gepevents.EventInfo:
+   131			switch ev.Message {
+   132			case "thinking-started":
+   133				providerInfo := reasoningProviderInfoFromData(ev.Data)
+   134				reasoningMessageID, segment, providerInfo := p.startReasoningSegment(parentMessageID, providerInfo)
+   135				return true, runtime.Publish(ctx, ReasoningStartedEventName, applyReasoningProviderInfo(&chatappv1.ReasoningUpdate{
+   136					MessageId:       reasoningMessageID,
+   137					ParentMessageId: parentMessageID,
+   138					Segment:         segment,
+   139					Role:            "thinking",
+   140					Status:          "streaming",
+   141					Streaming:       true,
+   142					Source:          "thinking",
+   143					SegmentType:     "thinking",
+   144				}, providerInfo))
+   145			case "thinking-ended":
+   146				providerInfo := reasoningProviderInfoFromData(ev.Data)
+   147				reasoningMessageID, segment, providerInfo, key, ok := p.currentReasoningSegment(parentMessageID, providerInfo)
+   148				if !ok {
+   149					return false, nil
+   150				}
+   151				p.finishReasoningSegment(key)
+   152				return true, runtime.Publish(ctx, ReasoningFinishedEventName, applyReasoningProviderInfo(&chatappv1.ReasoningUpdate{
+   153					MessageId:       reasoningMessageID,
+   154					ParentMessageId: parentMessageID,
+   155					Segment:         segment,
+   156					Role:            "thinking",
+   157					Status:          "finished",
+   158					Streaming:       false,
+   159					Source:          "thinking",
+   160					SegmentType:     "thinking",

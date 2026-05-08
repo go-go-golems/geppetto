@@ -58,7 +58,11 @@ func (e *OpenAIEngine) observePublishStarted(ctx context.Context, event events.E
 		rec.InfoMessage = info.Message
 		applyChatProviderDataToRecord(&rec, info.Data)
 	}
+	geppettoobs.EnrichRecordFromEvent(&rec, event)
 	e.observe(ctx, rec)
+	for _, derived := range geppettoobs.DerivedRecordsFromEvent(rec, event) {
+		e.observe(ctx, derived)
+	}
 }
 
 func (e *OpenAIEngine) observeProviderEvent(ctx context.Context, metadata events.EventMetadata, model string, ev chatStreamEvent) {
@@ -99,6 +103,7 @@ func (e *OpenAIEngine) chatProviderRecordBase(metadata events.EventMetadata, mod
 		toolCallIndex = cloneIntPtr(tc.Index)
 	}
 	rec := geppettoobs.Record{
+		Kind:           geppettoobs.RecordKindProviderEvent,
 		Provider:       provider,
 		Model:          model,
 		SessionID:      metadata.SessionID,
@@ -195,87 +200,8 @@ func firstChatToolCall(calls []ChatToolCall) *ChatToolCall {
 	return &calls[0]
 }
 
-func chatProviderData(provider, responseID string, choiceIndex *int, streamKind, correlationKey, toolCallID string, toolCallIndex *int) map[string]any {
-	data := map[string]any{}
-	if provider != "" {
-		data["provider"] = provider
-	}
-	if responseID != "" {
-		data["response_id"] = responseID
-	}
-	if choiceIndex != nil {
-		data["choice_index"] = *choiceIndex
-	}
-	if streamKind != "" {
-		data["stream_kind"] = streamKind
-	}
-	if correlationKey != "" {
-		data["correlation_key"] = correlationKey
-	}
-	if toolCallID != "" {
-		data["tool_call_id"] = toolCallID
-	}
-	if toolCallIndex != nil {
-		data["tool_call_index"] = *toolCallIndex
-	}
-	if len(data) == 0 {
-		return nil
-	}
-	return data
-}
-
-func chatProviderDataFromEvent(provider string, ev chatStreamEvent) map[string]any {
-	responseID := stringFromRawMap(ev.RawPayload, "id")
-	streamKind := chatStreamKind(ev)
-	tc := firstChatToolCall(ev.ToolCalls)
-	var toolCallID string
-	var toolCallIndex *int
-	if tc != nil {
-		toolCallID = tc.ID
-		toolCallIndex = cloneIntPtr(tc.Index)
-	}
-	return chatProviderData(provider, responseID, ev.ChoiceIndex, streamKind, chatCorrelationKey(provider, responseID, ev.ChoiceIndex, streamKind, toolCallID, toolCallIndex), toolCallID, toolCallIndex)
-}
-
 func chatCorrelationKey(provider, responseID string, choiceIndex *int, streamKind, toolCallID string, toolCallIndex *int) string {
-	provider = strings.TrimSpace(provider)
-	responseID = strings.TrimSpace(responseID)
-	streamKind = strings.TrimSpace(streamKind)
-	if provider == "" || responseID == "" || streamKind == "" || streamKind == "unknown" {
-		return ""
-	}
-	choice := 0
-	if choiceIndex != nil {
-		choice = *choiceIndex
-	}
-	if streamKind == "tool_call" {
-		if toolCallID != "" {
-			return fmt.Sprintf("%s-chat:%s:choice:%d:tool:%s", provider, responseID, choice, toolCallID)
-		}
-		if toolCallIndex != nil {
-			return fmt.Sprintf("%s-chat:%s:choice:%d:tool-index:%d", provider, responseID, choice, *toolCallIndex)
-		}
-	}
-	return fmt.Sprintf("%s-chat:%s:choice:%d:%s", provider, responseID, choice, streamKind)
-}
-
-func metadataWithChatProviderData(metadata events.EventMetadata, data map[string]any) events.EventMetadata {
-	if len(data) == 0 {
-		return metadata
-	}
-	if metadata.Extra == nil {
-		metadata.Extra = map[string]any{}
-	} else {
-		copyExtra := make(map[string]any, len(metadata.Extra)+len(data))
-		for k, v := range metadata.Extra {
-			copyExtra[k] = v
-		}
-		metadata.Extra = copyExtra
-	}
-	for k, v := range data {
-		metadata.Extra[k] = v
-	}
-	return metadata
+	return events.BuildChatCompletionsCorrelation(provider, responseID, choiceIndex, streamKind, toolCallID, toolCallIndex).CorrelationKey
 }
 
 func applyChatProviderDataToRecord(rec *geppettoobs.Record, data map[string]interface{}) {

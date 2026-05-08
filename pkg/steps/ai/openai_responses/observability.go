@@ -78,11 +78,16 @@ func (e *Engine) observePublish(ctx context.Context, event events.Event, stage g
 		rec.InfoMessage = info.Message
 		applyProviderDataToRecord(&rec, info.Data)
 	}
+	geppettoobs.EnrichRecordFromEvent(&rec, event)
 	e.observe(ctx, rec)
+	for _, derived := range geppettoobs.DerivedRecordsFromEvent(rec, event) {
+		e.observe(ctx, derived)
+	}
 }
 
 func providerRecordBase(metadata events.EventMetadata, model string, currentResponseID string, eventType string, m map[string]any) geppettoobs.Record {
 	rec := geppettoobs.Record{
+		Kind:        geppettoobs.RecordKindProviderEvent,
 		Provider:    "openai_responses",
 		Model:       model,
 		SessionID:   metadata.SessionID,
@@ -161,22 +166,7 @@ func providerData(provider, responseID, itemID string, outputIndex, summaryIndex
 }
 
 func responsesCorrelationKey(provider, responseID, itemID string, outputIndex, summaryIndex *int) string {
-	provider = strings.TrimSpace(provider)
-	responseID = strings.TrimSpace(responseID)
-	itemID = strings.TrimSpace(itemID)
-	if provider == "" || responseID == "" {
-		return ""
-	}
-	if itemID != "" {
-		return provider + ":" + responseID + ":item:" + itemID
-	}
-	if outputIndex != nil && summaryIndex != nil {
-		return provider + ":" + responseID + ":output:" + strconv.Itoa(*outputIndex) + ":summary:" + strconv.Itoa(*summaryIndex)
-	}
-	if outputIndex != nil {
-		return provider + ":" + responseID + ":output:" + strconv.Itoa(*outputIndex)
-	}
-	return provider + ":" + responseID
+	return events.BuildResponsesCorrelation(provider, responseID, itemID, outputIndex, summaryIndex).CorrelationKey
 }
 
 func applyProviderDataToRecord(rec *geppettoobs.Record, data map[string]interface{}) {

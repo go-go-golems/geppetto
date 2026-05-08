@@ -638,11 +638,14 @@ func TestEventsCollectorWithBuilderAndToolLoop(t *testing.T) {
 
 		sink.on("*", (ev) => {
 			allCount++;
-			if (ev && ev.type === "tool-call-execution-result") {
+			if (ev && ev.type === "tool-result-ready") {
 				resultCount++;
 			}
 		});
-		sink.on("tool-call-execute", () => {
+		sink.on("tool-execution-started", (ev) => {
+			if (!ev.toolCall || ev.toolCall.id !== "call-1") {
+				throw new Error("expected canonical tool execution payload");
+			}
 			executeCount++;
 		});
 
@@ -659,8 +662,8 @@ func TestEventsCollectorWithBuilderAndToolLoop(t *testing.T) {
 		}
 
 		if (allCount < 2) throw new Error("expected collector wildcard callbacks to run");
-		if (executeCount < 1) throw new Error("expected tool-call-execute event callback");
-		if (resultCount < 1) throw new Error("expected tool-call-execution-result event callback");
+		if (executeCount < 1) throw new Error("expected tool-execution-started event callback");
+		if (resultCount < 1) throw new Error("expected tool-result-ready event callback");
 
 		const failingSink = gp.events.collector()
 			.on("*", () => {

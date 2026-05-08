@@ -1,0 +1,171 @@
+   280			}
+   281		}
+   282	
+   283		// Prepare metadata for events
+   284		startTime := time.Now()
+   285		metadata := events.EventMetadata{
+   286			ID: uuid.New(),
+   287			LLMInferenceData: events.LLMInferenceData{
+   288				Model:       modelName,
+   289				Usage:       nil,
+   290				StopReason:  nil,
+   291				Temperature: e.settings.Chat.Temperature,
+   292				TopP:        e.settings.Chat.TopP,
+   293				MaxTokens:   e.settings.Chat.MaxResponseTokens,
+   294			},
+   295		}
+   296		if t != nil {
+   297			if sid, ok, err := turns.KeyTurnMetaSessionID.Get(t.Metadata); err == nil && ok {
+   298				metadata.SessionID = sid
+   299			}
+   300			if iid, ok, err := turns.KeyTurnMetaInferenceID.Get(t.Metadata); err == nil && ok {
+   301				metadata.InferenceID = iid
+   302			}
+   303			metadata.TurnID = t.ID
+   304		}
+   305		if metadata.Extra == nil {
+   306			metadata.Extra = map[string]interface{}{}
+   307		}
+   308		metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
+   309		runtimeattrib.AddRuntimeAttributionToExtra(metadata.Extra, t)
+   310	
+   311		// Publish start event
+   312		e.publishEvent(ctx, events.NewStartEvent(metadata))
+   313	
+   314		// Streaming mode always on for engines in this architecture
+   315		log.Debug().Int("num_blocks", len(t.Blocks)).Str("model", modelName).Msg("Gemini RunInference started (streaming)")
+   316		iter := model.GenerateContentStream(ctx, parts...)
+   317	
+   318		message := ""
+   319		chunkCount := 0
+   320		finalStopReason := ""
+   321		var finalUsage *events.Usage
+   322		var pendingCalls []struct {
+   323			id, name string
+   324			args     map[string]any
+   325		}
+   326		for {
+   327			resp, err := iter.Next()
+   328			if err == iterator.Done || errors.Is(err, io.EOF) {
+   329				log.Debug().Int("chunks_received", chunkCount).Msg("Gemini stream completed")
+   330				break
+   331			}
+   332			if err != nil {
+   333				log.Error().Err(err).Int("chunks_received", chunkCount).Msg("Gemini stream receive failed")
+   334				d := time.Since(startTime).Milliseconds()
+   335				dm := int64(d)
+   336				metadata.DurationMs = &dm
+   337				e.publishEvent(ctx, events.NewErrorEvent(metadata, err))
+   338				return nil, err
+   339			}
+   340			chunkCount++
+   341			// Best-effort: capture provider usage metadata + finish reason so callers can
+   342			// diagnose truncation (max tokens), refusals/safety, etc.
+   343			//
+   344			// We use reflection to avoid tight coupling to a specific generative-ai-go version.
+   345			if resp != nil {
+   346				if u, ok := extractGeminiUsage(resp); ok {
+   347					finalUsage = u
+   348				}
+   349			}
+   350			// Extract text and function calls
+   351			delta := ""
+   352			if resp != nil && len(resp.Candidates) > 0 {
+   353				for _, cand := range resp.Candidates {
+   354					// Capture finish reason from any candidate that has it (keep the last seen).
+   355					// Extract this BEFORE checking Content, as candidates can have FinishReason
+   356					// even when Content is nil (e.g., safety blocked or empty responses).
+   357					if fr, ok := extractGeminiFinishReason(cand); ok {
+   358						finalStopReason = fr
+   359					}
+   360					if cand.Content == nil {
+   361						continue
+   362					}
+   363					for _, p := range cand.Content.Parts {
+   364						switch v := p.(type) {
+   365						case genai.Text:
+   366							delta += string(v)
+   367						case genai.FunctionCall:
+   368							var args map[string]any
+   369							if v.Args != nil {
+   370								args = v.Args
+   371							}
+   372							if args == nil {
+   373								args = map[string]any{}
+   374							}
+   375							id := uuid.NewString()
+   376							pendingCalls = append(pendingCalls, struct {
+   377								id, name string
+   378								args     map[string]any
+   379							}{id: id, name: v.Name, args: args})
+   380							// Publish ToolCall event with JSON string input
+   381							inputBytes, _ := json.Marshal(args)
+   382							e.publishEvent(ctx, events.NewToolCallEvent(metadata, events.ToolCall{ID: id, Name: v.Name, Input: string(inputBytes)}))
+   383						}
+   384					}
+   385				}
+   386			}
+   387			if delta != "" {
+   388				message += delta
+   389				e.publishEvent(ctx, events.NewPartialCompletionEvent(metadata, delta, message))
+   390			}
+   391		}
+   392	
+   393		// Append assistant text and tool_call blocks in the turn
+   394		if message != "" {
+   395			turns.AppendBlock(t, turns.NewAssistantTextBlock(message))
+   396		}
+   397		for _, c := range pendingCalls {
+   398			turns.AppendBlock(t, turns.NewToolCallBlock(c.id, c.name, c.args))
+   399		}
+   400	
+   401		// Set duration and publish final
+   402		d := time.Since(startTime).Milliseconds()
+   403		dm := int64(d)
+   404		metadata.DurationMs = &dm
+   405	
+   406		// Populate turn metadata + event metadata (best-effort).
+   407		if strings.TrimSpace(finalStopReason) != "" {
+   408			metadata.StopReason = &finalStopReason
+   409		}
+   410		if finalUsage != nil {
+   411			metadata.Usage = finalUsage
+   412		}
+   413		result := engine.BuildInferenceResultFromEventMetadata(metadata, "gemini", len(pendingCalls) > 0)
+   414		if err := engine.PersistInferenceResult(t, result); err != nil {
+   415			log.Warn().Err(err).Msg("Gemini: failed to persist canonical inference_result")
+   416		}
+   417	
+   418		if strings.TrimSpace(finalStopReason) != "" || finalUsage != nil {
+   419			e := log.Debug().
+   420				Str("stop_reason", finalStopReason).
+   421				Int("final_text_len", len(message)).
+   422				Int("chunks_received", chunkCount).
+   423				Int("tool_call_count", len(pendingCalls))
+   424			if finalUsage != nil {
+   425				e = e.Int("input_tokens", finalUsage.InputTokens).Int("output_tokens", finalUsage.OutputTokens)
+   426			}
+   427			e.Msg("Gemini RunInference completion metadata")
+   428		}
+   429	
+   430		e.publishEvent(ctx, events.NewFinalEvent(metadata, message))
+   431	
+   432		log.Debug().Int("final_text_len", len(message)).Int("tool_call_count", len(pendingCalls)).Msg("Gemini RunInference completed (streaming)")
+   433		return t, nil
+   434	}
+   435	
+   436	func extractGeminiFinishReason(c *genai.Candidate) (string, bool) {
+   437		if c == nil {
+   438			return "", false
+   439		}
+   440		v := reflect.ValueOf(c)
+   441		if v.Kind() == reflect.Ptr {
+   442			if v.IsNil() {
+   443				return "", false
+   444			}
+   445			v = v.Elem()
+   446		}
+   447		f := v.FieldByName("FinishReason")
+   448		if !f.IsValid() {
+   449			return "", false
+   450		}

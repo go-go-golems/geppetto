@@ -1,0 +1,56 @@
+   155		if messageID == "" || segment <= 0 {
+   156			return ""
+   157		}
+   158		return fmt.Sprintf("%s:text:%d", messageID, segment)
+   159	}
+   160	
+   161	func applyChatMessageProviderInfo(update *chatappv1.ChatMessageUpdate, metadata gepevents.EventMetadata) {
+   162		if update == nil || metadata.Extra == nil {
+   163			return
+   164		}
+   165		if v, ok := metadata.Extra["provider"].(string); ok {
+   166			update.Provider = strings.TrimSpace(v)
+   167		}
+   168		if v, ok := metadata.Extra["response_id"].(string); ok {
+   169			update.ResponseId = strings.TrimSpace(v)
+   170		}
+   171		if v, ok := int32FromMetadata(metadata.Extra["choice_index"]); ok {
+   172			update.ChoiceIndex = &v
+   173		}
+   174		if v, ok := metadata.Extra["stream_kind"].(string); ok {
+   175			update.StreamKind = strings.TrimSpace(v)
+   176		}
+   177		if v, ok := metadata.Extra["correlation_key"].(string); ok {
+   178			update.CorrelationKey = strings.TrimSpace(v)
+   179		}
+   180	}
+   181	
+   182	func int32FromMetadata(v any) (int32, bool) {
+   183		switch tv := v.(type) {
+   184		case int:
+   185			parsed, err := strconv.ParseInt(strconv.Itoa(tv), 10, 32)
+   186			if err != nil {
+   187				return 0, false
+   188			}
+   189			return int32(parsed), true
+   190		case int32:
+   191			return tv, true
+   192		case int64:
+   193			if tv < int64(-1<<31) || tv > int64(1<<31-1) {
+   194				return 0, false
+   195			}
+   196			return int32(tv), true
+   197		case float64:
+   198			if tv < float64(-1<<31) || tv > float64(1<<31-1) || tv != float64(int32(tv)) {
+   199				return 0, false
+   200			}
+   201			return int32(tv), true
+   202		case string:
+   203			parsed, err := strconv.ParseInt(strings.TrimSpace(tv), 10, 32)
+   204			if err != nil {
+   205				return 0, false
+   206			}
+   207			return int32(parsed), true
+   208		default:
+   209			return 0, false
+   210		}

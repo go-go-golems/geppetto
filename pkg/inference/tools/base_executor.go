@@ -11,6 +11,7 @@ import (
 )
 
 type currentToolCallKey struct{}
+type currentToolCorrelationKey struct{}
 
 // WithCurrentToolCall annotates context with the current tool call for executor hook consumers.
 func WithCurrentToolCall(ctx context.Context, call ToolCall) context.Context {
@@ -25,6 +26,24 @@ func CurrentToolCallFromContext(ctx context.Context) (ToolCall, bool) {
 	v := ctx.Value(currentToolCallKey{})
 	call, ok := v.(ToolCall)
 	return call, ok
+}
+
+// WithCurrentToolCorrelation annotates context with canonical correlation for
+// the tool call being executed. Callers that have provider-request correlation
+// should use this to carry typed identity into host-side execution events.
+func WithCurrentToolCorrelation(ctx context.Context, corr events.Correlation) context.Context {
+	return context.WithValue(ctx, currentToolCorrelationKey{}, corr)
+}
+
+// CurrentToolCorrelationFromContext returns the current canonical tool
+// correlation if available.
+func CurrentToolCorrelationFromContext(ctx context.Context) (events.Correlation, bool) {
+	if ctx == nil {
+		return events.Correlation{}, false
+	}
+	v := ctx.Value(currentToolCorrelationKey{})
+	corr, ok := v.(events.Correlation)
+	return corr, ok
 }
 
 // ToolExecutorExt defines lifecycle hooks that can be overridden.
@@ -89,9 +108,13 @@ func (b *BaseToolExecutor) MaskArguments(_ context.Context, call ToolCall) strin
 }
 
 func (b *BaseToolExecutor) PublishStart(ctx context.Context, call ToolCall, masked string) {
-	events.PublishEventToContext(ctx, events.NewToolCallExecuteEvent(
+	corr := toolExecutionCorrelation(ctx, call)
+	events.PublishEventToContext(ctx, events.NewToolExecutionStartedEvent(
 		events.EventMetadata{},
-		events.ToolCall{ID: call.ID, Name: call.Name, Input: masked},
+		corr,
+		call.ID,
+		call.Name,
+		masked,
 	))
 }
 
@@ -104,17 +127,68 @@ func (b *BaseToolExecutor) PublishResult(ctx context.Context, call ToolCall, res
 			payload = fmt.Sprintf("%v", res.Result)
 		}
 	}
+	status := "success"
+	if res == nil {
+		status = "unknown"
+	}
 	if res != nil && res.Error != "" {
+		status = "error"
 		if payload == "" {
 			payload = fmt.Sprintf("Error: %s", res.Error)
 		} else {
 			payload = fmt.Sprintf("%s | Error: %s", payload, res.Error)
 		}
 	}
-	events.PublishEventToContext(ctx, events.NewToolCallExecutionResultEvent(
+	corr := toolExecutionCorrelation(ctx, call)
+	events.PublishEventToContext(ctx, events.NewToolResultReadyEvent(
 		events.EventMetadata{},
-		events.ToolResult{ID: call.ID, Name: call.Name, Result: payload},
+		corr,
+		call.ID,
+		call.Name,
+		payload,
+		status,
 	))
+	events.PublishEventToContext(ctx, events.NewToolCallFinishedEvent(
+		events.EventMetadata{},
+		corr,
+		call.ID,
+		call.Name,
+		status,
+	))
+}
+
+func toolExecutionCorrelation(ctx context.Context, call ToolCall) events.Correlation {
+	if corr, ok := CurrentToolCorrelationFromContext(ctx); ok {
+		if corr.ToolCallID == "" {
+			corr.ToolCallID = call.ID
+		}
+		if corr.ToolCallIndex == nil {
+			idx := int32(0)
+			corr.ToolCallIndex = &idx
+		}
+		if corr.SegmentType == "" {
+			corr.SegmentType = events.SegmentTypeTool
+		}
+		if corr.StreamKind == "" {
+			corr.StreamKind = events.StreamKindToolCall
+		}
+		if corr.CorrelationKey == "" && corr.ToolCallID != "" {
+			corr.CorrelationKey = "tool-execution:" + corr.ToolCallID
+		}
+		return corr
+	}
+
+	corr := events.Correlation{
+		ToolCallID:   call.ID,
+		SegmentType:  events.SegmentTypeTool,
+		StreamKind:   events.StreamKindToolCall,
+		SegmentIndex: 0,
+	}
+	if call.ID != "" {
+		corr.CorrelationKey = "tool-execution:" + call.ID
+		corr.SegmentID = corr.CorrelationKey
+	}
+	return corr
 }
 
 func (b *BaseToolExecutor) ShouldRetry(_ context.Context, attempt int, _ *ToolResult, _ error) (bool, time.Duration) {

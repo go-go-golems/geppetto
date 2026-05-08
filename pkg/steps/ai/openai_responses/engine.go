@@ -148,7 +148,6 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	}
 	runtimeattrib.AddRuntimeAttributionToExtra(metadata.Extra, t)
 	log.Debug().Str("url", url).Int("body_len", len(b)).Bool("stream", reqBody.Stream).Msg("Responses: sending request")
-	e.publishEvent(ctx, events.NewStartEvent(metadata))
 
 	// Attach DebugTap if present on context
 	var tap engine.DebugTap

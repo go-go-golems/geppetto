@@ -1,0 +1,48 @@
+# Baseline validation
+2026-05-08T05:42:21-04:00
+## geppetto go test ./pkg/steps/ai/...
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/claude	0.019s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api	0.006s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/gemini	0.006s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/openai	0.010s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses	0.018s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib	0.005s
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/settings	0.006s
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/gemini	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/ollama	[no test files]
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai	[no test files]
+ok  	github.com/go-go-golems/geppetto/pkg/steps/ai/streamhelpers	0.002s
+?   	github.com/go-go-golems/geppetto/pkg/steps/ai/types	[no test files]
+geppetto_status=0
+## pinocchio go test ./pkg/chatapp/...
+ok  	github.com/go-go-golems/pinocchio/pkg/chatapp	0.062s
+ok  	github.com/go-go-golems/pinocchio/pkg/chatapp/export	0.031s
+?   	github.com/go-go-golems/pinocchio/pkg/chatapp/pb/proto/pinocchio/chatapp/v1	[no test files]
+ok  	github.com/go-go-golems/pinocchio/pkg/chatapp/plugins	0.005s
+pinocchio_status=0
+## coinvault go test targeted
+ok  	github.com/go-go-golems/gec-rag/internal/webchat	0.307s
+ok  	github.com/go-go-golems/gec-rag/cmd/coinvault/cmds	0.039s
+coinvault_status=0
+## coinvault web typecheck
+
+> web@0.0.0 typecheck /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/2026-03-16--gec-rag/web
+> tsc --noEmit
+
+web_typecheck_status=0
+## coinvault web unit ws
+
+> web@0.0.0 test:unit /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/2026-03-16--gec-rag/web
+> vitest run --config vitest.unit.config.ts -- src/ws/parsing.test.ts src/ws/wsManager.test.ts
+
+
+ RUN  v4.1.2 /home/manuel/workspaces/2026-05-02/use-sessionstream-coinvault/2026-03-16--gec-rag/web
+
+
+ Test Files  8 passed (8)
+      Tests  29 passed (29)
+   Start at  05:42:27
+   Duration  468ms (transform 423ms, setup 0ms, import 855ms, tests 47ms, environment 1ms)
+
+web_unit_status=0

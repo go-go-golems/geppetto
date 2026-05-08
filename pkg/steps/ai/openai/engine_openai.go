@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	stdlog "log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -215,10 +216,16 @@ func (e *OpenAIEngine) RunInference(
 	metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
 	runtimeattrib.AddRuntimeAttributionToExtra(metadata.Extra, t)
 
-	// Publish start event
-	log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing start event")
-	startEvent := events.NewStartEvent(metadata)
-	e.publishEvent(ctx, startEvent)
+	// Publish provider-call start event.
+	log.Debug().Str("event_id", metadata.ID.String()).Msg("OpenAI publishing provider call start event")
+	inferenceScopeID := metadata.InferenceID
+	if inferenceScopeID == "" {
+		inferenceScopeID = metadata.ID.String()
+	}
+	providerCallCorr := events.BuildProviderCallCorrelation(e.inferenceProvider(), inferenceScopeID, "", 0, "")
+	providerCallCorr.Model = req.Model
+	providerCallCorr.TurnID = metadata.TurnID
+	e.publishEvent(ctx, events.NewProviderCallStartedEvent(metadata, providerCallCorr))
 
 	// Always use streaming mode
 	log.Debug().Msg("OpenAI using streaming mode")
@@ -244,12 +251,28 @@ func (e *OpenAIEngine) RunInference(
 	toolCallMerger := NewToolCallMerger()
 	var usageInputTokens, usageOutputTokens, cachedTokens, reasoningTokens int
 	var stopReason *string
-	thinkingStarted := false
+	currentResponseID := ""
+	currentChoiceIndex := (*int)(nil)
+	textSegmentStarted := false
+	reasoningSegmentStarted := false
+	startedToolStreams := map[string]bool{}
+	toolArgumentBuffers := map[string]string{}
+	toolArgumentSequences := map[string]int64{}
+	chatCorr := func(choiceIndex *int, streamKind, toolCallID string, toolCallIndex *int) events.Correlation {
+		corr := events.BuildChatCompletionsCorrelation(e.inferenceProvider(), currentResponseID, choiceIndex, streamKind, toolCallID, toolCallIndex)
+		corr.ProviderCallID = providerCallCorr.ProviderCallID
+		corr.ProviderCallIndex = providerCallCorr.ProviderCallIndex
+		corr.ParentCorrelationKey = providerCallCorr.CorrelationKey
+		corr.Model = req.Model
+		corr.TurnID = metadata.TurnID
+		if corr.SegmentType != "" && corr.SegmentID == "" && corr.CorrelationKey != "" {
+			corr.SegmentID = corr.CorrelationKey
+		}
+		return corr
+	}
 
 	log.Debug().Msg("OpenAI starting streaming loop")
 	chunkCount := 0
-	currentResponseID := ""
-	currentChoiceIndex := (*int)(nil)
 	toolCallIDTracker := chatToolCallIDTracker{}
 	for {
 		select {
@@ -293,21 +316,41 @@ func (e *OpenAIEngine) RunInference(
 				message += delta
 			}
 			if response.DeltaReasoning != "" {
-				providerData := chatProviderDataFromEvent(e.inferenceProvider(), response)
-				providerMetadata := metadataWithChatProviderData(metadata, providerData)
-				if !thinkingStarted {
-					thinkingStarted = true
-					e.publishEvent(ctx, events.NewInfoEvent(providerMetadata, "thinking-started", providerData))
+				corr := chatCorr(response.ChoiceIndex, events.StreamKindReasoning, "", nil)
+				if !reasoningSegmentStarted {
+					reasoningSegmentStarted = true
+					e.publishEvent(ctx, events.NewReasoningSegmentStartedEvent(metadata, corr, "provider"))
 				}
 				before := thinkingBuf.Len()
 				normalized := streamhelpers.NormalizeReasoningDelta(thinkingBuf.String(), response.DeltaReasoning)
 				e.observeProviderNormalizeDelta(ctx, metadata, req.Model, response, len(response.DeltaReasoning), len(normalized), before+len(normalized))
 				thinkingBuf.WriteString(normalized)
-				e.publishEvent(ctx, events.NewThinkingPartialEvent(providerMetadata, response.DeltaReasoning, thinkingBuf.String()))
+				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, corr, response.DeltaReasoning, thinkingBuf.String(), 0))
 			}
 
 			// Tool call deltas
 			if len(response.ToolCalls) > 0 {
+				for _, tc := range response.ToolCalls {
+					toolCallID := tc.ID
+					toolCallIndex := tc.Index
+					corr := chatCorr(response.ChoiceIndex, events.StreamKindToolCall, toolCallID, toolCallIndex)
+					key := corr.CorrelationKey
+					if key == "" {
+						key = toolCallID
+						if key == "" && toolCallIndex != nil {
+							key = "tool-index-" + strconv.Itoa(*toolCallIndex)
+						}
+					}
+					if !startedToolStreams[key] {
+						startedToolStreams[key] = true
+						e.publishEvent(ctx, events.NewToolCallStartedEvent(metadata, corr, toolCallID, tc.Function.Name))
+					}
+					if tc.Function.Arguments != "" {
+						toolArgumentBuffers[key] += tc.Function.Arguments
+						toolArgumentSequences[key]++
+						e.publishEvent(ctx, events.NewToolCallArgumentsDeltaEvent(metadata, corr, corr.ToolCallID, tc.Function.Arguments, toolArgumentBuffers[key], toolArgumentSequences[key]))
+					}
+				}
 				toolCallMerger.AddToolCalls(response.ToolCalls)
 			}
 
@@ -321,14 +364,22 @@ func (e *OpenAIEngine) RunInference(
 			if response.FinishReason != nil && *response.FinishReason != "" {
 				stopReason = response.FinishReason
 			}
+			if response.Usage != nil || (response.FinishReason != nil && *response.FinishReason != "") {
+				var usage *events.Usage
+				if response.Usage != nil {
+					usage = &events.Usage{InputTokens: response.Usage.promptTokens, OutputTokens: response.Usage.completionTokens, CachedTokens: response.Usage.cachedTokens}
+				}
+				e.publishEvent(ctx, events.NewProviderCallMetadataUpdatedEvent(metadata, providerCallCorrWithResponse(providerCallCorr, currentResponseID), stopReasonString(response.FinishReason), "", usage))
+			}
 
 			// Publish intermediate streaming event only if we have a non-empty delta
 			if delta != "" {
-				partialEvent := events.NewPartialCompletionEvent(
-					metadataWithChatProviderData(metadata, chatProviderDataFromEvent(e.inferenceProvider(), response)),
-					delta, message,
-				)
-				e.publishEvent(ctx, partialEvent)
+				corr := chatCorr(response.ChoiceIndex, events.StreamKindContent, "", nil)
+				if !textSegmentStarted {
+					textSegmentStarted = true
+					e.publishEvent(ctx, events.NewTextSegmentStartedEvent(metadata, corr, "assistant"))
+				}
+				e.publishEvent(ctx, events.NewTextDeltaEvent(metadata, corr, delta, message, 0))
 			}
 		}
 	}
@@ -372,22 +423,18 @@ streamingComplete:
 	mergedToolCalls := toolCallMerger.GetToolCalls()
 	log.Debug().Int("final_text_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI streaming complete, preparing messages")
 
-	if thinkingBuf.Len() > 0 {
-		if thinkingStarted {
-			e.publishEvent(ctx, events.NewInfoEvent(metadata, "thinking-ended", nil))
-		}
+	if thinkingBuf.Len() > 0 && reasoningSegmentStarted {
+		e.publishEvent(ctx, events.NewReasoningSegmentFinishedEvent(metadata, chatCorr(currentChoiceIndex, events.StreamKindReasoning, "", nil), thinkingBuf.String(), stopReasonString(stopReason)))
+	}
+	if message != "" && textSegmentStarted {
+		e.publishEvent(ctx, events.NewTextSegmentFinishedEvent(metadata, chatCorr(currentChoiceIndex, events.StreamKindContent, "", nil), message, stopReasonString(stopReason)))
 	}
 
-	// If we have tool calls, publish ToolCall events now
+	// If we have tool calls, publish ToolCallRequested events now
 	if len(mergedToolCalls) > 0 {
 		for _, tc := range mergedToolCalls {
 			inputStr := tc.Function.Arguments
-			providerData := chatProviderData(e.inferenceProvider(), currentResponseID, currentChoiceIndex, "tool_call", chatCorrelationKey(e.inferenceProvider(), currentResponseID, currentChoiceIndex, "tool_call", tc.ID, tc.Index), tc.ID, tc.Index)
-			toolCallEvent := events.NewToolCallEvent(
-				metadataWithChatProviderData(metadata, providerData),
-				events.ToolCall{ID: tc.ID, Name: tc.Function.Name, Input: inputStr},
-			)
-			e.publishEvent(ctx, toolCallEvent)
+			e.publishEvent(ctx, events.NewToolCallRequestedEvent(metadata, chatCorr(currentChoiceIndex, events.StreamKindToolCall, tc.ID, tc.Index), tc.ID, tc.Function.Name, inputStr))
 		}
 	}
 
@@ -429,11 +476,26 @@ streamingComplete:
 			return ""
 		}()).
 		Msg("OpenAI publishing final event (streaming)")
-	finalEvent := events.NewFinalEvent(metadata, message)
-	e.publishEvent(ctx, finalEvent)
+	finishClass := "completed"
+	if len(mergedToolCalls) > 0 {
+		finishClass = "tool_calls_pending"
+	}
+	e.publishEvent(ctx, events.NewProviderCallFinishedEvent(metadata, providerCallCorrWithResponse(providerCallCorr, currentResponseID), stopReasonString(stopReason), finishClass, metadata.Usage, metadata.DurationMs, len(mergedToolCalls) > 0))
 
 	log.Debug().Msg("OpenAI RunInference completed (streaming)")
 	return t, nil
+}
+
+func stopReasonString(stopReason *string) string {
+	if stopReason == nil {
+		return ""
+	}
+	return *stopReason
+}
+
+func providerCallCorrWithResponse(corr events.Correlation, responseID string) events.Correlation {
+	corr.ResponseID = responseID
+	return corr
 }
 
 // publishEvent publishes an event to all configured sinks and any sinks carried in context.

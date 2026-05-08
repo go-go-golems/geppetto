@@ -24,7 +24,7 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 				return e2
 			}
 			return err
-		case *EventPartialCompletion:
+		case *EventTextDelta:
 			if isFirst && name != "" {
 				isFirst = false
 				_, err = fmt.Fprintf(w, "\n%s: \n", name)
@@ -37,14 +37,14 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 				return err
 			}
 
-		case *EventThinkingPartial:
-			// Print thinking deltas as normal text, no labels
+		case *EventReasoningDelta:
+			// Print reasoning deltas as normal text, no labels
 			_, err = fmt.Fprintf(w, "%s", p_.Delta)
 			if err != nil {
 				return err
 			}
 
-		case *EventText:
+		case *EventTextSegmentFinished:
 			if !strings.HasSuffix(p_.Text, "\n") {
 				_, err = fmt.Fprintf(w, "\n")
 				if err != nil {
@@ -52,16 +52,8 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 				}
 			}
 
-		case *EventFinal:
-			if !strings.HasSuffix(p_.Text, "\n") {
-				_, err = fmt.Fprintf(w, "\n")
-				if err != nil {
-					return err
-				}
-			}
-
-		case *EventToolCall:
-			v_, err := yaml.Marshal(p_.ToolCall)
+		case *EventToolCallRequested:
+			v_, err := yaml.Marshal(map[string]any{"id": p_.ToolCallID, "name": p_.ToolName, "input": p_.Input})
 			if err != nil {
 				return err
 			}
@@ -70,8 +62,8 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 				return err
 			}
 
-		case *EventToolResult:
-			v_, err := yaml.Marshal(p_.ToolResult)
+		case *EventToolResultReady:
+			v_, err := yaml.Marshal(map[string]any{"id": p_.ToolCallID, "name": p_.ToolName, "result": p_.Result, "status": p_.Status})
 			if err != nil {
 				return err
 			}
@@ -124,7 +116,7 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 				break
 			}
 			// Keep generic info handling below for other messages
-			// Suppress verbose printing for reasoning-summary-delta; handled via EventThinkingPartial
+			// Suppress verbose printing for reasoning-summary-delta; handled via EventReasoningDelta
 			if p_.Message == "reasoning-summary-delta" {
 				break
 			}
@@ -165,7 +157,7 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 				}
 			}
 
-		case *EventPartialCompletionStart,
+		case *EventProviderCallStarted,
 			*EventInterrupt:
 
 		}

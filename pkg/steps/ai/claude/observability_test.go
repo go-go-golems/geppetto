@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/go-go-golems/geppetto/pkg/events"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	aisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	claudesettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
@@ -109,6 +110,73 @@ func minimalClaudeSSE() string {
 	)
 }
 
+func toolUseClaudeSSE() string {
+	return claudeSSE(
+		"event: message_start",
+		`data: {"type":"message_start","message":{"id":"msg_tool","type":"message","role":"assistant","content":[],"model":"claude-test","stop_reason":"","stop_sequence":"","usage":{"input_tokens":7,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}`,
+		"",
+		"event: content_block_start",
+		`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+		"",
+		"event: content_block_delta",
+		`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"I'll inspect first."}}`,
+		"",
+		"event: content_block_stop",
+		`data: {"type":"content_block_stop","index":0}`,
+		"",
+		"event: content_block_start",
+		`data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"tool_1","name":"sql_doc","input":{}}}`,
+		"",
+		"event: content_block_delta",
+		`data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"topic\":\"inventory\"}"}}`,
+		"",
+		"event: content_block_stop",
+		`data: {"type":"content_block_stop","index":1}`,
+		"",
+		"event: message_delta",
+		`data: {"type":"message_delta","delta":{"stop_reason":"tool_use","stop_sequence":""},"usage":{"input_tokens":0,"output_tokens":13,"cache_creation_input_tokens":2,"cache_read_input_tokens":5}}`,
+		"",
+		"event: message_stop",
+		`data: {"type":"message_stop"}`,
+		"",
+	)
+}
+
+func TestClaudeRunInferenceToolUsePreservesMessageDeltaMetadata(t *testing.T) {
+	eng, err := NewClaudeEngine(newObservableClaudeSettings(t, toolUseClaudeSSE()))
+	if err != nil {
+		t.Fatalf("NewClaudeEngine: %v", err)
+	}
+	turn := &turns.Turn{ID: "turn_tool", Blocks: []turns.Block{turns.NewUserTextBlock("inspect inventory")}}
+	out, err := eng.RunInference(context.Background(), turn)
+	if err != nil {
+		t.Fatalf("RunInference: %v", err)
+	}
+	if out == nil {
+		t.Fatalf("expected output turn")
+	}
+
+	stored, ok, err := turns.KeyTurnMetaInferenceResult.Get(out.Metadata)
+	if err != nil {
+		t.Fatalf("get inference_result: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected inference_result metadata")
+	}
+	if stored.StopReason != "tool_use" {
+		t.Fatalf("expected stop_reason=tool_use, got %+v", stored)
+	}
+	if stored.Usage == nil {
+		t.Fatalf("expected usage metadata, got %+v", stored)
+	}
+	if stored.Usage.InputTokens != 7 || stored.Usage.OutputTokens != 13 || stored.Usage.CacheCreationInputTokens != 2 || stored.Usage.CacheReadInputTokens != 5 {
+		t.Fatalf("unexpected usage metadata: %+v", stored.Usage)
+	}
+	if stored.DurationMs == nil {
+		t.Fatalf("expected duration metadata, got %+v", stored)
+	}
+}
+
 func TestClaudeObservabilityOffEmitsNoRecords(t *testing.T) {
 	obs := &captureClaudeObserver{}
 	eng, err := NewClaudeEngine(newObservableClaudeSettings(t, minimalClaudeSSE()), WithObserver(obs), WithObservabilityConfig(geppettoobs.DefaultConfig()))
@@ -156,9 +224,12 @@ func TestClaudeObservabilityCapturesPublishStartedAndProviderRecords(t *testing.
 	if deltaRec == nil || deltaRec.OutputIndex == nil || *deltaRec.OutputIndex != 0 || deltaRec.DeltaLen != len("pong") {
 		t.Fatalf("delta provider record missing index or length: %#v", deltaRec)
 	}
-	started := findClaudeRecord(records, geppettoobs.StageGeppettoPublishStarted, "final")
+	started := findClaudeRecord(records, geppettoobs.StageGeppettoPublishStarted, string(events.EventTypeProviderCallFinished))
 	if started == nil {
-		t.Fatalf("missing final publish-started record in %#v", records)
+		t.Fatalf("missing provider-call-finished publish-started record in %#v", records)
+	}
+	if started.CorrelationKey == "" {
+		t.Fatalf("provider-call-finished record missing correlation key: %#v", started)
 	}
 	if len(started.EventJSON) != 0 || len(started.MetadataJSON) != 0 {
 		t.Fatalf("publish-started should be compact: %#v", started)
@@ -182,8 +253,8 @@ func TestClaudeObservabilityEventsLevelSkipsProviderRecords(t *testing.T) {
 	if rec := findClaudeRecord(records, geppettoobs.StageProviderRoutedEvent, "message_start"); rec != nil {
 		t.Fatalf("did not expect provider record at events trace level: %#v", rec)
 	}
-	if rec := findClaudeRecord(records, geppettoobs.StageGeppettoPublishStarted, "final"); rec == nil {
-		t.Fatalf("expected final publish-started record in %#v", records)
+	if rec := findClaudeRecord(records, geppettoobs.StageGeppettoPublishStarted, string(events.EventTypeProviderCallFinished)); rec == nil {
+		t.Fatalf("expected provider-call-finished publish-started record in %#v", records)
 	}
 }
 
