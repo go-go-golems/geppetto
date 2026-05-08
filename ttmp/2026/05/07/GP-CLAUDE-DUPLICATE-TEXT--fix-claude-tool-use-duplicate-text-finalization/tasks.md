@@ -18,6 +18,9 @@ LastUpdated: 2026-05-08T00:15:00-04:00
 
 ## Done
 
+- [x] Re-run CoinVault Haiku browser smoke after Geppetto dependency/workspace integration picked up this fix.
+- [x] Verify end-to-end SQLite trace has no synthetic post-tool `ChatInferenceFinished text:N`.
+- [x] Save final Haiku verification artifacts (`debug.sqlite`, `frontend-records.json`, `final-ui.png`, SQL checks).
 - [x] Upload bug-analysis and event-semantics guide bundle to reMarkable.
 - [x] Write provider-to-Geppetto-to-Pinocchio event semantics intern guide.
 - [x] Capture source evidence snippets for Geppetto and Pinocchio mapping code/docs.
@@ -32,5 +35,4 @@ LastUpdated: 2026-05-08T00:15:00-04:00
 
 ## TODO
 
-- [ ] Re-run CoinVault Haiku browser smoke after Geppetto dependency/workspace integration picks up this fix.
 - [ ] Consider a separate Anthropic provider correlation-key ticket; the Haiku artifact had provider records but no non-empty normalized `correlation_key` values.
