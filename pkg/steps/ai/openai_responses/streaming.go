@@ -56,13 +56,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	var latestMessageItemID string
 	var latestMessageOutputIndex *int
 	var latestMessageStatus string
-	inferenceScopeID := metadata.InferenceID
-	if inferenceScopeID == "" {
-		inferenceScopeID = metadata.ID.String()
-	}
-	providerCallCorr := events.BuildProviderCallCorrelation("openai_responses", inferenceScopeID, "", 0, "")
-	providerCallCorr.Model = reqBody.Model
-	providerCallCorr.TurnID = metadata.TurnID
+	providerCallCorr := newResponsesProviderCallCorrelation(metadata, reqBody)
 	e.publishEvent(ctx, events.NewProviderCallStartedEvent(metadata, providerCallCorr))
 	streamState := newResponsesStreamState(reqBody, providerCallCorr, tap)
 	responsesSegmentCorr := func(itemID string, outputIndex, summaryIndex *int, segmentType string) events.Correlation {
@@ -755,6 +749,21 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	state.currentReasoningText.WriteString(currentReasoningText.String())
 	state.currentReasoningSummary.WriteString(currentReasoningSummary.String())
 
+	return e.completeResponsesStream(ctx, t, metadata, startTime, terminal, state)
+}
+
+func newResponsesProviderCallCorrelation(metadata events.EventMetadata, reqBody responsesRequest) events.Correlation {
+	inferenceScopeID := metadata.InferenceID
+	if inferenceScopeID == "" {
+		inferenceScopeID = metadata.ID.String()
+	}
+	corr := events.BuildProviderCallCorrelation("openai_responses", inferenceScopeID, "", 0, "")
+	corr.Model = reqBody.Model
+	corr.TurnID = metadata.TurnID
+	return corr
+}
+
+func (e *Engine) completeResponsesStream(ctx context.Context, t *turns.Turn, metadata events.EventMetadata, startTime time.Time, terminal responsesStreamTerminal, state *responsesStreamState) (*turns.Turn, error) {
 	metadata = finalizeResponsesStreamMetadata(metadata, state, startTime, terminal)
 	if state.summaryBuf.Len() > 0 {
 		// Publish a friendly info event with the complete summary and provider identity when available.
@@ -779,7 +788,6 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 		return t, terminal.Err
 	}
 	return t, nil
-
 }
 
 func openResponsesStream(ctx context.Context, httpClient *http.Client, url string, body []byte, apiKey string, tap engine.DebugTap) (*http.Response, error) {
