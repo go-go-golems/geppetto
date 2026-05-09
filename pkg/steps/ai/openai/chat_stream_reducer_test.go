@@ -244,6 +244,71 @@ func TestOpenAIChatCorrelationUsesProviderCallIndexForTextAndReasoningSegments(t
 	}
 }
 
+func TestOpenAIChatSameCallReasoningAndTextShareSegmentIndexButKeepDistinctIdentity(t *testing.T) {
+	for _, tt := range []struct {
+		name              string
+		providerCallIndex int
+		wantSegmentIndex  int32
+	}{
+		{name: "first provider call", providerCallIndex: 0, wantSegmentIndex: 1},
+		{name: "third provider call", providerCallIndex: 2, wantSegmentIndex: 3},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			state := newTestOpenAIChatStreamState()
+			state.ProviderCallCorr = events.BuildProviderCallCorrelation("openai", "inference-1", "", tt.providerCallIndex, "")
+			var got []events.Event
+
+			for _, input := range []openAIChatStreamInput{
+				chunkInput(reasoningDelta("thinking")),
+				chunkInput(textDelta("answer")),
+				terminalInput(openAIChatTerminalEOF, nil),
+			} {
+				var effects []openAIChatStreamEffect
+				state, effects = reduceOpenAIChatStream(state, input)
+				got = append(got, eventsFromOpenAIChatEffects(effects)...)
+			}
+
+			assertOpenAIChatEventTypes(t, got, []events.EventType{
+				events.EventTypeReasoningSegmentStarted,
+				events.EventTypeReasoningDelta,
+				events.EventTypeTextSegmentStarted,
+				events.EventTypeTextDelta,
+				events.EventTypeReasoningSegmentFinished,
+				events.EventTypeTextSegmentFinished,
+				events.EventTypeProviderCallFinished,
+			})
+			assertOpenAIChatCanonicalEventsValidate(t, got)
+
+			byType := map[string][]events.Correlation{}
+			for _, ev := range got {
+				correlated, ok := ev.(events.CorrelatedEvent)
+				if !ok {
+					continue
+				}
+				corr := correlated.Correlation()
+				switch corr.SegmentType {
+				case events.SegmentTypeReasoning, events.SegmentTypeText:
+					byType[corr.SegmentType] = append(byType[corr.SegmentType], corr)
+				}
+			}
+
+			reasoning := byType[events.SegmentTypeReasoning]
+			text := byType[events.SegmentTypeText]
+			if len(reasoning) != 3 || len(text) != 3 {
+				t.Fatalf("correlation counts: reasoning=%d text=%d, want 3 each", len(reasoning), len(text))
+			}
+			assertOpenAIChatSegmentCorrelationGroup(t, reasoning, tt.wantSegmentIndex, events.SegmentTypeReasoning, events.StreamKindReasoning)
+			assertOpenAIChatSegmentCorrelationGroup(t, text, tt.wantSegmentIndex, events.SegmentTypeText, events.StreamKindContent)
+			if reasoning[0].CorrelationKey == text[0].CorrelationKey {
+				t.Fatalf("reasoning and text correlation keys both %q; want distinct identity", reasoning[0].CorrelationKey)
+			}
+			if reasoning[0].SegmentID == text[0].SegmentID {
+				t.Fatalf("reasoning and text segment IDs both %q; want distinct identity", reasoning[0].SegmentID)
+			}
+		})
+	}
+}
+
 func TestReduceOpenAIChatStreamToolArgumentsAccumulate(t *testing.T) {
 	state := newTestOpenAIChatStreamState()
 	var got []events.Event
@@ -359,6 +424,37 @@ func assertOpenAIChatEventTypes(t *testing.T, got []events.Event, want []events.
 	}
 	if !reflect.DeepEqual(gotTypes, want) {
 		t.Fatalf("event types = %#v, want %#v", gotTypes, want)
+	}
+}
+
+func assertOpenAIChatSegmentCorrelationGroup(t *testing.T, got []events.Correlation, wantSegmentIndex int32, wantSegmentType, wantStreamKind string) {
+	t.Helper()
+	if len(got) == 0 {
+		t.Fatalf("missing %s correlations", wantSegmentType)
+	}
+	first := got[0]
+	if first.CorrelationKey == "" || first.SegmentID == "" {
+		t.Fatalf("first %s correlation missing identity: %+v", wantSegmentType, first)
+	}
+	for i, corr := range got {
+		if corr.ProviderCallIndex != wantSegmentIndex-1 {
+			t.Fatalf("%s[%d].ProviderCallIndex = %d, want %d", wantSegmentType, i, corr.ProviderCallIndex, wantSegmentIndex-1)
+		}
+		if corr.SegmentIndex != wantSegmentIndex {
+			t.Fatalf("%s[%d].SegmentIndex = %d, want %d", wantSegmentType, i, corr.SegmentIndex, wantSegmentIndex)
+		}
+		if corr.SegmentType != wantSegmentType {
+			t.Fatalf("%s[%d].SegmentType = %q, want %q", wantSegmentType, i, corr.SegmentType, wantSegmentType)
+		}
+		if corr.StreamKind != wantStreamKind {
+			t.Fatalf("%s[%d].StreamKind = %q, want %q", wantSegmentType, i, corr.StreamKind, wantStreamKind)
+		}
+		if corr.CorrelationKey != first.CorrelationKey {
+			t.Fatalf("%s[%d].CorrelationKey = %q, want stable key %q", wantSegmentType, i, corr.CorrelationKey, first.CorrelationKey)
+		}
+		if corr.SegmentID != first.SegmentID {
+			t.Fatalf("%s[%d].SegmentID = %q, want stable segment ID %q", wantSegmentType, i, corr.SegmentID, first.SegmentID)
+		}
 	}
 }
 
