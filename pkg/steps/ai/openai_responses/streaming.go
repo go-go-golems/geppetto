@@ -26,19 +26,16 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	defer resp.Body.Close()
 	reader := bufio.NewReader(resp.Body)
 	var eventName string
-	var message string
 	var dataBuf strings.Builder
 	var inputTokens, outputTokens, cachedTokens, reasoningTokens int
 	var stopReason *string
 	responseCompleted := false
 	var streamErr error
 	var thinkBuf strings.Builder
-	var sayBuf strings.Builder
 	var currentReasoningText strings.Builder
 	var currentReasoningSummary strings.Builder
 	currentReasoningItemID := ""
 	lastReasoningItemID := ""
-	assistantByItem := map[string]string{}
 	var summaryBuf strings.Builder
 	currentResponseID := ""
 	// Placeholder for potential future pairing of reasoning with assistant item id
@@ -53,9 +50,6 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	var currentReasoningSummaryIndex *int
 	var lastReasoningSummaryIndex *int
 	var currentReasoningStatus string
-	var latestMessageItemID string
-	var latestMessageOutputIndex *int
-	var latestMessageStatus string
 	providerCallCorr := newResponsesProviderCallCorrelation(metadata, reqBody)
 	e.publishEvent(ctx, events.NewProviderCallStartedEvent(metadata, providerCallCorr))
 	streamState := newResponsesStreamState(reqBody, providerCallCorr, tap)
@@ -97,11 +91,11 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 			if chunk == "" {
 				return
 			}
-			message += chunk
-			sayBuf.WriteString(chunk)
-			text := message
-			if itemID != "" && assistantByItem[itemID] != "" {
-				text = assistantByItem[itemID]
+			streamState.message += chunk
+			streamState.sayBuf.WriteString(chunk)
+			text := streamState.message
+			if itemID != "" && streamState.assistantByItem[itemID] != "" {
+				text = streamState.assistantByItem[itemID]
 			}
 			e.publishEvent(ctx, events.NewTextDeltaEvent(metadata, responsesSegmentCorr(itemID, outputIndex, nil, events.SegmentTypeText), chunk, text, 0))
 		}
@@ -109,9 +103,9 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 			if fullChunk == "" {
 				return
 			}
-			current := message
+			current := streamState.message
 			if itemID != "" {
-				if streamed := assistantByItem[itemID]; streamed != "" {
+				if streamed := streamState.assistantByItem[itemID]; streamed != "" {
 					current = streamed
 				}
 			}
@@ -120,9 +114,9 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 				return
 			}
 			if itemID != "" {
-				assistantByItem[itemID] += missing
+				streamState.assistantByItem[itemID] += missing
 			}
-			appendAssistantChunk(itemID, latestMessageOutputIndex, missing)
+			appendAssistantChunk(itemID, streamState.latestMessageOutputIndex, missing)
 		}
 		backfillReasoningText := func(fullText string) {
 			if fullText == "" {
@@ -167,15 +161,15 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 						}
 					case "message":
 						if v, ok := it["id"].(string); ok && v != "" {
-							latestMessageItemID = v
+							streamState.latestMessageItemID = v
 						}
 						if status, ok := it["status"].(string); ok && status != "" {
-							latestMessageStatus = status
+							streamState.latestMessageStatus = status
 						}
 						if idx, ok := intFromProviderNumber(m["output_index"]); ok {
-							latestMessageOutputIndex = &idx
+							streamState.latestMessageOutputIndex = &idx
 						}
-						e.publishEvent(ctx, events.NewTextSegmentStartedEvent(metadata, responsesSegmentCorr(latestMessageItemID, latestMessageOutputIndex, nil, events.SegmentTypeText), "assistant"))
+						e.publishEvent(ctx, events.NewTextSegmentStartedEvent(metadata, responsesSegmentCorr(streamState.latestMessageItemID, streamState.latestMessageOutputIndex, nil, events.SegmentTypeText), "assistant"))
 					case "function_call":
 						itemID := ""
 						if v, ok := it["id"].(string); ok && v != "" {
@@ -443,14 +437,14 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 					case "message":
 						itemID := ""
 						if v, ok := it["id"].(string); ok && v != "" {
-							latestMessageItemID = v
+							streamState.latestMessageItemID = v
 							itemID = v
 						}
 						if status, ok := it["status"].(string); ok && status != "" {
-							latestMessageStatus = status
+							streamState.latestMessageStatus = status
 						}
 						if idx, ok := intFromProviderNumber(m["output_index"]); ok {
-							latestMessageOutputIndex = &idx
+							streamState.latestMessageOutputIndex = &idx
 						}
 						if rawContent, ok := it["content"].([]any); ok {
 							for _, item := range rawContent {
@@ -469,11 +463,11 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 								}
 							}
 						}
-						segmentText := message
-						if itemID != "" && assistantByItem[itemID] != "" {
-							segmentText = assistantByItem[itemID]
+						segmentText := streamState.message
+						if itemID != "" && streamState.assistantByItem[itemID] != "" {
+							segmentText = streamState.assistantByItem[itemID]
 						}
-						e.publishEvent(ctx, events.NewTextSegmentFinishedEvent(metadata, responsesSegmentCorr(itemID, latestMessageOutputIndex, nil, events.SegmentTypeText), segmentText, latestMessageStatus))
+						e.publishEvent(ctx, events.NewTextSegmentFinishedEvent(metadata, responsesSegmentCorr(itemID, streamState.latestMessageOutputIndex, nil, events.SegmentTypeText), segmentText, streamState.latestMessageStatus))
 						if tap != nil {
 							tap.OnProviderObject("output.message", it)
 						}
@@ -542,17 +536,17 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 			}
 			if d, ok := m["delta"].(string); ok && d != "" {
 				if itemID != "" {
-					assistantByItem[itemID] += d
+					streamState.assistantByItem[itemID] += d
 				}
-				appendAssistantChunk(itemID, latestMessageOutputIndex, d)
-				log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta")
+				appendAssistantChunk(itemID, streamState.latestMessageOutputIndex, d)
+				log.Trace().Int("delta_len", len(d)).Int("message_len", len(streamState.message)).Msg("Responses: text delta")
 			} else if tv, ok := m["text"].(map[string]any); ok {
 				if d, ok := tv["delta"].(string); ok && d != "" {
 					if itemID != "" {
-						assistantByItem[itemID] += d
+						streamState.assistantByItem[itemID] += d
 					}
-					appendAssistantChunk(itemID, latestMessageOutputIndex, d)
-					log.Trace().Int("delta_len", len(d)).Int("message_len", len(message)).Msg("Responses: text delta (nested)")
+					appendAssistantChunk(itemID, streamState.latestMessageOutputIndex, d)
+					log.Trace().Int("delta_len", len(d)).Int("message_len", len(streamState.message)).Msg("Responses: text delta (nested)")
 				}
 			}
 			if tap != nil {
@@ -565,9 +559,9 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 			}
 			if d, ok := m["delta"].(string); ok && d != "" {
 				if itemID != "" {
-					assistantByItem[itemID] += d
+					streamState.assistantByItem[itemID] += d
 				}
-				appendAssistantChunk(itemID, latestMessageOutputIndex, d)
+				appendAssistantChunk(itemID, streamState.latestMessageOutputIndex, d)
 			}
 			if tap != nil {
 				tap.OnSSE(eventName, []byte(raw))
@@ -672,41 +666,30 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 		terminal = responsesStreamTerminal{Kind: responsesStreamTerminalError, Err: streamErr}
 		log.Debug().Err(streamErr).Msg("Responses: stream ended with provider error")
 	}
-	state := &responsesStreamState{
-		reqBody:                          reqBody,
-		providerCallCorr:                 providerCallCorr,
-		tap:                              tap,
-		message:                          message,
-		inputTokens:                      inputTokens,
-		outputTokens:                     outputTokens,
-		cachedTokens:                     cachedTokens,
-		reasoningTokens:                  reasoningTokens,
-		stopReason:                       stopReason,
-		responseCompleted:                responseCompleted,
-		streamErr:                        streamErr,
-		currentResponseID:                currentResponseID,
-		finalCalls:                       finalCalls,
-		currentReasoningItemID:           currentReasoningItemID,
-		lastReasoningItemID:              lastReasoningItemID,
-		currentReasoningOutputIndex:      currentReasoningOutputIndex,
-		lastReasoningOutputIndex:         lastReasoningOutputIndex,
-		currentReasoningSummaryIndex:     currentReasoningSummaryIndex,
-		lastReasoningSummaryIndex:        lastReasoningSummaryIndex,
-		currentReasoningStatus:           currentReasoningStatus,
-		latestMessageItemID:              latestMessageItemID,
-		latestMessageOutputIndex:         latestMessageOutputIndex,
-		latestMessageStatus:              latestMessageStatus,
-		assistantByItem:                  assistantByItem,
-		callsByItem:                      callsByItem,
-		currentReasoningEncryptedContent: currentReasoningEncryptedContent,
-	}
-	state.thinkBuf.WriteString(thinkBuf.String())
-	state.sayBuf.WriteString(sayBuf.String())
-	state.summaryBuf.WriteString(summaryBuf.String())
-	state.currentReasoningText.WriteString(currentReasoningText.String())
-	state.currentReasoningSummary.WriteString(currentReasoningSummary.String())
+	streamState.inputTokens = inputTokens
+	streamState.outputTokens = outputTokens
+	streamState.cachedTokens = cachedTokens
+	streamState.reasoningTokens = reasoningTokens
+	streamState.stopReason = stopReason
+	streamState.responseCompleted = responseCompleted
+	streamState.streamErr = streamErr
+	streamState.currentResponseID = currentResponseID
+	streamState.finalCalls = finalCalls
+	streamState.currentReasoningItemID = currentReasoningItemID
+	streamState.lastReasoningItemID = lastReasoningItemID
+	streamState.currentReasoningOutputIndex = currentReasoningOutputIndex
+	streamState.lastReasoningOutputIndex = lastReasoningOutputIndex
+	streamState.currentReasoningSummaryIndex = currentReasoningSummaryIndex
+	streamState.lastReasoningSummaryIndex = lastReasoningSummaryIndex
+	streamState.currentReasoningStatus = currentReasoningStatus
+	streamState.callsByItem = callsByItem
+	streamState.currentReasoningEncryptedContent = currentReasoningEncryptedContent
+	streamState.thinkBuf.WriteString(thinkBuf.String())
+	streamState.summaryBuf.WriteString(summaryBuf.String())
+	streamState.currentReasoningText.WriteString(currentReasoningText.String())
+	streamState.currentReasoningSummary.WriteString(currentReasoningSummary.String())
 
-	return e.completeResponsesStream(ctx, t, metadata, startTime, terminal, state)
+	return e.completeResponsesStream(ctx, t, metadata, startTime, terminal, streamState)
 }
 
 func missingProviderSuffix(current, full string) string {
