@@ -351,6 +351,148 @@ func TestContentBlockMerger(t *testing.T) {
 	}
 }
 
+func TestContentBlockMergerReviewDerivedScenarios(t *testing.T) {
+	tests := []struct {
+		name           string
+		stream         []api.StreamingEvent
+		wantTypes      []events.EventType
+		checkMerger    func(t *testing.T, merger *ContentBlockMerger)
+		checkEvents    func(t *testing.T, got []events.Event)
+		wantErrMessage string
+	}{
+		{
+			name: "metadata-only message stop does not create text segment",
+			stream: []api.StreamingEvent{
+				{Type: api.MessageStartType, Message: &api.MessageResponse{ID: "msg_1", Model: "claude-test", Role: "assistant", Usage: api.Usage{InputTokens: 4}}},
+				{Type: api.MessageStopType, Message: &api.MessageResponse{StopReason: "end_turn", Usage: api.Usage{InputTokens: 4, OutputTokens: 2}}},
+			},
+			wantTypes: []events.EventType{
+				events.EventTypeProviderCallStarted,
+				events.EventTypeProviderCallFinished,
+			},
+			checkMerger: func(t *testing.T, merger *ContentBlockMerger) {
+				t.Helper()
+				if text := merger.Text(); text != "" {
+					t.Fatalf("text = %q, want empty", text)
+				}
+				metadata := merger.Metadata()
+				if metadata.StopReason == nil || *metadata.StopReason != "end_turn" {
+					t.Fatalf("stop reason = %v, want end_turn", metadata.StopReason)
+				}
+				require.NotNil(t, metadata.Usage)
+				assert.Equal(t, 4, metadata.Usage.InputTokens)
+				assert.Equal(t, 2, metadata.Usage.OutputTokens)
+			},
+		},
+		{
+			name: "split sparse tool deltas preserve content block identity",
+			stream: []api.StreamingEvent{
+				{Type: api.MessageStartType, Message: &api.MessageResponse{ID: "msg_1", Model: "claude-test", Role: "assistant"}},
+				{Type: api.ContentBlockStartType, Index: 0, ContentBlock: &api.ContentBlock{Type: api.ContentTypeToolUse, ID: "tool_1", Name: "lookup"}},
+				{Type: api.ContentBlockDeltaType, Index: 0, Delta: &api.Delta{Type: api.InputJSONDeltaType, PartialJSON: `{"q"`}},
+				{Type: api.ContentBlockDeltaType, Index: 0, Delta: &api.Delta{Type: api.InputJSONDeltaType, PartialJSON: `:"x"}`}},
+				{Type: api.ContentBlockStopType, Index: 0},
+				{Type: api.MessageDeltaType, Delta: &api.Delta{StopReason: "tool_use"}},
+				{Type: api.MessageStopType},
+			},
+			wantTypes: []events.EventType{
+				events.EventTypeProviderCallStarted,
+				events.EventTypeToolCallStarted,
+				events.EventTypeToolCallArgumentsDelta,
+				events.EventTypeToolCallArgumentsDelta,
+				events.EventTypeToolCallRequested,
+				events.EventTypeProviderCallMetadataUpdated,
+				events.EventTypeProviderCallFinished,
+			},
+			checkEvents: func(t *testing.T, got []events.Event) {
+				t.Helper()
+				requested := firstClaudeToolRequested(t, got)
+				assert.Equal(t, "tool_1", requested.ToolCallID)
+				assert.Equal(t, "lookup", requested.ToolName)
+				assert.Equal(t, `{"q":"x"}`, requested.Input)
+			},
+			checkMerger: func(t *testing.T, merger *ContentBlockMerger) {
+				t.Helper()
+				response := merger.Response()
+				require.NotNil(t, response)
+				require.Len(t, response.Content, 1)
+				toolUse := response.Content[0].(api.ToolUseContent)
+				assert.Equal(t, "tool_1", toolUse.ID)
+				assert.Equal(t, "lookup", toolUse.Name)
+				assert.Equal(t, json.RawMessage(`{"q":"x"}`), toolUse.Input)
+			},
+		},
+		{
+			name: "stream error after active text preserves partial text and emits error",
+			stream: []api.StreamingEvent{
+				{Type: api.MessageStartType, Message: &api.MessageResponse{ID: "msg_1", Model: "claude-test", Role: "assistant"}},
+				{Type: api.ContentBlockStartType, Index: 0, ContentBlock: &api.ContentBlock{Type: api.ContentTypeText}},
+				{Type: api.ContentBlockDeltaType, Index: 0, Delta: &api.Delta{Type: api.TextDeltaType, Text: "partial"}},
+				{Type: api.ErrorType, Error: &api.Error{Type: "overloaded_error", Message: "stream broke"}},
+			},
+			wantTypes: []events.EventType{
+				events.EventTypeProviderCallStarted,
+				events.EventTypeTextSegmentStarted,
+				events.EventTypeTextDelta,
+				events.EventTypeError,
+			},
+			checkMerger: func(t *testing.T, merger *ContentBlockMerger) {
+				t.Helper()
+				assert.Equal(t, "partial", merger.Text())
+				require.NotNil(t, merger.Error())
+				assert.Equal(t, "stream broke", merger.Error().Message)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			merger := NewContentBlockMerger(events.EventMetadata{})
+			var got []events.Event
+			var err error
+			for _, ev := range tt.stream {
+				var emitted []events.Event
+				emitted, err = merger.Add(ev)
+				got = append(got, emitted...)
+				if err != nil {
+					break
+				}
+			}
+			if tt.wantErrMessage != "" {
+				require.ErrorContains(t, err, tt.wantErrMessage)
+			} else {
+				require.NoError(t, err)
+			}
+			assertClaudeEventTypes(t, got, tt.wantTypes)
+			if tt.checkEvents != nil {
+				tt.checkEvents(t, got)
+			}
+			if tt.checkMerger != nil {
+				tt.checkMerger(t, merger)
+			}
+		})
+	}
+}
+
+func assertClaudeEventTypes(t *testing.T, got []events.Event, want []events.EventType) {
+	t.Helper()
+	require.Len(t, got, len(want))
+	for i, wantType := range want {
+		assert.Equal(t, wantType, got[i].Type(), "event type mismatch at index %d", i)
+	}
+}
+
+func firstClaudeToolRequested(t *testing.T, got []events.Event) *events.EventToolCallRequested {
+	t.Helper()
+	for _, ev := range got {
+		if requested, ok := ev.(*events.EventToolCallRequested); ok {
+			return requested
+		}
+	}
+	t.Fatalf("missing tool call requested event")
+	return nil
+}
+
 func TestContentBlockMergerToolUseMessageDeltaMetadataPreservedWithoutEvent(t *testing.T) {
 	metadata := events.EventMetadata{}
 	merger := NewContentBlockMerger(metadata)
