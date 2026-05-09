@@ -19,40 +19,11 @@ import (
 )
 
 func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpClient *http.Client, url string, body []byte, apiKey string, metadata events.EventMetadata, tap engine.DebugTap, startTime time.Time, reqBody responsesRequest) (*turns.Turn, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(string(body)))
+	resp, err := openResponsesStream(ctx, httpClient, url, body, apiKey, tap)
 	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "text/event-stream")
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-	}
-
-	log.Trace().Msg("Responses: initiating HTTP request (streaming)")
-	if tap != nil {
-		tap.OnHTTP(req, body)
-	}
-	// #nosec G704 -- URL is validated above with ValidateOutboundURL.
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		log.Debug().Err(err).Msg("Responses: HTTP request failed")
-		if tap != nil {
-			tap.OnProviderObject("http.error", map[string]any{"error": err.Error()})
-		}
 		return nil, err
 	}
 	defer resp.Body.Close()
-	log.Debug().Int("status", resp.StatusCode).Str("content_type", resp.Header.Get("Content-Type")).Msg("Responses: HTTP response received")
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		var m map[string]any
-		_ = json.NewDecoder(resp.Body).Decode(&m)
-		log.Debug().Interface("error_body", m).Int("status", resp.StatusCode).Msg("Responses: HTTP error")
-		if tap != nil {
-			tap.OnHTTPResponse(resp, mustMarshalJSON(m))
-		}
-		return nil, fmt.Errorf("responses api error: status=%d body=%v", resp.StatusCode, m)
-	}
 	reader := bufio.NewReader(resp.Body)
 	var eventName string
 	var message string
@@ -809,6 +780,44 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	}
 	return t, nil
 
+}
+
+func openResponsesStream(ctx context.Context, httpClient *http.Client, url string, body []byte, apiKey string, tap engine.DebugTap) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(string(body)))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "text/event-stream")
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+
+	log.Trace().Msg("Responses: initiating HTTP request (streaming)")
+	if tap != nil {
+		tap.OnHTTP(req, body)
+	}
+	// #nosec G704 -- URL is validated above with ValidateOutboundURL.
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		log.Debug().Err(err).Msg("Responses: HTTP request failed")
+		if tap != nil {
+			tap.OnProviderObject("http.error", map[string]any{"error": err.Error()})
+		}
+		return nil, err
+	}
+	log.Debug().Int("status", resp.StatusCode).Str("content_type", resp.Header.Get("Content-Type")).Msg("Responses: HTTP response received")
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return resp, nil
+	}
+	defer resp.Body.Close()
+	var m map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&m)
+	log.Debug().Interface("error_body", m).Int("status", resp.StatusCode).Msg("Responses: HTTP error")
+	if tap != nil {
+		tap.OnHTTPResponse(resp, mustMarshalJSON(m))
+	}
+	return nil, fmt.Errorf("responses api error: status=%d body=%v", resp.StatusCode, m)
 }
 
 func consumeResponsesSSE(
