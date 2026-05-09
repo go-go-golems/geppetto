@@ -116,6 +116,122 @@ func TestGeminiCanonicalCorrelationHelpersValidate(t *testing.T) {
 	}
 }
 
+func TestReduceGeminiStreamResponseReviewDerivedScenarios(t *testing.T) {
+	metadata := events.EventMetadata{SessionID: "session-1", InferenceID: "inference-1", TurnID: "turn-1"}
+	providerCorr := geminiProviderCallCorrelation(metadata, metadata.InferenceID, "gemini-test")
+
+	tests := []struct {
+		name      string
+		chunks    []*genai.GenerateContentResponse
+		wantTypes []events.EventType
+		check     func(t *testing.T, state *geminiStreamState, got []events.Event)
+	}{
+		{
+			name: "metadata-only final chunk does not create text segment",
+			chunks: []*genai.GenerateContentResponse{{
+				Candidates: []*genai.Candidate{{FinishReason: genai.FinishReasonStop}},
+				UsageMetadata: &genai.UsageMetadata{
+					PromptTokenCount:     2,
+					CandidatesTokenCount: 3,
+				},
+			}},
+			wantTypes: []events.EventType{events.EventTypeProviderCallMetadataUpdated},
+			check: func(t *testing.T, state *geminiStreamState, got []events.Event) {
+				t.Helper()
+				if state.textSegmentStarted || state.message != "" {
+					t.Fatalf("metadata-only chunk created text state: started=%v message=%q", state.textSegmentStarted, state.message)
+				}
+				if state.finalStopReason != "FinishReasonStop" {
+					t.Fatalf("stop reason = %q, want FinishReasonStop", state.finalStopReason)
+				}
+				if state.finalUsage == nil || state.finalUsage.InputTokens != 2 || state.finalUsage.OutputTokens != 3 {
+					t.Fatalf("usage = %#v, want input=2 output=3", state.finalUsage)
+				}
+			},
+		},
+		{
+			name: "multiple text chunks accumulate monotonically",
+			chunks: []*genai.GenerateContentResponse{
+				geminiTextResponse("hello "),
+				geminiTextResponse("world"),
+			},
+			wantTypes: []events.EventType{
+				events.EventTypeTextSegmentStarted,
+				events.EventTypeTextDelta,
+				events.EventTypeTextDelta,
+			},
+			check: func(t *testing.T, state *geminiStreamState, got []events.Event) {
+				t.Helper()
+				if state.message != "hello world" {
+					t.Fatalf("message = %q, want hello world", state.message)
+				}
+				lastDelta, ok := got[len(got)-1].(*events.EventTextDelta)
+				if !ok || lastDelta.Text != "hello world" || lastDelta.Sequence != 2 {
+					t.Fatalf("last delta = %#v, want accumulated text with sequence 2", got[len(got)-1])
+				}
+			},
+		},
+		{
+			name: "complete function call emits executable tool request",
+			chunks: []*genai.GenerateContentResponse{{
+				Candidates: []*genai.Candidate{{Content: &genai.Content{Parts: []genai.Part{genai.FunctionCall{Name: "lookup", Args: map[string]any{"q": "x"}}}}}},
+			}},
+			wantTypes: []events.EventType{
+				events.EventTypeToolCallStarted,
+				events.EventTypeToolCallRequested,
+			},
+			check: func(t *testing.T, state *geminiStreamState, got []events.Event) {
+				t.Helper()
+				if len(state.pendingCalls) != 1 || state.pendingCalls[0].name != "lookup" {
+					t.Fatalf("pending calls = %#v, want one lookup", state.pendingCalls)
+				}
+				requested, ok := got[1].(*events.EventToolCallRequested)
+				if !ok {
+					t.Fatalf("event[1] = %#v, want tool call requested", got[1])
+				}
+				if requested.ToolName != "lookup" || requested.Input != `{"q":"x"}` {
+					t.Fatalf("requested = (%q,%q), want lookup JSON args", requested.ToolName, requested.Input)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := newGeminiStreamState(providerCorr)
+			var got []events.Event
+			for _, chunk := range tt.chunks {
+				got = append(got, reduceGeminiStreamResponse(metadata, state, chunk)...)
+			}
+			assertGeminiEventTypes(t, got, tt.wantTypes)
+			for i, ev := range got {
+				if err := events.ValidateCanonicalEvent(ev); err != nil {
+					t.Fatalf("event[%d] %s failed canonical validation: %v", i, ev.Type(), err)
+				}
+			}
+			if tt.check != nil {
+				tt.check(t, state, got)
+			}
+		})
+	}
+}
+
+func geminiTextResponse(text string) *genai.GenerateContentResponse {
+	return &genai.GenerateContentResponse{Candidates: []*genai.Candidate{{Content: &genai.Content{Parts: []genai.Part{genai.Text(text)}}}}}
+}
+
+func assertGeminiEventTypes(t *testing.T, got []events.Event, want []events.EventType) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("event count = %d, want %d; got=%#v", len(got), len(want), got)
+	}
+	for i, wantType := range want {
+		if got[i].Type() != wantType {
+			t.Fatalf("event[%d] type = %s, want %s", i, got[i].Type(), wantType)
+		}
+	}
+}
+
 func TestGeminiEngineDoesNotCallLegacyEventConstructors(t *testing.T) {
 	b, err := os.ReadFile("engine_gemini.go")
 	if err != nil {
