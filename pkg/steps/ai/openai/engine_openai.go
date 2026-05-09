@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	stdlog "log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/streamhelpers"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
@@ -245,211 +243,83 @@ func (e *OpenAIEngine) RunInference(
 		}
 	}()
 
-	message := ""
-	var thinkingBuf strings.Builder
-	// Collect streamed tool calls so we can preserve them in the conversation
-	toolCallMerger := NewToolCallMerger()
-	var usageInputTokens, usageOutputTokens, cachedTokens, reasoningTokens int
-	var stopReason *string
-	currentResponseID := ""
-	currentChoiceIndex := (*int)(nil)
-	textSegmentStarted := false
-	reasoningSegmentStarted := false
-	startedToolStreams := map[string]bool{}
-	toolArgumentBuffers := map[string]string{}
-	toolArgumentSequences := map[string]int64{}
-	chatCorr := func(choiceIndex *int, streamKind, toolCallID string, toolCallIndex *int) events.Correlation {
-		corr := events.BuildChatCompletionsCorrelation(e.inferenceProvider(), currentResponseID, choiceIndex, streamKind, toolCallID, toolCallIndex)
-		corr.ProviderCallID = providerCallCorr.ProviderCallID
-		corr.ProviderCallIndex = providerCallCorr.ProviderCallIndex
-		corr.ParentCorrelationKey = providerCallCorr.CorrelationKey
-		corr.Model = req.Model
-		corr.TurnID = metadata.TurnID
-		if corr.SegmentType != "" && corr.SegmentID == "" && corr.CorrelationKey != "" {
-			corr.SegmentID = corr.CorrelationKey
-		}
-		return corr
-	}
+	state := newOpenAIChatStreamState(metadata, e.inferenceProvider(), req.Model, providerCallCorr)
 
 	log.Debug().Msg("OpenAI starting streaming loop")
-	chunkCount := 0
-	toolCallIDTracker := chatToolCallIDTracker{}
 	for {
 		select {
 		case <-ctx.Done():
 			log.Debug().Msg("OpenAI streaming cancelled by context")
-			// Publish interrupt event with current partial text
-			d := time.Since(startTime).Milliseconds()
-			dm := int64(d)
-			metadata.DurationMs = &dm
-			interruptEvent := events.NewInterruptEvent(metadata, message)
-			e.publishEvent(ctx, interruptEvent)
+			metadata = openAIChatMetadataWithDuration(metadata, startTime)
+			state.Metadata = metadata
+			var effects []openAIChatStreamEffect
+			state, effects = reduceOpenAIChatStream(state, openAIChatStreamInput{
+				Kind:     openAIChatStreamInputTerminal,
+				Terminal: openAIChatTerminal{Kind: openAIChatTerminalCancelled, Err: ctx.Err()},
+			})
+			e.applyOpenAIChatStreamEffects(ctx, metadata, req.Model, effects)
 			return nil, ctx.Err()
 
 		default:
 			response, err := stream.Recv()
 			if errors.Is(err, io.EOF) {
-				log.Debug().Int("chunks_received", chunkCount).Msg("OpenAI stream completed")
+				log.Debug().Int("chunks_received", state.ChunkCount).Msg("OpenAI stream completed")
 				goto streamingComplete
 			}
 			if err != nil {
-				log.Error().Err(err).Int("chunks_received", chunkCount).Msg("OpenAI stream receive failed")
-				d := time.Since(startTime).Milliseconds()
-				dm := int64(d)
-				metadata.DurationMs = &dm
-				errEvent := events.NewErrorEvent(metadata, err)
-				e.publishEvent(ctx, errEvent)
+				log.Error().Err(err).Int("chunks_received", state.ChunkCount).Msg("OpenAI stream receive failed")
+				metadata = openAIChatMetadataWithDuration(metadata, startTime)
+				state.Metadata = metadata
+				var effects []openAIChatStreamEffect
+				state, effects = reduceOpenAIChatStream(state, openAIChatStreamInput{
+					Kind:     openAIChatStreamInputTerminal,
+					Terminal: openAIChatTerminal{Kind: openAIChatTerminalError, Err: err},
+				})
+				e.applyOpenAIChatStreamEffects(ctx, metadata, req.Model, effects)
 				return nil, err
 			}
-			chunkCount++
-			if id := stringFromRawMap(response.RawPayload, "id"); id != "" {
-				currentResponseID = id
-			}
-			if response.ChoiceIndex != nil {
-				currentChoiceIndex = cloneIntPtr(response.ChoiceIndex)
-			}
-			response = toolCallIDTracker.Enrich(response)
-			e.observeProviderEvent(ctx, metadata, req.Model, response)
 
-			delta := response.DeltaText
-			if delta != "" {
-				message += delta
-			}
-			if response.DeltaReasoning != "" {
-				corr := chatCorr(response.ChoiceIndex, events.StreamKindReasoning, "", nil)
-				if !reasoningSegmentStarted {
-					reasoningSegmentStarted = true
-					e.publishEvent(ctx, events.NewReasoningSegmentStartedEvent(metadata, corr, "provider"))
-				}
-				before := thinkingBuf.Len()
-				normalized := streamhelpers.NormalizeReasoningDelta(thinkingBuf.String(), response.DeltaReasoning)
-				e.observeProviderNormalizeDelta(ctx, metadata, req.Model, response, len(response.DeltaReasoning), len(normalized), before+len(normalized))
-				thinkingBuf.WriteString(normalized)
-				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, corr, response.DeltaReasoning, thinkingBuf.String(), 0))
-			}
-
-			// Tool call deltas
-			if len(response.ToolCalls) > 0 {
-				for _, tc := range response.ToolCalls {
-					toolCallID := tc.ID
-					toolCallIndex := tc.Index
-					corr := chatCorr(response.ChoiceIndex, events.StreamKindToolCall, toolCallID, toolCallIndex)
-					key := corr.CorrelationKey
-					if key == "" {
-						key = toolCallID
-						if key == "" && toolCallIndex != nil {
-							key = "tool-index-" + strconv.Itoa(*toolCallIndex)
-						}
-					}
-					if !startedToolStreams[key] {
-						startedToolStreams[key] = true
-						e.publishEvent(ctx, events.NewToolCallStartedEvent(metadata, corr, toolCallID, tc.Function.Name))
-					}
-					if tc.Function.Arguments != "" {
-						toolArgumentBuffers[key] += tc.Function.Arguments
-						toolArgumentSequences[key]++
-						e.publishEvent(ctx, events.NewToolCallArgumentsDeltaEvent(metadata, corr, corr.ToolCallID, tc.Function.Arguments, toolArgumentBuffers[key], toolArgumentSequences[key]))
-					}
-				}
-				toolCallMerger.AddToolCalls(response.ToolCalls)
-			}
-
-			// Extract usage and finish reason from normalized stream response
-			if response.Usage != nil {
-				usageInputTokens = response.Usage.promptTokens
-				usageOutputTokens = response.Usage.completionTokens
-				cachedTokens = response.Usage.cachedTokens
-				reasoningTokens = response.Usage.reasoningTokens
-			}
-			if response.FinishReason != nil && *response.FinishReason != "" {
-				stopReason = response.FinishReason
-			}
-			if response.Usage != nil || (response.FinishReason != nil && *response.FinishReason != "") {
-				var usage *events.Usage
-				if response.Usage != nil {
-					usage = &events.Usage{InputTokens: response.Usage.promptTokens, OutputTokens: response.Usage.completionTokens, CachedTokens: response.Usage.cachedTokens}
-				}
-				e.publishEvent(ctx, events.NewProviderCallMetadataUpdatedEvent(metadata, providerCallCorrWithResponse(providerCallCorr, currentResponseID), stopReasonString(response.FinishReason), "", usage))
-			}
-
-			// Publish intermediate streaming event only if we have a non-empty delta
-			if delta != "" {
-				corr := chatCorr(response.ChoiceIndex, events.StreamKindContent, "", nil)
-				if !textSegmentStarted {
-					textSegmentStarted = true
-					e.publishEvent(ctx, events.NewTextSegmentStartedEvent(metadata, corr, "assistant"))
-				}
-				e.publishEvent(ctx, events.NewTextDeltaEvent(metadata, corr, delta, message, 0))
-			}
+			var effects []openAIChatStreamEffect
+			state, effects = reduceOpenAIChatStream(state, openAIChatStreamInput{
+				Kind:  openAIChatStreamInputChunk,
+				Chunk: response,
+			})
+			e.applyOpenAIChatStreamEffects(ctx, metadata, req.Model, effects)
 		}
 	}
 
 streamingComplete:
-
-	// Update event metadata with usage information
-	if usageInputTokens > 0 || usageOutputTokens > 0 || cachedTokens > 0 {
-		if metadata.Usage == nil {
-			metadata.Usage = &events.Usage{}
-		}
-		metadata.Usage.InputTokens = usageInputTokens
-		metadata.Usage.OutputTokens = usageOutputTokens
-		metadata.Usage.CachedTokens = cachedTokens
-	}
-	if metadata.Extra == nil {
-		metadata.Extra = map[string]any{}
-	}
-	metadata.Extra["thinking_text"] = thinkingBuf.String()
-	metadata.Extra["saying_text"] = message
-	if reasoningTokens > 0 {
-		metadata.Extra["reasoning_tokens"] = reasoningTokens
-	}
-	metadata.StopReason = stopReason
-	// set duration for successful completion
-	d := time.Since(startTime).Milliseconds()
-	dm := int64(d)
-	metadata.DurationMs = &dm
+	metadata = finalizeOpenAIChatMetadata(metadata, state, startTime)
+	state.Metadata = metadata
 
 	log.Debug().
-		Int("input_tokens", usageInputTokens).
-		Int("output_tokens", usageOutputTokens).
-		Str("stop_reason", func() string {
-			if stopReason != nil {
-				return *stopReason
-			}
-			return ""
-		}()).
+		Int("input_tokens", state.UsageInputTokens).
+		Int("output_tokens", state.UsageOutputTokens).
+		Str("stop_reason", stopReasonString(state.StopReason)).
 		Msg("OpenAI metadata finalized")
 
-	mergedToolCalls := toolCallMerger.GetToolCalls()
-	log.Debug().Int("final_text_length", len(message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI streaming complete, preparing messages")
+	var effects []openAIChatStreamEffect
+	state, effects = reduceOpenAIChatStream(state, openAIChatStreamInput{
+		Kind:     openAIChatStreamInputTerminal,
+		Terminal: openAIChatTerminal{Kind: openAIChatTerminalEOF},
+	})
+	e.applyOpenAIChatStreamEffects(ctx, metadata, req.Model, effects)
 
-	if thinkingBuf.Len() > 0 && reasoningSegmentStarted {
-		e.publishEvent(ctx, events.NewReasoningSegmentFinishedEvent(metadata, chatCorr(currentChoiceIndex, events.StreamKindReasoning, "", nil), thinkingBuf.String(), stopReasonString(stopReason)))
-	}
-	if message != "" && textSegmentStarted {
-		e.publishEvent(ctx, events.NewTextSegmentFinishedEvent(metadata, chatCorr(currentChoiceIndex, events.StreamKindContent, "", nil), message, stopReasonString(stopReason)))
-	}
+	mergedToolCalls := state.mergedToolCalls()
+	log.Debug().Int("final_text_length", len(state.Message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI streaming complete, preparing messages")
 
-	// If we have tool calls, publish ToolCallRequested events now
-	if len(mergedToolCalls) > 0 {
-		for _, tc := range mergedToolCalls {
-			inputStr := tc.Function.Arguments
-			e.publishEvent(ctx, events.NewToolCallRequestedEvent(metadata, chatCorr(currentChoiceIndex, events.StreamKindToolCall, tc.ID, tc.Index), tc.ID, tc.Function.Name, inputStr))
-		}
-	}
-
-	// Append messages in order that keeps last message as tool-use when present
-	if thinkingBuf.Len() > 0 {
+	// Append messages in order that keeps last message as tool-use when present.
+	if state.Reasoning != "" {
 		turns.AppendBlock(t, turns.Block{
 			ID:   uuid.NewString(),
 			Kind: turns.BlockKindReasoning,
 			Payload: map[string]any{
-				turns.PayloadKeyText: thinkingBuf.String(),
+				turns.PayloadKeyText: state.Reasoning,
 			},
 		})
 	}
-	if len(message) > 0 {
-		turns.AppendBlock(t, turns.NewAssistantTextBlock(message))
+	if state.Message != "" {
+		turns.AppendBlock(t, turns.NewAssistantTextBlock(state.Message))
 	}
 	for _, tc := range mergedToolCalls {
 		var args any
@@ -461,7 +331,6 @@ streamingComplete:
 		log.Warn().Err(err).Msg("OpenAI: failed to persist canonical inference_result")
 	}
 
-	// Publish final event for streaming
 	log.Debug().
 		Str("event_id", metadata.ID.String()).
 		Str("model", metadata.Model).
@@ -469,18 +338,8 @@ streamingComplete:
 		Interface("top_p", metadata.TopP).
 		Interface("max_tokens", metadata.MaxTokens).
 		Interface("usage", metadata.Usage).
-		Str("stop_reason", func() string {
-			if stopReason != nil {
-				return *stopReason
-			}
-			return ""
-		}()).
+		Str("stop_reason", stopReasonString(state.StopReason)).
 		Msg("OpenAI publishing final event (streaming)")
-	finishClass := "completed"
-	if len(mergedToolCalls) > 0 {
-		finishClass = "tool_calls_pending"
-	}
-	e.publishEvent(ctx, events.NewProviderCallFinishedEvent(metadata, providerCallCorrWithResponse(providerCallCorr, currentResponseID), stopReasonString(stopReason), finishClass, metadata.Usage, metadata.DurationMs, len(mergedToolCalls) > 0))
 
 	log.Debug().Msg("OpenAI RunInference completed (streaming)")
 	return t, nil
@@ -496,6 +355,49 @@ func stopReasonString(stopReason *string) string {
 func providerCallCorrWithResponse(corr events.Correlation, responseID string) events.Correlation {
 	corr.ResponseID = responseID
 	return corr
+}
+
+func openAIChatMetadataWithDuration(metadata events.EventMetadata, startTime time.Time) events.EventMetadata {
+	d := time.Since(startTime).Milliseconds()
+	dm := int64(d)
+	metadata.DurationMs = &dm
+	return metadata
+}
+
+func finalizeOpenAIChatMetadata(metadata events.EventMetadata, state openAIChatStreamState, startTime time.Time) events.EventMetadata {
+	if state.UsageInputTokens > 0 || state.UsageOutputTokens > 0 || state.CachedTokens > 0 {
+		if metadata.Usage == nil {
+			metadata.Usage = &events.Usage{}
+		}
+		metadata.Usage.InputTokens = state.UsageInputTokens
+		metadata.Usage.OutputTokens = state.UsageOutputTokens
+		metadata.Usage.CachedTokens = state.CachedTokens
+	}
+	if metadata.Extra == nil {
+		metadata.Extra = map[string]any{}
+	}
+	metadata.Extra["thinking_text"] = state.Reasoning
+	metadata.Extra["saying_text"] = state.Message
+	if state.ReasoningTokens > 0 {
+		metadata.Extra["reasoning_tokens"] = state.ReasoningTokens
+	}
+	metadata.StopReason = state.StopReason
+	return openAIChatMetadataWithDuration(metadata, startTime)
+}
+
+func (e *OpenAIEngine) applyOpenAIChatStreamEffects(ctx context.Context, metadata events.EventMetadata, model string, effects []openAIChatStreamEffect) {
+	for _, effect := range effects {
+		if effect.ObserveProviderEvent != nil {
+			e.observeProviderEvent(ctx, metadata, model, *effect.ObserveProviderEvent)
+		}
+		if effect.ObserveNormalizedReason != nil {
+			observation := effect.ObserveNormalizedReason
+			e.observeProviderNormalizeDelta(ctx, metadata, model, observation.Chunk, observation.RawLength, observation.NormalizedLength, observation.TotalLength)
+		}
+		if effect.Event != nil {
+			e.publishEvent(ctx, effect.Event)
+		}
+	}
 }
 
 // publishEvent publishes an event to all configured sinks and any sinks carried in context.
