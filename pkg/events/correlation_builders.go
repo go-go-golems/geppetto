@@ -153,29 +153,3 @@ func BuildClaudeSegmentCorrelation(provider, providerCallID string, contentBlock
 	}
 	return corr
 }
-
-func streamKindForSegmentType(segmentType string) string {
-	switch segmentType {
-	case SegmentTypeText:
-		return StreamKindContent
-	case SegmentTypeReasoning:
-		return StreamKindReasoning
-	case SegmentTypeTool:
-		return StreamKindToolCall
-	default:
-		return ""
-	}
-}
-
-func segmentTypeForStreamKind(streamKind string) string {
-	switch streamKind {
-	case StreamKindContent:
-		return SegmentTypeText
-	case StreamKindReasoning, "reasoning-summary":
-		return SegmentTypeReasoning
-	case StreamKindToolCall:
-		return SegmentTypeTool
-	default:
-		return ""
-	}
-}

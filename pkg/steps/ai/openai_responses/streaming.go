@@ -237,16 +237,3 @@ func consumeResponsesSSE(
 		}
 	}
 }
-
-func streamKindForResponsesSegment(segmentType string) string {
-	switch segmentType {
-	case events.SegmentTypeText:
-		return events.StreamKindContent
-	case events.SegmentTypeReasoning:
-		return events.StreamKindReasoning
-	case events.SegmentTypeTool:
-		return events.StreamKindToolCall
-	default:
-		return ""
-	}
-}
