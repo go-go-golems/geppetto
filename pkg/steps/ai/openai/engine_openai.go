@@ -244,39 +244,45 @@ func (e *OpenAIEngine) RunInference(
 	}()
 
 	state := newOpenAIChatStreamState(metadata, e.inferenceProvider(), req.Model, providerCallCorr)
+	state, terminal, runErr := e.consumeOpenAIChatStream(ctx, stream, state, metadata, req.Model)
+	state, metadata = e.completeOpenAIChatStream(ctx, t, state, metadata, req.Model, startTime, terminal)
 
+	log.Debug().
+		Str("event_id", metadata.ID.String()).
+		Str("model", metadata.Model).
+		Interface("temperature", metadata.Temperature).
+		Interface("top_p", metadata.TopP).
+		Interface("max_tokens", metadata.MaxTokens).
+		Interface("usage", metadata.Usage).
+		Str("stop_reason", stopReasonString(state.StopReason)).
+		Msg("OpenAI publishing final event (streaming)")
+
+	log.Debug().Err(runErr).Msg("OpenAI RunInference completed (streaming)")
+	return t, runErr
+}
+
+func (e *OpenAIEngine) consumeOpenAIChatStream(
+	ctx context.Context,
+	stream *chatCompletionStream,
+	state openAIChatStreamState,
+	metadata events.EventMetadata,
+	model string,
+) (openAIChatStreamState, openAIChatTerminal, error) {
 	log.Debug().Msg("OpenAI starting streaming loop")
 	for {
 		select {
 		case <-ctx.Done():
 			log.Debug().Msg("OpenAI streaming cancelled by context")
-			metadata = openAIChatMetadataWithDuration(metadata, startTime)
-			state.Metadata = metadata
-			var effects []openAIChatStreamEffect
-			state, effects = reduceOpenAIChatStream(state, openAIChatStreamInput{
-				Kind:     openAIChatStreamInputTerminal,
-				Terminal: openAIChatTerminal{Kind: openAIChatTerminalCancelled, Err: ctx.Err()},
-			})
-			e.applyOpenAIChatStreamEffects(ctx, metadata, req.Model, effects)
-			return nil, ctx.Err()
-
+			return state, openAIChatTerminal{Kind: openAIChatTerminalCancelled, Err: ctx.Err()}, ctx.Err()
 		default:
 			response, err := stream.Recv()
 			if errors.Is(err, io.EOF) {
 				log.Debug().Int("chunks_received", state.ChunkCount).Msg("OpenAI stream completed")
-				goto streamingComplete
+				return state, openAIChatTerminal{Kind: openAIChatTerminalEOF}, nil
 			}
 			if err != nil {
 				log.Error().Err(err).Int("chunks_received", state.ChunkCount).Msg("OpenAI stream receive failed")
-				metadata = openAIChatMetadataWithDuration(metadata, startTime)
-				state.Metadata = metadata
-				var effects []openAIChatStreamEffect
-				state, effects = reduceOpenAIChatStream(state, openAIChatStreamInput{
-					Kind:     openAIChatStreamInputTerminal,
-					Terminal: openAIChatTerminal{Kind: openAIChatTerminalError, Err: err},
-				})
-				e.applyOpenAIChatStreamEffects(ctx, metadata, req.Model, effects)
-				return nil, err
+				return state, openAIChatTerminal{Kind: openAIChatTerminalError, Err: err}, err
 			}
 
 			var effects []openAIChatStreamEffect
@@ -284,11 +290,21 @@ func (e *OpenAIEngine) RunInference(
 				Kind:  openAIChatStreamInputChunk,
 				Chunk: response,
 			})
-			e.applyOpenAIChatStreamEffects(ctx, metadata, req.Model, effects)
+			e.applyOpenAIChatStreamEffects(ctx, metadata, model, effects)
 		}
 	}
+}
 
-streamingComplete:
+func (e *OpenAIEngine) completeOpenAIChatStream(
+	ctx context.Context,
+	t *turns.Turn,
+	state openAIChatStreamState,
+	metadata events.EventMetadata,
+	model string,
+	startTime time.Time,
+	terminal openAIChatTerminal,
+) (openAIChatStreamState, events.EventMetadata) {
+	state = state.withTerminalStopReason(terminal)
 	metadata = finalizeOpenAIChatMetadata(metadata, state, startTime)
 	state.Metadata = metadata
 
@@ -301,14 +317,27 @@ streamingComplete:
 	var effects []openAIChatStreamEffect
 	state, effects = reduceOpenAIChatStream(state, openAIChatStreamInput{
 		Kind:     openAIChatStreamInputTerminal,
-		Terminal: openAIChatTerminal{Kind: openAIChatTerminalEOF},
+		Terminal: terminal,
 	})
-	e.applyOpenAIChatStreamEffects(ctx, metadata, req.Model, effects)
+	e.applyOpenAIChatStreamEffects(ctx, metadata, model, effects)
 
-	mergedToolCalls := state.mergedToolCalls()
-	log.Debug().Int("final_text_length", len(state.Message)).Int("tool_call_count", len(mergedToolCalls)).Msg("OpenAI streaming complete, preparing messages")
+	includeToolCalls := terminal.Kind == openAIChatTerminalEOF
+	toolCallCount := appendOpenAIChatTurnBlocks(t, state, includeToolCalls)
+	log.Debug().
+		Int("final_text_length", len(state.Message)).
+		Int("tool_call_count", toolCallCount).
+		Str("terminal", string(terminal.Kind)).
+		Msg("OpenAI streaming complete, preparing messages")
 
-	// Append messages in order that keeps last message as tool-use when present.
+	result := engine.BuildInferenceResultFromEventMetadata(metadata, "openai", includeToolCalls && toolCallCount > 0)
+	if err := engine.PersistInferenceResult(t, result); err != nil {
+		log.Warn().Err(err).Msg("OpenAI: failed to persist canonical inference_result")
+	}
+
+	return state, metadata
+}
+
+func appendOpenAIChatTurnBlocks(t *turns.Turn, state openAIChatStreamState, includeToolCalls bool) int {
 	if state.Reasoning != "" {
 		turns.AppendBlock(t, turns.Block{
 			ID:   uuid.NewString(),
@@ -321,28 +350,38 @@ streamingComplete:
 	if state.Message != "" {
 		turns.AppendBlock(t, turns.NewAssistantTextBlock(state.Message))
 	}
+	if !includeToolCalls {
+		return 0
+	}
+
+	mergedToolCalls := state.mergedToolCalls()
 	for _, tc := range mergedToolCalls {
 		var args any
 		_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
 		turns.AppendBlock(t, turns.NewToolCallBlock(tc.ID, tc.Function.Name, args))
 	}
-	result := engine.BuildInferenceResultFromEventMetadata(metadata, "openai", len(mergedToolCalls) > 0)
-	if err := engine.PersistInferenceResult(t, result); err != nil {
-		log.Warn().Err(err).Msg("OpenAI: failed to persist canonical inference_result")
+	return len(mergedToolCalls)
+}
+
+func (state openAIChatStreamState) withTerminalStopReason(terminal openAIChatTerminal) openAIChatStreamState {
+	reason, ok := openAIChatTerminalStopReason(terminal.Kind)
+	if !ok {
+		return state
 	}
+	state.StopReason = &reason
+	return state
+}
 
-	log.Debug().
-		Str("event_id", metadata.ID.String()).
-		Str("model", metadata.Model).
-		Interface("temperature", metadata.Temperature).
-		Interface("top_p", metadata.TopP).
-		Interface("max_tokens", metadata.MaxTokens).
-		Interface("usage", metadata.Usage).
-		Str("stop_reason", stopReasonString(state.StopReason)).
-		Msg("OpenAI publishing final event (streaming)")
-
-	log.Debug().Msg("OpenAI RunInference completed (streaming)")
-	return t, nil
+func openAIChatTerminalStopReason(kind openAIChatTerminalKind) (string, bool) {
+	switch kind {
+	case openAIChatTerminalEOF:
+		return "", false
+	case openAIChatTerminalCancelled:
+		return "cancelled", true
+	case openAIChatTerminalError:
+		return "error", true
+	}
+	return "", false
 }
 
 func stopReasonString(stopReason *string) string {
@@ -480,6 +519,3 @@ func convertToolExamples(examples []engine.ToolExample) []tools.ToolExample {
 }
 
 var _ engine.Engine = (*OpenAIEngine)(nil)
-
-// var _ engine.EngineWithTools = (*OpenAIEngine)(nil)  // Commented out - simplified approach
-// var _ engine.StreamingEngine = (*OpenAIEngine)(nil)  // Commented out - simplified approach

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/google/uuid"
 )
 
@@ -291,4 +292,89 @@ func assertProviderCallFinished(t *testing.T, got []events.Event, wantClass stri
 		return
 	}
 	t.Fatalf("missing provider call finished event")
+}
+
+func TestAppendOpenAIChatTurnBlocks(t *testing.T) {
+	baseState := func() openAIChatStreamState {
+		state := newTestOpenAIChatStreamState()
+		state.Reasoning = "because"
+		state.Message = "partial answer"
+		idx := 0
+		state.ToolCallMerger.AddToolCalls([]ChatToolCall{{
+			Index: &idx,
+			ID:    "call_1",
+			Type:  chatToolTypeFunction,
+			Function: ChatFunctionCall{
+				Name:      "search",
+				Arguments: `{"q":"x"}`,
+			},
+		}})
+		return state
+	}
+
+	tests := []struct {
+		name             string
+		includeToolCalls bool
+		wantKinds        []turns.BlockKind
+		wantToolCount    int
+	}{
+		{
+			name:             "cancel path keeps partial transcript but not tool request",
+			includeToolCalls: false,
+			wantKinds:        []turns.BlockKind{turns.BlockKindReasoning, turns.BlockKindLLMText},
+			wantToolCount:    0,
+		},
+		{
+			name:             "eof path appends transcript and tool request",
+			includeToolCalls: true,
+			wantKinds:        []turns.BlockKind{turns.BlockKindReasoning, turns.BlockKindLLMText, turns.BlockKindToolCall},
+			wantToolCount:    1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			turn := &turns.Turn{ID: "turn-1"}
+			gotToolCount := appendOpenAIChatTurnBlocks(turn, baseState(), tt.includeToolCalls)
+			if gotToolCount != tt.wantToolCount {
+				t.Fatalf("tool count = %d, want %d", gotToolCount, tt.wantToolCount)
+			}
+			if len(turn.Blocks) != len(tt.wantKinds) {
+				t.Fatalf("block count = %d, want %d", len(turn.Blocks), len(tt.wantKinds))
+			}
+			for i, wantKind := range tt.wantKinds {
+				if turn.Blocks[i].Kind != wantKind {
+					t.Fatalf("block[%d].kind = %s, want %s", i, turn.Blocks[i].Kind, wantKind)
+				}
+			}
+		})
+	}
+}
+
+func TestOpenAIChatTerminalStopReason(t *testing.T) {
+	tests := []struct {
+		name       string
+		terminal   openAIChatTerminal
+		wantReason string
+		wantSet    bool
+	}{
+		{name: "eof preserves provider stop reason", terminal: openAIChatTerminal{Kind: openAIChatTerminalEOF}},
+		{name: "cancel records cancelled", terminal: openAIChatTerminal{Kind: openAIChatTerminalCancelled}, wantReason: "cancelled", wantSet: true},
+		{name: "error records error", terminal: openAIChatTerminal{Kind: openAIChatTerminalError}, wantReason: "error", wantSet: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := newTestOpenAIChatStreamState().withTerminalStopReason(tt.terminal)
+			if !tt.wantSet {
+				if state.StopReason != nil {
+					t.Fatalf("stop reason = %q, want nil", *state.StopReason)
+				}
+				return
+			}
+			if state.StopReason == nil || *state.StopReason != tt.wantReason {
+				t.Fatalf("stop reason = %v, want %q", state.StopReason, tt.wantReason)
+			}
+		})
+	}
 }
