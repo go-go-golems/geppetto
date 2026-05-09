@@ -115,21 +115,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 					current = streamed
 				}
 			}
-			if strings.HasSuffix(current, fullChunk) {
-				return
-			}
-			overlap := 0
-			maxOverlap := len(fullChunk)
-			if len(current) < maxOverlap {
-				maxOverlap = len(current)
-			}
-			for i := maxOverlap; i > 0; i-- {
-				if strings.HasSuffix(current, fullChunk[:i]) {
-					overlap = i
-					break
-				}
-			}
-			missing := fullChunk[overlap:]
+			missing := missingProviderSuffix(current, fullChunk)
 			if missing == "" {
 				return
 			}
@@ -143,21 +129,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 				return
 			}
 			current := currentReasoningText.String()
-			if strings.HasSuffix(current, fullText) {
-				return
-			}
-			overlap := 0
-			maxOverlap := len(fullText)
-			if len(current) < maxOverlap {
-				maxOverlap = len(current)
-			}
-			for i := maxOverlap; i > 0; i-- {
-				if strings.HasSuffix(current, fullText[:i]) {
-					overlap = i
-					break
-				}
-			}
-			missing := fullText[overlap:]
+			missing := missingProviderSuffix(current, fullText)
 			if missing == "" {
 				return
 			}
@@ -165,21 +137,6 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 			normalized := streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), missing)
 			thinkBuf.WriteString(normalized)
 			e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), normalized, thinkBuf.String(), 0))
-		}
-		chunkFromValue := func(v any) string {
-			switch tv := v.(type) {
-			case string:
-				return tv
-			default:
-				if tv == nil {
-					return ""
-				}
-				b, err := json.Marshal(tv)
-				if err != nil {
-					return ""
-				}
-				return string(b)
-			}
 		}
 		switch providerEventType {
 		case "response.output_item.added":
@@ -508,7 +465,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 										backfillAssistantChunk(itemID, s)
 									}
 								case "output_json":
-									backfillAssistantChunk(itemID, chunkFromValue(content["json"]))
+									backfillAssistantChunk(itemID, responsesChunkFromValue(content["json"]))
 								}
 							}
 						}
@@ -621,7 +578,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 				itemID = v
 			}
 			if j, ok := m["json"]; ok {
-				backfillAssistantChunk(itemID, chunkFromValue(j))
+				backfillAssistantChunk(itemID, responsesChunkFromValue(j))
 			}
 			if tap != nil {
 				tap.OnSSE(eventName, []byte(raw))
@@ -750,6 +707,40 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	state.currentReasoningSummary.WriteString(currentReasoningSummary.String())
 
 	return e.completeResponsesStream(ctx, t, metadata, startTime, terminal, state)
+}
+
+func missingProviderSuffix(current, full string) string {
+	if full == "" || strings.HasSuffix(current, full) {
+		return ""
+	}
+	overlap := 0
+	maxOverlap := len(full)
+	if len(current) < maxOverlap {
+		maxOverlap = len(current)
+	}
+	for i := maxOverlap; i > 0; i-- {
+		if strings.HasSuffix(current, full[:i]) {
+			overlap = i
+			break
+		}
+	}
+	return full[overlap:]
+}
+
+func responsesChunkFromValue(v any) string {
+	switch tv := v.(type) {
+	case string:
+		return tv
+	default:
+		if tv == nil {
+			return ""
+		}
+		b, err := json.Marshal(tv)
+		if err != nil {
+			return ""
+		}
+		return string(b)
+	}
 }
 
 func newResponsesProviderCallCorrelation(metadata events.EventMetadata, reqBody responsesRequest) events.Correlation {
