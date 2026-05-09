@@ -361,6 +361,9 @@ func (state openAIChatStreamState) chatCorrelation(
 	corr.ParentCorrelationKey = state.ProviderCallCorr.CorrelationKey
 	corr.Model = state.Model
 	corr.TurnID = state.TurnID
+	if corr.SegmentType == events.SegmentTypeText || corr.SegmentType == events.SegmentTypeReasoning {
+		corr.SegmentIndex = state.ProviderCallCorr.ProviderCallIndex + 1
+	}
 	if corr.SegmentType != "" && corr.SegmentID == "" && corr.CorrelationKey != "" {
 		corr.SegmentID = corr.CorrelationKey
 	}

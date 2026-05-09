@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	gepsession "github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
@@ -16,6 +17,8 @@ import (
 
 type toolCallingFakeEngine struct {
 	calls               atomic.Int64
+	mu                  sync.Mutex
+	providerCallIndexes []int
 	sawToolConfig       bool
 	seenToolConfig      engine.ToolConfig
 	sawToolDefinitions  bool
@@ -24,6 +27,11 @@ type toolCallingFakeEngine struct {
 
 func (e *toolCallingFakeEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
 	callNum := e.calls.Add(1)
+	if idx, ok := gepsession.ProviderCallIndexFromContext(ctx); ok {
+		e.mu.Lock()
+		e.providerCallIndexes = append(e.providerCallIndexes, idx)
+		e.mu.Unlock()
+	}
 
 	if callNum == 1 && t != nil {
 		if cfg, ok, err := engine.KeyToolConfig.Get(t.Data); err == nil && ok {
@@ -124,6 +132,12 @@ func TestLoop_ExecutesToolsAndEmitsPauseEventsWhenEnabled(t *testing.T) {
 	}
 	if eng.calls.Load() < 2 {
 		t.Fatalf("expected engine to be called at least twice, got %d", eng.calls.Load())
+	}
+	eng.mu.Lock()
+	providerCallIndexes := append([]int(nil), eng.providerCallIndexes...)
+	eng.mu.Unlock()
+	if len(providerCallIndexes) < 2 || providerCallIndexes[0] != 0 || providerCallIndexes[1] != 1 {
+		t.Fatalf("provider call indexes = %v, want first two [0 1]", providerCallIndexes)
 	}
 	if !eng.sawToolConfig {
 		t.Fatalf("expected engine to see tool_config on the first inference turn")

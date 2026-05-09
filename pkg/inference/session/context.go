@@ -5,9 +5,10 @@ import "context"
 type sessionMetaContextKey string
 
 const (
-	sessionIDContextKey   sessionMetaContextKey = "session_id"
-	inferenceIDContextKey sessionMetaContextKey = "inference_id"
-	runTagsContextKey     sessionMetaContextKey = "run_tags"
+	sessionIDContextKey         sessionMetaContextKey = "session_id"
+	inferenceIDContextKey       sessionMetaContextKey = "inference_id"
+	providerCallIndexContextKey sessionMetaContextKey = "provider_call_index"
+	runTagsContextKey           sessionMetaContextKey = "run_tags"
 )
 
 // WithSessionMeta stores session and inference identifiers in context so
@@ -43,6 +44,28 @@ func InferenceIDFromContext(ctx context.Context) string {
 	}
 	inferenceID, _ := ctx.Value(inferenceIDContextKey).(string)
 	return inferenceID
+}
+
+// WithProviderCallIndex stores the zero-based provider-call index for the
+// current inference step within a larger run/tool loop.
+func WithProviderCallIndex(ctx context.Context, index int) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if index < 0 {
+		return ctx
+	}
+	return context.WithValue(ctx, providerCallIndexContextKey, index)
+}
+
+// ProviderCallIndexFromContext returns the zero-based provider-call index for
+// the current inference step, when a higher-level runner/tool loop supplied it.
+func ProviderCallIndexFromContext(ctx context.Context) (int, bool) {
+	if ctx == nil {
+		return 0, false
+	}
+	index, ok := ctx.Value(providerCallIndexContextKey).(int)
+	return index, ok
 }
 
 // WithRunTags stores per-run tags in context for downstream callbacks.

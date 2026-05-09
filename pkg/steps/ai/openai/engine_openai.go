@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	gepsession "github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 
@@ -220,7 +221,11 @@ func (e *OpenAIEngine) RunInference(
 	if inferenceScopeID == "" {
 		inferenceScopeID = metadata.ID.String()
 	}
-	providerCallCorr := events.BuildProviderCallCorrelation(e.inferenceProvider(), inferenceScopeID, "", 0, "")
+	providerCallIndex := 0
+	if idx, ok := gepsession.ProviderCallIndexFromContext(ctx); ok {
+		providerCallIndex = idx
+	}
+	providerCallCorr := events.BuildProviderCallCorrelation(e.inferenceProvider(), inferenceScopeID, "", providerCallIndex, "")
 	providerCallCorr.Model = req.Model
 	providerCallCorr.TurnID = metadata.TurnID
 	e.publishEvent(ctx, events.NewProviderCallStartedEvent(metadata, providerCallCorr))

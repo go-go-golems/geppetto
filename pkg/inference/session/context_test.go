@@ -34,6 +34,23 @@ func TestSessionMetaAccessorsMissing(t *testing.T) {
 	}
 }
 
+func TestWithProviderCallIndexRoundTrip(t *testing.T) {
+	ctx := WithProviderCallIndex(context.Background(), 2)
+	got, ok := ProviderCallIndexFromContext(ctx)
+	if !ok {
+		t.Fatalf("ProviderCallIndexFromContext() ok = false, want true")
+	}
+	if got != 2 {
+		t.Fatalf("ProviderCallIndexFromContext() = %d, want 2", got)
+	}
+}
+
+func TestProviderCallIndexAccessorsMissing(t *testing.T) {
+	if got, ok := ProviderCallIndexFromContext(context.Background()); ok || got != 0 {
+		t.Fatalf("ProviderCallIndexFromContext() = (%d, %v), want (0, false)", got, ok)
+	}
+}
+
 func TestWithRunTagsRoundTrip(t *testing.T) {
 	ctx := WithRunTags(context.Background(), map[string]any{"request_id": "r-1", "attempt": 2})
 	tags := RunTagsFromContext(ctx)

@@ -216,6 +216,34 @@ func TestReduceOpenAIChatStreamReviewDerivedScenarios(t *testing.T) {
 	}
 }
 
+func TestOpenAIChatCorrelationUsesProviderCallIndexForTextAndReasoningSegments(t *testing.T) {
+	state := newTestOpenAIChatStreamState()
+	state.ProviderCallCorr = events.BuildProviderCallCorrelation("openai", "inference-1", "", 2, "")
+	state.CurrentResponseID = "chatcmpl-test"
+
+	for _, tt := range []struct {
+		name       string
+		streamKind string
+		wantType   string
+	}{
+		{name: "text", streamKind: events.StreamKindContent, wantType: events.SegmentTypeText},
+		{name: "reasoning", streamKind: events.StreamKindReasoning, wantType: events.SegmentTypeReasoning},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			corr := state.chatCorrelation(ptrInt(0), tt.streamKind, "", nil)
+			if corr.SegmentIndex != 3 {
+				t.Fatalf("SegmentIndex = %d, want providerCallIndex+1 = 3", corr.SegmentIndex)
+			}
+			if corr.SegmentType != tt.wantType {
+				t.Fatalf("SegmentType = %q, want %q", corr.SegmentType, tt.wantType)
+			}
+			if corr.SegmentID == "" || corr.CorrelationKey == "" {
+				t.Fatalf("segment identity missing: %+v", corr)
+			}
+		})
+	}
+}
+
 func TestReduceOpenAIChatStreamToolArgumentsAccumulate(t *testing.T) {
 	state := newTestOpenAIChatStreamState()
 	var got []events.Event
@@ -256,6 +284,8 @@ func newTestOpenAIChatStreamState() openAIChatStreamState {
 	providerCallCorr := events.BuildProviderCallCorrelation("openai", metadata.InferenceID, "", 0, "")
 	return newOpenAIChatStreamState(metadata, "openai", "gpt-test", providerCallCorr)
 }
+
+func ptrInt(v int) *int { return &v }
 
 func chunkInput(chunk chatStreamEvent) openAIChatStreamInput {
 	return openAIChatStreamInput{Kind: openAIChatStreamInputChunk, Chunk: chunk}
