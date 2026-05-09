@@ -226,7 +226,7 @@ func (e *OpenAIEngine) RunInference(
 		providerCallIndex = idx
 	}
 	providerCallCorr := events.BuildProviderCallCorrelation(e.inferenceProvider(), inferenceScopeID, "", providerCallIndex, "")
-	providerCallCorr.Model = req.Model
+	providerCallCorr.SessionID = metadata.SessionID
 	providerCallCorr.TurnID = metadata.TurnID
 	e.publishEvent(ctx, events.NewProviderCallStartedEvent(metadata, providerCallCorr))
 
@@ -248,7 +248,7 @@ func (e *OpenAIEngine) RunInference(
 		}
 	}()
 
-	state := newOpenAIChatStreamState(metadata, e.inferenceProvider(), req.Model, providerCallCorr)
+	state := newOpenAIChatStreamState(metadata, e.inferenceProvider(), req.Model, providerCallCorr, providerCallIndex)
 	state, terminal, runErr := e.consumeOpenAIChatStream(ctx, stream, state, metadata, req.Model)
 	state, metadata = e.completeOpenAIChatStream(ctx, t, state, metadata, req.Model, startTime, terminal)
 
@@ -396,8 +396,7 @@ func stopReasonString(stopReason *string) string {
 	return *stopReason
 }
 
-func providerCallCorrWithResponse(corr events.Correlation, responseID string) events.Correlation {
-	corr.ResponseID = responseID
+func providerCallCorrWithResponse(corr events.Correlation, _ string) events.Correlation {
 	return corr
 }
 

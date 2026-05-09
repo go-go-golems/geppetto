@@ -120,7 +120,7 @@ func TestGeminiCanonicalCorrelationHelpersValidate(t *testing.T) {
 	}
 }
 
-func TestGeminiProviderCallCorrelationUsesProviderCallIndex(t *testing.T) {
+func TestGeminiProviderCallCorrelationUsesExplicitIDs(t *testing.T) {
 	metadata := events.EventMetadata{SessionID: "session-1", InferenceID: "inference-1", TurnID: "turn-1"}
 
 	for _, tt := range []struct {
@@ -133,20 +133,11 @@ func TestGeminiProviderCallCorrelationUsesProviderCallIndex(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			corr := geminiProviderCallCorrelation(metadata, metadata.InferenceID, "gemini-test", tt.providerCallIndex)
-			if corr.ProviderCallIndex != int32(tt.providerCallIndex) {
-				t.Fatalf("ProviderCallIndex = %d, want %d", corr.ProviderCallIndex, tt.providerCallIndex)
-			}
 			if corr.ProviderCallID != tt.wantProviderID {
 				t.Fatalf("ProviderCallID = %q, want %q", corr.ProviderCallID, tt.wantProviderID)
 			}
-			if corr.CorrelationKey != tt.wantProviderID {
-				t.Fatalf("CorrelationKey = %q, want %q", corr.CorrelationKey, tt.wantProviderID)
-			}
-			if corr.Model != "gemini-test" {
-				t.Fatalf("Model = %q, want gemini-test", corr.Model)
-			}
-			if corr.TurnID != metadata.TurnID {
-				t.Fatalf("TurnID = %q, want %q", corr.TurnID, metadata.TurnID)
+			if corr.SessionID != metadata.SessionID || corr.RunID != metadata.InferenceID || corr.TurnID != metadata.TurnID {
+				t.Fatalf("scope identity mismatch: %+v", corr)
 			}
 		})
 	}

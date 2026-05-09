@@ -31,6 +31,7 @@ func TestBaseToolExecutorPublishesCanonicalToolLifecycleEvents(t *testing.T) {
 
 	sink := &captureEventSink{}
 	ctx := events.WithEventSinks(context.Background(), sink)
+	ctx = WithCurrentToolCorrelation(ctx, events.Correlation{RunID: "run-1", ProviderCallID: "provider-call-1", ToolCallID: "call-1"})
 	executor := NewBaseToolExecutor(DefaultToolConfig())
 
 	result, err := executor.ExecuteToolCall(ctx, ToolCall{ID: "call-1", Name: "hello", Arguments: json.RawMessage(`{}`)}, registry)
@@ -66,21 +67,17 @@ func TestBaseToolExecutorPublishesCanonicalToolLifecycleEvents(t *testing.T) {
 
 func TestToolExecutionCorrelationCanComeFromContext(t *testing.T) {
 	base := events.Correlation{
-		Provider:       "gemini",
+		RunID:          "run-1",
 		ProviderCallID: "provider-call-1",
 		ToolCallID:     "call-1",
-		CorrelationKey: "provider:tool:call-1",
 	}
 	ctx := WithCurrentToolCorrelation(context.Background(), base)
 
 	corr := toolExecutionCorrelation(ctx, ToolCall{ID: "call-1", Name: "hello"})
-	if corr.Provider != "gemini" || corr.ProviderCallID != "provider-call-1" {
+	if corr.RunID != "run-1" || corr.ProviderCallID != "provider-call-1" {
 		t.Fatalf("provider correlation was not preserved: %#v", corr)
 	}
-	if corr.ToolCallID != "call-1" || corr.CorrelationKey != "provider:tool:call-1" {
+	if corr.ToolCallID != "call-1" {
 		t.Fatalf("tool correlation was not preserved: %#v", corr)
-	}
-	if corr.SegmentType != events.SegmentTypeTool || corr.StreamKind != events.StreamKindToolCall {
-		t.Fatalf("tool execution correlation was not normalized: %#v", corr)
 	}
 }

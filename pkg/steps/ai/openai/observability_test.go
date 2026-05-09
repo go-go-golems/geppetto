@@ -201,8 +201,8 @@ func TestOpenAIObservabilityAddsChatCorrelationFields(t *testing.T) {
 	if reasoningPublish == nil {
 		t.Fatalf("missing reasoning delta publish record")
 	}
-	if reasoningPublish.CorrelationKey != reasoningRec.CorrelationKey || reasoningPublish.StreamKind != "reasoning" {
-		t.Fatalf("reasoning publish did not preserve correlation data: %#v", reasoningPublish)
+	if reasoningPublish.SegmentID != reasoningRec.CorrelationKey {
+		t.Fatalf("reasoning publish did not preserve segment identity: %#v", reasoningPublish)
 	}
 }
 
@@ -247,7 +247,7 @@ func TestOpenAIObservabilityAddsToolCorrelationFields(t *testing.T) {
 	if toolPublish == nil {
 		t.Fatalf("missing tool requested publish record")
 	}
-	if toolPublish.CorrelationKey != toolProvider.CorrelationKey || toolPublish.ToolCallID != "call_1" {
+	if toolPublish.SegmentID != toolProvider.CorrelationKey || toolPublish.ToolCallID != "call_1" {
 		t.Fatalf("tool publish did not preserve correlation data: %#v", toolPublish)
 	}
 }

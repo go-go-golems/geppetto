@@ -7,9 +7,6 @@ import (
 )
 
 const (
-	maxInt32Value = int64(1<<31 - 1)
-	minInt32Value = -1 << 31
-
 	SegmentTypeText      = "text"
 	SegmentTypeReasoning = "reasoning"
 	SegmentTypeTool      = "tool"
@@ -19,169 +16,71 @@ const (
 	StreamKindToolCall  = "tool_call"
 )
 
-// BuildProviderCallCorrelation creates a provider-call identity that is stable
-// before provider-native response IDs are known. The provider response ID is
-// preserved separately in ResponseID when available.
-func BuildProviderCallCorrelation(provider, inferenceID, runID string, providerCallIndex int, responseID string) Correlation {
-	provider = strings.TrimSpace(provider)
-	inferenceID = strings.TrimSpace(inferenceID)
-	runID = strings.TrimSpace(runID)
-	responseID = strings.TrimSpace(responseID)
+// BuildRunCorrelation creates the canonical run-level identity.
+func BuildRunCorrelation(sessionID, runID, turnID string) Correlation {
+	return Correlation{
+		SessionID: strings.TrimSpace(sessionID),
+		RunID:     strings.TrimSpace(runID),
+		TurnID:    strings.TrimSpace(turnID),
+	}
+}
 
-	scopeID := runID
-	if scopeID == "" {
-		scopeID = inferenceID
-	}
-	corr := Correlation{
-		Provider:          provider,
-		InferenceID:       inferenceID,
-		RunID:             runID,
-		ResponseID:        responseID,
-		ProviderCallIndex: checkedInt32(providerCallIndex),
-	}
-	if provider != "" && scopeID != "" {
-		corr.ProviderCallID = fmt.Sprintf("%s:%s:provider-call:%d", provider, scopeID, providerCallIndex)
-		corr.CorrelationKey = corr.ProviderCallID
+// BuildProviderCallCorrelation creates a provider-call identity that is stable
+// before provider-native response IDs are known. The index is used only to build
+// a deterministic ID; it is not exposed as canonical correlation state.
+func BuildProviderCallCorrelation(provider, runID, _ string, providerCallIndex int, _ string) Correlation {
+	provider = strings.TrimSpace(provider)
+	runID = strings.TrimSpace(runID)
+	corr := Correlation{RunID: runID}
+	if provider != "" && runID != "" {
+		corr.ProviderCallID = fmt.Sprintf("%s:%s:provider-call:%d", provider, runID, providerCallIndex)
 	}
 	return corr
 }
 
 // BuildSegmentCorrelation creates a segment identity nested under a provider
 // call. The provider object ID is optional; when present it is used to make the
-// correlation key provider-native without involving rendered chat message IDs.
-func BuildSegmentCorrelation(parent Correlation, providerObjectID string, segmentIndex int, segmentType string) Correlation {
+// segment ID provider-native without involving rendered chat message IDs.
+func BuildSegmentCorrelation(parent Correlation, providerObjectID string, segmentOrdinal int, segmentType string) Correlation {
 	providerObjectID = strings.TrimSpace(providerObjectID)
 	segmentType = strings.TrimSpace(segmentType)
 
 	corr := parent
-	idx := checkedInt32(segmentIndex)
-	corr.SegmentIndex = idx
-	corr.SegmentType = segmentType
-	corr.StreamKind = streamKindForSegmentType(segmentType)
-	corr.ParentCorrelationKey = parent.CorrelationKey
-	if providerObjectID != "" {
-		corr.ItemID = providerObjectID
-	}
 	if parent.ProviderCallID != "" && segmentType != "" {
 		objectPart := "segment"
 		if providerObjectID != "" {
 			objectPart = providerObjectID
 		}
-		corr.SegmentID = fmt.Sprintf("%s:%s:%d:%s", parent.ProviderCallID, objectPart, segmentIndex, segmentType)
-		corr.CorrelationKey = corr.SegmentID
+		corr.SegmentID = fmt.Sprintf("%s:%s:%d:%s", parent.ProviderCallID, objectPart, segmentOrdinal, segmentType)
 	}
 	return corr
 }
 
-// BuildChatCompletionsCorrelation creates the normalized identity used for
-// OpenAI-compatible streamed Chat Completions. Provider-native object IDs remain
-// in ResponseID/ToolCallID; CorrelationKey is the stable cross-layer join key.
+// BuildToolCorrelation creates a canonical tool identity under a provider call.
+func BuildToolCorrelation(parent Correlation, toolCallID string) Correlation {
+	corr := parent
+	corr.ToolCallID = strings.TrimSpace(toolCallID)
+	return corr
+}
+
+// BuildChatCompletionsCorrelation creates the normalized segment identity used
+// for OpenAI-compatible streamed Chat Completions.
 func BuildChatCompletionsCorrelation(provider, responseID string, choiceIndex *int, streamKind, toolCallID string, toolCallIndex *int) Correlation {
+	segmentID := ChatCompletionsSegmentID(provider, responseID, choiceIndex, streamKind, toolCallID, toolCallIndex)
+	corr := Correlation{SegmentID: segmentID}
+	if strings.TrimSpace(toolCallID) != "" {
+		corr.ToolCallID = strings.TrimSpace(toolCallID)
+	}
+	return corr
+}
+
+// ChatCompletionsSegmentID returns the opaque canonical segment ID for an
+// OpenAI-compatible Chat Completions stream.
+func ChatCompletionsSegmentID(provider, responseID string, choiceIndex *int, streamKind, toolCallID string, toolCallIndex *int) string {
 	provider = strings.TrimSpace(provider)
 	responseID = strings.TrimSpace(responseID)
 	streamKind = strings.TrimSpace(streamKind)
 	toolCallID = strings.TrimSpace(toolCallID)
-
-	corr := Correlation{
-		Provider:       provider,
-		ResponseID:     responseID,
-		StreamKind:     streamKind,
-		ToolCallID:     toolCallID,
-		SegmentType:    segmentTypeForStreamKind(streamKind),
-		CorrelationKey: chatCompletionsCorrelationKey(provider, responseID, choiceIndex, streamKind, toolCallID, toolCallIndex),
-	}
-	if choiceIndex != nil {
-		v := checkedInt32(*choiceIndex)
-		corr.ChoiceIndex = &v
-	}
-	if toolCallIndex != nil {
-		v := checkedInt32(*toolCallIndex)
-		corr.ToolCallIndex = &v
-	}
-	return corr
-}
-
-// BuildResponsesCorrelation creates the normalized identity for OpenAI
-// Responses API stream items and summaries while preserving provider-native
-// item IDs.
-func BuildResponsesCorrelation(provider, responseID, itemID string, outputIndex, summaryIndex *int) Correlation {
-	provider = strings.TrimSpace(provider)
-	responseID = strings.TrimSpace(responseID)
-	itemID = strings.TrimSpace(itemID)
-
-	corr := Correlation{
-		Provider:       provider,
-		ResponseID:     responseID,
-		ItemID:         itemID,
-		CorrelationKey: responsesCorrelationKey(provider, responseID, itemID, outputIndex, summaryIndex),
-	}
-	if outputIndex != nil {
-		v := checkedInt32(*outputIndex)
-		corr.OutputIndex = &v
-	}
-	if summaryIndex != nil {
-		v := checkedInt32(*summaryIndex)
-		corr.SummaryIndex = &v
-	}
-	return corr
-}
-
-// BuildClaudeProviderCallCorrelation creates the provider-call envelope identity
-// for Anthropic/Claude message streams.
-func BuildClaudeProviderCallCorrelation(provider, responseID string, providerCallIndex int) Correlation {
-	provider = strings.TrimSpace(provider)
-	responseID = strings.TrimSpace(responseID)
-	corr := Correlation{
-		Provider:          provider,
-		ResponseID:        responseID,
-		ProviderCallIndex: checkedInt32(providerCallIndex),
-	}
-	if responseID != "" {
-		corr.ProviderCallID = responseID
-	} else if provider != "" {
-		corr.ProviderCallID = fmt.Sprintf("%s-provider-call-%d", provider, providerCallIndex)
-	}
-	if provider != "" && corr.ProviderCallID != "" {
-		corr.CorrelationKey = fmt.Sprintf("%s:%s:provider-call", provider, corr.ProviderCallID)
-	}
-	return corr
-}
-
-// BuildClaudeSegmentCorrelation creates content-block identity beneath a Claude
-// provider-call envelope. ContentBlockIndex is provider-native and stable within
-// a single message stream.
-func BuildClaudeSegmentCorrelation(provider, providerCallID string, contentBlockIndex int, segmentType string) Correlation {
-	provider = strings.TrimSpace(provider)
-	providerCallID = strings.TrimSpace(providerCallID)
-	segmentType = strings.TrimSpace(segmentType)
-	idx := checkedInt32(contentBlockIndex)
-	corr := Correlation{
-		Provider:          provider,
-		ProviderCallID:    providerCallID,
-		ContentBlockIndex: &idx,
-		SegmentIndex:      idx,
-		SegmentType:       segmentType,
-		StreamKind:        streamKindForSegmentType(segmentType),
-	}
-	if provider != "" && providerCallID != "" && segmentType != "" {
-		corr.SegmentID = fmt.Sprintf("%s:block:%d:%s", providerCallID, contentBlockIndex, segmentType)
-		corr.CorrelationKey = fmt.Sprintf("%s:%s:block:%d:%s", provider, providerCallID, contentBlockIndex, segmentType)
-		corr.ParentCorrelationKey = fmt.Sprintf("%s:%s:provider-call", provider, providerCallID)
-	}
-	return corr
-}
-
-func checkedInt32(v int) int32 {
-	if int64(v) > maxInt32Value {
-		return int32(maxInt32Value)
-	}
-	if v < minInt32Value {
-		return int32(minInt32Value)
-	}
-	return int32(v)
-}
-
-func chatCompletionsCorrelationKey(provider, responseID string, choiceIndex *int, streamKind, toolCallID string, toolCallIndex *int) string {
 	if provider == "" || responseID == "" || streamKind == "" || streamKind == "unknown" {
 		return ""
 	}
@@ -200,7 +99,19 @@ func chatCompletionsCorrelationKey(provider, responseID string, choiceIndex *int
 	return fmt.Sprintf("%s-chat:%s:choice:%d:%s", provider, responseID, choice, streamKind)
 }
 
-func responsesCorrelationKey(provider, responseID, itemID string, outputIndex, summaryIndex *int) string {
+// BuildResponsesCorrelation creates the normalized segment identity for OpenAI
+// Responses API stream items and summaries while preserving provider-native
+// item IDs inside the opaque SegmentID.
+func BuildResponsesCorrelation(provider, responseID, itemID string, outputIndex, summaryIndex *int) Correlation {
+	return Correlation{SegmentID: ResponsesSegmentID(provider, responseID, itemID, outputIndex, summaryIndex)}
+}
+
+// ResponsesSegmentID returns the opaque canonical segment ID for an OpenAI
+// Responses item/output/summary.
+func ResponsesSegmentID(provider, responseID, itemID string, outputIndex, summaryIndex *int) string {
+	provider = strings.TrimSpace(provider)
+	responseID = strings.TrimSpace(responseID)
+	itemID = strings.TrimSpace(itemID)
 	if provider == "" || responseID == "" {
 		return ""
 	}
@@ -216,17 +127,31 @@ func responsesCorrelationKey(provider, responseID, itemID string, outputIndex, s
 	return provider + ":" + responseID
 }
 
-func segmentTypeForStreamKind(streamKind string) string {
-	switch streamKind {
-	case StreamKindContent:
-		return SegmentTypeText
-	case StreamKindReasoning:
-		return SegmentTypeReasoning
-	case StreamKindToolCall:
-		return SegmentTypeTool
-	default:
-		return ""
+// BuildClaudeProviderCallCorrelation creates the provider-call envelope identity
+// for Anthropic/Claude message streams.
+func BuildClaudeProviderCallCorrelation(provider, responseID string, providerCallIndex int) Correlation {
+	provider = strings.TrimSpace(provider)
+	responseID = strings.TrimSpace(responseID)
+	corr := Correlation{}
+	if responseID != "" {
+		corr.ProviderCallID = provider + ":" + responseID
+	} else if provider != "" {
+		corr.ProviderCallID = fmt.Sprintf("%s-provider-call-%d", provider, providerCallIndex)
 	}
+	return corr
+}
+
+// BuildClaudeSegmentCorrelation creates content-block identity beneath a Claude
+// provider-call envelope. ContentBlockIndex remains internal to ID construction.
+func BuildClaudeSegmentCorrelation(provider, providerCallID string, contentBlockIndex int, segmentType string) Correlation {
+	provider = strings.TrimSpace(provider)
+	providerCallID = strings.TrimSpace(providerCallID)
+	segmentType = strings.TrimSpace(segmentType)
+	corr := Correlation{ProviderCallID: providerCallID}
+	if provider != "" && providerCallID != "" && segmentType != "" {
+		corr.SegmentID = fmt.Sprintf("%s:%s:block:%d:%s", provider, providerCallID, contentBlockIndex, segmentType)
+	}
+	return corr
 }
 
 func streamKindForSegmentType(segmentType string) string {
@@ -237,6 +162,19 @@ func streamKindForSegmentType(segmentType string) string {
 		return StreamKindReasoning
 	case SegmentTypeTool:
 		return StreamKindToolCall
+	default:
+		return ""
+	}
+}
+
+func segmentTypeForStreamKind(streamKind string) string {
+	switch streamKind {
+	case StreamKindContent:
+		return SegmentTypeText
+	case StreamKindReasoning, "reasoning-summary":
+		return SegmentTypeReasoning
+	case StreamKindToolCall:
+		return SegmentTypeTool
 	default:
 		return ""
 	}

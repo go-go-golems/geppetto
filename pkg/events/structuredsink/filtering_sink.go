@@ -194,8 +194,8 @@ func streamStateKey(meta events.EventMetadata, corr events.Correlation) string {
 	if corr.SegmentID != "" {
 		return corr.SegmentID
 	}
-	if corr.CorrelationKey != "" {
-		return corr.CorrelationKey
+	if corr.ProviderCallID != "" {
+		return corr.ProviderCallID
 	}
 	return meta.ID.String()
 }

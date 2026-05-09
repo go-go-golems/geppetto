@@ -80,23 +80,15 @@ func newResponsesStreamState(reqBody responsesRequest, providerCallCorr events.C
 }
 
 func (s *responsesStreamState) providerCallCorrelation() events.Correlation {
-	corr := s.providerCallCorr
-	corr.ResponseID = s.currentResponseID
-	return corr
+	return s.providerCallCorr
 }
 
-func (s *responsesStreamState) segmentCorrelation(itemID string, outputIndex, summaryIndex *int, segmentType string) events.Correlation {
+func (s *responsesStreamState) segmentCorrelation(itemID string, outputIndex, summaryIndex *int, _ string) events.Correlation {
 	corr := events.BuildResponsesCorrelation("openai_responses", s.currentResponseID, itemID, outputIndex, summaryIndex)
-	corr.ProviderCallID = s.providerCallCorr.ProviderCallID
-	corr.ProviderCallIndex = s.providerCallCorr.ProviderCallIndex
-	corr.ParentCorrelationKey = s.providerCallCorr.CorrelationKey
-	corr.Model = s.reqBody.Model
+	corr.SessionID = s.providerCallCorr.SessionID
+	corr.RunID = s.providerCallCorr.RunID
 	corr.TurnID = s.providerCallCorr.TurnID
-	corr.SegmentType = segmentType
-	corr.StreamKind = streamKindForResponsesSegment(segmentType)
-	if corr.SegmentID == "" && corr.CorrelationKey != "" {
-		corr.SegmentID = corr.CorrelationKey
-	}
+	corr.ProviderCallID = s.providerCallCorr.ProviderCallID
 	return corr
 }
 

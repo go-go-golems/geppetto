@@ -381,11 +381,10 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	return t, nil
 }
 
-func geminiProviderCallCorrelation(metadata events.EventMetadata, inferenceScopeID, modelName string, providerCallIndex int) events.Correlation {
+func geminiProviderCallCorrelation(metadata events.EventMetadata, inferenceScopeID, _ string, providerCallIndex int) events.Correlation {
 	corr := events.BuildProviderCallCorrelation("gemini", inferenceScopeID, "", providerCallIndex, "")
 	corr.SessionID = metadata.SessionID
 	corr.TurnID = metadata.TurnID
-	corr.Model = modelName
 	return corr
 }
 
@@ -393,30 +392,13 @@ func geminiSegmentCorrelation(providerCallCorr events.Correlation, providerObjec
 	corr := events.BuildSegmentCorrelation(providerCallCorr, providerObjectID, segmentIndex, segmentType)
 	corr.SessionID = providerCallCorr.SessionID
 	corr.TurnID = providerCallCorr.TurnID
-	corr.Model = providerCallCorr.Model
 	return corr
 }
 
 func geminiToolCorrelation(providerCallCorr events.Correlation, toolCallID string, toolCallIndex int) events.Correlation {
 	corr := geminiSegmentCorrelation(providerCallCorr, toolCallID, toolCallIndex, events.SegmentTypeTool)
-	idx := checkedInt32(toolCallIndex)
 	corr.ToolCallID = toolCallID
-	corr.ToolCallIndex = &idx
 	return corr
-}
-
-func checkedInt32(v int) int32 {
-	const (
-		maxInt32Value = int64(1<<31 - 1)
-		minInt32Value = -1 << 31
-	)
-	if int64(v) > maxInt32Value {
-		return int32(maxInt32Value)
-	}
-	if v < minInt32Value {
-		return int32(minInt32Value)
-	}
-	return int32(v)
 }
 
 func extractGeminiFinishReason(c *genai.Candidate) (string, bool) {

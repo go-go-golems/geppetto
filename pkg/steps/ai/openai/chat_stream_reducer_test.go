@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
@@ -216,7 +217,7 @@ func TestReduceOpenAIChatStreamReviewDerivedScenarios(t *testing.T) {
 	}
 }
 
-func TestOpenAIChatCorrelationUsesProviderCallIndexForTextAndReasoningSegments(t *testing.T) {
+func TestOpenAIChatCorrelationUsesExplicitSegmentIDs(t *testing.T) {
 	state := newTestOpenAIChatStreamState()
 	state.ProviderCallCorr = events.BuildProviderCallCorrelation("openai", "inference-1", "", 2, "")
 	state.CurrentResponseID = "chatcmpl-test"
@@ -224,34 +225,30 @@ func TestOpenAIChatCorrelationUsesProviderCallIndexForTextAndReasoningSegments(t
 	for _, tt := range []struct {
 		name       string
 		streamKind string
-		wantType   string
+		wantPart   string
 	}{
-		{name: "text", streamKind: events.StreamKindContent, wantType: events.SegmentTypeText},
-		{name: "reasoning", streamKind: events.StreamKindReasoning, wantType: events.SegmentTypeReasoning},
+		{name: "text", streamKind: events.StreamKindContent, wantPart: events.StreamKindContent},
+		{name: "reasoning", streamKind: events.StreamKindReasoning, wantPart: events.StreamKindReasoning},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			corr := state.chatCorrelation(ptrInt(0), tt.streamKind, "", nil)
-			if corr.SegmentIndex != 3 {
-				t.Fatalf("SegmentIndex = %d, want providerCallIndex+1 = 3", corr.SegmentIndex)
+			if corr.RunID != "inference-1" || corr.ProviderCallID == "" || corr.SegmentID == "" {
+				t.Fatalf("explicit correlation identity missing: %+v", corr)
 			}
-			if corr.SegmentType != tt.wantType {
-				t.Fatalf("SegmentType = %q, want %q", corr.SegmentType, tt.wantType)
-			}
-			if corr.SegmentID == "" || corr.CorrelationKey == "" {
-				t.Fatalf("segment identity missing: %+v", corr)
+			if !strings.Contains(corr.SegmentID, tt.wantPart) {
+				t.Fatalf("SegmentID = %q, want opaque ID containing %q", corr.SegmentID, tt.wantPart)
 			}
 		})
 	}
 }
 
-func TestOpenAIChatSameCallReasoningAndTextShareSegmentIndexButKeepDistinctIdentity(t *testing.T) {
+func TestOpenAIChatSameCallReasoningAndTextKeepDistinctSegmentIDs(t *testing.T) {
 	for _, tt := range []struct {
 		name              string
 		providerCallIndex int
-		wantSegmentIndex  int32
 	}{
-		{name: "first provider call", providerCallIndex: 0, wantSegmentIndex: 1},
-		{name: "third provider call", providerCallIndex: 2, wantSegmentIndex: 3},
+		{name: "first provider call", providerCallIndex: 0},
+		{name: "third provider call", providerCallIndex: 2},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			state := newTestOpenAIChatStreamState()
@@ -279,29 +276,28 @@ func TestOpenAIChatSameCallReasoningAndTextShareSegmentIndexButKeepDistinctIdent
 			})
 			assertOpenAIChatCanonicalEventsValidate(t, got)
 
-			byType := map[string][]events.Correlation{}
+			byKind := map[string][]events.Correlation{}
 			for _, ev := range got {
 				correlated, ok := ev.(events.CorrelatedEvent)
 				if !ok {
 					continue
 				}
 				corr := correlated.Correlation()
-				switch corr.SegmentType {
-				case events.SegmentTypeReasoning, events.SegmentTypeText:
-					byType[corr.SegmentType] = append(byType[corr.SegmentType], corr)
+				switch {
+				case strings.Contains(corr.SegmentID, events.StreamKindReasoning):
+					byKind[events.SegmentTypeReasoning] = append(byKind[events.SegmentTypeReasoning], corr)
+				case strings.Contains(corr.SegmentID, events.StreamKindContent):
+					byKind[events.SegmentTypeText] = append(byKind[events.SegmentTypeText], corr)
 				}
 			}
 
-			reasoning := byType[events.SegmentTypeReasoning]
-			text := byType[events.SegmentTypeText]
+			reasoning := byKind[events.SegmentTypeReasoning]
+			text := byKind[events.SegmentTypeText]
 			if len(reasoning) != 3 || len(text) != 3 {
 				t.Fatalf("correlation counts: reasoning=%d text=%d, want 3 each", len(reasoning), len(text))
 			}
-			assertOpenAIChatSegmentCorrelationGroup(t, reasoning, tt.wantSegmentIndex, events.SegmentTypeReasoning, events.StreamKindReasoning)
-			assertOpenAIChatSegmentCorrelationGroup(t, text, tt.wantSegmentIndex, events.SegmentTypeText, events.StreamKindContent)
-			if reasoning[0].CorrelationKey == text[0].CorrelationKey {
-				t.Fatalf("reasoning and text correlation keys both %q; want distinct identity", reasoning[0].CorrelationKey)
-			}
+			assertOpenAIChatSegmentCorrelationGroup(t, reasoning, events.SegmentTypeReasoning)
+			assertOpenAIChatSegmentCorrelationGroup(t, text, events.SegmentTypeText)
 			if reasoning[0].SegmentID == text[0].SegmentID {
 				t.Fatalf("reasoning and text segment IDs both %q; want distinct identity", reasoning[0].SegmentID)
 			}
@@ -347,7 +343,7 @@ func newTestOpenAIChatStreamState() openAIChatStreamState {
 		TurnID:      "turn-1",
 	}
 	providerCallCorr := events.BuildProviderCallCorrelation("openai", metadata.InferenceID, "", 0, "")
-	return newOpenAIChatStreamState(metadata, "openai", "gpt-test", providerCallCorr)
+	return newOpenAIChatStreamState(metadata, "openai", "gpt-test", providerCallCorr, 0)
 }
 
 func ptrInt(v int) *int { return &v }
@@ -427,30 +423,18 @@ func assertOpenAIChatEventTypes(t *testing.T, got []events.Event, want []events.
 	}
 }
 
-func assertOpenAIChatSegmentCorrelationGroup(t *testing.T, got []events.Correlation, wantSegmentIndex int32, wantSegmentType, wantStreamKind string) {
+func assertOpenAIChatSegmentCorrelationGroup(t *testing.T, got []events.Correlation, wantSegmentType string) {
 	t.Helper()
 	if len(got) == 0 {
 		t.Fatalf("missing %s correlations", wantSegmentType)
 	}
 	first := got[0]
-	if first.CorrelationKey == "" || first.SegmentID == "" {
+	if first.RunID == "" || first.ProviderCallID == "" || first.SegmentID == "" {
 		t.Fatalf("first %s correlation missing identity: %+v", wantSegmentType, first)
 	}
 	for i, corr := range got {
-		if corr.ProviderCallIndex != wantSegmentIndex-1 {
-			t.Fatalf("%s[%d].ProviderCallIndex = %d, want %d", wantSegmentType, i, corr.ProviderCallIndex, wantSegmentIndex-1)
-		}
-		if corr.SegmentIndex != wantSegmentIndex {
-			t.Fatalf("%s[%d].SegmentIndex = %d, want %d", wantSegmentType, i, corr.SegmentIndex, wantSegmentIndex)
-		}
-		if corr.SegmentType != wantSegmentType {
-			t.Fatalf("%s[%d].SegmentType = %q, want %q", wantSegmentType, i, corr.SegmentType, wantSegmentType)
-		}
-		if corr.StreamKind != wantStreamKind {
-			t.Fatalf("%s[%d].StreamKind = %q, want %q", wantSegmentType, i, corr.StreamKind, wantStreamKind)
-		}
-		if corr.CorrelationKey != first.CorrelationKey {
-			t.Fatalf("%s[%d].CorrelationKey = %q, want stable key %q", wantSegmentType, i, corr.CorrelationKey, first.CorrelationKey)
+		if corr.RunID != first.RunID || corr.ProviderCallID != first.ProviderCallID {
+			t.Fatalf("%s[%d] parent identity drift: %+v want run/provider %q/%q", wantSegmentType, i, corr, first.RunID, first.ProviderCallID)
 		}
 		if corr.SegmentID != first.SegmentID {
 			t.Fatalf("%s[%d].SegmentID = %q, want stable segment ID %q", wantSegmentType, i, corr.SegmentID, first.SegmentID)

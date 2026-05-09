@@ -65,23 +65,20 @@ func (e *GeminiEngine) publishProviderRecord(ctx context.Context, metadata event
 		return
 	}
 	rec := geppettoobs.Record{
-		Timestamp:            time.Now().UTC(),
-		Stage:                geppettoobs.StageProviderRoutedEvent,
-		Kind:                 geppettoobs.RecordKindProviderEvent,
-		Provider:             "gemini",
-		Model:                corr.Model,
-		SessionID:            firstNonEmptyString(corr.SessionID, metadata.SessionID),
-		RunID:                corr.RunID,
-		InferenceID:          firstNonEmptyString(corr.InferenceID, metadata.InferenceID),
-		TurnID:               firstNonEmptyString(corr.TurnID, metadata.TurnID),
-		MessageID:            metadata.ID.String(),
-		EventType:            eventType,
-		ProviderCallID:       corr.ProviderCallID,
-		ProviderCallIndex:    intPtrFromInt32NonZero(corr.ProviderCallIndex),
-		ResponseID:           corr.ResponseID,
-		StreamKind:           corr.StreamKind,
-		CorrelationKey:       corr.CorrelationKey,
-		ParentCorrelationKey: corr.ParentCorrelationKey,
+		Timestamp:      time.Now().UTC(),
+		Stage:          geppettoobs.StageProviderRoutedEvent,
+		Kind:           geppettoobs.RecordKindProviderEvent,
+		Provider:       "gemini",
+		Model:          metadata.Model,
+		SessionID:      firstNonEmptyString(corr.SessionID, metadata.SessionID),
+		RunID:          corr.RunID,
+		InferenceID:    metadata.InferenceID,
+		TurnID:         firstNonEmptyString(corr.TurnID, metadata.TurnID),
+		MessageID:      metadata.ID.String(),
+		EventType:      eventType,
+		ProviderCallID: corr.ProviderCallID,
+		SegmentID:      corr.SegmentID,
+		ToolCallID:     corr.ToolCallID,
 	}
 	if body, err := json.Marshal(object); err == nil {
 		rec.ObjectJSON = body
@@ -96,12 +93,4 @@ func firstNonEmptyString(values ...string) string {
 		}
 	}
 	return ""
-}
-
-func intPtrFromInt32NonZero(v int32) *int {
-	if v == 0 {
-		return nil
-	}
-	out := int(v)
-	return &out
 }

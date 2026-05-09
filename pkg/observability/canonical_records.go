@@ -118,77 +118,22 @@ func DerivedRecordsFromEvent(base Record, event events.Event) []Record {
 }
 
 func applyCorrelation(rec *Record, corr events.Correlation) {
-	if corr.Provider != "" {
-		rec.Provider = corr.Provider
-	}
-	if corr.Model != "" {
-		rec.Model = corr.Model
-	}
 	if corr.SessionID != "" {
 		rec.SessionID = corr.SessionID
 	}
 	if corr.RunID != "" {
 		rec.RunID = corr.RunID
 	}
-	if corr.InferenceID != "" {
-		rec.InferenceID = corr.InferenceID
-	}
 	if corr.TurnID != "" {
 		rec.TurnID = corr.TurnID
-	}
-	if corr.ResponseID != "" {
-		rec.ResponseID = corr.ResponseID
-	}
-	if corr.ItemID != "" {
-		rec.ItemID = corr.ItemID
 	}
 	if corr.ProviderCallID != "" {
 		rec.ProviderCallID = corr.ProviderCallID
 	}
-	if corr.ProviderCallIndex != 0 {
-		v := int(corr.ProviderCallIndex)
-		rec.ProviderCallIndex = &v
-	}
-	if corr.OutputIndex != nil {
-		v := int(*corr.OutputIndex)
-		rec.OutputIndex = &v
-	}
-	if corr.SummaryIndex != nil {
-		v := int(*corr.SummaryIndex)
-		rec.SummaryIndex = &v
-	}
-	if corr.ChoiceIndex != nil {
-		v := int(*corr.ChoiceIndex)
-		rec.ChoiceIndex = &v
-	}
-	if corr.ContentBlockIndex != nil {
-		v := int(*corr.ContentBlockIndex)
-		rec.ContentBlockIndex = &v
-	}
-	if corr.StreamKind != "" {
-		rec.StreamKind = corr.StreamKind
-	}
-	if corr.CorrelationKey != "" {
-		rec.CorrelationKey = corr.CorrelationKey
-	}
-	if corr.ParentCorrelationKey != "" {
-		rec.ParentCorrelationKey = corr.ParentCorrelationKey
-	}
 	if corr.ToolCallID != "" {
 		rec.ToolCallID = corr.ToolCallID
 	}
-	if corr.ToolCallIndex != nil {
-		v := int(*corr.ToolCallIndex)
-		rec.ToolCallIndex = &v
-	}
 	if corr.SegmentID != "" {
 		rec.SegmentID = corr.SegmentID
-	}
-	if corr.SegmentIndex != 0 {
-		v := int(corr.SegmentIndex)
-		rec.SegmentIndex = &v
-	}
-	if corr.SegmentType != "" {
-		rec.SegmentType = corr.SegmentType
 	}
 }

@@ -107,13 +107,13 @@ func responsesChunkFromValue(v any) string {
 	}
 }
 
-func newResponsesProviderCallCorrelation(metadata events.EventMetadata, reqBody responsesRequest, providerCallIndex int) events.Correlation {
+func newResponsesProviderCallCorrelation(metadata events.EventMetadata, _ responsesRequest, providerCallIndex int) events.Correlation {
 	inferenceScopeID := metadata.InferenceID
 	if inferenceScopeID == "" {
 		inferenceScopeID = metadata.ID.String()
 	}
 	corr := events.BuildProviderCallCorrelation("openai_responses", inferenceScopeID, "", providerCallIndex, "")
-	corr.Model = reqBody.Model
+	corr.SessionID = metadata.SessionID
 	corr.TurnID = metadata.TurnID
 	return corr
 }

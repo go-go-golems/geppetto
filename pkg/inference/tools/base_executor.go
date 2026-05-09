@@ -162,33 +162,10 @@ func toolExecutionCorrelation(ctx context.Context, call ToolCall) events.Correla
 		if corr.ToolCallID == "" {
 			corr.ToolCallID = call.ID
 		}
-		if corr.ToolCallIndex == nil {
-			idx := int32(0)
-			corr.ToolCallIndex = &idx
-		}
-		if corr.SegmentType == "" {
-			corr.SegmentType = events.SegmentTypeTool
-		}
-		if corr.StreamKind == "" {
-			corr.StreamKind = events.StreamKindToolCall
-		}
-		if corr.CorrelationKey == "" && corr.ToolCallID != "" {
-			corr.CorrelationKey = "tool-execution:" + corr.ToolCallID
-		}
 		return corr
 	}
 
-	corr := events.Correlation{
-		ToolCallID:   call.ID,
-		SegmentType:  events.SegmentTypeTool,
-		StreamKind:   events.StreamKindToolCall,
-		SegmentIndex: 0,
-	}
-	if call.ID != "" {
-		corr.CorrelationKey = "tool-execution:" + call.ID
-		corr.SegmentID = corr.CorrelationKey
-	}
-	return corr
+	return events.Correlation{ToolCallID: call.ID}
 }
 
 func (b *BaseToolExecutor) ShouldRetry(_ context.Context, attempt int, _ *ToolResult, _ error) (bool, time.Duration) {
