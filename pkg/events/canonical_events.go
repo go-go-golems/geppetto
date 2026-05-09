@@ -174,10 +174,15 @@ type EventReasoningDelta struct {
 	Delta        string      `json:"delta"`
 	Text         string      `json:"text"`
 	Sequence     int64       `json:"sequence,omitempty"`
+	Source       string      `json:"source,omitempty"`
 }
 
 func NewReasoningDeltaEvent(metadata EventMetadata, corr Correlation, delta, text string, sequence int64) *EventReasoningDelta {
-	return &EventReasoningDelta{EventImpl: EventImpl{Type_: EventTypeReasoningDelta, Metadata_: metadata}, Correlation_: corr, Delta: delta, Text: text, Sequence: sequence}
+	return NewReasoningDeltaEventWithSource(metadata, corr, "", delta, text, sequence)
+}
+
+func NewReasoningDeltaEventWithSource(metadata EventMetadata, corr Correlation, source, delta, text string, sequence int64) *EventReasoningDelta {
+	return &EventReasoningDelta{EventImpl: EventImpl{Type_: EventTypeReasoningDelta, Metadata_: metadata}, Correlation_: corr, Delta: delta, Text: text, Sequence: sequence, Source: source}
 }
 
 func (e *EventReasoningDelta) Correlation() Correlation { return e.Correlation_ }
@@ -189,10 +194,15 @@ type EventReasoningSegmentFinished struct {
 	Correlation_ Correlation `json:"correlation"`
 	Text         string      `json:"text,omitempty"`
 	FinishReason string      `json:"finish_reason,omitempty"`
+	Source       string      `json:"source,omitempty"`
 }
 
 func NewReasoningSegmentFinishedEvent(metadata EventMetadata, corr Correlation, text, finishReason string) *EventReasoningSegmentFinished {
-	return &EventReasoningSegmentFinished{EventImpl: EventImpl{Type_: EventTypeReasoningSegmentFinished, Metadata_: metadata}, Correlation_: corr, Text: text, FinishReason: finishReason}
+	return NewReasoningSegmentFinishedEventWithSource(metadata, corr, "", text, finishReason)
+}
+
+func NewReasoningSegmentFinishedEventWithSource(metadata EventMetadata, corr Correlation, source, text, finishReason string) *EventReasoningSegmentFinished {
+	return &EventReasoningSegmentFinished{EventImpl: EventImpl{Type_: EventTypeReasoningSegmentFinished, Metadata_: metadata}, Correlation_: corr, Text: text, FinishReason: finishReason, Source: source}
 }
 
 func (e *EventReasoningSegmentFinished) Correlation() Correlation { return e.Correlation_ }

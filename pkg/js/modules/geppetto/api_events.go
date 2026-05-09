@@ -176,9 +176,15 @@ func (c *jsEventCollector) encodeEventPayload(ev events.Event) map[string]any {
 		payload["delta"] = e.Delta
 		payload["text"] = e.Text
 		payload["sequence"] = e.Sequence
+		if e.Source != "" {
+			payload["source"] = e.Source
+		}
 	case *events.EventReasoningSegmentFinished:
 		payload["text"] = e.Text
 		payload["finishReason"] = e.FinishReason
+		if e.Source != "" {
+			payload["source"] = e.Source
+		}
 	case *events.EventToolCallStarted:
 		payload["toolCall"] = map[string]any{
 			"id":   e.ToolCallID,

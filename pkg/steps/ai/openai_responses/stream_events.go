@@ -118,6 +118,12 @@ func (e *Engine) handleResponsesProviderEvent(
 		}
 		appendAssistantChunk(itemID, streamState.latestMessageOutputIndex, missing)
 	}
+	reasoningSourceForSummaryIndex := func(summaryIndex *int) string {
+		if summaryIndex != nil {
+			return "summary"
+		}
+		return "thinking"
+	}
 	backfillReasoningText := func(fullText string) {
 		if fullText == "" {
 			return
@@ -130,7 +136,7 @@ func (e *Engine) handleResponsesProviderEvent(
 		streamState.currentReasoningText.WriteString(missing)
 		normalized := streamhelpers.NormalizeReasoningDelta(streamState.thinkBuf.String(), missing)
 		streamState.thinkBuf.WriteString(normalized)
-		e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), normalized, streamState.thinkBuf.String(), 0))
+		e.publishEvent(ctx, events.NewReasoningDeltaEventWithSource(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), "thinking", normalized, streamState.thinkBuf.String(), 0))
 	}
 	switch providerEventType {
 	case "response.output_item.added":
@@ -315,14 +321,14 @@ func (e *Engine) handleResponsesProviderEvent(
 			e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, streamState.currentResponseID, providerEventType, m, len(v), len(normalized), before+len(normalized))
 			streamState.summaryBuf.WriteString(normalized)
 			streamState.currentReasoningSummary.WriteString(normalized)
-			e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), normalized, streamState.summaryBuf.String(), 0))
+			e.publishEvent(ctx, events.NewReasoningDeltaEventWithSource(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), "summary", normalized, streamState.summaryBuf.String(), 0))
 		} else if s, ok := m["text"].(string); ok && s != "" {
 			before := streamState.summaryBuf.Len()
 			normalized := streamhelpers.NormalizeReasoningSummaryDelta(streamState.summaryBuf.String(), s)
 			e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, streamState.currentResponseID, providerEventType, m, len(s), len(normalized), before+len(normalized))
 			streamState.summaryBuf.WriteString(normalized)
 			streamState.currentReasoningSummary.WriteString(normalized)
-			e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), normalized, streamState.summaryBuf.String(), 0))
+			e.publishEvent(ctx, events.NewReasoningDeltaEventWithSource(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), "summary", normalized, streamState.summaryBuf.String(), 0))
 		}
 	case "response.reasoning_summary_part.done":
 		if itemID := itemIDFromProviderObject(m); itemID != "" {
@@ -350,14 +356,14 @@ func (e *Engine) handleResponsesProviderEvent(
 			e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, streamState.currentResponseID, providerEventType, m, len(d), len(normalized), before+len(normalized))
 			streamState.thinkBuf.WriteString(normalized)
 			streamState.currentReasoningText.WriteString(d)
-			e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), d, streamState.thinkBuf.String(), 0))
+			e.publishEvent(ctx, events.NewReasoningDeltaEventWithSource(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), "thinking", d, streamState.thinkBuf.String(), 0))
 		} else if s, ok := m["text"].(string); ok && s != "" {
 			before := streamState.thinkBuf.Len()
 			normalized := streamhelpers.NormalizeReasoningDelta(streamState.thinkBuf.String(), s)
 			e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, streamState.currentResponseID, providerEventType, m, len(s), len(normalized), before+len(normalized))
 			streamState.thinkBuf.WriteString(normalized)
 			streamState.currentReasoningText.WriteString(s)
-			e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), s, streamState.thinkBuf.String(), 0))
+			e.publishEvent(ctx, events.NewReasoningDeltaEventWithSource(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), "thinking", s, streamState.thinkBuf.String(), 0))
 		}
 	case "response.reasoning_text.done":
 		if s, ok := m["text"].(string); ok && s != "" {
@@ -423,7 +429,7 @@ func (e *Engine) handleResponsesProviderEvent(
 					turns.AppendBlock(t, rb)
 					finalReasoningText := strings.TrimSpace(streamState.currentReasoningText.String())
 					finalReasoningStatus := streamState.currentReasoningStatus
-					e.publishEvent(ctx, events.NewReasoningSegmentFinishedEvent(metadata, responsesSegmentCorr(streamState.lastReasoningItemID, streamState.lastReasoningOutputIndex, streamState.lastReasoningSummaryIndex, events.SegmentTypeReasoning), finalReasoningText, finalReasoningStatus))
+					e.publishEvent(ctx, events.NewReasoningSegmentFinishedEventWithSource(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), reasoningSourceForSummaryIndex(streamState.currentReasoningSummaryIndex), finalReasoningText, finalReasoningStatus))
 					streamState.currentReasoningItemID = ""
 					streamState.currentReasoningText.Reset()
 					streamState.currentReasoningSummary.Reset()
