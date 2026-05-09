@@ -228,8 +228,8 @@ func TestClaudeObservabilityCapturesPublishStartedAndProviderRecords(t *testing.
 	if started == nil {
 		t.Fatalf("missing provider-call-finished publish-started record in %#v", records)
 	}
-	if started.CorrelationKey == "" {
-		t.Fatalf("provider-call-finished record missing correlation key: %#v", started)
+	if started.ProviderCallID == "" {
+		t.Fatalf("provider-call-finished record missing provider call id: %#v", started)
 	}
 	if len(started.EventJSON) != 0 || len(started.MetadataJSON) != 0 {
 		t.Fatalf("publish-started should be compact: %#v", started)

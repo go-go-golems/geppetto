@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	gepsession "github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
@@ -326,7 +327,11 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	if inferenceScopeID == "" {
 		inferenceScopeID = metadata.ID.String()
 	}
-	providerCallCorr := geminiProviderCallCorrelation(metadata, inferenceScopeID, modelName)
+	providerCallIndex := 0
+	if idx, ok := gepsession.ProviderCallIndexFromContext(ctx); ok {
+		providerCallIndex = idx
+	}
+	providerCallCorr := geminiProviderCallCorrelation(metadata, inferenceScopeID, modelName, providerCallIndex)
 	e.publishEvent(ctx, events.NewProviderCallStartedEvent(metadata, providerCallCorr))
 
 	// Streaming mode always on for engines in this architecture
@@ -376,11 +381,10 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	return t, nil
 }
 
-func geminiProviderCallCorrelation(metadata events.EventMetadata, inferenceScopeID, modelName string) events.Correlation {
-	corr := events.BuildProviderCallCorrelation("gemini", inferenceScopeID, "", 0, "")
+func geminiProviderCallCorrelation(metadata events.EventMetadata, inferenceScopeID, _ string, providerCallIndex int) events.Correlation {
+	corr := events.BuildProviderCallCorrelation("gemini", inferenceScopeID, "", providerCallIndex, "")
 	corr.SessionID = metadata.SessionID
 	corr.TurnID = metadata.TurnID
-	corr.Model = modelName
 	return corr
 }
 
@@ -388,30 +392,13 @@ func geminiSegmentCorrelation(providerCallCorr events.Correlation, providerObjec
 	corr := events.BuildSegmentCorrelation(providerCallCorr, providerObjectID, segmentIndex, segmentType)
 	corr.SessionID = providerCallCorr.SessionID
 	corr.TurnID = providerCallCorr.TurnID
-	corr.Model = providerCallCorr.Model
 	return corr
 }
 
 func geminiToolCorrelation(providerCallCorr events.Correlation, toolCallID string, toolCallIndex int) events.Correlation {
 	corr := geminiSegmentCorrelation(providerCallCorr, toolCallID, toolCallIndex, events.SegmentTypeTool)
-	idx := checkedInt32(toolCallIndex)
 	corr.ToolCallID = toolCallID
-	corr.ToolCallIndex = &idx
 	return corr
-}
-
-func checkedInt32(v int) int32 {
-	const (
-		maxInt32Value = int64(1<<31 - 1)
-		minInt32Value = -1 << 31
-	)
-	if int64(v) > maxInt32Value {
-		return int32(maxInt32Value)
-	}
-	if v < minInt32Value {
-		return int32(minInt32Value)
-	}
-	return int32(v)
 }
 
 func extractGeminiFinishReason(c *genai.Candidate) (string, bool) {

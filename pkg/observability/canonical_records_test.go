@@ -20,7 +20,7 @@ func TestDerivedRecordsFromProviderCallFinished(t *testing.T) {
 	if rec.Stage != StageProviderCallResultFinalized || rec.Kind != RecordKindProviderCallResult {
 		t.Fatalf("unexpected provider-call result stage/kind: %#v", rec)
 	}
-	if rec.ProviderCallID != corr.ProviderCallID || rec.CorrelationKey != corr.CorrelationKey {
+	if rec.ProviderCallID != corr.ProviderCallID || rec.RunID != corr.RunID {
 		t.Fatalf("correlation not copied: %#v", rec)
 	}
 	if rec.StopReason != "tool_calls" || rec.FinishClass != "tool_calls_pending" || !rec.HasToolCalls {
@@ -33,15 +33,9 @@ func TestDerivedRecordsFromProviderCallFinished(t *testing.T) {
 
 func TestDerivedRecordsFromSegmentEvents(t *testing.T) {
 	corr := events.Correlation{
-		Provider:             "openai_responses",
-		ProviderCallID:       "provider-call-1",
-		ProviderCallIndex:    1,
-		SegmentID:            "segment-1",
-		SegmentIndex:         3,
-		SegmentType:          events.SegmentTypeText,
-		StreamKind:           events.StreamKindContent,
-		CorrelationKey:       "segment-key",
-		ParentCorrelationKey: "provider-key",
+		RunID:          "run-1",
+		ProviderCallID: "provider-call-1",
+		SegmentID:      "segment-1",
 	}
 	event := events.NewTextSegmentFinishedEvent(events.EventMetadata{TurnID: "turn-1"}, corr, "hello", "stop")
 
@@ -53,7 +47,7 @@ func TestDerivedRecordsFromSegmentEvents(t *testing.T) {
 	if rec.Stage != StageSegmentFinished || rec.Kind != RecordKindSegment {
 		t.Fatalf("unexpected segment stage/kind: %#v", rec)
 	}
-	if rec.SegmentID != "segment-1" || rec.SegmentType != events.SegmentTypeText || rec.StreamKind != events.StreamKindContent {
+	if rec.SegmentID != "segment-1" || rec.ProviderCallID != "provider-call-1" {
 		t.Fatalf("segment correlation not copied: %#v", rec)
 	}
 	if rec.TextLen != len("hello") || rec.SegmentStatus != "stop" {

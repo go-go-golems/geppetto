@@ -201,7 +201,7 @@ func firstChatToolCall(calls []ChatToolCall) *ChatToolCall {
 }
 
 func chatCorrelationKey(provider, responseID string, choiceIndex *int, streamKind, toolCallID string, toolCallIndex *int) string {
-	return events.BuildChatCompletionsCorrelation(provider, responseID, choiceIndex, streamKind, toolCallID, toolCallIndex).CorrelationKey
+	return events.BuildChatCompletionsCorrelation(provider, responseID, choiceIndex, streamKind, toolCallID, toolCallIndex).SegmentID
 }
 
 func applyChatProviderDataToRecord(rec *geppettoobs.Record, data map[string]interface{}) {

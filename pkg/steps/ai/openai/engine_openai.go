@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	gepsession "github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/google/uuid"
@@ -220,8 +222,12 @@ func (e *OpenAIEngine) RunInference(
 	if inferenceScopeID == "" {
 		inferenceScopeID = metadata.ID.String()
 	}
-	providerCallCorr := events.BuildProviderCallCorrelation(e.inferenceProvider(), inferenceScopeID, "", 0, "")
-	providerCallCorr.Model = req.Model
+	providerCallIndex := 0
+	if idx, ok := gepsession.ProviderCallIndexFromContext(ctx); ok {
+		providerCallIndex = idx
+	}
+	providerCallCorr := events.BuildProviderCallCorrelation(e.inferenceProvider(), inferenceScopeID, "", providerCallIndex, "")
+	providerCallCorr.SessionID = metadata.SessionID
 	providerCallCorr.TurnID = metadata.TurnID
 	e.publishEvent(ctx, events.NewProviderCallStartedEvent(metadata, providerCallCorr))
 
@@ -243,7 +249,7 @@ func (e *OpenAIEngine) RunInference(
 		}
 	}()
 
-	state := newOpenAIChatStreamState(metadata, e.inferenceProvider(), req.Model, providerCallCorr)
+	state := newOpenAIChatStreamState(metadata, e.inferenceProvider(), req.Model, providerCallCorr, providerCallIndex)
 	state, terminal, runErr := e.consumeOpenAIChatStream(ctx, stream, state, metadata, req.Model)
 	state, metadata = e.completeOpenAIChatStream(ctx, t, state, metadata, req.Model, startTime, terminal)
 
@@ -358,7 +364,8 @@ func appendOpenAIChatTurnBlocks(t *turns.Turn, state openAIChatStreamState, incl
 	for _, tc := range mergedToolCalls {
 		var args any
 		_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
-		turns.AppendBlock(t, turns.NewToolCallBlock(tc.ID, tc.Function.Name, args))
+		corr := state.chatCorrelation(state.CurrentChoiceIndex, events.StreamKindToolCall, tc.ID, tc.Index)
+		turns.AppendBlock(t, toolblocks.NewToolCallBlockWithCorrelation(tc.ID, tc.Function.Name, args, corr))
 	}
 	return len(mergedToolCalls)
 }
@@ -391,8 +398,7 @@ func stopReasonString(stopReason *string) string {
 	return *stopReason
 }
 
-func providerCallCorrWithResponse(corr events.Correlation, responseID string) events.Correlation {
-	corr.ResponseID = responseID
+func providerCallCorrWithResponse(corr events.Correlation, _ string) events.Correlation {
 	return corr
 }
 

@@ -351,6 +351,44 @@ func TestContentBlockMerger(t *testing.T) {
 	}
 }
 
+func TestContentBlockMergerProviderCallCorrelationUsesExplicitIDs(t *testing.T) {
+	for _, tt := range []struct {
+		name              string
+		providerCallIndex int
+		wantProviderID    string
+	}{
+		{name: "first provider call", providerCallIndex: 0, wantProviderID: "claude:msg_123"},
+		{name: "third provider call", providerCallIndex: 2, wantProviderID: "claude:msg_123"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			metadata := events.EventMetadata{SessionID: "session-1", InferenceID: "inference-1", TurnID: "turn-1"}
+			merger := NewContentBlockMerger(metadata)
+			merger.providerCallIndex = tt.providerCallIndex
+
+			got, err := merger.Add(api.StreamingEvent{
+				Type: api.MessageStartType,
+				Message: &api.MessageResponse{
+					ID:    "msg_123",
+					Model: "claude-test",
+					Role:  "assistant",
+				},
+			})
+			require.NoError(t, err)
+			require.Len(t, got, 1)
+
+			correlated, ok := got[0].(events.CorrelatedEvent)
+			require.True(t, ok, "event should carry correlation")
+			corr := correlated.Correlation()
+			if corr.ProviderCallID != tt.wantProviderID {
+				t.Fatalf("ProviderCallID = %q, want %q", corr.ProviderCallID, tt.wantProviderID)
+			}
+			if corr.SessionID != metadata.SessionID || corr.RunID != metadata.InferenceID || corr.TurnID != metadata.TurnID {
+				t.Fatalf("scope identity mismatch: %+v", corr)
+			}
+		})
+	}
+}
+
 func TestContentBlockMergerReviewDerivedScenarios(t *testing.T) {
 	tests := []struct {
 		name           string

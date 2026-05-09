@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	gepsession "github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
@@ -128,7 +129,8 @@ func (l *Loop) RunLoop(ctx context.Context, initialTurn *turns.Turn) (*turns.Tur
 		log.Debug().Int("iteration", i+1).Msg("toolloop: engine inference step")
 
 		l.snapshot(ctx, t, "pre_inference")
-		updated, err := l.eng.RunInference(ctx, t)
+		iterationCtx := gepsession.WithProviderCallIndex(ctx, i)
+		updated, err := l.eng.RunInference(iterationCtx, t)
 		if err != nil {
 			return nil, err
 		}
@@ -289,7 +291,7 @@ func (l *Loop) executeTools(ctx context.Context, toolCalls []toolblocks.ToolCall
 	execCalls := make([]tools.ToolCall, 0, len(toolCalls))
 	for _, call := range toolCalls {
 		argBytes, _ := json.Marshal(call.Arguments)
-		execCalls = append(execCalls, tools.ToolCall{ID: call.ID, Name: call.Name, Arguments: json.RawMessage(argBytes)})
+		execCalls = append(execCalls, tools.ToolCall{ID: call.ID, Name: call.Name, Arguments: json.RawMessage(argBytes), Correlation: call.Correlation})
 	}
 
 	execResults, err := executor.ExecuteToolCalls(ctx, execCalls, registry)

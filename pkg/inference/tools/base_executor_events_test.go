@@ -31,6 +31,7 @@ func TestBaseToolExecutorPublishesCanonicalToolLifecycleEvents(t *testing.T) {
 
 	sink := &captureEventSink{}
 	ctx := events.WithEventSinks(context.Background(), sink)
+	ctx = WithCurrentToolCorrelation(ctx, events.Correlation{RunID: "run-1", ProviderCallID: "provider-call-1", ToolCallID: "call-1"})
 	executor := NewBaseToolExecutor(DefaultToolConfig())
 
 	result, err := executor.ExecuteToolCall(ctx, ToolCall{ID: "call-1", Name: "hello", Arguments: json.RawMessage(`{}`)}, registry)
@@ -64,23 +65,110 @@ func TestBaseToolExecutorPublishesCanonicalToolLifecycleEvents(t *testing.T) {
 	}
 }
 
-func TestToolExecutionCorrelationCanComeFromContext(t *testing.T) {
-	base := events.Correlation{
-		Provider:       "gemini",
-		ProviderCallID: "provider-call-1",
-		ToolCallID:     "call-1",
-		CorrelationKey: "provider:tool:call-1",
-	}
-	ctx := WithCurrentToolCorrelation(context.Background(), base)
+func TestBaseToolExecutorPublishesCanonicalEventsFromToolCallCorrelation(t *testing.T) {
+	t.Parallel()
 
-	corr := toolExecutionCorrelation(ctx, ToolCall{ID: "call-1", Name: "hello"})
-	if corr.Provider != "gemini" || corr.ProviderCallID != "provider-call-1" {
-		t.Fatalf("provider correlation was not preserved: %#v", corr)
+	registry := NewInMemoryToolRegistry()
+	def, err := NewToolFromFunc("hello", "returns hello", func() (map[string]string, error) {
+		return map[string]string{"message": "hello"}, nil
+	})
+	if err != nil {
+		t.Fatalf("NewToolFromFunc: %v", err)
 	}
-	if corr.ToolCallID != "call-1" || corr.CorrelationKey != "provider:tool:call-1" {
-		t.Fatalf("tool correlation was not preserved: %#v", corr)
+	if err := registry.RegisterTool("hello", *def); err != nil {
+		t.Fatalf("RegisterTool: %v", err)
 	}
-	if corr.SegmentType != events.SegmentTypeTool || corr.StreamKind != events.StreamKindToolCall {
-		t.Fatalf("tool execution correlation was not normalized: %#v", corr)
+
+	sink := &captureEventSink{}
+	ctx := events.WithEventSinks(context.Background(), sink)
+	executor := NewBaseToolExecutor(DefaultToolConfig())
+	corr := events.Correlation{
+		SessionID:      "session-1",
+		RunID:          "run-1",
+		TurnID:         "turn-1",
+		ProviderCallID: "provider-call-1",
+		SegmentID:      "segment-1",
+		ToolCallID:     "call-1",
+	}
+
+	result, err := executor.ExecuteToolCall(ctx, ToolCall{ID: "call-1", Name: "hello", Arguments: json.RawMessage(`{}`), Correlation: corr}, registry)
+	if err != nil {
+		t.Fatalf("ExecuteToolCall: %v", err)
+	}
+	if result == nil || result.Error != "" {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if len(sink.events) != 3 {
+		t.Fatalf("expected 3 lifecycle events, got %d: %#v", len(sink.events), sink.events)
+	}
+	for i, event := range sink.events {
+		correlated, ok := event.(events.CorrelatedEvent)
+		if !ok {
+			t.Fatalf("event %d is not correlated: %T", i, event)
+		}
+		if got := correlated.Correlation(); got != corr {
+			t.Fatalf("event %d correlation = %#v, want %#v", i, got, corr)
+		}
+		if err := events.ValidateCanonicalEvent(event); err != nil {
+			t.Fatalf("event %d should validate as canonical: %v", i, err)
+		}
+	}
+}
+
+func TestToolExecutionCorrelationSources(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		ctx  context.Context
+		call ToolCall
+		want events.Correlation
+	}{
+		{
+			name: "context correlation",
+			ctx: WithCurrentToolCorrelation(context.Background(), events.Correlation{
+				RunID:          "run-1",
+				ProviderCallID: "provider-call-1",
+				ToolCallID:     "call-1",
+			}),
+			call: ToolCall{ID: "call-1", Name: "hello"},
+			want: events.Correlation{RunID: "run-1", ProviderCallID: "provider-call-1", ToolCallID: "call-1"},
+		},
+		{
+			name: "tool call correlation",
+			ctx:  context.Background(),
+			call: ToolCall{ID: "call-1", Name: "hello", Correlation: events.Correlation{
+				SessionID:      "session-1",
+				RunID:          "run-1",
+				TurnID:         "turn-1",
+				ProviderCallID: "provider-call-1",
+				SegmentID:      "segment-1",
+				ToolCallID:     "call-1",
+			}},
+			want: events.Correlation{SessionID: "session-1", RunID: "run-1", TurnID: "turn-1", ProviderCallID: "provider-call-1", SegmentID: "segment-1", ToolCallID: "call-1"},
+		},
+		{
+			name: "tool call overrides batch context",
+			ctx: WithCurrentToolCorrelation(context.Background(), events.Correlation{
+				RunID:          "run-1",
+				ProviderCallID: "provider-call-1",
+				ToolCallID:     "wrong-call",
+			}),
+			call: ToolCall{ID: "call-2", Name: "hello", Correlation: events.Correlation{
+				RunID:          "run-1",
+				ProviderCallID: "provider-call-2",
+				ToolCallID:     "call-2",
+			}},
+			want: events.Correlation{RunID: "run-1", ProviderCallID: "provider-call-2", ToolCallID: "call-2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			corr := toolExecutionCorrelation(tt.ctx, tt.call)
+			if corr != tt.want {
+				t.Fatalf("correlation = %#v, want %#v", corr, tt.want)
+			}
+		})
 	}
 }

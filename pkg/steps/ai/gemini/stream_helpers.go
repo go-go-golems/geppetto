@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
 	genai "github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/iterator"
 )
@@ -104,7 +105,7 @@ func appendGeminiFinalTurnBlocks(t *turns.Turn, state *geminiStreamState) {
 	if state.message != "" {
 		turns.AppendBlock(t, turns.NewAssistantTextBlock(state.message))
 	}
-	for _, c := range state.pendingCalls {
-		turns.AppendBlock(t, turns.NewToolCallBlock(c.id, c.name, c.args))
+	for i, c := range state.pendingCalls {
+		turns.AppendBlock(t, toolblocks.NewToolCallBlockWithCorrelation(c.id, c.name, c.args, geminiToolCorrelation(state.providerCallCorr, c.id, i)))
 	}
 }

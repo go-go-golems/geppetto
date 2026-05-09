@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	gepsession "github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/rs/zerolog/log"
 )
@@ -25,7 +26,11 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	reader := bufio.NewReader(resp.Body)
 	var eventName string
 	var dataBuf strings.Builder
-	providerCallCorr := newResponsesProviderCallCorrelation(metadata, reqBody)
+	providerCallIndex := 0
+	if idx, ok := gepsession.ProviderCallIndexFromContext(ctx); ok {
+		providerCallIndex = idx
+	}
+	providerCallCorr := newResponsesProviderCallCorrelation(metadata, reqBody, providerCallIndex)
 	e.publishEvent(ctx, events.NewProviderCallStartedEvent(metadata, providerCallCorr))
 	streamState := newResponsesStreamState(reqBody, providerCallCorr, tap)
 	log.Trace().Msg("Responses: starting SSE read loop")
@@ -102,13 +107,13 @@ func responsesChunkFromValue(v any) string {
 	}
 }
 
-func newResponsesProviderCallCorrelation(metadata events.EventMetadata, reqBody responsesRequest) events.Correlation {
+func newResponsesProviderCallCorrelation(metadata events.EventMetadata, _ responsesRequest, providerCallIndex int) events.Correlation {
 	inferenceScopeID := metadata.InferenceID
 	if inferenceScopeID == "" {
 		inferenceScopeID = metadata.ID.String()
 	}
-	corr := events.BuildProviderCallCorrelation("openai_responses", inferenceScopeID, "", 0, "")
-	corr.Model = reqBody.Model
+	corr := events.BuildProviderCallCorrelation("openai_responses", inferenceScopeID, "", providerCallIndex, "")
+	corr.SessionID = metadata.SessionID
 	corr.TurnID = metadata.TurnID
 	return corr
 }
@@ -230,18 +235,5 @@ func consumeResponsesSSE(
 			_ = flush()
 			return responsesStreamTerminal{Kind: responsesStreamTerminalEOF}
 		}
-	}
-}
-
-func streamKindForResponsesSegment(segmentType string) string {
-	switch segmentType {
-	case events.SegmentTypeText:
-		return events.StreamKindContent
-	case events.SegmentTypeReasoning:
-		return events.StreamKindReasoning
-	case events.SegmentTypeTool:
-		return events.StreamKindToolCall
-	default:
-		return ""
 	}
 }

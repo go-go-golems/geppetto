@@ -113,7 +113,8 @@ func providerRecordBase(metadata events.EventMetadata, model string, currentResp
 	if idx, ok := intFromProviderNumber(m["summary_index"]); ok {
 		rec.SummaryIndex = &idx
 	}
-	rec.CorrelationKey = responsesCorrelationKey(rec.Provider, rec.ResponseID, rec.ItemID, rec.OutputIndex, rec.SummaryIndex)
+	rec.SegmentID = responsesSegmentID(rec.Provider, rec.ResponseID, rec.ItemID, rec.OutputIndex, rec.SummaryIndex)
+	rec.CorrelationKey = rec.SegmentID
 	return rec
 }
 
@@ -156,8 +157,8 @@ func providerData(provider, responseID, itemID string, outputIndex, summaryIndex
 	if summaryIndex != nil {
 		data["summary_index"] = *summaryIndex
 	}
-	if key := responsesCorrelationKey(provider, responseID, itemID, outputIndex, summaryIndex); key != "" {
-		data["correlation_key"] = key
+	if segmentID := responsesSegmentID(provider, responseID, itemID, outputIndex, summaryIndex); segmentID != "" {
+		data["segment_id"] = segmentID
 	}
 	if len(data) == 0 {
 		return nil
@@ -165,8 +166,8 @@ func providerData(provider, responseID, itemID string, outputIndex, summaryIndex
 	return data
 }
 
-func responsesCorrelationKey(provider, responseID, itemID string, outputIndex, summaryIndex *int) string {
-	return events.BuildResponsesCorrelation(provider, responseID, itemID, outputIndex, summaryIndex).CorrelationKey
+func responsesSegmentID(provider, responseID, itemID string, outputIndex, summaryIndex *int) string {
+	return events.BuildResponsesCorrelation(provider, responseID, itemID, outputIndex, summaryIndex).SegmentID
 }
 
 func applyProviderDataToRecord(rec *geppettoobs.Record, data map[string]interface{}) {

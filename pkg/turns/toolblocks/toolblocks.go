@@ -2,14 +2,17 @@ package toolblocks
 
 import (
 	"encoding/json"
+
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 // ToolCall represents a pending tool invocation described by a Turn block.
 type ToolCall struct {
-	ID        string
-	Name      string
-	Arguments map[string]any
+	ID          string
+	Name        string
+	Arguments   map[string]any
+	Correlation events.Correlation
 }
 
 // ToolResult represents the outcome of executing a tool call.
@@ -60,7 +63,8 @@ func ExtractPendingToolCalls(t *turns.Turn) []ToolCall {
 		if args == nil {
 			args = map[string]any{}
 		}
-		calls = append(calls, ToolCall{ID: id, Name: name, Arguments: args})
+		corr, _ := toolCallCorrelationFromBlock(b)
+		calls = append(calls, ToolCall{ID: id, Name: name, Arguments: args, Correlation: corr})
 	}
 	return calls
 }

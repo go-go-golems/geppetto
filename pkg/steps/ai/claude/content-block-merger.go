@@ -83,18 +83,26 @@ func (cbm *ContentBlockMerger) Error() *api.Error {
 }
 
 func (cbm *ContentBlockMerger) providerCallCorrelation() events.Correlation {
-	if cbm.providerCallCorr.CorrelationKey != "" {
+	if cbm.providerCallCorr.ProviderCallID != "" {
 		return cbm.providerCallCorr
 	}
-	return events.BuildProviderCallCorrelation("claude", cbm.metadata.InferenceID, "", cbm.providerCallIndex, "")
+	corr := events.BuildProviderCallCorrelation("claude", cbm.metadata.InferenceID, "", cbm.providerCallIndex, "")
+	corr.SessionID = cbm.metadata.SessionID
+	corr.TurnID = cbm.metadata.TurnID
+	return corr
 }
 
 func (cbm *ContentBlockMerger) contentBlockCorrelation(index int, segmentType string) events.Correlation {
-	providerCallID := cbm.providerCallCorrelation().ProviderCallID
+	parent := cbm.providerCallCorrelation()
+	providerCallID := parent.ProviderCallID
 	if providerCallID == "" && cbm.response != nil {
 		providerCallID = cbm.response.ID
 	}
-	return events.BuildClaudeSegmentCorrelation("claude", providerCallID, index, segmentType)
+	corr := events.BuildClaudeSegmentCorrelation("claude", providerCallID, index, segmentType)
+	corr.SessionID = parent.SessionID
+	corr.RunID = parent.RunID
+	corr.TurnID = parent.TurnID
+	return corr
 }
 
 func inputString(input any) string {
@@ -209,8 +217,9 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 		cbm.updateUsage(event)
 
 		cbm.providerCallCorr = events.BuildClaudeProviderCallCorrelation("claude", event.Message.ID, cbm.providerCallIndex)
-		cbm.providerCallCorr.InferenceID = cbm.metadata.InferenceID
-		cbm.providerCallCorr.Model = event.Message.Model
+		cbm.providerCallCorr.SessionID = cbm.metadata.SessionID
+		cbm.providerCallCorr.RunID = cbm.metadata.InferenceID
+		cbm.providerCallCorr.TurnID = cbm.metadata.TurnID
 		return []events.Event{events.NewProviderCallStartedEvent(cbm.metadata, cbm.providerCallCorr)}, nil
 
 	case api.MessageDeltaType:

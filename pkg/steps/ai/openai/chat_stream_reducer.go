@@ -51,10 +51,11 @@ type openAIReasoningNormalizeObservation struct {
 type openAIChatStreamState struct {
 	Metadata events.EventMetadata
 
-	Provider         string
-	Model            string
-	TurnID           string
-	ProviderCallCorr events.Correlation
+	Provider          string
+	Model             string
+	TurnID            string
+	ProviderCallIndex int32
+	ProviderCallCorr  events.Correlation
 
 	CurrentResponseID  string
 	CurrentChoiceIndex *int
@@ -92,12 +93,14 @@ func newOpenAIChatStreamState(
 	provider string,
 	model string,
 	providerCallCorr events.Correlation,
+	providerCallIndex int,
 ) openAIChatStreamState {
 	return openAIChatStreamState{
 		Metadata:           metadata,
 		Provider:           provider,
 		Model:              model,
 		TurnID:             metadata.TurnID,
+		ProviderCallIndex:  int32(providerCallIndex), // #nosec G115 -- tool-loop indexes are small, local ordinals.
 		ProviderCallCorr:   providerCallCorr,
 		ToolCallMerger:     NewToolCallMerger(),
 		StartedToolStreams: map[string]bool{},
@@ -356,14 +359,10 @@ func (state openAIChatStreamState) chatCorrelation(
 	toolCallIndex *int,
 ) events.Correlation {
 	corr := events.BuildChatCompletionsCorrelation(state.Provider, state.CurrentResponseID, choiceIndex, streamKind, toolCallID, toolCallIndex)
-	corr.ProviderCallID = state.ProviderCallCorr.ProviderCallID
-	corr.ProviderCallIndex = state.ProviderCallCorr.ProviderCallIndex
-	corr.ParentCorrelationKey = state.ProviderCallCorr.CorrelationKey
-	corr.Model = state.Model
+	corr.SessionID = state.ProviderCallCorr.SessionID
+	corr.RunID = state.ProviderCallCorr.RunID
 	corr.TurnID = state.TurnID
-	if corr.SegmentType != "" && corr.SegmentID == "" && corr.CorrelationKey != "" {
-		corr.SegmentID = corr.CorrelationKey
-	}
+	corr.ProviderCallID = state.ProviderCallCorr.ProviderCallID
 	return corr
 }
 
@@ -390,8 +389,11 @@ func appendOpenAIChatEvent(effects []openAIChatStreamEffect, event events.Event)
 }
 
 func openAIChatToolStreamKey(corr events.Correlation, tc ChatToolCall) string {
-	if corr.CorrelationKey != "" {
-		return corr.CorrelationKey
+	if corr.ToolCallID != "" {
+		return corr.ToolCallID
+	}
+	if corr.SegmentID != "" {
+		return corr.SegmentID
 	}
 	if strings.TrimSpace(tc.ID) != "" {
 		return tc.ID

@@ -104,7 +104,7 @@ func TestGeminiCanonicalCorrelationHelpersValidate(t *testing.T) {
 		TurnID:      "turn-1",
 	}
 
-	providerCorr := geminiProviderCallCorrelation(metadata, metadata.InferenceID, "gemini-test")
+	providerCorr := geminiProviderCallCorrelation(metadata, metadata.InferenceID, "gemini-test", 0)
 	if err := events.ValidateCanonicalEvent(events.NewProviderCallStartedEvent(metadata, providerCorr)); err != nil {
 		t.Fatalf("provider-call correlation should validate: %v", err)
 	}
@@ -120,9 +120,32 @@ func TestGeminiCanonicalCorrelationHelpersValidate(t *testing.T) {
 	}
 }
 
+func TestGeminiProviderCallCorrelationUsesExplicitIDs(t *testing.T) {
+	metadata := events.EventMetadata{SessionID: "session-1", InferenceID: "inference-1", TurnID: "turn-1"}
+
+	for _, tt := range []struct {
+		name              string
+		providerCallIndex int
+		wantProviderID    string
+	}{
+		{name: "first provider call", providerCallIndex: 0, wantProviderID: "gemini:inference-1:provider-call:0"},
+		{name: "third provider call", providerCallIndex: 2, wantProviderID: "gemini:inference-1:provider-call:2"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			corr := geminiProviderCallCorrelation(metadata, metadata.InferenceID, "gemini-test", tt.providerCallIndex)
+			if corr.ProviderCallID != tt.wantProviderID {
+				t.Fatalf("ProviderCallID = %q, want %q", corr.ProviderCallID, tt.wantProviderID)
+			}
+			if corr.SessionID != metadata.SessionID || corr.RunID != metadata.InferenceID || corr.TurnID != metadata.TurnID {
+				t.Fatalf("scope identity mismatch: %+v", corr)
+			}
+		})
+	}
+}
+
 func TestReduceGeminiStreamResponseReviewDerivedScenarios(t *testing.T) {
 	metadata := events.EventMetadata{SessionID: "session-1", InferenceID: "inference-1", TurnID: "turn-1"}
-	providerCorr := geminiProviderCallCorrelation(metadata, metadata.InferenceID, "gemini-test")
+	providerCorr := geminiProviderCallCorrelation(metadata, metadata.InferenceID, "gemini-test", 0)
 
 	tests := []struct {
 		name      string
@@ -222,7 +245,7 @@ func TestReduceGeminiStreamResponseReviewDerivedScenarios(t *testing.T) {
 
 func TestCompleteGeminiStreamTerminalErrorClosesActiveText(t *testing.T) {
 	metadata := events.EventMetadata{SessionID: "session-1", InferenceID: "inference-1", TurnID: "turn-1"}
-	providerCorr := geminiProviderCallCorrelation(metadata, metadata.InferenceID, "gemini-test")
+	providerCorr := geminiProviderCallCorrelation(metadata, metadata.InferenceID, "gemini-test", 0)
 	state := newGeminiStreamState(providerCorr)
 
 	chunkEvents := reduceGeminiStreamResponse(metadata, state, geminiTextResponse("partial"))

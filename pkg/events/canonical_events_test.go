@@ -6,27 +6,13 @@ import (
 )
 
 func sampleCorrelation() Correlation {
-	choice := int32(2)
-	toolIndex := int32(1)
 	return Correlation{
-		SessionID:            "session-1",
-		RunID:                "run-1",
-		InferenceID:          "inference-1",
-		TurnID:               "turn-1",
-		ProviderCallID:       "provider-call-1",
-		ProviderCallIndex:    1,
-		Provider:             "claude",
-		Model:                "claude-test",
-		ResponseID:           "msg_1",
-		ChoiceIndex:          &choice,
-		SegmentID:            "segment-1",
-		SegmentIndex:         1,
-		SegmentType:          "text",
-		StreamKind:           "text",
-		ToolCallID:           "tool-1",
-		ToolCallIndex:        &toolIndex,
-		CorrelationKey:       "claude:provider-call-1:block:0:text",
-		ParentCorrelationKey: "claude:provider-call-1:provider-call",
+		SessionID:      "session-1",
+		RunID:          "run-1",
+		TurnID:         "turn-1",
+		ProviderCallID: "provider-call-1",
+		SegmentID:      "segment-1",
+		ToolCallID:     "tool-1",
 	}
 }
 
@@ -81,7 +67,7 @@ func TestCanonicalEventsRoundTripCorrelation(t *testing.T) {
 				t.Fatalf("decoded event %T does not implement CorrelatedEvent", decoded)
 			}
 			got := correlated.Correlation()
-			if got.CorrelationKey != corr.CorrelationKey || got.ProviderCallID != corr.ProviderCallID || got.SegmentID != corr.SegmentID || got.ToolCallID != corr.ToolCallID {
+			if got.RunID != corr.RunID || got.ProviderCallID != corr.ProviderCallID || got.SegmentID != corr.SegmentID || got.ToolCallID != corr.ToolCallID {
 				t.Fatalf("correlation mismatch: got %+v want %+v", got, corr)
 			}
 		})
@@ -91,19 +77,19 @@ func TestCanonicalEventsRoundTripCorrelation(t *testing.T) {
 func TestValidateCanonicalEventRejectsMissingCorrelationFields(t *testing.T) {
 	metadata := EventMetadata{SessionID: "session-1", InferenceID: "inference-1", TurnID: "turn-1"}
 
-	if err := ValidateCanonicalEvent(NewTextDeltaEvent(metadata, Correlation{CorrelationKey: "text"}, "x", "x", 1)); err == nil {
+	if err := ValidateCanonicalEvent(NewTextDeltaEvent(metadata, Correlation{RunID: "run-1", ProviderCallID: "provider-1"}, "x", "x", 1)); err == nil {
 		t.Fatalf("expected text delta without segment_id to fail validation")
 	}
 
-	if err := ValidateCanonicalEvent(NewProviderCallFinishedEvent(metadata, Correlation{CorrelationKey: "provider"}, "end_turn", "completed", nil, nil, false)); err == nil {
+	if err := ValidateCanonicalEvent(NewProviderCallFinishedEvent(metadata, Correlation{RunID: "run-1"}, "end_turn", "completed", nil, nil, false)); err == nil {
 		t.Fatalf("expected provider finish without provider_call_id to fail validation")
 	}
 
-	if err := ValidateCanonicalEvent(NewToolCallRequestedEvent(metadata, Correlation{CorrelationKey: "tool"}, "", "sql_doc", "{}")); err == nil {
+	if err := ValidateCanonicalEvent(NewToolCallRequestedEvent(metadata, Correlation{RunID: "run-1"}, "", "sql_doc", "{}")); err == nil {
 		t.Fatalf("expected tool request without tool_call_id to fail validation")
 	}
 
-	if err := ValidateCanonicalEvent(NewTextDeltaEvent(metadata, Correlation{SegmentID: "segment-1"}, "x", "x", 1)); err == nil {
-		t.Fatalf("expected text delta without correlation_key to fail validation")
+	if err := ValidateCanonicalEvent(NewTextDeltaEvent(metadata, Correlation{RunID: "run-1", SegmentID: "segment-1"}, "x", "x", 1)); err == nil {
+		t.Fatalf("expected text delta without provider_call_id to fail validation")
 	}
 }

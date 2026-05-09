@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
 	"github.com/rs/zerolog/log"
 )
 
@@ -80,23 +81,15 @@ func newResponsesStreamState(reqBody responsesRequest, providerCallCorr events.C
 }
 
 func (s *responsesStreamState) providerCallCorrelation() events.Correlation {
-	corr := s.providerCallCorr
-	corr.ResponseID = s.currentResponseID
-	return corr
+	return s.providerCallCorr
 }
 
-func (s *responsesStreamState) segmentCorrelation(itemID string, outputIndex, summaryIndex *int, segmentType string) events.Correlation {
+func (s *responsesStreamState) segmentCorrelation(itemID string, outputIndex, summaryIndex *int, _ string) events.Correlation {
 	corr := events.BuildResponsesCorrelation("openai_responses", s.currentResponseID, itemID, outputIndex, summaryIndex)
-	corr.ProviderCallID = s.providerCallCorr.ProviderCallID
-	corr.ProviderCallIndex = s.providerCallCorr.ProviderCallIndex
-	corr.ParentCorrelationKey = s.providerCallCorr.CorrelationKey
-	corr.Model = s.reqBody.Model
+	corr.SessionID = s.providerCallCorr.SessionID
+	corr.RunID = s.providerCallCorr.RunID
 	corr.TurnID = s.providerCallCorr.TurnID
-	corr.SegmentType = segmentType
-	corr.StreamKind = streamKindForResponsesSegment(segmentType)
-	if corr.SegmentID == "" && corr.CorrelationKey != "" {
-		corr.SegmentID = corr.CorrelationKey
-	}
+	corr.ProviderCallID = s.providerCallCorr.ProviderCallID
 	return corr
 }
 
@@ -180,7 +173,7 @@ func appendResponsesFinalTurnBlocks(t *turns.Turn, state *responsesStreamState, 
 		if err := json.Unmarshal([]byte(pc.args.String()), &args); err != nil {
 			args = map[string]any{}
 		}
-		b := turns.NewToolCallBlock(pc.callID, pc.name, args)
+		b := toolblocks.NewToolCallBlockWithCorrelation(pc.callID, pc.name, args, state.toolCorrelation(pc.itemID, pc.callID, pc.outputIndex))
 		if b.Payload == nil {
 			b.Payload = map[string]any{}
 		}

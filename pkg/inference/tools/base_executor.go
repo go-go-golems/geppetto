@@ -158,37 +158,45 @@ func (b *BaseToolExecutor) PublishResult(ctx context.Context, call ToolCall, res
 }
 
 func toolExecutionCorrelation(ctx context.Context, call ToolCall) events.Correlation {
-	if corr, ok := CurrentToolCorrelationFromContext(ctx); ok {
+	corr, ok := CurrentToolCorrelationFromContext(ctx)
+	if hasToolCallCorrelation(call.Correlation) {
+		corr = mergeToolCorrelation(corr, call.Correlation)
+		ok = true
+	}
+	if ok {
 		if corr.ToolCallID == "" {
 			corr.ToolCallID = call.ID
-		}
-		if corr.ToolCallIndex == nil {
-			idx := int32(0)
-			corr.ToolCallIndex = &idx
-		}
-		if corr.SegmentType == "" {
-			corr.SegmentType = events.SegmentTypeTool
-		}
-		if corr.StreamKind == "" {
-			corr.StreamKind = events.StreamKindToolCall
-		}
-		if corr.CorrelationKey == "" && corr.ToolCallID != "" {
-			corr.CorrelationKey = "tool-execution:" + corr.ToolCallID
 		}
 		return corr
 	}
 
-	corr := events.Correlation{
-		ToolCallID:   call.ID,
-		SegmentType:  events.SegmentTypeTool,
-		StreamKind:   events.StreamKindToolCall,
-		SegmentIndex: 0,
+	return events.Correlation{ToolCallID: call.ID}
+}
+
+func hasToolCallCorrelation(corr events.Correlation) bool {
+	return corr.SessionID != "" || corr.RunID != "" || corr.TurnID != "" || corr.ProviderCallID != "" || corr.SegmentID != "" || corr.ToolCallID != ""
+}
+
+func mergeToolCorrelation(base, overlay events.Correlation) events.Correlation {
+	if overlay.SessionID != "" {
+		base.SessionID = overlay.SessionID
 	}
-	if call.ID != "" {
-		corr.CorrelationKey = "tool-execution:" + call.ID
-		corr.SegmentID = corr.CorrelationKey
+	if overlay.RunID != "" {
+		base.RunID = overlay.RunID
 	}
-	return corr
+	if overlay.TurnID != "" {
+		base.TurnID = overlay.TurnID
+	}
+	if overlay.ProviderCallID != "" {
+		base.ProviderCallID = overlay.ProviderCallID
+	}
+	if overlay.SegmentID != "" {
+		base.SegmentID = overlay.SegmentID
+	}
+	if overlay.ToolCallID != "" {
+		base.ToolCallID = overlay.ToolCallID
+	}
+	return base
 }
 
 func (b *BaseToolExecutor) ShouldRetry(_ context.Context, attempt int, _ *ToolResult, _ error) (bool, time.Duration) {
@@ -221,6 +229,9 @@ func (b *BaseToolExecutor) ExecuteToolCall(ctx context.Context, call ToolCall, r
 		return &ToolResult{ID: call.ID, Error: err.Error(), Duration: time.Since(start)}, nil
 	}
 	ctx = WithCurrentToolCall(ctx, call)
+	if hasToolCallCorrelation(call.Correlation) {
+		ctx = WithCurrentToolCorrelation(ctx, toolExecutionCorrelation(ctx, call))
+	}
 
 	// Lookup + allow checks
 	def, err := registry.GetTool(call.Name)
