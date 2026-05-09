@@ -39,7 +39,7 @@ func TestResponsesProviderCallCorrelationUsesProviderCallIndex(t *testing.T) {
 	}
 }
 
-func TestResponsesSegmentCorrelationInheritsProviderCallIndex(t *testing.T) {
+func TestResponsesSegmentCorrelationKeepsProviderCallIndexAndTypedSegmentIdentity(t *testing.T) {
 	metadata := events.EventMetadata{InferenceID: "inference-1", TurnID: "turn-1"}
 	providerCorr := newResponsesProviderCallCorrelation(metadata, responsesRequest{Model: "gpt-test"}, 2)
 	state := newResponsesStreamState(responsesRequest{Model: "gpt-test"}, providerCorr, nil)
@@ -47,13 +47,12 @@ func TestResponsesSegmentCorrelationInheritsProviderCallIndex(t *testing.T) {
 	outputIndex := 0
 
 	for _, tt := range []struct {
-		name             string
-		segmentType      string
-		streamKind       string
-		wantSegmentIndex int32
+		name        string
+		segmentType string
+		streamKind  string
 	}{
-		{name: "text", segmentType: events.SegmentTypeText, streamKind: events.StreamKindContent, wantSegmentIndex: 3},
-		{name: "reasoning", segmentType: events.SegmentTypeReasoning, streamKind: events.StreamKindReasoning, wantSegmentIndex: 3},
+		{name: "text", segmentType: events.SegmentTypeText, streamKind: events.StreamKindContent},
+		{name: "reasoning", segmentType: events.SegmentTypeReasoning, streamKind: events.StreamKindReasoning},
 		{name: "tool", segmentType: events.SegmentTypeTool, streamKind: events.StreamKindToolCall},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -67,8 +66,8 @@ func TestResponsesSegmentCorrelationInheritsProviderCallIndex(t *testing.T) {
 			if corr.ParentCorrelationKey != providerCorr.CorrelationKey {
 				t.Fatalf("ParentCorrelationKey = %q, want %q", corr.ParentCorrelationKey, providerCorr.CorrelationKey)
 			}
-			if corr.SegmentIndex != tt.wantSegmentIndex {
-				t.Fatalf("SegmentIndex = %d, want %d", corr.SegmentIndex, tt.wantSegmentIndex)
+			if corr.SegmentIndex != 0 {
+				t.Fatalf("SegmentIndex = %d, want 0; Responses uses provider item/output identity because one provider call may contain multiple same-type segments", corr.SegmentIndex)
 			}
 			if corr.SegmentType != tt.segmentType {
 				t.Fatalf("SegmentType = %q, want %q", corr.SegmentType, tt.segmentType)
@@ -80,5 +79,38 @@ func TestResponsesSegmentCorrelationInheritsProviderCallIndex(t *testing.T) {
 				t.Fatalf("segment identity missing: %+v", corr)
 			}
 		})
+	}
+}
+
+func TestResponsesMultipleReasoningSegmentsInSameProviderCallDoNotShareIdentity(t *testing.T) {
+	metadata := events.EventMetadata{InferenceID: "inference-1", TurnID: "turn-1"}
+	providerCorr := newResponsesProviderCallCorrelation(metadata, responsesRequest{Model: "gpt-test"}, 2)
+	state := newResponsesStreamState(responsesRequest{Model: "gpt-test"}, providerCorr, nil)
+	state.currentResponseID = "resp-1"
+	firstOutputIndex := 0
+	secondOutputIndex := 2
+
+	first := state.segmentCorrelation("rs_1", &firstOutputIndex, nil, events.SegmentTypeReasoning)
+	second := state.segmentCorrelation("rs_2", &secondOutputIndex, nil, events.SegmentTypeReasoning)
+
+	for name, corr := range map[string]events.Correlation{"first": first, "second": second} {
+		if corr.ProviderCallIndex != 2 {
+			t.Fatalf("%s ProviderCallIndex = %d, want 2", name, corr.ProviderCallIndex)
+		}
+		if corr.SegmentIndex != 0 {
+			t.Fatalf("%s SegmentIndex = %d, want 0; distinct Responses items should route by SegmentID/CorrelationKey", name, corr.SegmentIndex)
+		}
+		if corr.SegmentType != events.SegmentTypeReasoning || corr.StreamKind != events.StreamKindReasoning {
+			t.Fatalf("%s segment type/kind = %q/%q, want reasoning/reasoning", name, corr.SegmentType, corr.StreamKind)
+		}
+		if corr.SegmentID == "" || corr.CorrelationKey == "" {
+			t.Fatalf("%s correlation missing identity: %+v", name, corr)
+		}
+	}
+	if first.SegmentID == second.SegmentID {
+		t.Fatalf("SegmentID collision: %q", first.SegmentID)
+	}
+	if first.CorrelationKey == second.CorrelationKey {
+		t.Fatalf("CorrelationKey collision: %q", first.CorrelationKey)
 	}
 }
