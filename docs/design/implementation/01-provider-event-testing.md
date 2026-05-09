@@ -27,10 +27,12 @@ RelatedFiles:
     - Path: ../../../pkg/steps/ai/claude/content-block-merger_test.go
       Note: Existing Claude table-oriented tests to extend into conformance coverage.
     - Path: ../../../pkg/steps/ai/gemini/engine_gemini.go
-      Note: Gemini stream logic is still inline and should be extracted before deep table testing.
+      Note: Gemini stream orchestration delegates provider chunk normalization to stream reducer helpers.
+    - Path: ../../../pkg/steps/ai/gemini/stream_reducer.go
+      Note: Gemini stream state and reducer seam for provider-native chunk table tests.
 ExternalSources: []
 Summary: Reference guide for deriving provider-specific table-driven tests from shared canonical lifecycle scenarios.
-LastUpdated: 2026-05-09T00:35:00-04:00
+LastUpdated: 2026-05-09T01:15:00-04:00
 WhatFor: Use this document when writing provider-normalization tests for OpenAI Chat Completions, OpenAI Responses, Claude, and Gemini.
 WhenToUse: Use before adding or reviewing table-driven tests that translate provider-native stream events into canonical Geppetto provider/text/reasoning/tool lifecycles.
 ---
@@ -75,7 +77,7 @@ When implementing a provider test file, start from the scenario matrix below, ch
 | OpenAI Chat Completions | [`geppetto/pkg/steps/ai/openai/`](../../../pkg/steps/ai/openai/) | [`chat_stream_reducer.go`](../../../pkg/steps/ai/openai/chat_stream_reducer.go), [`chat_stream_reducer_test.go`](../../../pkg/steps/ai/openai/chat_stream_reducer_test.go) | Best current model for table-driven reducer tests. |
 | OpenAI Responses | [`geppetto/pkg/steps/ai/openai_responses/`](../../../pkg/steps/ai/openai_responses/) | [`stream_state.go`](../../../pkg/steps/ai/openai_responses/stream_state.go), [`stream_events.go`](../../../pkg/steps/ai/openai_responses/stream_events.go), [`streaming.go`](../../../pkg/steps/ai/openai_responses/streaming.go) | Explicit stream state exists; next tests should target provider-event handling and completion helpers. |
 | Claude | [`geppetto/pkg/steps/ai/claude/`](../../../pkg/steps/ai/claude/) | [`content-block-merger.go`](../../../pkg/steps/ai/claude/content-block-merger.go), [`content-block-merger_test.go`](../../../pkg/steps/ai/claude/content-block-merger_test.go) | Already reducer-like; extend the merger tests before doing any large refactor. |
-| Gemini | [`geppetto/pkg/steps/ai/gemini/`](../../../pkg/steps/ai/gemini/) | [`engine_gemini.go`](../../../pkg/steps/ai/gemini/engine_gemini.go) | Stream logic is still inline; extract a stream state/reducer seam before deep table tests. |
+| Gemini | [`geppetto/pkg/steps/ai/gemini/`](../../../pkg/steps/ai/gemini/) | [`stream_reducer.go`](../../../pkg/steps/ai/gemini/stream_reducer.go), [`engine_gemini.go`](../../../pkg/steps/ai/gemini/engine_gemini.go) | Stream reducer seam now exists for provider-native chunk tests. |
 
 ### Source map: canonical protocol files
 
@@ -458,15 +460,16 @@ Claude does not need a full rewrite before these tests. Treat `ContentBlockMerge
 
 ### Gemini
 
-Current seam is weak:
+Current seams:
 
 ```text
+pkg/steps/ai/gemini/stream_reducer.go
 pkg/steps/ai/gemini/engine_gemini.go
 ```
 
-Gemini stream state is currently local to `RunInference`. Extract a state/reducer seam before writing deep tests.
+Gemini now has an explicit stream state/reducer seam for provider-native chunk tests. Further terminal completion extraction can still improve final turn-block and error/cancel tests.
 
-Suggested state:
+Current state shape:
 
 ```go
 type geminiStreamState struct {
@@ -489,14 +492,14 @@ type geminiPendingCall struct {
 }
 ```
 
-Suggested reducer/helper:
+Current reducer/helper:
 
 ```go
-func reduceGeminiStreamChunk(
+func reduceGeminiStreamResponse(
     metadata events.EventMetadata,
     state *geminiStreamState,
     resp *genai.GenerateContentResponse,
-) ([]events.Event, error)
+) []events.Event
 ```
 
 Completion helper:
@@ -510,7 +513,7 @@ func completeGeminiStream(
 ) ([]events.Event, events.EventMetadata, error)
 ```
 
-Example table shape after extraction:
+Example table shape:
 
 ```go
 tests := []struct {
@@ -553,8 +556,8 @@ Gemini function calls currently arrive complete, so TL02/TL03 only apply if a fu
 1. **Keep OpenAI Chat Completions as the reference.** It already has reducer tests.
 2. **Add OpenAI Responses handler/state tests** for the most important lifecycle rows.
 3. **Extend Claude `ContentBlockMerger` tests** using the shared scenario list.
-4. **Extract Gemini stream state/reducer.** Keep behavior identical.
-5. **Add Gemini reducer tests** using provider-native `genai.GenerateContentResponse` fixtures.
+4. **Continue Gemini reducer tests** using provider-native `genai.GenerateContentResponse` fixtures.
+5. **Extract Gemini terminal completion helpers** if final turn-block/error/cancel tests need a cleaner seam.
 6. **Only then extract a shared test helper** if duplication is obvious.
 
 ## What not to do yet
