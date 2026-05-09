@@ -429,7 +429,7 @@ func (e *Engine) handleResponsesProviderEvent(
 					turns.AppendBlock(t, rb)
 					finalReasoningText := strings.TrimSpace(streamState.currentReasoningText.String())
 					finalReasoningStatus := streamState.currentReasoningStatus
-					e.publishEvent(ctx, events.NewReasoningSegmentFinishedEventWithSource(metadata, responsesSegmentCorr(streamState.lastReasoningItemID, streamState.lastReasoningOutputIndex, streamState.lastReasoningSummaryIndex, events.SegmentTypeReasoning), reasoningSourceForSummaryIndex(streamState.lastReasoningSummaryIndex), finalReasoningText, finalReasoningStatus))
+					e.publishEvent(ctx, events.NewReasoningSegmentFinishedEventWithSource(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), reasoningSourceForSummaryIndex(streamState.currentReasoningSummaryIndex), finalReasoningText, finalReasoningStatus))
 					streamState.currentReasoningItemID = ""
 					streamState.currentReasoningText.Reset()
 					streamState.currentReasoningSummary.Reset()

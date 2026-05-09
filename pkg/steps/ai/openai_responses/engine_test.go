@@ -902,6 +902,84 @@ func TestRunInference_StreamingReasoningSummaryPreservesSentenceBoundaries(t *te
 	}
 }
 
+func TestRunInference_StreamingReasoningSummarySourceDoesNotLeakToNextReasoningItem(t *testing.T) {
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			body := strings.Join([]string{
+				"event: response.output_item.added",
+				`data: {"output_index":0,"item":{"type":"reasoning","id":"rs_summary"}}`,
+				"",
+				"event: response.reasoning_summary_text.delta",
+				`data: {"item_id":"rs_summary","summary_index":0,"delta":"Summary."}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"output_index":0,"item":{"type":"reasoning","id":"rs_summary","status":"completed"}}`,
+				"",
+				"event: response.output_item.added",
+				`data: {"output_index":1,"item":{"type":"reasoning","id":"rs_thinking"}}`,
+				"",
+				"event: response.reasoning_text.delta",
+				`data: {"item_id":"rs_thinking","output_index":1,"delta":"Thinking."}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"output_index":1,"item":{"type":"reasoning","id":"rs_thinking","status":"completed"}}`,
+				"",
+				"event: response.completed",
+				`data: {"response":{"usage":{"input_tokens":1,"output_tokens":1}}}`,
+				"",
+			}, "\n")
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    r,
+			}, nil
+		}),
+	}
+	defer func() { http.DefaultClient = origClient }()
+
+	eng, err := NewEngine(&settings.InferenceSettings{
+		API: &settings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "test"},
+			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+		},
+		Chat: &settings.ChatSettings{
+			Engine: ptr("gpt-5-mini"),
+			Stream: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	sink := &capturingEventSink{}
+	ctx := events.WithEventSinks(context.Background(), sink)
+	turn := &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("Hello")}}
+	_, err = eng.RunInference(ctx, turn)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	var finishSources []string
+	var deltaSources []string
+	for _, event := range sink.snapshot() {
+		switch e := event.(type) {
+		case *events.EventReasoningDelta:
+			deltaSources = append(deltaSources, e.Source)
+		case *events.EventReasoningSegmentFinished:
+			finishSources = append(finishSources, e.Source)
+		}
+	}
+
+	if got, want := strings.Join(deltaSources, ","), "summary,thinking"; got != want {
+		t.Fatalf("reasoning delta sources mismatch: got %q want %q", got, want)
+	}
+	if got, want := strings.Join(finishSources, ","), "summary,thinking"; got != want {
+		t.Fatalf("reasoning finish sources mismatch: got %q want %q", got, want)
+	}
+}
+
 func TestRunInference_StreamingReasoningAliasEventsAreNormalized(t *testing.T) {
 	origClient := http.DefaultClient
 	http.DefaultClient = &http.Client{
