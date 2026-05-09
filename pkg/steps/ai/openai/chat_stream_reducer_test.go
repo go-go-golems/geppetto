@@ -140,6 +140,82 @@ func TestReduceOpenAIChatStream(t *testing.T) {
 	}
 }
 
+func TestReduceOpenAIChatStreamReviewDerivedScenarios(t *testing.T) {
+	tests := []struct {
+		name           string
+		inputs         []openAIChatStreamInput
+		wantEventTypes []events.EventType
+		check          func(t *testing.T, state openAIChatStreamState, got []events.Event)
+	}{
+		{
+			name: "metadata-only final chunk does not create text segment",
+			inputs: []openAIChatStreamInput{
+				chunkInput(metadataOnlyChunk("stop", &chatStreamUsage{promptTokens: 3, completionTokens: 5})),
+				terminalInput(openAIChatTerminalEOF, nil),
+			},
+			wantEventTypes: []events.EventType{
+				events.EventTypeProviderCallMetadataUpdated,
+				events.EventTypeProviderCallFinished,
+			},
+			check: func(t *testing.T, state openAIChatStreamState, got []events.Event) {
+				t.Helper()
+				if state.TextSegmentStarted {
+					t.Fatalf("metadata-only chunk started text segment")
+				}
+				finished := lastOpenAIChatProviderFinished(t, got)
+				if finished.StopReason != "stop" {
+					t.Fatalf("stop reason = %q, want stop", finished.StopReason)
+				}
+				if finished.Usage == nil || finished.Usage.InputTokens != 3 || finished.Usage.OutputTokens != 5 {
+					t.Fatalf("usage = %#v, want input=3 output=5", finished.Usage)
+				}
+			},
+		},
+		{
+			name: "sparse tool argument delta preserves tool name for request",
+			inputs: []openAIChatStreamInput{
+				chunkInput(toolDelta("call_1", 0, "search", `{"q"`)),
+				chunkInput(toolDelta("call_1", 0, "", `:"x"}`)),
+				terminalInput(openAIChatTerminalEOF, nil),
+			},
+			wantEventTypes: []events.EventType{
+				events.EventTypeToolCallStarted,
+				events.EventTypeToolCallArgumentsDelta,
+				events.EventTypeToolCallArgumentsDelta,
+				events.EventTypeToolCallRequested,
+				events.EventTypeProviderCallFinished,
+			},
+			check: func(t *testing.T, _ openAIChatStreamState, got []events.Event) {
+				t.Helper()
+				requested := firstOpenAIChatToolRequested(t, got)
+				if requested.ToolName != "search" {
+					t.Fatalf("tool name = %q, want search", requested.ToolName)
+				}
+				if requested.Input != `{"q":"x"}` {
+					t.Fatalf("tool input = %q, want accumulated JSON", requested.Input)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := newTestOpenAIChatStreamState()
+			var got []events.Event
+			for _, input := range tt.inputs {
+				var effects []openAIChatStreamEffect
+				state, effects = reduceOpenAIChatStream(state, input)
+				got = append(got, eventsFromOpenAIChatEffects(effects)...)
+			}
+			assertOpenAIChatEventTypes(t, got, tt.wantEventTypes)
+			assertOpenAIChatCanonicalEventsValidate(t, got)
+			if tt.check != nil {
+				tt.check(t, state, got)
+			}
+		})
+	}
+}
+
 func TestReduceOpenAIChatStreamToolArgumentsAccumulate(t *testing.T) {
 	state := newTestOpenAIChatStreamState()
 	var got []events.Event
@@ -207,6 +283,16 @@ func reasoningDelta(delta string) chatStreamEvent {
 	}
 }
 
+func metadataOnlyChunk(finishReason string, usage *chatStreamUsage) chatStreamEvent {
+	choice := 0
+	return chatStreamEvent{
+		ChoiceIndex:  &choice,
+		RawPayload:   map[string]any{"id": "chatcmpl-test"},
+		FinishReason: &finishReason,
+		Usage:        usage,
+	}
+}
+
 func toolDelta(id string, index int, name string, arguments string) chatStreamEvent {
 	choice := 0
 	idx := index
@@ -271,6 +357,37 @@ func assertOpenAIChatState(
 	if got := len(state.mergedToolCalls()); got != wantToolCount {
 		t.Fatalf("tool count = %d, want %d", got, wantToolCount)
 	}
+}
+
+func assertOpenAIChatCanonicalEventsValidate(t *testing.T, got []events.Event) {
+	t.Helper()
+	for i, ev := range got {
+		if err := events.ValidateCanonicalEvent(ev); err != nil {
+			t.Fatalf("event[%d] %s failed canonical validation: %v", i, ev.Type(), err)
+		}
+	}
+}
+
+func lastOpenAIChatProviderFinished(t *testing.T, got []events.Event) *events.EventProviderCallFinished {
+	t.Helper()
+	for i := len(got) - 1; i >= 0; i-- {
+		if finished, ok := got[i].(*events.EventProviderCallFinished); ok {
+			return finished
+		}
+	}
+	t.Fatalf("missing provider call finished event")
+	return nil
+}
+
+func firstOpenAIChatToolRequested(t *testing.T, got []events.Event) *events.EventToolCallRequested {
+	t.Helper()
+	for _, ev := range got {
+		if requested, ok := ev.(*events.EventToolCallRequested); ok {
+			return requested
+		}
+	}
+	t.Fatalf("missing tool call requested event")
+	return nil
 }
 
 func assertProviderCallFinished(t *testing.T, got []events.Event, wantClass string, wantReason string) {
