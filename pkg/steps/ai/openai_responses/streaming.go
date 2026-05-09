@@ -27,10 +27,6 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	reader := bufio.NewReader(resp.Body)
 	var eventName string
 	var dataBuf strings.Builder
-	var inputTokens, outputTokens, cachedTokens, reasoningTokens int
-	var stopReason *string
-	responseCompleted := false
-	var streamErr error
 	var thinkBuf strings.Builder
 	var currentReasoningText strings.Builder
 	var currentReasoningSummary strings.Builder
@@ -243,14 +239,14 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 					msgStr = "responses stream error"
 				}
 				if codeStr != "" {
-					streamErr = fmt.Errorf("responses stream error (%s): %s", codeStr, msgStr)
+					streamState.streamErr = fmt.Errorf("responses stream error (%s): %s", codeStr, msgStr)
 				} else {
-					streamErr = errors.New(msgStr)
+					streamState.streamErr = errors.New(msgStr)
 				}
 			} else {
-				streamErr = fmt.Errorf("responses stream error")
+				streamState.streamErr = fmt.Errorf("responses stream error")
 			}
-			e.publishEvent(ctx, events.NewErrorEvent(metadata, streamErr))
+			e.publishEvent(ctx, events.NewErrorEvent(metadata, streamState.streamErr))
 			if tap != nil {
 				tap.OnProviderObject("stream.error", m)
 			}
@@ -270,17 +266,17 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 						msgStr = "responses failed"
 					}
 					if codeStr != "" {
-						streamErr = fmt.Errorf("responses failed (%s): %s", codeStr, msgStr)
+						streamState.streamErr = fmt.Errorf("responses failed (%s): %s", codeStr, msgStr)
 					} else {
-						streamErr = errors.New(msgStr)
+						streamState.streamErr = errors.New(msgStr)
 					}
 				} else {
-					streamErr = fmt.Errorf("responses failed")
+					streamState.streamErr = fmt.Errorf("responses failed")
 				}
 			} else {
-				streamErr = fmt.Errorf("responses failed")
+				streamState.streamErr = fmt.Errorf("responses failed")
 			}
-			e.publishEvent(ctx, events.NewErrorEvent(metadata, streamErr))
+			e.publishEvent(ctx, events.NewErrorEvent(metadata, streamState.streamErr))
 			if tap != nil {
 				tap.OnProviderObject("response.failed", m)
 			}
@@ -631,19 +627,19 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 			}
 		// No assistant text in this event; only arguments aggregation
 		case "response.completed":
-			responseCompleted = true
+			streamState.responseCompleted = true
 			if totals, ok := parseUsageTotalsFromEnvelope(m); ok {
-				inputTokens = totals.inputTokens
-				outputTokens = totals.outputTokens
-				cachedTokens = totals.cachedTokens
-				reasoningTokens = totals.reasoningTokens
+				streamState.inputTokens = totals.inputTokens
+				streamState.outputTokens = totals.outputTokens
+				streamState.cachedTokens = totals.cachedTokens
+				streamState.reasoningTokens = totals.reasoningTokens
 			}
 			// optional stop reason, sometimes nested
 			if sr, ok := m["stop_reason"].(string); ok && sr != "" {
-				stopReason = &sr
+				streamState.stopReason = &sr
 			} else if respObj, ok := m["response"].(map[string]any); ok {
 				if sr, ok := respObj["stop_reason"].(string); ok && sr != "" {
-					stopReason = &sr
+					streamState.stopReason = &sr
 				}
 			}
 			if tap != nil {
@@ -653,20 +649,13 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 		return nil
 	}
 	terminal := consumeResponsesSSE(ctx, reader, tap, &eventName, &dataBuf, flush)
-	if terminal.Kind == responsesStreamTerminalError && streamErr == nil {
-		streamErr = terminal.Err
+	if terminal.Kind == responsesStreamTerminalError && streamState.streamErr == nil {
+		streamState.streamErr = terminal.Err
 	}
-	if streamErr != nil {
-		terminal = responsesStreamTerminal{Kind: responsesStreamTerminalError, Err: streamErr}
-		log.Debug().Err(streamErr).Msg("Responses: stream ended with provider error")
+	if streamState.streamErr != nil {
+		terminal = responsesStreamTerminal{Kind: responsesStreamTerminalError, Err: streamState.streamErr}
+		log.Debug().Err(streamState.streamErr).Msg("Responses: stream ended with provider error")
 	}
-	streamState.inputTokens = inputTokens
-	streamState.outputTokens = outputTokens
-	streamState.cachedTokens = cachedTokens
-	streamState.reasoningTokens = reasoningTokens
-	streamState.stopReason = stopReason
-	streamState.responseCompleted = responseCompleted
-	streamState.streamErr = streamErr
 	streamState.currentReasoningItemID = currentReasoningItemID
 	streamState.lastReasoningItemID = lastReasoningItemID
 	streamState.currentReasoningOutputIndex = currentReasoningOutputIndex
