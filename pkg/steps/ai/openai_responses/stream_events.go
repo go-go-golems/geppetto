@@ -497,8 +497,20 @@ func (e *Engine) handleResponsesProviderEvent(
 					if idx, ok := intFromProviderNumber(m["output_index"]); ok {
 						outputIndex = &idx
 					}
-					if args == "" {
-						if pc := streamState.callsByItem[itemID]; pc != nil {
+					if pc := streamState.callsByItem[itemID]; pc != nil {
+						if callID == "" {
+							callID = pc.callID
+						}
+						if name == "" {
+							name = pc.name
+						}
+						if outputIndex == nil {
+							outputIndex = pc.outputIndex
+						}
+						if status == "" {
+							status = pc.status
+						}
+						if args == "" {
 							args = pc.args.String()
 						}
 					}

@@ -142,6 +142,230 @@ func TestRunInference_StreamingErrorReturnsFailureAndNoFinalEvent(t *testing.T) 
 	}
 }
 
+func TestRunInference_ReviewDerivedProviderScenarios(t *testing.T) {
+	tests := []struct {
+		name      string
+		sse       string
+		wantErr   string
+		checkTurn func(t *testing.T, turn *turns.Turn)
+		check     func(t *testing.T, got []events.Event)
+	}{
+		{
+			name: "metadata-only completed response does not create text",
+			sse: responsesSSE(
+				responsesSSEEvent("response.completed", `{"stop_reason":"end_turn","response":{"usage":{"input_tokens":2,"output_tokens":3}}}`),
+			),
+			checkTurn: func(t *testing.T, turn *turns.Turn) {
+				t.Helper()
+				assertResponsesNoBlockKind(t, turn, turns.BlockKindLLMText)
+			},
+			check: func(t *testing.T, got []events.Event) {
+				t.Helper()
+				assertResponsesNoEventType(t, got, events.EventTypeTextSegmentStarted)
+				finished := lastResponsesProviderFinished(t, got)
+				if finished.StopReason != "end_turn" {
+					t.Fatalf("stop reason = %q, want end_turn", finished.StopReason)
+				}
+				if finished.FinishClass != "completed" {
+					t.Fatalf("finish class = %q, want completed", finished.FinishClass)
+				}
+				if finished.Usage == nil || finished.Usage.InputTokens != 2 || finished.Usage.OutputTokens != 3 {
+					t.Fatalf("usage = %#v, want input=2 output=3", finished.Usage)
+				}
+			},
+		},
+		{
+			name: "sparse function call done preserves earlier identity",
+			sse: responsesSSE(
+				responsesSSEEvent("response.output_item.added", `{"output_index":0,"item":{"type":"function_call","id":"item_1","call_id":"call_1","name":"lookup"}}`),
+				responsesSSEEvent("response.function_call_arguments.delta", `{"output_index":0,"item_id":"item_1","delta":"{\"q\""}`),
+				responsesSSEEvent("response.function_call_arguments.delta", `{"output_index":0,"item_id":"item_1","delta":":\"x\"}"}`),
+				responsesSSEEvent("response.output_item.done", `{"output_index":0,"item":{"type":"function_call","id":"item_1","arguments":"{\"q\":\"x\"}","status":"completed"}}`),
+				responsesSSEEvent("response.completed", `{"stop_reason":"tool_use","response":{"usage":{"input_tokens":5,"output_tokens":1}}}`),
+			),
+			checkTurn: func(t *testing.T, turn *turns.Turn) {
+				t.Helper()
+				toolBlock := firstResponsesBlockKind(t, turn, turns.BlockKindToolCall)
+				if toolBlock.ID != "call_1" {
+					t.Fatalf("tool block id = %q, want call_1", toolBlock.ID)
+				}
+				if got, _ := toolBlock.Payload[turns.PayloadKeyName].(string); got != "lookup" {
+					t.Fatalf("tool block name = %q, want lookup", got)
+				}
+			},
+			check: func(t *testing.T, got []events.Event) {
+				t.Helper()
+				requested := firstResponsesToolRequested(t, got)
+				if requested.ToolCallID != "call_1" {
+					t.Fatalf("tool call id = %q, want call_1", requested.ToolCallID)
+				}
+				if requested.ToolName != "lookup" {
+					t.Fatalf("tool name = %q, want lookup", requested.ToolName)
+				}
+				if requested.Input != `{"q":"x"}` {
+					t.Fatalf("tool input = %q, want accumulated JSON", requested.Input)
+				}
+			},
+		},
+		{
+			name: "stream error after active text preserves partial text and fails provider call",
+			sse: responsesSSE(
+				responsesSSEEvent("response.output_item.added", `{"output_index":0,"item":{"type":"message","id":"msg_1","status":"in_progress"}}`),
+				responsesSSEEvent("response.output_text.delta", `{"output_index":0,"item_id":"msg_1","delta":"partial"}`),
+				responsesSSEEvent("error", `{"error":{"message":"stream broke","code":"upstream_failure"}}`),
+			),
+			wantErr: "stream broke",
+			checkTurn: func(t *testing.T, turn *turns.Turn) {
+				t.Helper()
+				textBlock := firstResponsesBlockKind(t, turn, turns.BlockKindLLMText)
+				if got, _ := textBlock.Payload[turns.PayloadKeyText].(string); got != "partial" {
+					t.Fatalf("assistant text block = %q, want partial", got)
+				}
+			},
+			check: func(t *testing.T, got []events.Event) {
+				t.Helper()
+				assertResponsesHasEventType(t, got, events.EventTypeTextDelta)
+				assertResponsesHasEventType(t, got, events.EventTypeError)
+				finished := lastResponsesProviderFinished(t, got)
+				if finished.FinishClass != "failed" || finished.StopReason != "error" {
+					t.Fatalf("provider finish = (%q,%q), want failed/error", finished.FinishClass, finished.StopReason)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			turn, got, err := runResponsesSSEForTest(t, tt.sse)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("RunInference error = %v, want containing %q", err, tt.wantErr)
+				}
+			} else if err != nil {
+				t.Fatalf("RunInference: %v", err)
+			}
+			if tt.checkTurn != nil {
+				tt.checkTurn(t, turn)
+			}
+			if tt.check != nil {
+				tt.check(t, got)
+			}
+		})
+	}
+}
+
+func runResponsesSSEForTest(t *testing.T, sse string) (*turns.Turn, []events.Event, error) {
+	t.Helper()
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body:       io.NopCloser(strings.NewReader(sse)),
+			Request:    r,
+		}, nil
+	})}
+	defer func() { http.DefaultClient = origClient }()
+
+	eng, err := NewEngine(&settings.InferenceSettings{
+		API: &settings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "test"},
+			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+		},
+		Chat: &settings.ChatSettings{
+			Engine: ptr("gpt-4o-mini"),
+			Stream: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	sink := &capturingEventSink{}
+	ctx := events.WithEventSinks(context.Background(), sink)
+	turn := &turns.Turn{ID: "turn-1", Blocks: []turns.Block{turns.NewUserTextBlock("Hello")}}
+	gotTurn, runErr := eng.RunInference(ctx, turn)
+	if gotTurn == nil {
+		gotTurn = turn
+	}
+	return gotTurn, sink.snapshot(), runErr
+}
+
+func responsesSSE(events ...string) string {
+	return strings.Join(events, "")
+}
+
+func responsesSSEEvent(name, data string) string {
+	return "event: " + name + "\n" + "data: " + data + "\n\n"
+}
+
+func firstResponsesToolRequested(t *testing.T, got []events.Event) *events.EventToolCallRequested {
+	t.Helper()
+	for _, ev := range got {
+		if requested, ok := ev.(*events.EventToolCallRequested); ok {
+			return requested
+		}
+	}
+	t.Fatalf("missing tool call requested event")
+	return nil
+}
+
+func lastResponsesProviderFinished(t *testing.T, got []events.Event) *events.EventProviderCallFinished {
+	t.Helper()
+	for i := len(got) - 1; i >= 0; i-- {
+		if finished, ok := got[i].(*events.EventProviderCallFinished); ok {
+			return finished
+		}
+	}
+	t.Fatalf("missing provider call finished event")
+	return nil
+}
+
+func firstResponsesBlockKind(t *testing.T, turn *turns.Turn, kind turns.BlockKind) turns.Block {
+	t.Helper()
+	for _, block := range turn.Blocks {
+		if block.Kind == kind {
+			return block
+		}
+	}
+	t.Fatalf("missing turn block kind %s in %#v", kind, turn.Blocks)
+	return turns.Block{}
+}
+
+func assertResponsesNoBlockKind(t *testing.T, turn *turns.Turn, kind turns.BlockKind) {
+	t.Helper()
+	for _, block := range turn.Blocks {
+		if block.Kind == kind {
+			t.Fatalf("unexpected turn block kind %s: %#v", kind, block)
+		}
+	}
+}
+
+func assertResponsesHasEventType(t *testing.T, got []events.Event, eventType events.EventType) {
+	t.Helper()
+	for _, ev := range got {
+		if ev.Type() == eventType {
+			return
+		}
+	}
+	t.Fatalf("missing event type %s; got %#v", eventType, got)
+}
+
+func assertResponsesNoEventType(t *testing.T, got []events.Event, eventType events.EventType) {
+	t.Helper()
+	for _, ev := range got {
+		if ev.Type() == eventType {
+			t.Fatalf("unexpected event type %s", eventType)
+		}
+	}
+}
+
 func TestRunInference_UsesConfiguredHTTPClient(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("X-Test-Transport"); got != "responses-proxy" {
