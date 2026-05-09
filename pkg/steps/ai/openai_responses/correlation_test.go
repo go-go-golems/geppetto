@@ -47,12 +47,13 @@ func TestResponsesSegmentCorrelationInheritsProviderCallIndex(t *testing.T) {
 	outputIndex := 0
 
 	for _, tt := range []struct {
-		name        string
-		segmentType string
-		streamKind  string
+		name             string
+		segmentType      string
+		streamKind       string
+		wantSegmentIndex int32
 	}{
-		{name: "text", segmentType: events.SegmentTypeText, streamKind: events.StreamKindContent},
-		{name: "reasoning", segmentType: events.SegmentTypeReasoning, streamKind: events.StreamKindReasoning},
+		{name: "text", segmentType: events.SegmentTypeText, streamKind: events.StreamKindContent, wantSegmentIndex: 3},
+		{name: "reasoning", segmentType: events.SegmentTypeReasoning, streamKind: events.StreamKindReasoning, wantSegmentIndex: 3},
 		{name: "tool", segmentType: events.SegmentTypeTool, streamKind: events.StreamKindToolCall},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -65,6 +66,9 @@ func TestResponsesSegmentCorrelationInheritsProviderCallIndex(t *testing.T) {
 			}
 			if corr.ParentCorrelationKey != providerCorr.CorrelationKey {
 				t.Fatalf("ParentCorrelationKey = %q, want %q", corr.ParentCorrelationKey, providerCorr.CorrelationKey)
+			}
+			if corr.SegmentIndex != tt.wantSegmentIndex {
+				t.Fatalf("SegmentIndex = %d, want %d", corr.SegmentIndex, tt.wantSegmentIndex)
 			}
 			if corr.SegmentType != tt.segmentType {
 				t.Fatalf("SegmentType = %q, want %q", corr.SegmentType, tt.segmentType)

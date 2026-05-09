@@ -94,6 +94,9 @@ func (s *responsesStreamState) segmentCorrelation(itemID string, outputIndex, su
 	corr.TurnID = s.providerCallCorr.TurnID
 	corr.SegmentType = segmentType
 	corr.StreamKind = streamKindForResponsesSegment(segmentType)
+	if segmentType == events.SegmentTypeText || segmentType == events.SegmentTypeReasoning {
+		corr.SegmentIndex = s.providerCallCorr.ProviderCallIndex + 1
+	}
 	if corr.SegmentID == "" && corr.CorrelationKey != "" {
 		corr.SegmentID = corr.CorrelationKey
 	}
