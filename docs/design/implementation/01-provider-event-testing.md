@@ -27,12 +27,14 @@ RelatedFiles:
     - Path: ../../../pkg/steps/ai/claude/content-block-merger_test.go
       Note: Existing Claude table-oriented tests to extend into conformance coverage.
     - Path: ../../../pkg/steps/ai/gemini/engine_gemini.go
-      Note: Gemini stream orchestration delegates provider chunk normalization to stream reducer helpers.
+      Note: Gemini stream orchestration delegates provider chunk normalization and terminal completion to stream helpers.
     - Path: ../../../pkg/steps/ai/gemini/stream_reducer.go
       Note: Gemini stream state and reducer seam for provider-native chunk table tests.
+    - Path: ../../../pkg/steps/ai/gemini/stream_helpers.go
+      Note: Gemini stream consumption and terminal completion helpers for final turn/error tests.
 ExternalSources: []
 Summary: Reference guide for deriving provider-specific table-driven tests from shared canonical lifecycle scenarios.
-LastUpdated: 2026-05-09T01:15:00-04:00
+LastUpdated: 2026-05-09T01:45:00-04:00
 WhatFor: Use this document when writing provider-normalization tests for OpenAI Chat Completions, OpenAI Responses, Claude, and Gemini.
 WhenToUse: Use before adding or reviewing table-driven tests that translate provider-native stream events into canonical Geppetto provider/text/reasoning/tool lifecycles.
 ---
@@ -77,7 +79,7 @@ When implementing a provider test file, start from the scenario matrix below, ch
 | OpenAI Chat Completions | [`geppetto/pkg/steps/ai/openai/`](../../../pkg/steps/ai/openai/) | [`chat_stream_reducer.go`](../../../pkg/steps/ai/openai/chat_stream_reducer.go), [`chat_stream_reducer_test.go`](../../../pkg/steps/ai/openai/chat_stream_reducer_test.go) | Best current model for table-driven reducer tests. |
 | OpenAI Responses | [`geppetto/pkg/steps/ai/openai_responses/`](../../../pkg/steps/ai/openai_responses/) | [`stream_state.go`](../../../pkg/steps/ai/openai_responses/stream_state.go), [`stream_events.go`](../../../pkg/steps/ai/openai_responses/stream_events.go), [`streaming.go`](../../../pkg/steps/ai/openai_responses/streaming.go) | Explicit stream state exists; next tests should target provider-event handling and completion helpers. |
 | Claude | [`geppetto/pkg/steps/ai/claude/`](../../../pkg/steps/ai/claude/) | [`content-block-merger.go`](../../../pkg/steps/ai/claude/content-block-merger.go), [`content-block-merger_test.go`](../../../pkg/steps/ai/claude/content-block-merger_test.go) | Already reducer-like; extend the merger tests before doing any large refactor. |
-| Gemini | [`geppetto/pkg/steps/ai/gemini/`](../../../pkg/steps/ai/gemini/) | [`stream_reducer.go`](../../../pkg/steps/ai/gemini/stream_reducer.go), [`engine_gemini.go`](../../../pkg/steps/ai/gemini/engine_gemini.go) | Stream reducer seam now exists for provider-native chunk tests. |
+| Gemini | [`geppetto/pkg/steps/ai/gemini/`](../../../pkg/steps/ai/gemini/) | [`stream_reducer.go`](../../../pkg/steps/ai/gemini/stream_reducer.go), [`stream_helpers.go`](../../../pkg/steps/ai/gemini/stream_helpers.go), [`engine_gemini.go`](../../../pkg/steps/ai/gemini/engine_gemini.go) | Stream reducer and terminal completion seams now exist for provider-native chunk and finalization tests. |
 
 ### Source map: canonical protocol files
 
@@ -464,10 +466,11 @@ Current seams:
 
 ```text
 pkg/steps/ai/gemini/stream_reducer.go
+pkg/steps/ai/gemini/stream_helpers.go
 pkg/steps/ai/gemini/engine_gemini.go
 ```
 
-Gemini now has an explicit stream state/reducer seam for provider-native chunk tests. Further terminal completion extraction can still improve final turn-block and error/cancel tests.
+Gemini now has explicit stream state/reducer and terminal completion seams for provider-native chunk tests, final turn-block tests, and error/cancel-style terminal tests.
 
 Current state shape:
 
@@ -557,7 +560,7 @@ Gemini function calls currently arrive complete, so TL02/TL03 only apply if a fu
 2. **Add OpenAI Responses handler/state tests** for the most important lifecycle rows.
 3. **Extend Claude `ContentBlockMerger` tests** using the shared scenario list.
 4. **Continue Gemini reducer tests** using provider-native `genai.GenerateContentResponse` fixtures.
-5. **Extract Gemini terminal completion helpers** if final turn-block/error/cancel tests need a cleaner seam.
+5. **Add any remaining Gemini terminal scenarios** against `completeGeminiStream` if review asks for more EOF/error/cancel coverage.
 6. **Only then extract a shared test helper** if duplication is obvious.
 
 ## What not to do yet
