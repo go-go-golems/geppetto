@@ -22,7 +22,6 @@ type responsesRequest struct {
 	TopP              *float64         `json:"top_p,omitempty"`
 	StopSequences     []string         `json:"stop_sequences,omitempty"`
 	Reasoning         *reasoningParam  `json:"reasoning,omitempty"`
-	Stream            bool             `json:"stream,omitempty"`
 	Include           []string         `json:"include,omitempty"`
 	Tools             []any            `json:"tools,omitempty"`
 	ToolChoice        any              `json:"tool_choice,omitempty"`
@@ -201,7 +200,6 @@ func (e *Engine) buildResponsesRequest(t *turns.Turn) (responsesRequest, error) 
 		if len(s.Chat.Stop) > 0 {
 			req.StopSequences = s.Chat.Stop
 		}
-		req.Stream = s.Chat.Stream
 	}
 	if s != nil && s.OpenAI != nil && s.OpenAI.ReasoningEffort != nil {
 		if req.Reasoning == nil {
@@ -377,19 +375,6 @@ func intFromProviderNumber(raw any) (int, bool) {
 		}
 	}
 	return 0, false
-}
-
-func reasoningTextFromOutputContent(content []responsesOutputContent) string {
-	var b strings.Builder
-	for _, c := range content {
-		switch c.Type {
-		case "reasoning_text", "text":
-			if strings.TrimSpace(c.Text) != "" {
-				b.WriteString(c.Text)
-			}
-		}
-	}
-	return strings.TrimSpace(b.String())
 }
 
 func reasoningTextFromProviderContent(raw any) string {

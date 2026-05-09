@@ -742,46 +742,10 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 		}
 		return nil
 	}
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil && err != io.EOF {
-			log.Debug().Err(err).Msg("Responses: error reading SSE line")
-			break
-		}
-		line = strings.TrimRight(line, "\r\n")
-		if line == "" {
-			_ = flush()
-			eventName = ""
-			if err == io.EOF {
-				break
-			}
-			continue
-		}
-		if strings.HasPrefix(line, "event:") {
-			eventName = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
-			continue
-		}
-		if strings.HasPrefix(line, "data:") {
-			if dataBuf.Len() > 0 {
-				dataBuf.WriteByte('\n')
-			}
-			dataBuf.WriteString(strings.TrimSpace(strings.TrimPrefix(line, "data:")))
-			if tap != nil {
-				tap.OnSSE(eventName, []byte(strings.TrimSpace(strings.TrimPrefix(line, "data:"))))
-			}
-			if err == io.EOF {
-				_ = flush()
-				break
-			}
-			continue
-		}
-		if err == io.EOF {
-			_ = flush()
-			break
-		}
+	terminal := consumeResponsesSSE(ctx, reader, tap, &eventName, &dataBuf, flush)
+	if terminal.Kind == responsesStreamTerminalError && streamErr == nil {
+		streamErr = terminal.Err
 	}
-
-	terminal := responsesStreamTerminal{Kind: responsesStreamTerminalEOF}
 	if streamErr != nil {
 		terminal = responsesStreamTerminal{Kind: responsesStreamTerminalError, Err: streamErr}
 		log.Debug().Err(streamErr).Msg("Responses: stream ended with provider error")
@@ -845,6 +809,61 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	}
 	return t, nil
 
+}
+
+func consumeResponsesSSE(
+	ctx context.Context,
+	reader *bufio.Reader,
+	tap engine.DebugTap,
+	eventName *string,
+	dataBuf *strings.Builder,
+	flush func() error,
+) responsesStreamTerminal {
+	for {
+		select {
+		case <-ctx.Done():
+			return responsesStreamTerminal{Kind: responsesStreamTerminalCancelled, Err: ctx.Err()}
+		default:
+		}
+
+		line, err := reader.ReadString('\n')
+		if err != nil && err != io.EOF {
+			log.Debug().Err(err).Msg("Responses: error reading SSE line")
+			return responsesStreamTerminal{Kind: responsesStreamTerminalError, Err: err}
+		}
+		line = strings.TrimRight(line, "\r\n")
+		if line == "" {
+			_ = flush()
+			*eventName = ""
+			if err == io.EOF {
+				return responsesStreamTerminal{Kind: responsesStreamTerminalEOF}
+			}
+			continue
+		}
+		if strings.HasPrefix(line, "event:") {
+			*eventName = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
+			continue
+		}
+		if strings.HasPrefix(line, "data:") {
+			data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			if dataBuf.Len() > 0 {
+				dataBuf.WriteByte('\n')
+			}
+			dataBuf.WriteString(data)
+			if tap != nil {
+				tap.OnSSE(*eventName, []byte(data))
+			}
+			if err == io.EOF {
+				_ = flush()
+				return responsesStreamTerminal{Kind: responsesStreamTerminalEOF}
+			}
+			continue
+		}
+		if err == io.EOF {
+			_ = flush()
+			return responsesStreamTerminal{Kind: responsesStreamTerminalEOF}
+		}
+	}
 }
 
 func streamKindForResponsesSegment(segmentType string) string {

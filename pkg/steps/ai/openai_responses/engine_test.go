@@ -1310,7 +1310,7 @@ func TestRunInference_StreamingPreservesWhitespaceOnlyDelta(t *testing.T) {
 	}
 }
 
-func TestRunInference_NonStreamingUsageIncludesCachedTokens(t *testing.T) {
+func TestRunInference_ForcesStreamingUsageIncludesCachedTokens(t *testing.T) {
 	origClient := http.DefaultClient
 	http.DefaultClient = &http.Client{
 		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
@@ -1320,26 +1320,23 @@ func TestRunInference_NonStreamingUsageIncludesCachedTokens(t *testing.T) {
 			if r.URL.Path != "/v1/responses" {
 				t.Fatalf("unexpected path: %s", r.URL.Path)
 			}
-			body := `{
-  "output": [
-    {
-      "type": "message",
-      "id": "msg_1",
-      "content": [
-        {"type": "output_text", "text": "Done"}
-      ]
-    }
-  ],
-  "usage": {
-    "input_tokens": 12,
-    "output_tokens": 7,
-    "input_tokens_details": {"cached_tokens": 5},
-    "output_tokens_details": {"reasoning_tokens": 2}
-  }
-}`
+			body := strings.Join([]string{
+				"event: response.output_item.added",
+				`data: {"output_index":0,"item":{"type":"message","id":"msg_1"}}`,
+				"",
+				"event: response.output_text.delta",
+				`data: {"item_id":"msg_1","delta":"Done"}`,
+				"",
+				"event: response.output_item.done",
+				`data: {"output_index":0,"item":{"type":"message","id":"msg_1","status":"completed","content":[{"type":"output_text","text":"Done"}]}}`,
+				"",
+				"event: response.completed",
+				`data: {"response":{"id":"resp_1","usage":{"input_tokens":12,"output_tokens":7,"input_tokens_details":{"cached_tokens":5},"output_tokens_details":{"reasoning_tokens":2}}}}`,
+				"",
+			}, "\n")
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
 				Body:       io.NopCloser(strings.NewReader(body)),
 				Request:    r,
 			}, nil

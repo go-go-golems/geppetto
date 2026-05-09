@@ -86,7 +86,6 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	// Debug: summarize request
 	log.Debug().
 		Str("model", reqBody.Model).
-		Bool("stream", reqBody.Stream).
 		Int("input_items", len(reqBody.Input)).
 		Int("include_len", len(reqBody.Include)).
 		Msg("Responses: built request")
@@ -147,7 +146,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
 	}
 	runtimeattrib.AddRuntimeAttributionToExtra(metadata.Extra, t)
-	log.Debug().Str("url", url).Int("body_len", len(b)).Bool("stream", reqBody.Stream).Msg("Responses: sending request")
+	log.Debug().Str("url", url).Int("body_len", len(b)).Msg("Responses: sending request")
 
 	// Attach DebugTap if present on context
 	var tap engine.DebugTap
@@ -155,10 +154,8 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		tap = t2
 	}
 
-	// Streaming when configured
-	if e.settings != nil && e.settings.Chat != nil && e.settings.Chat.Stream {
-		return e.runStreamingInference(ctx, t, httpClient, url, b, apiKey, metadata, tap, startTime, reqBody)
-	}
-
-	return e.runNonStreamingInference(ctx, t, httpClient, url, b, apiKey, metadata, startTime)
+	// Responses always uses streaming internally so provider-to-canonical event
+	// normalization has one lifecycle path. Profiles may still carry chat.stream
+	// for other engines, but this engine forces the request and runtime path.
+	return e.runStreamingInference(ctx, t, httpClient, url, b, apiKey, metadata, tap, startTime, reqBody)
 }
