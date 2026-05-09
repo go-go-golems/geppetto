@@ -1,13 +1,17 @@
 package gemini
 
 import (
+	"errors"
 	"net/http"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/turns"
 	genai "github.com/google/generative-ai-go/genai"
 	"github.com/invopop/jsonschema"
 	"google.golang.org/api/option"
@@ -213,6 +217,45 @@ func TestReduceGeminiStreamResponseReviewDerivedScenarios(t *testing.T) {
 				tt.check(t, state, got)
 			}
 		})
+	}
+}
+
+func TestCompleteGeminiStreamTerminalErrorClosesActiveText(t *testing.T) {
+	metadata := events.EventMetadata{SessionID: "session-1", InferenceID: "inference-1", TurnID: "turn-1"}
+	providerCorr := geminiProviderCallCorrelation(metadata, metadata.InferenceID, "gemini-test")
+	state := newGeminiStreamState(providerCorr)
+
+	chunkEvents := reduceGeminiStreamResponse(metadata, state, geminiTextResponse("partial"))
+	assertGeminiEventTypes(t, chunkEvents, []events.EventType{
+		events.EventTypeTextSegmentStarted,
+		events.EventTypeTextDelta,
+	})
+
+	turn := &turns.Turn{ID: "turn-1"}
+	terminalErr := errors.New("stream exploded")
+	result, completionEvents := completeGeminiStream(turn, &metadata, state, time.Now(), terminalErr)
+
+	assertGeminiEventTypes(t, completionEvents, []events.EventType{
+		events.EventTypeTextSegmentFinished,
+		events.EventTypeError,
+		events.EventTypeProviderCallFinished,
+	})
+	if result.FinishClass != engine.InferenceFinishClassError {
+		t.Fatalf("finish class = %q, want error", result.FinishClass)
+	}
+	if metadata.StopReason == nil || *metadata.StopReason != "error" {
+		t.Fatalf("stop reason = %#v, want error", metadata.StopReason)
+	}
+	finished, ok := completionEvents[0].(*events.EventTextSegmentFinished)
+	if !ok || finished.Text != "partial" || finished.FinishReason != "error" {
+		t.Fatalf("finished event = %#v, want partial text with error reason", completionEvents[0])
+	}
+	providerFinished, ok := completionEvents[2].(*events.EventProviderCallFinished)
+	if !ok || providerFinished.FinishClass != string(engine.InferenceFinishClassError) || providerFinished.StopReason != "error" {
+		t.Fatalf("provider finished = %#v, want error/error", completionEvents[2])
+	}
+	if len(turn.Blocks) != 1 || turn.Blocks[0].Kind != turns.BlockKindLLMText {
+		t.Fatalf("turn blocks = %#v, want one assistant text block", turn.Blocks)
 	}
 }
 

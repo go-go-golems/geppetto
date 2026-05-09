@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
 	"reflect"
@@ -23,7 +22,6 @@ import (
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
 
@@ -336,53 +334,27 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	iter := model.GenerateContentStream(ctx, parts...)
 
 	streamState := newGeminiStreamState(providerCallCorr)
-	for {
-		resp, err := iter.Next()
-		if err == iterator.Done || errors.Is(err, io.EOF) {
-			log.Debug().Int("chunks_received", streamState.chunkCount).Msg("Gemini stream completed")
-			break
-		}
-		if err != nil {
-			log.Error().Err(err).Int("chunks_received", streamState.chunkCount).Msg("Gemini stream receive failed")
-			d := time.Since(startTime).Milliseconds()
-			dm := int64(d)
-			metadata.DurationMs = &dm
-			e.publishEvent(ctx, events.NewErrorEvent(metadata, err))
-			return nil, err
-		}
-		e.publishProviderRecord(ctx, metadata, providerCallCorr, "gemini.stream.chunk", resp)
-		for _, event := range reduceGeminiStreamResponse(metadata, streamState, resp) {
-			e.publishEvent(ctx, event)
-		}
+	terminalErr := consumeGeminiStream(
+		iter,
+		metadata,
+		streamState,
+		func(event events.Event) { e.publishEvent(ctx, event) },
+		func(eventType string, payload any) {
+			e.publishProviderRecord(ctx, metadata, providerCallCorr, eventType, payload)
+		},
+	)
+	if terminalErr != nil {
+		log.Error().Err(terminalErr).Int("chunks_received", streamState.chunkCount).Msg("Gemini stream receive failed")
+	} else {
+		log.Debug().Int("chunks_received", streamState.chunkCount).Msg("Gemini stream completed")
 	}
 
-	if streamState.message != "" && streamState.textSegmentStarted {
-		e.publishEvent(ctx, events.NewTextSegmentFinishedEvent(metadata, streamState.textCorr, streamState.message, streamState.finalStopReason))
-	}
-
-	// Append assistant text and tool_call blocks in the turn
-	if streamState.message != "" {
-		turns.AppendBlock(t, turns.NewAssistantTextBlock(streamState.message))
-	}
-	for _, c := range streamState.pendingCalls {
-		turns.AppendBlock(t, turns.NewToolCallBlock(c.id, c.name, c.args))
-	}
-
-	// Set duration and publish final
-	d := time.Since(startTime).Milliseconds()
-	dm := int64(d)
-	metadata.DurationMs = &dm
-
-	// Populate turn metadata + event metadata (best-effort).
-	if strings.TrimSpace(streamState.finalStopReason) != "" {
-		metadata.StopReason = &streamState.finalStopReason
-	}
-	if streamState.finalUsage != nil {
-		metadata.Usage = streamState.finalUsage
-	}
-	result := engine.BuildInferenceResultFromEventMetadata(metadata, "gemini", len(streamState.pendingCalls) > 0)
+	result, completionEvents := completeGeminiStream(t, &metadata, streamState, startTime, terminalErr)
 	if err := engine.PersistInferenceResult(t, result); err != nil {
 		log.Warn().Err(err).Msg("Gemini: failed to persist canonical inference_result")
+	}
+	for _, event := range completionEvents {
+		e.publishEvent(ctx, event)
 	}
 
 	if strings.TrimSpace(streamState.finalStopReason) != "" || streamState.finalUsage != nil {
@@ -397,9 +369,9 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 		e.Msg("Gemini RunInference completion metadata")
 	}
 
-	finishClass := string(result.FinishClass)
-	e.publishEvent(ctx, events.NewProviderCallFinishedEvent(metadata, providerCallCorr, streamState.finalStopReason, finishClass, metadata.Usage, metadata.DurationMs, len(streamState.pendingCalls) > 0))
-
+	if terminalErr != nil {
+		return t, terminalErr
+	}
 	log.Debug().Int("final_text_len", len(streamState.message)).Int("tool_call_count", len(streamState.pendingCalls)).Msg("Gemini RunInference completed (streaming)")
 	return t, nil
 }
