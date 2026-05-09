@@ -72,15 +72,9 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	currentResponseID := ""
 	// Placeholder for potential future pairing of reasoning with assistant item id
 	// (keep declared logic out until needed to avoid unused var)
-	// Accumulate function_call tool uses
-	type pendingCall struct {
-		callID, name, itemID string
-		outputIndex          *int
-		status               string
-		args                 strings.Builder
-	}
-	callsByItem := map[string]*pendingCall{}
-	finalCalls := []pendingCall{}
+	// Accumulate function_call tool uses.
+	callsByItem := map[string]*responsesPendingCall{}
+	finalCalls := []responsesPendingCall{}
 	// Track encrypted reasoning content for the current reasoning item only.
 	var currentReasoningEncryptedContent string
 	var currentReasoningOutputIndex *int
@@ -99,33 +93,14 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	providerCallCorr.Model = reqBody.Model
 	providerCallCorr.TurnID = metadata.TurnID
 	e.publishEvent(ctx, events.NewProviderCallStartedEvent(metadata, providerCallCorr))
-	responseProviderCallCorr := func() events.Correlation {
-		corr := providerCallCorr
-		corr.ResponseID = currentResponseID
-		return corr
-	}
+	streamState := newResponsesStreamState(reqBody, providerCallCorr, tap)
 	responsesSegmentCorr := func(itemID string, outputIndex, summaryIndex *int, segmentType string) events.Correlation {
-		corr := events.BuildResponsesCorrelation("openai_responses", currentResponseID, itemID, outputIndex, summaryIndex)
-		corr.ProviderCallID = providerCallCorr.ProviderCallID
-		corr.ProviderCallIndex = providerCallCorr.ProviderCallIndex
-		corr.ParentCorrelationKey = providerCallCorr.CorrelationKey
-		corr.Model = reqBody.Model
-		corr.TurnID = metadata.TurnID
-		corr.SegmentType = segmentType
-		corr.StreamKind = streamKindForResponsesSegment(segmentType)
-		if corr.SegmentID == "" && corr.CorrelationKey != "" {
-			corr.SegmentID = corr.CorrelationKey
-		}
-		return corr
+		streamState.currentResponseID = currentResponseID
+		return streamState.segmentCorrelation(itemID, outputIndex, summaryIndex, segmentType)
 	}
 	toolCorr := func(itemID, callID string, outputIndex *int) events.Correlation {
-		corr := responsesSegmentCorr(itemID, outputIndex, nil, events.SegmentTypeTool)
-		if callID != "" {
-			corr.ToolCallID = callID
-		} else {
-			corr.ToolCallID = itemID
-		}
-		return corr
+		streamState.currentResponseID = currentResponseID
+		return streamState.toolCorrelation(itemID, callID, outputIndex)
 	}
 	log.Trace().Msg("Responses: starting SSE read loop")
 	flush := func() error {
@@ -297,7 +272,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 							outputIndex = &idx
 						}
 						if itemID != "" {
-							callsByItem[itemID] = &pendingCall{callID: callID, name: name, itemID: itemID, outputIndex: outputIndex}
+							callsByItem[itemID] = &responsesPendingCall{callID: callID, name: name, itemID: itemID, outputIndex: outputIndex}
 						}
 						e.publishEvent(ctx, events.NewToolCallStartedEvent(metadata, toolCorr(itemID, callID, outputIndex), callID, name))
 					case "web_search_call":
@@ -615,7 +590,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 							e.publishEvent(ctx, events.NewToolCallRequestedEvent(metadata, toolCorr(itemID, callID, outputIndex), callID, name, args))
 							var b strings.Builder
 							b.WriteString(args)
-							finalCalls = append(finalCalls, pendingCall{callID: callID, name: name, itemID: itemID, outputIndex: outputIndex, status: status, args: b})
+							finalCalls = append(finalCalls, responsesPendingCall{callID: callID, name: name, itemID: itemID, outputIndex: outputIndex, status: status, args: b})
 						}
 					case "web_search_call":
 						// Extract search query from action if available
@@ -722,7 +697,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 			if itemID != "" {
 				pc := callsByItem[itemID]
 				if pc == nil {
-					pc = &pendingCall{itemID: itemID}
+					pc = &responsesPendingCall{itemID: itemID}
 					callsByItem[itemID] = pc
 				}
 				if idx, ok := intFromProviderNumber(m["output_index"]); ok {
@@ -806,86 +781,68 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 		}
 	}
 
-	if inputTokens > 0 || outputTokens > 0 || cachedTokens > 0 {
-		if metadata.Usage == nil {
-			metadata.Usage = &events.Usage{}
-		}
-		metadata.Usage.InputTokens = inputTokens
-		metadata.Usage.OutputTokens = outputTokens
-		metadata.Usage.CachedTokens = cachedTokens
+	terminal := responsesStreamTerminal{Kind: responsesStreamTerminalEOF}
+	if streamErr != nil {
+		terminal = responsesStreamTerminal{Kind: responsesStreamTerminalError, Err: streamErr}
+		log.Debug().Err(streamErr).Msg("Responses: stream ended with provider error")
 	}
-	if metadata.Extra == nil {
-		metadata.Extra = map[string]any{}
+	state := &responsesStreamState{
+		reqBody:                          reqBody,
+		providerCallCorr:                 providerCallCorr,
+		tap:                              tap,
+		message:                          message,
+		inputTokens:                      inputTokens,
+		outputTokens:                     outputTokens,
+		cachedTokens:                     cachedTokens,
+		reasoningTokens:                  reasoningTokens,
+		stopReason:                       stopReason,
+		responseCompleted:                responseCompleted,
+		streamErr:                        streamErr,
+		currentResponseID:                currentResponseID,
+		finalCalls:                       finalCalls,
+		currentReasoningItemID:           currentReasoningItemID,
+		lastReasoningItemID:              lastReasoningItemID,
+		currentReasoningOutputIndex:      currentReasoningOutputIndex,
+		lastReasoningOutputIndex:         lastReasoningOutputIndex,
+		currentReasoningSummaryIndex:     currentReasoningSummaryIndex,
+		lastReasoningSummaryIndex:        lastReasoningSummaryIndex,
+		currentReasoningStatus:           currentReasoningStatus,
+		latestMessageItemID:              latestMessageItemID,
+		latestMessageOutputIndex:         latestMessageOutputIndex,
+		latestMessageStatus:              latestMessageStatus,
+		assistantByItem:                  assistantByItem,
+		callsByItem:                      callsByItem,
+		currentReasoningEncryptedContent: currentReasoningEncryptedContent,
 	}
-	if reasoningTokens > 0 {
-		metadata.Extra["reasoning_tokens"] = reasoningTokens
-	}
-	metadata.Extra["thinking_text"] = thinkBuf.String()
-	metadata.Extra["saying_text"] = sayBuf.String()
-	if summaryBuf.Len() > 0 {
-		metadata.Extra["reasoning_summary_text"] = summaryBuf.String()
+	state.thinkBuf.WriteString(thinkBuf.String())
+	state.sayBuf.WriteString(sayBuf.String())
+	state.summaryBuf.WriteString(summaryBuf.String())
+	state.currentReasoningText.WriteString(currentReasoningText.String())
+	state.currentReasoningSummary.WriteString(currentReasoningSummary.String())
+
+	metadata = finalizeResponsesStreamMetadata(metadata, state, startTime, terminal)
+	if state.summaryBuf.Len() > 0 {
 		// Publish a friendly info event with the complete summary and provider identity when available.
-		data := providerData("openai_responses", currentResponseID, lastReasoningItemID, lastReasoningOutputIndex, lastReasoningSummaryIndex)
+		data := providerData("openai_responses", state.currentResponseID, state.lastReasoningItemID, state.lastReasoningOutputIndex, state.lastReasoningSummaryIndex)
 		if data == nil {
 			data = map[string]any{}
 		}
-		data["text"] = summaryBuf.String()
+		data["text"] = state.summaryBuf.String()
 		e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary", data))
 	}
-	if stopReason != nil {
-		metadata.StopReason = stopReason
-	}
-	d := time.Since(startTime).Milliseconds()
-	dm := int64(d)
-	metadata.DurationMs = &dm
-	if streamErr != nil {
-		log.Debug().Err(streamErr).Msg("Responses: stream ended with provider error")
-		return nil, streamErr
-	}
-	if strings.TrimSpace(message) != "" {
-		ab := turns.NewAssistantTextBlock(message)
-		if latestMessageItemID != "" {
-			if ab.Payload == nil {
-				ab.Payload = map[string]any{}
-			}
-			ab.Payload[turns.PayloadKeyItemID] = latestMessageItemID
-		}
-		setOpenAIResponsesBlockMetadata(&ab, currentResponseID, latestMessageOutputIndex, "message", latestMessageStatus)
-		turns.AppendBlock(t, ab)
-	}
-	// Append tool_call blocks captured via Responses API
-	for _, pc := range finalCalls {
-		var args any
-		if err := json.Unmarshal([]byte(pc.args.String()), &args); err != nil {
-			args = map[string]any{}
-		}
-		b := turns.NewToolCallBlock(pc.callID, pc.name, args)
-		// Preserve provider output item id so we can reference it later if needed
-		if b.Payload == nil {
-			b.Payload = map[string]any{}
-		}
-		if pc.itemID != "" {
-			b.Payload[turns.PayloadKeyItemID] = pc.itemID
-		}
-		setOpenAIResponsesBlockMetadata(&b, currentResponseID, pc.outputIndex, "function_call", pc.status)
-		turns.AppendBlock(t, b)
-	}
-	result := engine.BuildInferenceResultFromEventMetadata(metadata, responsesInferenceProvider(e.settings), len(finalCalls) > 0)
-	if err := engine.PersistInferenceResult(t, result); err != nil {
-		log.Warn().Err(err).Msg("Responses: failed to persist canonical inference_result")
-	}
-	finishClass := "completed"
-	if !responseCompleted {
-		finishClass = "stream_closed"
-	}
-	if len(finalCalls) > 0 {
-		finishClass = "tool_calls_pending"
-	}
+
+	includeToolCalls := terminal.Kind == responsesStreamTerminalEOF
+	toolCallCount := appendResponsesFinalTurnBlocks(t, state, includeToolCalls)
+	persistResponsesInferenceResult(t, metadata, responsesInferenceProvider(e.settings), includeToolCalls && toolCallCount > 0)
+	finishClass := responsesFinishClass(state, terminal, toolCallCount)
 	stopReasonValue := ""
 	if metadata.StopReason != nil {
 		stopReasonValue = *metadata.StopReason
 	}
-	e.publishEvent(ctx, events.NewProviderCallFinishedEvent(metadata, responseProviderCallCorr(), stopReasonValue, finishClass, metadata.Usage, metadata.DurationMs, len(finalCalls) > 0))
+	e.publishEvent(ctx, events.NewProviderCallFinishedEvent(metadata, state.providerCallCorrelation(), stopReasonValue, finishClass, metadata.Usage, metadata.DurationMs, includeToolCalls && toolCallCount > 0))
+	if terminal.Err != nil {
+		return t, terminal.Err
+	}
 	return t, nil
 
 }

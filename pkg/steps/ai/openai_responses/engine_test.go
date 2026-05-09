@@ -123,20 +123,22 @@ func TestRunInference_StreamingErrorReturnsFailureAndNoFinalEvent(t *testing.T) 
 	}
 
 	var errorEvents int
-	var providerFinishedEvents int
+	var failedProviderFinishedEvents int
 	for _, event := range sink.snapshot() {
 		if event.Type() == events.EventTypeError {
 			errorEvents++
 		}
-		if event.Type() == events.EventTypeProviderCallFinished {
-			providerFinishedEvents++
+		if finished, ok := event.(*events.EventProviderCallFinished); ok {
+			if finished.FinishClass == "failed" && finished.StopReason == "error" {
+				failedProviderFinishedEvents++
+			}
 		}
 	}
 	if errorEvents == 0 {
 		t.Fatalf("expected at least one error event")
 	}
-	if providerFinishedEvents != 0 {
-		t.Fatalf("did not expect provider-call success finish event on streaming failure, got %d", providerFinishedEvents)
+	if failedProviderFinishedEvents != 1 {
+		t.Fatalf("expected one failed provider-call finish event on streaming failure, got %d", failedProviderFinishedEvents)
 	}
 }
 
