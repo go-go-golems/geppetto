@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
 	"reflect"
@@ -23,7 +22,6 @@ import (
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
 
@@ -335,146 +333,46 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	log.Debug().Int("num_blocks", len(t.Blocks)).Str("model", modelName).Msg("Gemini RunInference started (streaming)")
 	iter := model.GenerateContentStream(ctx, parts...)
 
-	message := ""
-	chunkCount := 0
-	finalStopReason := ""
-	var finalUsage *events.Usage
-	textSegmentStarted := false
-	textSequence := int64(0)
-	textCorr := events.Correlation{}
-	toolCallIndex := 0
-	var pendingCalls []struct {
-		id, name string
-		args     map[string]any
-	}
-	for {
-		resp, err := iter.Next()
-		if err == iterator.Done || errors.Is(err, io.EOF) {
-			log.Debug().Int("chunks_received", chunkCount).Msg("Gemini stream completed")
-			break
-		}
-		if err != nil {
-			log.Error().Err(err).Int("chunks_received", chunkCount).Msg("Gemini stream receive failed")
-			d := time.Since(startTime).Milliseconds()
-			dm := int64(d)
-			metadata.DurationMs = &dm
-			e.publishEvent(ctx, events.NewErrorEvent(metadata, err))
-			return nil, err
-		}
-		chunkCount++
-		e.publishProviderRecord(ctx, metadata, providerCallCorr, "gemini.stream.chunk", resp)
-		// Best-effort: capture provider usage metadata + finish reason so callers can
-		// diagnose truncation (max tokens), refusals/safety, etc.
-		//
-		// We use reflection to avoid tight coupling to a specific generative-ai-go version.
-		var chunkUsage *events.Usage
-		if resp != nil {
-			if u, ok := extractGeminiUsage(resp); ok {
-				finalUsage = u
-				chunkUsage = u
-			}
-		}
-		// Extract text and function calls
-		delta := ""
-		chunkStopReason := ""
-		if resp != nil && len(resp.Candidates) > 0 {
-			for _, cand := range resp.Candidates {
-				// Capture finish reason from any candidate that has it (keep the last seen).
-				// Extract this BEFORE checking Content, as candidates can have FinishReason
-				// even when Content is nil (e.g., safety blocked or empty responses).
-				if fr, ok := extractGeminiFinishReason(cand); ok {
-					finalStopReason = fr
-					chunkStopReason = fr
-				}
-				if cand.Content == nil {
-					continue
-				}
-				for _, p := range cand.Content.Parts {
-					switch v := p.(type) {
-					case genai.Text:
-						delta += string(v)
-					case genai.FunctionCall:
-						var args map[string]any
-						if v.Args != nil {
-							args = v.Args
-						}
-						if args == nil {
-							args = map[string]any{}
-						}
-						id := uuid.NewString()
-						pendingCalls = append(pendingCalls, struct {
-							id, name string
-							args     map[string]any
-						}{id: id, name: v.Name, args: args})
-						inputBytes, _ := json.Marshal(args)
-						toolCorr := geminiToolCorrelation(providerCallCorr, id, toolCallIndex)
-						toolCallIndex++
-						e.publishEvent(ctx, events.NewToolCallStartedEvent(metadata, toolCorr, id, v.Name))
-						e.publishEvent(ctx, events.NewToolCallRequestedEvent(metadata, toolCorr, id, v.Name, string(inputBytes)))
-					}
-				}
-			}
-		}
-		if chunkUsage != nil || chunkStopReason != "" {
-			e.publishEvent(ctx, events.NewProviderCallMetadataUpdatedEvent(metadata, providerCallCorr, finalStopReason, "", finalUsage))
-		}
-		if delta != "" {
-			if !textSegmentStarted {
-				textSegmentStarted = true
-				textCorr = geminiSegmentCorrelation(providerCallCorr, "", 0, events.SegmentTypeText)
-				e.publishEvent(ctx, events.NewTextSegmentStartedEvent(metadata, textCorr, "assistant"))
-			}
-			message += delta
-			textSequence++
-			e.publishEvent(ctx, events.NewTextDeltaEvent(metadata, textCorr, delta, message, textSequence))
-		}
+	streamState := newGeminiStreamState(providerCallCorr)
+	terminalErr := consumeGeminiStream(
+		iter,
+		metadata,
+		streamState,
+		func(event events.Event) { e.publishEvent(ctx, event) },
+		func(eventType string, payload any) {
+			e.publishProviderRecord(ctx, metadata, providerCallCorr, eventType, payload)
+		},
+	)
+	if terminalErr != nil {
+		log.Error().Err(terminalErr).Int("chunks_received", streamState.chunkCount).Msg("Gemini stream receive failed")
+	} else {
+		log.Debug().Int("chunks_received", streamState.chunkCount).Msg("Gemini stream completed")
 	}
 
-	if message != "" && textSegmentStarted {
-		e.publishEvent(ctx, events.NewTextSegmentFinishedEvent(metadata, textCorr, message, finalStopReason))
-	}
-
-	// Append assistant text and tool_call blocks in the turn
-	if message != "" {
-		turns.AppendBlock(t, turns.NewAssistantTextBlock(message))
-	}
-	for _, c := range pendingCalls {
-		turns.AppendBlock(t, turns.NewToolCallBlock(c.id, c.name, c.args))
-	}
-
-	// Set duration and publish final
-	d := time.Since(startTime).Milliseconds()
-	dm := int64(d)
-	metadata.DurationMs = &dm
-
-	// Populate turn metadata + event metadata (best-effort).
-	if strings.TrimSpace(finalStopReason) != "" {
-		metadata.StopReason = &finalStopReason
-	}
-	if finalUsage != nil {
-		metadata.Usage = finalUsage
-	}
-	result := engine.BuildInferenceResultFromEventMetadata(metadata, "gemini", len(pendingCalls) > 0)
+	result, completionEvents := completeGeminiStream(t, &metadata, streamState, startTime, terminalErr)
 	if err := engine.PersistInferenceResult(t, result); err != nil {
 		log.Warn().Err(err).Msg("Gemini: failed to persist canonical inference_result")
 	}
+	for _, event := range completionEvents {
+		e.publishEvent(ctx, event)
+	}
 
-	if strings.TrimSpace(finalStopReason) != "" || finalUsage != nil {
+	if strings.TrimSpace(streamState.finalStopReason) != "" || streamState.finalUsage != nil {
 		e := log.Debug().
-			Str("stop_reason", finalStopReason).
-			Int("final_text_len", len(message)).
-			Int("chunks_received", chunkCount).
-			Int("tool_call_count", len(pendingCalls))
-		if finalUsage != nil {
-			e = e.Int("input_tokens", finalUsage.InputTokens).Int("output_tokens", finalUsage.OutputTokens)
+			Str("stop_reason", streamState.finalStopReason).
+			Int("final_text_len", len(streamState.message)).
+			Int("chunks_received", streamState.chunkCount).
+			Int("tool_call_count", len(streamState.pendingCalls))
+		if streamState.finalUsage != nil {
+			e = e.Int("input_tokens", streamState.finalUsage.InputTokens).Int("output_tokens", streamState.finalUsage.OutputTokens)
 		}
 		e.Msg("Gemini RunInference completion metadata")
 	}
 
-	finishClass := string(result.FinishClass)
-	e.publishEvent(ctx, events.NewProviderCallFinishedEvent(metadata, providerCallCorr, finalStopReason, finishClass, metadata.Usage, metadata.DurationMs, len(pendingCalls) > 0))
-
-	log.Debug().Int("final_text_len", len(message)).Int("tool_call_count", len(pendingCalls)).Msg("Gemini RunInference completed (streaming)")
+	if terminalErr != nil {
+		return t, terminalErr
+	}
+	log.Debug().Int("final_text_len", len(streamState.message)).Int("tool_call_count", len(streamState.pendingCalls)).Msg("Gemini RunInference completed (streaming)")
 	return t, nil
 }
 

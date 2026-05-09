@@ -116,8 +116,10 @@ func StepPrinterFunc(name string, w io.Writer) func(msg *message.Message) error 
 				break
 			}
 			// Keep generic info handling below for other messages
-			// Suppress verbose printing for reasoning-summary-delta; handled via EventReasoningDelta
-			if p_.Message == "reasoning-summary-delta" {
+			// Suppress verbose printing for reasoning-summary deltas/final aggregate;
+			// the text is already streamed via EventReasoningDelta between the
+			// reasoning-summary-started / reasoning-summary-ended markers.
+			if p_.Message == "reasoning-summary-delta" || p_.Message == "reasoning-summary" {
 				break
 			}
 			if _, err := fmt.Fprintf(w, "\n[i] %s\n", p_.Message); err != nil {
