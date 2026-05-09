@@ -26,6 +26,7 @@ type responsesRequest struct {
 	Tools             []any            `json:"tools,omitempty"`
 	ToolChoice        any              `json:"tool_choice,omitempty"`
 	ParallelToolCalls *bool            `json:"parallel_tool_calls,omitempty"`
+	Stream            *bool            `json:"stream,omitempty"`
 	Store             *bool            `json:"store,omitempty"`
 	ServiceTier       *string          `json:"service_tier,omitempty"`
 }

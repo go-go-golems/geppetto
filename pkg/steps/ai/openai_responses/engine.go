@@ -79,6 +79,8 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		log.Debug().Int("input_items", len(reqBody.Input)).Interface("input_preview", preview).Msg("Responses: request input summary")
 	}
 
+	stream := true
+	reqBody.Stream = &stream
 	b, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, err

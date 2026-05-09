@@ -1534,6 +1534,47 @@ func TestRunInference_StreamingPreservesWhitespaceOnlyDelta(t *testing.T) {
 	}
 }
 
+func TestRunInference_ForcesStreamingRequestBody(t *testing.T) {
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("decode request body: %v", err)
+			}
+			if got, ok := body["stream"].(bool); !ok || !got {
+				t.Fatalf("expected request body stream=true, got %#v (present=%v)", body["stream"], ok)
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(responsesSSEEvent("response.completed", `{"response":{"id":"resp_1"}}`))),
+				Request:    r,
+			}, nil
+		}),
+	}
+	defer func() { http.DefaultClient = origClient }()
+
+	eng, err := NewEngine(&settings.InferenceSettings{
+		API: &settings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "test"},
+			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+		},
+		Chat: &settings.ChatSettings{
+			Engine: ptr("gpt-5-mini"),
+			Stream: false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	turn := &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("Hello")}}
+	if _, err := eng.RunInference(context.Background(), turn); err != nil {
+		t.Fatalf("RunInference: %v", err)
+	}
+}
+
 func TestRunInference_ForcesStreamingUsageIncludesCachedTokens(t *testing.T) {
 	origClient := http.DefaultClient
 	http.DefaultClient = &http.Client{
