@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	gepsession "github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
@@ -326,7 +327,11 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	if inferenceScopeID == "" {
 		inferenceScopeID = metadata.ID.String()
 	}
-	providerCallCorr := geminiProviderCallCorrelation(metadata, inferenceScopeID, modelName)
+	providerCallIndex := 0
+	if idx, ok := gepsession.ProviderCallIndexFromContext(ctx); ok {
+		providerCallIndex = idx
+	}
+	providerCallCorr := geminiProviderCallCorrelation(metadata, inferenceScopeID, modelName, providerCallIndex)
 	e.publishEvent(ctx, events.NewProviderCallStartedEvent(metadata, providerCallCorr))
 
 	// Streaming mode always on for engines in this architecture
@@ -376,8 +381,8 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	return t, nil
 }
 
-func geminiProviderCallCorrelation(metadata events.EventMetadata, inferenceScopeID, modelName string) events.Correlation {
-	corr := events.BuildProviderCallCorrelation("gemini", inferenceScopeID, "", 0, "")
+func geminiProviderCallCorrelation(metadata events.EventMetadata, inferenceScopeID, modelName string, providerCallIndex int) events.Correlation {
+	corr := events.BuildProviderCallCorrelation("gemini", inferenceScopeID, "", providerCallIndex, "")
 	corr.SessionID = metadata.SessionID
 	corr.TurnID = metadata.TurnID
 	corr.Model = modelName

@@ -351,6 +351,54 @@ func TestContentBlockMerger(t *testing.T) {
 	}
 }
 
+func TestContentBlockMergerProviderCallCorrelationUsesProviderCallIndex(t *testing.T) {
+	for _, tt := range []struct {
+		name              string
+		providerCallIndex int
+		wantProviderID    string
+		wantKey           string
+	}{
+		{name: "first provider call", providerCallIndex: 0, wantProviderID: "msg_123", wantKey: "claude:msg_123:provider-call"},
+		{name: "third provider call", providerCallIndex: 2, wantProviderID: "msg_123", wantKey: "claude:msg_123:provider-call"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			metadata := events.EventMetadata{InferenceID: "inference-1", TurnID: "turn-1"}
+			merger := NewContentBlockMerger(metadata)
+			merger.providerCallIndex = tt.providerCallIndex
+
+			got, err := merger.Add(api.StreamingEvent{
+				Type: api.MessageStartType,
+				Message: &api.MessageResponse{
+					ID:    "msg_123",
+					Model: "claude-test",
+					Role:  "assistant",
+				},
+			})
+			require.NoError(t, err)
+			require.Len(t, got, 1)
+
+			correlated, ok := got[0].(events.CorrelatedEvent)
+			require.True(t, ok, "event should carry correlation")
+			corr := correlated.Correlation()
+			if corr.ProviderCallIndex != int32(tt.providerCallIndex) {
+				t.Fatalf("ProviderCallIndex = %d, want %d", corr.ProviderCallIndex, tt.providerCallIndex)
+			}
+			if corr.ProviderCallID != tt.wantProviderID {
+				t.Fatalf("ProviderCallID = %q, want %q", corr.ProviderCallID, tt.wantProviderID)
+			}
+			if corr.CorrelationKey != tt.wantKey {
+				t.Fatalf("CorrelationKey = %q, want %q", corr.CorrelationKey, tt.wantKey)
+			}
+			if corr.InferenceID != metadata.InferenceID {
+				t.Fatalf("InferenceID = %q, want %q", corr.InferenceID, metadata.InferenceID)
+			}
+			if corr.Model != "claude-test" {
+				t.Fatalf("Model = %q, want claude-test", corr.Model)
+			}
+		})
+	}
+}
+
 func TestContentBlockMergerReviewDerivedScenarios(t *testing.T) {
 	tests := []struct {
 		name           string

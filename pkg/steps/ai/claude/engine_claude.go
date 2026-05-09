@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	gepsession "github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/steps"
@@ -160,6 +161,9 @@ func (e *ClaudeEngine) RunInference(
 	}
 
 	completionMerger := NewContentBlockMerger(metadata)
+	if idx, ok := gepsession.ProviderCallIndexFromContext(ctx); ok {
+		completionMerger.providerCallIndex = idx
+	}
 
 	eventCount := 0
 	for {
