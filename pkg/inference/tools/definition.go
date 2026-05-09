@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/invopop/jsonschema"
 	"github.com/rs/zerolog/log"
 )
@@ -119,9 +120,10 @@ type ToolExample struct {
 
 // ToolCall represents a request to execute a tool
 type ToolCall struct {
-	ID        string          `json:"id"`
-	Name      string          `json:"name"`
-	Arguments json.RawMessage `json:"arguments"`
+	ID          string             `json:"id"`
+	Name        string             `json:"name"`
+	Arguments   json.RawMessage    `json:"arguments"`
+	Correlation events.Correlation `json:"correlation,omitempty"`
 }
 
 // ToolResult represents the result of a tool execution

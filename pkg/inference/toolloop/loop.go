@@ -291,7 +291,7 @@ func (l *Loop) executeTools(ctx context.Context, toolCalls []toolblocks.ToolCall
 	execCalls := make([]tools.ToolCall, 0, len(toolCalls))
 	for _, call := range toolCalls {
 		argBytes, _ := json.Marshal(call.Arguments)
-		execCalls = append(execCalls, tools.ToolCall{ID: call.ID, Name: call.Name, Arguments: json.RawMessage(argBytes)})
+		execCalls = append(execCalls, tools.ToolCall{ID: call.ID, Name: call.Name, Arguments: json.RawMessage(argBytes), Correlation: call.Correlation})
 	}
 
 	execResults, err := executor.ExecuteToolCalls(ctx, execCalls, registry)

@@ -211,6 +211,65 @@ func TestLoop_ExecutesToolsAndEmitsPauseEventsWhenEnabled(t *testing.T) {
 	}
 }
 
+func TestLoopExecuteToolsPreservesToolCallCorrelationForDefaultExecutor(t *testing.T) {
+	t.Parallel()
+
+	reg := tools.NewInMemoryToolRegistry()
+	type echoIn struct {
+		Text string `json:"text"`
+	}
+	echoTool, err := tools.NewToolFromFunc("echo", "Echo back the provided text", func(in echoIn) (map[string]any, error) {
+		return map[string]any{"echo": in.Text}, nil
+	})
+	if err != nil {
+		t.Fatalf("NewToolFromFunc: %v", err)
+	}
+	if err := reg.RegisterTool("echo", *echoTool); err != nil {
+		t.Fatalf("RegisterTool: %v", err)
+	}
+
+	sink := &capturingSink{}
+	ctx := events.WithEventSinks(context.Background(), sink)
+	ctx = tools.WithRegistry(ctx, reg)
+	corr := events.Correlation{
+		SessionID:      "session-1",
+		RunID:          "run-1",
+		TurnID:         "turn-1",
+		ProviderCallID: "provider-call-1",
+		SegmentID:      "segment-1",
+		ToolCallID:     "call-1",
+	}
+	loop := New(WithToolConfig(tools.DefaultToolConfig()))
+
+	results := loop.executeTools(ctx, []toolblocks.ToolCall{{
+		ID:          "call-1",
+		Name:        "echo",
+		Arguments:   map[string]any{"text": "hello"},
+		Correlation: corr,
+	}})
+	if len(results) != 1 || results[0].Error != nil {
+		t.Fatalf("unexpected tool results: %#v", results)
+	}
+
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	if len(sink.events) != 3 {
+		t.Fatalf("expected 3 execution lifecycle events, got %d: %#v", len(sink.events), sink.events)
+	}
+	for i, event := range sink.events {
+		correlated, ok := event.(events.CorrelatedEvent)
+		if !ok {
+			t.Fatalf("event %d is not correlated: %T", i, event)
+		}
+		if got := correlated.Correlation(); got != corr {
+			t.Fatalf("event %d correlation = %#v, want %#v", i, got, corr)
+		}
+		if err := events.ValidateCanonicalEvent(event); err != nil {
+			t.Fatalf("event %d should validate as canonical: %v", i, err)
+		}
+	}
+}
+
 func TestLoop_executeToolsRequiresContextRegistry(t *testing.T) {
 	t.Parallel()
 

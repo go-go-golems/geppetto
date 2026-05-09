@@ -15,6 +15,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -233,7 +234,7 @@ streamingComplete:
 
 	// Create blocks from content blocks: text -> llm_text, tool_use -> tool_call
 	hasToolCalls := false
-	for _, c := range response.Content {
+	for i, c := range response.Content {
 		switch v := c.(type) {
 		case api.TextContent:
 			if s := v.Text; s != "" {
@@ -243,7 +244,9 @@ streamingComplete:
 			hasToolCalls = true
 			var args any
 			_ = json.Unmarshal(v.Input, &args)
-			turns.AppendBlock(t, turns.NewToolCallBlock(v.ID, v.Name, args))
+			corr := completionMerger.contentBlockCorrelation(i, events.SegmentTypeTool)
+			corr.ToolCallID = v.ID
+			turns.AppendBlock(t, toolblocks.NewToolCallBlockWithCorrelation(v.ID, v.Name, args, corr))
 		}
 	}
 

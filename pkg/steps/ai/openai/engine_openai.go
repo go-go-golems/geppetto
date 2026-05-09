@@ -12,6 +12,7 @@ import (
 	gepsession "github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/google/uuid"
@@ -363,7 +364,8 @@ func appendOpenAIChatTurnBlocks(t *turns.Turn, state openAIChatStreamState, incl
 	for _, tc := range mergedToolCalls {
 		var args any
 		_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
-		turns.AppendBlock(t, turns.NewToolCallBlock(tc.ID, tc.Function.Name, args))
+		corr := state.chatCorrelation(state.CurrentChoiceIndex, events.StreamKindToolCall, tc.ID, tc.Index)
+		turns.AppendBlock(t, toolblocks.NewToolCallBlockWithCorrelation(tc.ID, tc.Function.Name, args, corr))
 	}
 	return len(mergedToolCalls)
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
 	"github.com/rs/zerolog/log"
 )
 
@@ -172,7 +173,7 @@ func appendResponsesFinalTurnBlocks(t *turns.Turn, state *responsesStreamState, 
 		if err := json.Unmarshal([]byte(pc.args.String()), &args); err != nil {
 			args = map[string]any{}
 		}
-		b := turns.NewToolCallBlock(pc.callID, pc.name, args)
+		b := toolblocks.NewToolCallBlockWithCorrelation(pc.callID, pc.name, args, state.toolCorrelation(pc.itemID, pc.callID, pc.outputIndex))
 		if b.Payload == nil {
 			b.Payload = map[string]any{}
 		}
