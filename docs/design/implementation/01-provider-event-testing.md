@@ -34,7 +34,7 @@ RelatedFiles:
       Note: Gemini stream consumption and terminal completion helpers for final turn/error tests.
 ExternalSources: []
 Summary: Reference guide for deriving provider-specific table-driven tests from shared canonical lifecycle scenarios.
-LastUpdated: 2026-05-09T01:45:00-04:00
+LastUpdated: 2026-05-09T16:25:00-04:00
 WhatFor: Use this document when writing provider-normalization tests for OpenAI Chat Completions, OpenAI Responses, Claude, and Gemini.
 WhenToUse: Use before adding or reviewing table-driven tests that translate provider-native stream events into canonical Geppetto provider/text/reasoning/tool lifecycles.
 ---
@@ -208,6 +208,7 @@ Every provider-specific table should be designed to exercise these canonical inv
 ### Reasoning segment lifecycle
 
 - Reasoning deltas are emitted only when provider-native reasoning exists.
+- Reasoning source/classification is semantic event payload state, not canonical correlation identity. Providers that distinguish normal thinking from reasoning summaries should set `source` on reasoning start/delta/finish events (for example `"thinking"` vs `"summary"`) and should not reintroduce provider-native indexes into `events.Correlation` for UI routing.
 - A reasoning segment starts before the first reasoning delta when the provider has explicit reasoning block/item starts.
 - A reasoning segment finishes when the provider closes the reasoning item/block, or when terminal cleanup semantics require closing an active reasoning segment.
 - Provider final/EOF alone must not manufacture reasoning.

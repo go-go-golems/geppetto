@@ -797,10 +797,10 @@ func TestRunInference_StreamingReasoningSummaryPreservesSentenceBoundaries(t *te
 				`data: {"item":{"type":"reasoning","id":"rs_summary"}}`,
 				"",
 				"event: response.reasoning_summary_text.delta",
-				`data: {"delta":"The provider groups work into a category."}`,
+				`data: {"summary_index":0,"delta":"The provider groups work into a category."}`,
 				"",
 				"event: response.reasoning_summary_text.delta",
-				`data: {"delta":"Creating an analysis plan"}`,
+				`data: {"summary_index":0,"delta":"Creating an analysis plan"}`,
 				"",
 				"event: response.output_item.done",
 				`data: {"item":{"type":"reasoning","id":"rs_summary"}}`,
@@ -855,12 +855,21 @@ func TestRunInference_StreamingReasoningSummaryPreservesSentenceBoundaries(t *te
 
 	want := "The provider groups work into a category. Creating an analysis plan"
 	var lastThinkingCompletion string
+	var sawSummaryDelta bool
+	var sawSummaryFinished bool
 	var finalSummary string
 	var finalSummaryFromMetadata string
 	for _, event := range sink.snapshot() {
 		switch e := event.(type) {
 		case *events.EventReasoningDelta:
 			lastThinkingCompletion = e.Text
+			if e.Source == "summary" {
+				sawSummaryDelta = true
+			}
+		case *events.EventReasoningSegmentFinished:
+			if e.Source == "summary" {
+				sawSummaryFinished = true
+			}
 		case *events.EventInfo:
 			if e.Message == "reasoning-summary" {
 				if s, ok := e.Data["text"].(string); ok {
@@ -878,6 +887,12 @@ func TestRunInference_StreamingReasoningSummaryPreservesSentenceBoundaries(t *te
 
 	if lastThinkingCompletion != want {
 		t.Fatalf("expected normalized thinking partial completion %q, got %q", want, lastThinkingCompletion)
+	}
+	if !sawSummaryDelta {
+		t.Fatalf("expected streamed reasoning summary deltas to carry source=summary")
+	}
+	if !sawSummaryFinished {
+		t.Fatalf("expected streamed reasoning summary finish to carry source=summary")
 	}
 	if finalSummary != want {
 		t.Fatalf("expected normalized reasoning-summary info text %q, got %q", want, finalSummary)

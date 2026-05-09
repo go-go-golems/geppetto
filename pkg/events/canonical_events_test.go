@@ -35,8 +35,8 @@ func TestCanonicalEventsRoundTripCorrelation(t *testing.T) {
 		{"text-delta", NewTextDeltaEvent(metadata, corr, "hello", "hello", 1)},
 		{"text-finished", NewTextSegmentFinishedEvent(metadata, corr, "hello", "content_block_stop")},
 		{"reasoning-started", NewReasoningSegmentStartedEvent(metadata, corr, "provider")},
-		{"reasoning-delta", NewReasoningDeltaEvent(metadata, corr, "why", "why", 1)},
-		{"reasoning-finished", NewReasoningSegmentFinishedEvent(metadata, corr, "why", "done")},
+		{"reasoning-delta", NewReasoningDeltaEventWithSource(metadata, corr, "summary", "why", "why", 1)},
+		{"reasoning-finished", NewReasoningSegmentFinishedEventWithSource(metadata, corr, "summary", "why", "done")},
 		{"tool-started", NewToolCallStartedEvent(metadata, corr, "tool-1", "sql_doc")},
 		{"tool-args", NewToolCallArgumentsDeltaEvent(metadata, corr, "tool-1", `{"a":`, `{"a":`, 1)},
 		{"tool-requested", NewToolCallRequestedEvent(metadata, corr, "tool-1", "sql_doc", `{"a":1}`)},
@@ -69,6 +69,16 @@ func TestCanonicalEventsRoundTripCorrelation(t *testing.T) {
 			got := correlated.Correlation()
 			if got.RunID != corr.RunID || got.ProviderCallID != corr.ProviderCallID || got.SegmentID != corr.SegmentID || got.ToolCallID != corr.ToolCallID {
 				t.Fatalf("correlation mismatch: got %+v want %+v", got, corr)
+			}
+			switch ev := decoded.(type) {
+			case *EventReasoningDelta:
+				if tt.name == "reasoning-delta" && ev.Source != "summary" {
+					t.Fatalf("reasoning delta source mismatch: got %q", ev.Source)
+				}
+			case *EventReasoningSegmentFinished:
+				if tt.name == "reasoning-finished" && ev.Source != "summary" {
+					t.Fatalf("reasoning finished source mismatch: got %q", ev.Source)
+				}
 			}
 		})
 	}
