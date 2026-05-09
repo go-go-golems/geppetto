@@ -37,7 +37,6 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	currentReasoningItemID := ""
 	lastReasoningItemID := ""
 	var summaryBuf strings.Builder
-	currentResponseID := ""
 	// Placeholder for potential future pairing of reasoning with assistant item id
 	// (keep declared logic out until needed to avoid unused var)
 	// Accumulate function_call tool uses.
@@ -54,11 +53,9 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	e.publishEvent(ctx, events.NewProviderCallStartedEvent(metadata, providerCallCorr))
 	streamState := newResponsesStreamState(reqBody, providerCallCorr, tap)
 	responsesSegmentCorr := func(itemID string, outputIndex, summaryIndex *int, segmentType string) events.Correlation {
-		streamState.currentResponseID = currentResponseID
 		return streamState.segmentCorrelation(itemID, outputIndex, summaryIndex, segmentType)
 	}
 	toolCorr := func(itemID, callID string, outputIndex *int) events.Correlation {
-		streamState.currentResponseID = currentResponseID
 		return streamState.toolCorrelation(itemID, callID, outputIndex)
 	}
 	log.Trace().Msg("Responses: starting SSE read loop")
@@ -74,11 +71,11 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 		}
 		if respObj, ok := m["response"].(map[string]any); ok {
 			if id, ok := respObj["id"].(string); ok && id != "" {
-				currentResponseID = id
+				streamState.currentResponseID = id
 			}
 		}
 		if id, ok := m["response_id"].(string); ok && id != "" {
-			currentResponseID = id
+			streamState.currentResponseID = id
 		}
 		providerEventType := normalizeResponsesEventName(eventName)
 		if providerEventType == "" {
@@ -86,7 +83,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 				providerEventType = normalizeResponsesEventName(typ)
 			}
 		}
-		e.observeProviderEvent(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m)
+		e.observeProviderEvent(ctx, metadata, reqBody.Model, streamState.currentResponseID, providerEventType, m)
 		appendAssistantChunk := func(itemID string, outputIndex *int, chunk string) {
 			if chunk == "" {
 				return
@@ -299,7 +296,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 				lastReasoningSummaryIndex = &idx
 			}
 			// Start of a summary piece – forward as streaming info event
-			e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-started", providerData("openai_responses", currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
+			e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-started", providerData("openai_responses", streamState.currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
 		case "response.reasoning_summary_text.delta":
 			if itemID := itemIDFromProviderObject(m); itemID != "" {
 				currentReasoningItemID = itemID
@@ -312,14 +309,14 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 			if v, ok := m["delta"].(string); ok && v != "" {
 				before := summaryBuf.Len()
 				normalized := streamhelpers.NormalizeReasoningSummaryDelta(summaryBuf.String(), v)
-				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(v), len(normalized), before+len(normalized))
+				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, streamState.currentResponseID, providerEventType, m, len(v), len(normalized), before+len(normalized))
 				summaryBuf.WriteString(normalized)
 				currentReasoningSummary.WriteString(normalized)
 				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), normalized, summaryBuf.String(), 0))
 			} else if s, ok := m["text"].(string); ok && s != "" {
 				before := summaryBuf.Len()
 				normalized := streamhelpers.NormalizeReasoningSummaryDelta(summaryBuf.String(), s)
-				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(s), len(normalized), before+len(normalized))
+				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, streamState.currentResponseID, providerEventType, m, len(s), len(normalized), before+len(normalized))
 				summaryBuf.WriteString(normalized)
 				currentReasoningSummary.WriteString(normalized)
 				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), normalized, summaryBuf.String(), 0))
@@ -334,7 +331,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 				lastReasoningSummaryIndex = &idx
 			}
 			// End of a summary piece – forward as streaming info event
-			e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-ended", providerData("openai_responses", currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
+			e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-ended", providerData("openai_responses", streamState.currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
 		case "response.reasoning_text.delta":
 			if itemID := itemIDFromProviderObject(m); itemID != "" {
 				currentReasoningItemID = itemID
@@ -347,14 +344,14 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 			if d, ok := m["delta"].(string); ok && d != "" {
 				before := thinkBuf.Len()
 				normalized := streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), d)
-				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(d), len(normalized), before+len(normalized))
+				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, streamState.currentResponseID, providerEventType, m, len(d), len(normalized), before+len(normalized))
 				thinkBuf.WriteString(normalized)
 				currentReasoningText.WriteString(d)
 				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), d, thinkBuf.String(), 0))
 			} else if s, ok := m["text"].(string); ok && s != "" {
 				before := thinkBuf.Len()
 				normalized := streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), s)
-				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, currentResponseID, providerEventType, m, len(s), len(normalized), before+len(normalized))
+				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, streamState.currentResponseID, providerEventType, m, len(s), len(normalized), before+len(normalized))
 				thinkBuf.WriteString(normalized)
 				currentReasoningText.WriteString(s)
 				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), s, thinkBuf.String(), 0))
@@ -419,7 +416,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 							payload[turns.PayloadKeySummary] = summary
 						}
 						rb.Payload = payload
-						setOpenAIResponsesBlockMetadata(&rb, currentResponseID, currentReasoningOutputIndex, "reasoning", currentReasoningStatus)
+						setOpenAIResponsesBlockMetadata(&rb, streamState.currentResponseID, currentReasoningOutputIndex, "reasoning", currentReasoningStatus)
 						turns.AppendBlock(t, rb)
 						finalReasoningText := strings.TrimSpace(currentReasoningText.String())
 						finalReasoningStatus := currentReasoningStatus
@@ -673,7 +670,6 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	streamState.stopReason = stopReason
 	streamState.responseCompleted = responseCompleted
 	streamState.streamErr = streamErr
-	streamState.currentResponseID = currentResponseID
 	streamState.finalCalls = finalCalls
 	streamState.currentReasoningItemID = currentReasoningItemID
 	streamState.lastReasoningItemID = lastReasoningItemID
