@@ -39,9 +39,6 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	var summaryBuf strings.Builder
 	// Placeholder for potential future pairing of reasoning with assistant item id
 	// (keep declared logic out until needed to avoid unused var)
-	// Accumulate function_call tool uses.
-	callsByItem := map[string]*responsesPendingCall{}
-	finalCalls := []responsesPendingCall{}
 	// Track encrypted reasoning content for the current reasoning item only.
 	var currentReasoningEncryptedContent string
 	var currentReasoningOutputIndex *int
@@ -185,7 +182,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 							outputIndex = &idx
 						}
 						if itemID != "" {
-							callsByItem[itemID] = &responsesPendingCall{callID: callID, name: name, itemID: itemID, outputIndex: outputIndex}
+							streamState.callsByItem[itemID] = &responsesPendingCall{callID: callID, name: name, itemID: itemID, outputIndex: outputIndex}
 						}
 						e.publishEvent(ctx, events.NewToolCallStartedEvent(metadata, toolCorr(itemID, callID, outputIndex), callID, name))
 					case "web_search_call":
@@ -495,7 +492,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 							outputIndex = &idx
 						}
 						if args == "" {
-							if pc := callsByItem[itemID]; pc != nil {
+							if pc := streamState.callsByItem[itemID]; pc != nil {
 								args = pc.args.String()
 							}
 						}
@@ -503,7 +500,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 							e.publishEvent(ctx, events.NewToolCallRequestedEvent(metadata, toolCorr(itemID, callID, outputIndex), callID, name, args))
 							var b strings.Builder
 							b.WriteString(args)
-							finalCalls = append(finalCalls, responsesPendingCall{callID: callID, name: name, itemID: itemID, outputIndex: outputIndex, status: status, args: b})
+							streamState.finalCalls = append(streamState.finalCalls, responsesPendingCall{callID: callID, name: name, itemID: itemID, outputIndex: outputIndex, status: status, args: b})
 						}
 					case "web_search_call":
 						// Extract search query from action if available
@@ -608,10 +605,10 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 				itemID = v
 			}
 			if itemID != "" {
-				pc := callsByItem[itemID]
+				pc := streamState.callsByItem[itemID]
 				if pc == nil {
 					pc = &responsesPendingCall{itemID: itemID}
-					callsByItem[itemID] = pc
+					streamState.callsByItem[itemID] = pc
 				}
 				if idx, ok := intFromProviderNumber(m["output_index"]); ok {
 					pc.outputIndex = &idx
@@ -627,7 +624,7 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 				itemID = v
 			}
 			if d, ok := m["arguments"].(string); ok && d != "" {
-				if pc := callsByItem[itemID]; pc != nil {
+				if pc := streamState.callsByItem[itemID]; pc != nil {
 					pc.args.Reset()
 					pc.args.WriteString(d)
 				}
@@ -670,7 +667,6 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	streamState.stopReason = stopReason
 	streamState.responseCompleted = responseCompleted
 	streamState.streamErr = streamErr
-	streamState.finalCalls = finalCalls
 	streamState.currentReasoningItemID = currentReasoningItemID
 	streamState.lastReasoningItemID = lastReasoningItemID
 	streamState.currentReasoningOutputIndex = currentReasoningOutputIndex
@@ -678,7 +674,6 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	streamState.currentReasoningSummaryIndex = currentReasoningSummaryIndex
 	streamState.lastReasoningSummaryIndex = lastReasoningSummaryIndex
 	streamState.currentReasoningStatus = currentReasoningStatus
-	streamState.callsByItem = callsByItem
 	streamState.currentReasoningEncryptedContent = currentReasoningEncryptedContent
 	streamState.thinkBuf.WriteString(thinkBuf.String())
 	streamState.summaryBuf.WriteString(summaryBuf.String())
