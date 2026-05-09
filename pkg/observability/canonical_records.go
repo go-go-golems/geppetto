@@ -44,33 +44,59 @@ func EnrichRecordFromEvent(rec *Record, event events.Event) {
 		rec.Usage = e.Usage
 		rec.DurationMs = e.DurationMs
 		rec.HasToolCalls = e.HasToolCalls
+	case *events.EventTextSegmentStarted:
+		rec.SegmentType = events.SegmentTypeText
+		rec.StreamKind = events.StreamKindContent
 	case *events.EventTextDelta:
 		rec.TextLen = len(e.Text)
+		rec.SegmentType = events.SegmentTypeText
+		rec.StreamKind = events.StreamKindContent
 	case *events.EventTextSegmentFinished:
 		rec.TextLen = len(e.Text)
 		rec.SegmentStatus = e.FinishReason
+		rec.SegmentType = events.SegmentTypeText
+		rec.StreamKind = events.StreamKindContent
+	case *events.EventReasoningSegmentStarted:
+		rec.SegmentType = events.SegmentTypeReasoning
+		rec.StreamKind = events.StreamKindReasoning
 	case *events.EventReasoningDelta:
 		rec.TextLen = len(e.Text)
+		rec.SegmentType = events.SegmentTypeReasoning
+		rec.StreamKind = events.StreamKindReasoning
 	case *events.EventReasoningSegmentFinished:
 		rec.TextLen = len(e.Text)
 		rec.SegmentStatus = e.FinishReason
+		rec.SegmentType = events.SegmentTypeReasoning
+		rec.StreamKind = events.StreamKindReasoning
 	case *events.EventToolCallStarted:
+		rec.SegmentType = events.SegmentTypeTool
+		rec.StreamKind = events.StreamKindToolCall
 		rec.ToolCallID = e.ToolCallID
 	case *events.EventToolCallArgumentsDelta:
 		rec.ToolCallID = e.ToolCallID
 		rec.TextLen = len(e.Arguments)
+		rec.SegmentType = events.SegmentTypeTool
+		rec.StreamKind = events.StreamKindToolCall
 	case *events.EventToolCallRequested:
 		rec.ToolCallID = e.ToolCallID
 		rec.TextLen = len(e.Input)
+		rec.SegmentType = events.SegmentTypeTool
+		rec.StreamKind = events.StreamKindToolCall
 	case *events.EventToolExecutionStarted:
 		rec.ToolCallID = e.ToolCallID
 		rec.TextLen = len(e.Input)
+		rec.SegmentType = events.SegmentTypeTool
+		rec.StreamKind = events.StreamKindToolCall
 	case *events.EventToolResultReady:
 		rec.ToolCallID = e.ToolCallID
 		rec.TextLen = len(e.Result)
+		rec.SegmentType = events.SegmentTypeTool
+		rec.StreamKind = events.StreamKindToolCall
 	case *events.EventToolCallFinished:
 		rec.ToolCallID = e.ToolCallID
 		rec.SegmentStatus = e.Status
+		rec.SegmentType = events.SegmentTypeTool
+		rec.StreamKind = events.StreamKindToolCall
 	}
 }
 
