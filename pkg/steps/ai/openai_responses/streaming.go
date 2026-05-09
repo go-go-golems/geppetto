@@ -27,21 +27,6 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 	reader := bufio.NewReader(resp.Body)
 	var eventName string
 	var dataBuf strings.Builder
-	var thinkBuf strings.Builder
-	var currentReasoningText strings.Builder
-	var currentReasoningSummary strings.Builder
-	currentReasoningItemID := ""
-	lastReasoningItemID := ""
-	var summaryBuf strings.Builder
-	// Placeholder for potential future pairing of reasoning with assistant item id
-	// (keep declared logic out until needed to avoid unused var)
-	// Track encrypted reasoning content for the current reasoning item only.
-	var currentReasoningEncryptedContent string
-	var currentReasoningOutputIndex *int
-	var lastReasoningOutputIndex *int
-	var currentReasoningSummaryIndex *int
-	var lastReasoningSummaryIndex *int
-	var currentReasoningStatus string
 	providerCallCorr := newResponsesProviderCallCorrelation(metadata, reqBody)
 	e.publishEvent(ctx, events.NewProviderCallStartedEvent(metadata, providerCallCorr))
 	streamState := newResponsesStreamState(reqBody, providerCallCorr, tap)
@@ -112,15 +97,15 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 			if fullText == "" {
 				return
 			}
-			current := currentReasoningText.String()
+			current := streamState.currentReasoningText.String()
 			missing := missingProviderSuffix(current, fullText)
 			if missing == "" {
 				return
 			}
-			currentReasoningText.WriteString(missing)
-			normalized := streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), missing)
-			thinkBuf.WriteString(normalized)
-			e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), normalized, thinkBuf.String(), 0))
+			streamState.currentReasoningText.WriteString(missing)
+			normalized := streamhelpers.NormalizeReasoningDelta(streamState.thinkBuf.String(), missing)
+			streamState.thinkBuf.WriteString(normalized)
+			e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), normalized, streamState.thinkBuf.String(), 0))
 		}
 		switch providerEventType {
 		case "response.output_item.added":
@@ -128,26 +113,26 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 				if typ, ok := it["type"].(string); ok {
 					switch typ {
 					case "reasoning":
-						currentReasoningItemID = ""
-						currentReasoningText.Reset()
-						currentReasoningSummary.Reset()
-						currentReasoningEncryptedContent = ""
-						currentReasoningOutputIndex = nil
-						currentReasoningSummaryIndex = nil
-						currentReasoningStatus = ""
+						streamState.currentReasoningItemID = ""
+						streamState.currentReasoningText.Reset()
+						streamState.currentReasoningSummary.Reset()
+						streamState.currentReasoningEncryptedContent = ""
+						streamState.currentReasoningOutputIndex = nil
+						streamState.currentReasoningSummaryIndex = nil
+						streamState.currentReasoningStatus = ""
 						if v, ok := it["id"].(string); ok && v != "" {
-							currentReasoningItemID = v
+							streamState.currentReasoningItemID = v
 						}
 						if status, ok := it["status"].(string); ok && status != "" {
-							currentReasoningStatus = status
+							streamState.currentReasoningStatus = status
 						}
 						if idx, ok := intFromProviderNumber(m["output_index"]); ok {
-							currentReasoningOutputIndex = &idx
+							streamState.currentReasoningOutputIndex = &idx
 						}
-						e.publishEvent(ctx, events.NewReasoningSegmentStartedEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), "provider"))
+						e.publishEvent(ctx, events.NewReasoningSegmentStartedEvent(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), "provider"))
 						// Capture encrypted reasoning content when present.
 						if enc, ok := it["encrypted_content"].(string); ok && enc != "" {
-							currentReasoningEncryptedContent = enc
+							streamState.currentReasoningEncryptedContent = enc
 						}
 					case "message":
 						if v, ok := it["id"].(string); ok && v != "" {
@@ -282,72 +267,72 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 			}
 		case "response.reasoning_summary_part.added":
 			if itemID := itemIDFromProviderObject(m); itemID != "" {
-				currentReasoningItemID = itemID
+				streamState.currentReasoningItemID = itemID
 			}
 			if idx, ok := intFromProviderNumber(m["summary_index"]); ok {
-				currentReasoningSummaryIndex = &idx
-				lastReasoningSummaryIndex = &idx
+				streamState.currentReasoningSummaryIndex = &idx
+				streamState.lastReasoningSummaryIndex = &idx
 			}
 			// Start of a summary piece – forward as streaming info event
-			e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-started", providerData("openai_responses", streamState.currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
+			e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-started", providerData("openai_responses", streamState.currentResponseID, streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex)))
 		case "response.reasoning_summary_text.delta":
 			if itemID := itemIDFromProviderObject(m); itemID != "" {
-				currentReasoningItemID = itemID
-				lastReasoningItemID = itemID
+				streamState.currentReasoningItemID = itemID
+				streamState.lastReasoningItemID = itemID
 			}
 			if idx, ok := intFromProviderNumber(m["summary_index"]); ok {
-				currentReasoningSummaryIndex = &idx
-				lastReasoningSummaryIndex = &idx
+				streamState.currentReasoningSummaryIndex = &idx
+				streamState.lastReasoningSummaryIndex = &idx
 			}
 			if v, ok := m["delta"].(string); ok && v != "" {
-				before := summaryBuf.Len()
-				normalized := streamhelpers.NormalizeReasoningSummaryDelta(summaryBuf.String(), v)
+				before := streamState.summaryBuf.Len()
+				normalized := streamhelpers.NormalizeReasoningSummaryDelta(streamState.summaryBuf.String(), v)
 				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, streamState.currentResponseID, providerEventType, m, len(v), len(normalized), before+len(normalized))
-				summaryBuf.WriteString(normalized)
-				currentReasoningSummary.WriteString(normalized)
-				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), normalized, summaryBuf.String(), 0))
+				streamState.summaryBuf.WriteString(normalized)
+				streamState.currentReasoningSummary.WriteString(normalized)
+				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), normalized, streamState.summaryBuf.String(), 0))
 			} else if s, ok := m["text"].(string); ok && s != "" {
-				before := summaryBuf.Len()
-				normalized := streamhelpers.NormalizeReasoningSummaryDelta(summaryBuf.String(), s)
+				before := streamState.summaryBuf.Len()
+				normalized := streamhelpers.NormalizeReasoningSummaryDelta(streamState.summaryBuf.String(), s)
 				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, streamState.currentResponseID, providerEventType, m, len(s), len(normalized), before+len(normalized))
-				summaryBuf.WriteString(normalized)
-				currentReasoningSummary.WriteString(normalized)
-				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), normalized, summaryBuf.String(), 0))
+				streamState.summaryBuf.WriteString(normalized)
+				streamState.currentReasoningSummary.WriteString(normalized)
+				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), normalized, streamState.summaryBuf.String(), 0))
 			}
 		case "response.reasoning_summary_part.done":
 			if itemID := itemIDFromProviderObject(m); itemID != "" {
-				currentReasoningItemID = itemID
-				lastReasoningItemID = itemID
+				streamState.currentReasoningItemID = itemID
+				streamState.lastReasoningItemID = itemID
 			}
 			if idx, ok := intFromProviderNumber(m["summary_index"]); ok {
-				currentReasoningSummaryIndex = &idx
-				lastReasoningSummaryIndex = &idx
+				streamState.currentReasoningSummaryIndex = &idx
+				streamState.lastReasoningSummaryIndex = &idx
 			}
 			// End of a summary piece – forward as streaming info event
-			e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-ended", providerData("openai_responses", streamState.currentResponseID, currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex)))
+			e.publishEvent(ctx, events.NewInfoEvent(metadata, "reasoning-summary-ended", providerData("openai_responses", streamState.currentResponseID, streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex)))
 		case "response.reasoning_text.delta":
 			if itemID := itemIDFromProviderObject(m); itemID != "" {
-				currentReasoningItemID = itemID
-				lastReasoningItemID = itemID
+				streamState.currentReasoningItemID = itemID
+				streamState.lastReasoningItemID = itemID
 			}
 			if idx, ok := intFromProviderNumber(m["output_index"]); ok {
-				currentReasoningOutputIndex = &idx
-				lastReasoningOutputIndex = &idx
+				streamState.currentReasoningOutputIndex = &idx
+				streamState.lastReasoningOutputIndex = &idx
 			}
 			if d, ok := m["delta"].(string); ok && d != "" {
-				before := thinkBuf.Len()
-				normalized := streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), d)
+				before := streamState.thinkBuf.Len()
+				normalized := streamhelpers.NormalizeReasoningDelta(streamState.thinkBuf.String(), d)
 				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, streamState.currentResponseID, providerEventType, m, len(d), len(normalized), before+len(normalized))
-				thinkBuf.WriteString(normalized)
-				currentReasoningText.WriteString(d)
-				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), d, thinkBuf.String(), 0))
+				streamState.thinkBuf.WriteString(normalized)
+				streamState.currentReasoningText.WriteString(d)
+				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), d, streamState.thinkBuf.String(), 0))
 			} else if s, ok := m["text"].(string); ok && s != "" {
-				before := thinkBuf.Len()
-				normalized := streamhelpers.NormalizeReasoningDelta(thinkBuf.String(), s)
+				before := streamState.thinkBuf.Len()
+				normalized := streamhelpers.NormalizeReasoningDelta(streamState.thinkBuf.String(), s)
 				e.observeProviderNormalizeDelta(ctx, metadata, reqBody.Model, streamState.currentResponseID, providerEventType, m, len(s), len(normalized), before+len(normalized))
-				thinkBuf.WriteString(normalized)
-				currentReasoningText.WriteString(s)
-				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(currentReasoningItemID, currentReasoningOutputIndex, currentReasoningSummaryIndex, events.SegmentTypeReasoning), s, thinkBuf.String(), 0))
+				streamState.thinkBuf.WriteString(normalized)
+				streamState.currentReasoningText.WriteString(s)
+				e.publishEvent(ctx, events.NewReasoningDeltaEvent(metadata, responsesSegmentCorr(streamState.currentReasoningItemID, streamState.currentReasoningOutputIndex, streamState.currentReasoningSummaryIndex, events.SegmentTypeReasoning), s, streamState.thinkBuf.String(), 0))
 			}
 		case "response.reasoning_text.done":
 			if s, ok := m["text"].(string); ok && s != "" {
@@ -363,12 +348,12 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 					switch typ {
 					case "reasoning":
 						if itemID := itemIDFromProviderObject(m); itemID != "" {
-							currentReasoningItemID = itemID
-							lastReasoningItemID = itemID
+							streamState.currentReasoningItemID = itemID
+							streamState.lastReasoningItemID = itemID
 						}
 						if idx, ok := intFromProviderNumber(m["output_index"]); ok {
-							currentReasoningOutputIndex = &idx
-							lastReasoningOutputIndex = &idx
+							streamState.currentReasoningOutputIndex = &idx
+							streamState.lastReasoningOutputIndex = &idx
 						}
 						// Append a reasoning block with encrypted content if present.
 						rb := turns.Block{Kind: turns.BlockKindReasoning}
@@ -377,24 +362,24 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 							rb.ID = id
 							payload[turns.PayloadKeyItemID] = id
 						}
-						if currentReasoningItemID != "" && rb.ID == "" {
-							rb.ID = currentReasoningItemID
-							payload[turns.PayloadKeyItemID] = currentReasoningItemID
+						if streamState.currentReasoningItemID != "" && rb.ID == "" {
+							rb.ID = streamState.currentReasoningItemID
+							payload[turns.PayloadKeyItemID] = streamState.currentReasoningItemID
 						}
 						if status, ok := it["status"].(string); ok && status != "" {
-							currentReasoningStatus = status
+							streamState.currentReasoningStatus = status
 						}
 						if idx, ok := intFromProviderNumber(m["output_index"]); ok {
-							currentReasoningOutputIndex = &idx
-							lastReasoningOutputIndex = &idx
+							streamState.currentReasoningOutputIndex = &idx
+							streamState.lastReasoningOutputIndex = &idx
 						}
 						if terminalText := reasoningTextFromProviderContent(it["content"]); terminalText != "" {
 							backfillReasoningText(terminalText)
 						}
-						if text := strings.TrimSpace(currentReasoningText.String()); text != "" {
+						if text := strings.TrimSpace(streamState.currentReasoningText.String()); text != "" {
 							payload[turns.PayloadKeyText] = text
 						}
-						enc := currentReasoningEncryptedContent
+						enc := streamState.currentReasoningEncryptedContent
 						if v, ok := it["encrypted_content"].(string); ok && v != "" {
 							enc = v
 						}
@@ -403,24 +388,24 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 						}
 						summary := reasoningSummaryEntriesFromPayload(it)
 						if len(summary) == 0 {
-							summary = reasoningSummaryEntriesFromText(currentReasoningSummary.String())
+							summary = reasoningSummaryEntriesFromText(streamState.currentReasoningSummary.String())
 						}
 						if len(summary) > 0 {
 							payload[turns.PayloadKeySummary] = summary
 						}
 						rb.Payload = payload
-						setOpenAIResponsesBlockMetadata(&rb, streamState.currentResponseID, currentReasoningOutputIndex, "reasoning", currentReasoningStatus)
+						setOpenAIResponsesBlockMetadata(&rb, streamState.currentResponseID, streamState.currentReasoningOutputIndex, "reasoning", streamState.currentReasoningStatus)
 						turns.AppendBlock(t, rb)
-						finalReasoningText := strings.TrimSpace(currentReasoningText.String())
-						finalReasoningStatus := currentReasoningStatus
-						e.publishEvent(ctx, events.NewReasoningSegmentFinishedEvent(metadata, responsesSegmentCorr(lastReasoningItemID, lastReasoningOutputIndex, lastReasoningSummaryIndex, events.SegmentTypeReasoning), finalReasoningText, finalReasoningStatus))
-						currentReasoningItemID = ""
-						currentReasoningText.Reset()
-						currentReasoningSummary.Reset()
-						currentReasoningEncryptedContent = ""
-						currentReasoningOutputIndex = nil
-						currentReasoningSummaryIndex = nil
-						currentReasoningStatus = ""
+						finalReasoningText := strings.TrimSpace(streamState.currentReasoningText.String())
+						finalReasoningStatus := streamState.currentReasoningStatus
+						e.publishEvent(ctx, events.NewReasoningSegmentFinishedEvent(metadata, responsesSegmentCorr(streamState.lastReasoningItemID, streamState.lastReasoningOutputIndex, streamState.lastReasoningSummaryIndex, events.SegmentTypeReasoning), finalReasoningText, finalReasoningStatus))
+						streamState.currentReasoningItemID = ""
+						streamState.currentReasoningText.Reset()
+						streamState.currentReasoningSummary.Reset()
+						streamState.currentReasoningEncryptedContent = ""
+						streamState.currentReasoningOutputIndex = nil
+						streamState.currentReasoningSummaryIndex = nil
+						streamState.currentReasoningStatus = ""
 						if tap != nil {
 							tap.OnProviderObject("output.reasoning", it)
 						}
@@ -656,19 +641,6 @@ func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpC
 		terminal = responsesStreamTerminal{Kind: responsesStreamTerminalError, Err: streamState.streamErr}
 		log.Debug().Err(streamState.streamErr).Msg("Responses: stream ended with provider error")
 	}
-	streamState.currentReasoningItemID = currentReasoningItemID
-	streamState.lastReasoningItemID = lastReasoningItemID
-	streamState.currentReasoningOutputIndex = currentReasoningOutputIndex
-	streamState.lastReasoningOutputIndex = lastReasoningOutputIndex
-	streamState.currentReasoningSummaryIndex = currentReasoningSummaryIndex
-	streamState.lastReasoningSummaryIndex = lastReasoningSummaryIndex
-	streamState.currentReasoningStatus = currentReasoningStatus
-	streamState.currentReasoningEncryptedContent = currentReasoningEncryptedContent
-	streamState.thinkBuf.WriteString(thinkBuf.String())
-	streamState.summaryBuf.WriteString(summaryBuf.String())
-	streamState.currentReasoningText.WriteString(currentReasoningText.String())
-	streamState.currentReasoningSummary.WriteString(currentReasoningSummary.String())
-
 	return e.completeResponsesStream(ctx, t, metadata, startTime, terminal, streamState)
 }
 
