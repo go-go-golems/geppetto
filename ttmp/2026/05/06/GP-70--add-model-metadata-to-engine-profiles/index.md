@@ -11,6 +11,10 @@ DocType: index
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: geppetto/pkg/doc/topics/01-profiles.md
+      Note: Permanent Geppetto engine profile docs now document inference_settings.model_info
+    - Path: geppetto/pkg/doc/topics/13-js-api-reference.md
+      Note: JS API docs now document resolved.modelInfo and engine.modelInfo
     - Path: geppetto/pkg/engineprofiles/inference_settings_merge.go
       Note: ModelInfo stack merge and cost replacement semantics
     - Path: geppetto/pkg/engineprofiles/stack_merge.go
@@ -27,6 +31,10 @@ RelatedFiles:
       Note: InferenceSettings where ModelInfo field will be added
     - Path: geppetto/pkg/turns/inference_result.go
       Note: InferenceResult where Cost field will be added
+    - Path: pinocchio/README.md
+      Note: Pinocchio engine-profile YAML example now includes model_info
+    - Path: pinocchio/cmd/web-chat/README.md
+      Note: Web-chat docs now mention model_info in profile API responses
     - Path: pinocchio/cmd/web-chat/profiles/api.go
       Note: Web-chat profile API model_info exposure
     - Path: pinocchio/pkg/ui/profileswitch/picker.go
@@ -37,6 +45,10 @@ LastUpdated: 2026-05-06T10:23:28.668065926-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
+
+
+
 
 
 

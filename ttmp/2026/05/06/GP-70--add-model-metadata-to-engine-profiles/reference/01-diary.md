@@ -206,3 +206,74 @@ The implementation follows the ticket design: model metadata is profile-loaded, 
 - Geppetto full test command passed: `go test ./...`.
 - Pinocchio targeted test command passed: `go test ./pkg/ui/profileswitch ./cmd/web-chat/profiles ./pkg/cmds/profilebootstrap`.
 - Pinocchio pre-commit hook ran and passed full lint/test pipeline during commit `d53ada1`.
+
+## Step 3: Update Permanent Project Documentation
+
+This step followed up on documentation outside the GP-70 ticket. I inspected the existing Geppetto and Pinocchio documentation structure and found the right permanent pages to update: Geppetto's engine profile topic, Geppetto's JS API reference, Geppetto's JS examples README, Pinocchio's main README, and the web-chat README.
+
+The update makes `inference_settings.model_info` discoverable from the normal docs path instead of only from the ticket design document. It documents YAML shape, field semantics, JS exposure, and Pinocchio API/UI behavior.
+
+### Prompt Context
+
+**User prompt (verbatim):** "look at existing documentation in geppetto and pinocchio, I think there should already beenough to go on"
+
+**Assistant interpretation:** Inspect the existing documentation hierarchy and update the appropriate existing docs rather than creating a new standalone page unless needed.
+
+**Inferred user intent:** Ensure the implemented feature is documented where future contributors and users already look for profile/JS/web-chat behavior.
+
+**Commit (docs):** `78e807d4c4524176ee5e79ea08fd5ae3d5f9d387` — "Docs: document model metadata in Geppetto profiles"
+
+**Commit (docs):** `a4569a76a3d488a1a66ea91d76a3d84ef602b5dd` — "Docs: document profile model metadata in Pinocchio"
+
+### What I did
+
+- Read existing docs:
+  - `geppetto/README.md`
+  - `geppetto/pkg/doc/topics/01-profiles.md`
+  - `geppetto/pkg/doc/topics/13-js-api-reference.md`
+  - `geppetto/examples/js/geppetto/README.md`
+  - `pinocchio/README.md`
+  - `pinocchio/cmd/web-chat/README.md`
+  - `pinocchio/examples/js/README.md`
+- Updated Geppetto profile docs with a new `Model Metadata` section covering YAML shape, field semantics, context-window vs quality-high-watermark, cost units, metadata grab-bag, and merge rules.
+- Updated Geppetto JS API docs to mention `resolved.modelInfo`, `engine.modelInfo`, and optional `fromConfig({ modelInfo })`.
+- Updated Geppetto JS example README to call out the fixture model metadata.
+- Updated Pinocchio README engine-profile YAML example with `model_info` and its user-facing meaning.
+- Updated web-chat README to mention profile API responses include `model_info`.
+
+### Why
+
+The ticket design doc is useful for implementation history, but permanent docs need to live where users already learn about profiles, JS APIs, and Pinocchio profile loading.
+
+### What worked
+
+- `geppetto/pkg/doc/topics/01-profiles.md` was the right canonical profile-format page.
+- `geppetto/pkg/doc/topics/13-js-api-reference.md` already described `profiles.resolve` and engine constructors, so the `modelInfo` additions fit there naturally.
+- Pinocchio's README already had a concise engine-profile YAML example, making it the best place to show optional `model_info`.
+
+### What didn't work
+
+- No separate permanent profile-format README was necessary; the existing documentation was sufficient once updated.
+
+### What I learned
+
+- The documentation tree already has clear ownership boundaries: Geppetto documents engine profiles and JS API; Pinocchio documents app-side profile loading and web-chat API behavior.
+
+### What was tricky to build
+
+- The main choice was where not to document: duplicating full schema details in every README would drift. I kept detailed schema semantics in Geppetto's profile topic and referenced only the needed behavior in Pinocchio docs.
+
+### What warrants a second pair of eyes
+
+- Confirm the Pinocchio README example should include concrete OpenAI pricing or whether that should be marked illustrative to avoid stale pricing.
+
+### What should be done in the future
+
+- If a generated docs site indexes `pkg/doc/topics`, verify the new docs render correctly.
+- If pricing changes frequently, consider documenting cost values as examples only and moving provider-pricing updates to profile fixtures/catalogs.
+
+### Code review instructions
+
+- Review `geppetto/pkg/doc/topics/01-profiles.md` first for schema and merge semantics.
+- Then review `geppetto/pkg/doc/topics/13-js-api-reference.md` for JS API shape.
+- Finally review `pinocchio/README.md` and `pinocchio/cmd/web-chat/README.md` for user-facing wording.
