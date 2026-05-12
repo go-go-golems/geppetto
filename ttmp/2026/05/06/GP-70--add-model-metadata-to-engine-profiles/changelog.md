@@ -29,3 +29,8 @@ Updated permanent Geppetto and Pinocchio documentation for model_info profile me
 
 Fixed PR #351 CI generated-file drift by regenerating and committing pkg/doc/types/geppetto.d.ts after the ModelInfo JS API template changes.
 
+
+## 2026-05-12
+
+Addressed PR #351 review comments: fixed cached-token cost partitioning and normalized camelCase JS modelInfo input keys.
+

@@ -338,3 +338,74 @@ The code changes updated `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`, but 
 
 - Review `pkg/doc/types/geppetto.d.ts` and compare it to `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`.
 - Validate with `go generate ./... && git diff --exit-code && go test ./...`.
+
+## Step 5: Address PR #351 Code Review Comments
+
+This step addressed both automated Codex review comments on PR #351. The first comment pointed out that cached prompt tokens were still charged at the full input rate. The second pointed out that `engines.fromConfig({ modelInfo })` accepted only snake_case fields even though the documented JS-facing shape uses camelCase.
+
+The fixes keep the public API coherent: JS callers can now pass the same camelCase `modelInfo` object they receive from `resolved.modelInfo` or `engine.modelInfo`, and cost computation partitions input tokens into standard input, cache-read, and cache-write buckets before applying rates.
+
+### Prompt Context
+
+**User prompt (verbatim):** "https://github.com/go-go-golems/geppetto/pull/351
+
+Address code review comments here: https://github.com/go-go-golems/geppetto/pull/351"
+
+**Assistant interpretation:** Fetch the inline PR review comments, implement the requested fixes, validate, and commit.
+
+**Inferred user intent:** Make PR #351 review-clean by fixing the concrete correctness issues identified by Codex.
+
+**Commit (code):** `8c689bbd3bd865e4dfe3c311cc412dc1cea55105` — "Geppetto: address model metadata review feedback"
+
+### What I did
+
+- Retrieved PR #351 inline comments with `gh api repos/go-go-golems/geppetto/pulls/351/comments --paginate`.
+- Updated `ModelInfo.ComputeCost` so cached tokens are not double-charged at the full input rate:
+  - `CacheReadInputTokens` is preferred for cache reads.
+  - `CachedTokens` is used as a fallback when `CacheReadInputTokens` is zero.
+  - standard input tokens are computed as `InputTokens - cacheReadTokens - cacheWriteTokens`, clamped at zero.
+  - cache-write tokens use `CacheCreationInputTokens`.
+- Added tests for explicit cache-read/cache-write usage and `CachedTokens` fallback.
+- Updated JS `modelInfo` decoding to normalize camelCase JS keys to snake_case Go/YAML keys before decoding:
+  - `contextWindow` → `context_window`
+  - `qualityHighWatermark` → `quality_high_watermark`
+  - `maxOutputTokens` → `max_output_tokens`
+  - `cost.cacheRead` → `cost.cache_read`
+  - `cost.cacheWrite` → `cost.cache_write`
+- Updated the JS test to pass camelCase `modelInfo` through `engines.fromConfig()`.
+
+### Why
+
+The old cost formula charged all `InputTokens` at full input price and then additionally charged cache read/write buckets. That inflated costs for providers that report cached-token subsets inside total prompt/input tokens. The old JS decode path also silently dropped documented camelCase fields, which made the API non-round-trippable.
+
+### What worked
+
+- The review comments were precise and mapped directly to focused changes.
+- Existing tests made it easy to add regression coverage in the right packages.
+
+### What didn't work
+
+- N/A.
+
+### What I learned
+
+- `CachedTokens` and `CacheReadInputTokens` can both describe cache-hit subsets, but different provider reducers may populate one or the other. The cost path needs to account for both.
+- The JS API exposes camelCase while Go/YAML uses snake_case, so option decode paths must normalize when they accept JS-facing objects.
+
+### What was tricky to build
+
+- The key invariant is to avoid double-charging: input tokens reported by provider usage are total prompt/input tokens, so cache-read and cache-write subsets must be subtracted before applying the regular input rate.
+
+### What warrants a second pair of eyes
+
+- Confirm the `CachedTokens` fallback is correct for every provider's usage semantics. It is only used when `CacheReadInputTokens` is zero to avoid double-counting.
+
+### What should be done in the future
+
+- If providers start reporting separate uncached prompt token counts, prefer those directly rather than partitioning total input tokens.
+
+### Code review instructions
+
+- Review `pkg/steps/ai/settings/model_info.go` cost computation and `model_info_test.go` regression cases.
+- Review `pkg/js/modules/geppetto/api_engines.go` normalization and `module_test.go` camelCase fromConfig coverage.
+- Validate with `go test ./...`.
