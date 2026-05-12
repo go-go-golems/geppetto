@@ -750,9 +750,16 @@ func TestEnginesFromConfigStillWorks(t *testing.T) {
 		const fromConfig = gp.engines.fromConfig({
 			apiType: "openai",
 			model: "gpt-4o-mini",
-			apiKey: "test-openai-key"
+			apiKey: "test-openai-key",
+			modelInfo: {
+				id: "gpt-4o-mini",
+				reasoning: false,
+				context_window: 128000,
+				cost: { input: 0.15, output: 0.60 }
+			}
 		});
 		if (fromConfig.name !== "config") throw new Error("fromConfig name mismatch");
+		if (!fromConfig.modelInfo || fromConfig.modelInfo.contextWindow !== 128000) throw new Error("fromConfig modelInfo missing");
 
 		let threw = false;
 		try {

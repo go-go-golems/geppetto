@@ -13,6 +13,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	aitypes "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
+	"gopkg.in/yaml.v3"
 )
 
 func (m *moduleRuntime) requireEngineRef(v goja.Value) (*engineRef, error) {
@@ -110,6 +111,16 @@ func (m *moduleRuntime) inferenceSettingsFromEngineOptions(opts map[string]any) 
 	ss.Chat.ApiType = &apiType
 
 	if opts != nil {
+		if rawModelInfo, ok := opts["modelInfo"]; ok {
+			modelInfo, err := decodeModelInfoFromJSOptions(rawModelInfo)
+			if err != nil {
+				return nil, "", err
+			}
+			ss.ModelInfo = modelInfo
+		}
+	}
+
+	if opts != nil {
 		if tRaw, ok := opts["temperature"]; ok {
 			t := float64(toInt(tRaw, -1))
 			switch v := tRaw.(type) {
@@ -187,6 +198,28 @@ func (m *moduleRuntime) inferenceSettingsFromEngineOptions(opts map[string]any) 
 	ensureInferenceSettingsProviderDefaults(ss)
 
 	return ss, resolvedProfile, nil
+}
+
+func decodeModelInfoFromJSOptions(raw any) (*aistepssettings.ModelInfo, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	obj := decodeMap(raw)
+	if obj == nil {
+		return nil, fmt.Errorf("modelInfo must be an object")
+	}
+	b, err := yaml.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	var out aistepssettings.ModelInfo
+	if err := yaml.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+	if err := out.Validate(); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (m *moduleRuntime) engineFromInferenceSettings(opts map[string]any) (*engineRef, error) {
