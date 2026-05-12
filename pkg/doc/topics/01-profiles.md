@@ -101,6 +101,62 @@ profiles:
         engine: gpt-5-mini
 ```
 
+## Model Metadata
+
+Engine profiles can optionally describe static model metadata under `inference_settings.model_info`.
+
+`model_info` is profile/catalog data. It is not a per-request inference override. Use it for information that should travel with the selected model:
+
+- model identity and display name
+- reasoning/thinking capability
+- supported input modalities
+- hard context window
+- quality high-watermark for long-context degradation
+- maximum output tokens
+- token cost rates
+- provider-specific metadata in a grab-bag map
+
+Example:
+
+```yaml
+slug: provider-openai
+profiles:
+  default:
+    slug: default
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-4o-mini
+      model_info:
+        id: gpt-4o-mini
+        name: GPT-4o Mini
+        reasoning: false
+        input:
+          - text
+          - image
+        context_window: 128000
+        quality_high_watermark: 128000
+        max_output_tokens: 16384
+        cost:
+          input: 0.15
+          output: 0.60
+          cache_read: 0.075
+          cache_write: 0.30
+        metadata:
+          family: gpt-4o
+```
+
+Field semantics:
+
+- `context_window` is the hard model context limit.
+- `quality_high_watermark` is the preferred planning limit when quality is known to degrade before the hard context limit. If omitted, consumers may treat `context_window` as both the quality and hard limit.
+- `cost` values are USD per one million tokens. A missing `cost` means unknown; an all-zero `cost` means free/local.
+- `metadata` is a JSON/YAML-compatible `map[string]any` for provider-specific fields.
+
+Merge semantics follow normal profile stack rules: set fields in the overlay win, nil fields fall back to the base profile. `metadata` maps merge recursively. `cost` is replaced as a unit so partial overlays do not accidentally preserve stale base rates.
+
+Resolved metadata is available on `ResolvedEngineProfile.InferenceSettings.ModelInfo`, on JS `resolved.modelInfo`, and on JS engine objects built from resolved profiles.
+
 ## What Resolution Returns
 
 `ResolveEngineProfile(...)` returns:
@@ -240,6 +296,7 @@ Examples that fit well in profiles:
 - `chat.engine`
 - `chat.api_type`
 - provider-specific request defaults
+- `model_info` metadata such as model capabilities, context limits, and cost rates
 
 Examples that fit better in the shared baseline:
 

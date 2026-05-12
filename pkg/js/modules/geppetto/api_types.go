@@ -15,13 +15,15 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 type engineRef struct {
-	Name     string
-	Engine   engine.Engine
-	Metadata map[string]any
+	Name      string
+	Engine    engine.Engine
+	Metadata  map[string]any
+	ModelInfo *aistepssettings.ModelInfo
 }
 
 type builderRef struct {

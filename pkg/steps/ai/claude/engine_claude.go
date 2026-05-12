@@ -251,6 +251,7 @@ streamingComplete:
 	}
 
 	result := engine.BuildInferenceResultFromEventMetadata(metadata, "claude", hasToolCalls)
+	settings.ApplyModelInfoCost(&result, e.settings.ModelInfo)
 	if err := engine.PersistInferenceResult(t, result); err != nil {
 		log.Warn().Err(err).Msg("Claude: failed to persist canonical inference_result")
 	}

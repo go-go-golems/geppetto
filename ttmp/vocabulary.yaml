@@ -105,6 +105,10 @@ topics:
       description: Runtime observability, trace records, debug evidence, and telemetry-style diagnostics
     - slug: claude
       description: Anthropic Claude provider integration and streaming behavior
+    - slug: engine-profiles
+      description: Engine profile system for AI inference configuration
+    - slug: model-metadata
+      description: Model metadata including capabilities, costs, and context windows
 docTypes:
     - slug: index
       description: Ticket index

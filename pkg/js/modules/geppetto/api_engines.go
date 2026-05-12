@@ -13,6 +13,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	aitypes "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
+	"gopkg.in/yaml.v3"
 )
 
 func (m *moduleRuntime) requireEngineRef(v goja.Value) (*engineRef, error) {
@@ -110,6 +111,16 @@ func (m *moduleRuntime) inferenceSettingsFromEngineOptions(opts map[string]any) 
 	ss.Chat.ApiType = &apiType
 
 	if opts != nil {
+		if rawModelInfo, ok := opts["modelInfo"]; ok {
+			modelInfo, err := decodeModelInfoFromJSOptions(rawModelInfo)
+			if err != nil {
+				return nil, "", err
+			}
+			ss.ModelInfo = modelInfo
+		}
+	}
+
+	if opts != nil {
 		if tRaw, ok := opts["temperature"]; ok {
 			t := float64(toInt(tRaw, -1))
 			switch v := tRaw.(type) {
@@ -189,6 +200,52 @@ func (m *moduleRuntime) inferenceSettingsFromEngineOptions(opts map[string]any) 
 	return ss, resolvedProfile, nil
 }
 
+func decodeModelInfoFromJSOptions(raw any) (*aistepssettings.ModelInfo, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	obj := decodeMap(raw)
+	if obj == nil {
+		return nil, fmt.Errorf("modelInfo must be an object")
+	}
+	normalizeModelInfoJSOptionKeys(obj)
+	b, err := yaml.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	var out aistepssettings.ModelInfo
+	if err := yaml.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+	if err := out.Validate(); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func normalizeModelInfoJSOptionKeys(obj map[string]any) {
+	if obj == nil {
+		return
+	}
+	copyIfMissing(obj, "contextWindow", "context_window")
+	copyIfMissing(obj, "qualityHighWatermark", "quality_high_watermark")
+	copyIfMissing(obj, "maxOutputTokens", "max_output_tokens")
+	if cost := decodeMap(obj["cost"]); cost != nil {
+		copyIfMissing(cost, "cacheRead", "cache_read")
+		copyIfMissing(cost, "cacheWrite", "cache_write")
+		obj["cost"] = cost
+	}
+}
+
+func copyIfMissing(obj map[string]any, from string, to string) {
+	if _, exists := obj[to]; exists {
+		return
+	}
+	if v, ok := obj[from]; ok {
+		obj[to] = v
+	}
+}
+
 func (m *moduleRuntime) engineFromInferenceSettings(opts map[string]any) (*engineRef, error) {
 	ss, resolvedProfile, err := m.inferenceSettingsFromEngineOptions(opts)
 	if err != nil {
@@ -199,7 +256,7 @@ func (m *moduleRuntime) engineFromInferenceSettings(opts map[string]any) (*engin
 		return nil, err
 	}
 	_ = resolvedProfile
-	return &engineRef{Name: "config", Engine: eng}, nil
+	return &engineRef{Name: "config", Engine: eng, ModelInfo: ss.ModelInfo.Clone()}, nil
 }
 
 func (m *moduleRuntime) newEngineObject(ref *engineRef) goja.Value {
@@ -208,6 +265,9 @@ func (m *moduleRuntime) newEngineObject(ref *engineRef) goja.Value {
 	m.mustSet(o, "name", ref.Name)
 	if len(ref.Metadata) > 0 {
 		m.mustSet(o, "metadata", cloneJSONMap(ref.Metadata))
+	}
+	if ref.ModelInfo != nil {
+		m.mustSet(o, "modelInfo", m.newModelInfoObject(ref.ModelInfo))
 	}
 	return o
 }
@@ -273,8 +333,9 @@ func (m *moduleRuntime) engineFromResolvedProfile(call goja.FunctionCall) goja.V
 		panic(m.vm.NewGoError(err))
 	}
 	return m.newEngineObject(&engineRef{
-		Name:   "resolvedProfile",
-		Engine: eng,
+		Name:      "resolvedProfile",
+		Engine:    eng,
+		ModelInfo: engineSettings.ModelInfo.Clone(),
 		Metadata: map[string]any{
 			"profileSlug":  resolved.EngineProfileSlug.String(),
 			"registrySlug": resolved.RegistrySlug.String(),

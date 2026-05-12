@@ -355,6 +355,7 @@ func (e *GeminiEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.
 	}
 
 	result, completionEvents := completeGeminiStream(t, &metadata, streamState, startTime, terminalErr)
+	settings.ApplyModelInfoCost(&result, e.settings.ModelInfo)
 	if err := engine.PersistInferenceResult(t, result); err != nil {
 		log.Warn().Err(err).Msg("Gemini: failed to persist canonical inference_result")
 	}

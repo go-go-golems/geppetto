@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
 	"github.com/rs/zerolog/log"
@@ -205,8 +206,9 @@ func responsesFinishClass(state *responsesStreamState, terminal responsesStreamT
 	return "stream_closed"
 }
 
-func persistResponsesInferenceResult(t *turns.Turn, metadata events.EventMetadata, provider string, hasToolCalls bool) {
+func persistResponsesInferenceResult(t *turns.Turn, metadata events.EventMetadata, provider string, hasToolCalls bool, modelInfo *settings.ModelInfo) {
 	result := engine.BuildInferenceResultFromEventMetadata(metadata, provider, hasToolCalls)
+	settings.ApplyModelInfoCost(&result, modelInfo)
 	if err := engine.PersistInferenceResult(t, result); err != nil {
 		log.Warn().Err(err).Msg("Responses: failed to persist canonical inference_result")
 	}

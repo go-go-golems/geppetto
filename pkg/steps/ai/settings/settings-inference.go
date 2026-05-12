@@ -74,6 +74,10 @@ type InferenceSettings struct {
 	// (thinking budget, reasoning effort, temperature overrides, etc.).
 	// These can be further overridden per-turn via Turn.Data KeyInferenceConfig.
 	Inference *engine.InferenceConfig `yaml:"inference,omitempty" glazed:"ai-inference"`
+
+	// ModelInfo describes static model-level capabilities, limits, and pricing.
+	// It is loaded from profile YAML as inference_settings.model_info.
+	ModelInfo *ModelInfo `yaml:"model_info,omitempty" glazed:"ai-model-info"`
 }
 
 func NewInferenceSettings() (*InferenceSettings, error) {
@@ -278,6 +282,40 @@ func (ss *InferenceSettings) GetMetadata() map[string]interface{} {
 		}
 	}
 
+	if ss.ModelInfo != nil {
+		if ss.ModelInfo.ID != nil {
+			metadata["ai-model-id"] = *ss.ModelInfo.ID
+		}
+		if ss.ModelInfo.Name != nil {
+			metadata["ai-model-name"] = *ss.ModelInfo.Name
+		}
+		if ss.ModelInfo.Reasoning != nil {
+			metadata["ai-model-reasoning"] = *ss.ModelInfo.Reasoning
+		}
+		if len(ss.ModelInfo.Input) > 0 {
+			input := make([]string, 0, len(ss.ModelInfo.Input))
+			for _, modality := range ss.ModelInfo.Input {
+				input = append(input, string(modality))
+			}
+			metadata["ai-model-input"] = input
+		}
+		if ss.ModelInfo.ContextWindow != nil {
+			metadata["ai-model-context-window"] = *ss.ModelInfo.ContextWindow
+		}
+		if ss.ModelInfo.QualityHighWatermark != nil {
+			metadata["ai-model-quality-high-watermark"] = *ss.ModelInfo.QualityHighWatermark
+		}
+		if ss.ModelInfo.MaxOutputTokens != nil {
+			metadata["ai-model-max-output-tokens"] = *ss.ModelInfo.MaxOutputTokens
+		}
+		if ss.ModelInfo.Cost != nil {
+			metadata["ai-model-cost-input"] = ss.ModelInfo.Cost.Input
+			metadata["ai-model-cost-output"] = ss.ModelInfo.Cost.Output
+			metadata["ai-model-cost-cache-read"] = ss.ModelInfo.Cost.CacheRead
+			metadata["ai-model-cost-cache-write"] = ss.ModelInfo.Cost.CacheWrite
+		}
+	}
+
 	if ss.Embeddings != nil {
 		if ss.Embeddings.Engine != "" {
 			metadata["embeddings-engine"] = ss.Embeddings.Engine
@@ -294,18 +332,39 @@ func (ss *InferenceSettings) GetMetadata() map[string]interface{} {
 }
 
 func (s *InferenceSettings) Clone() *InferenceSettings {
-	ret := &InferenceSettings{
-		API:        s.API.Clone(),
-		Chat:       s.Chat.Clone(),
-		OpenAI:     s.OpenAI.Clone(),
-		Client:     s.Client.Clone(),
-		Claude:     s.Claude.Clone(),
-		Gemini:     s.Gemini.Clone(),
-		Ollama:     s.Ollama.Clone(),
-		Embeddings: s.Embeddings.Clone(),
+	if s == nil {
+		return nil
+	}
+	ret := &InferenceSettings{}
+	if s.API != nil {
+		ret.API = s.API.Clone()
+	}
+	if s.Chat != nil {
+		ret.Chat = s.Chat.Clone()
+	}
+	if s.OpenAI != nil {
+		ret.OpenAI = s.OpenAI.Clone()
+	}
+	if s.Client != nil {
+		ret.Client = s.Client.Clone()
+	}
+	if s.Claude != nil {
+		ret.Claude = s.Claude.Clone()
+	}
+	if s.Gemini != nil {
+		ret.Gemini = s.Gemini.Clone()
+	}
+	if s.Ollama != nil {
+		ret.Ollama = s.Ollama.Clone()
+	}
+	if s.Embeddings != nil {
+		ret.Embeddings = s.Embeddings.Clone()
 	}
 	if s.Inference != nil {
 		ret.Inference = clone.Clone(s.Inference).(*engine.InferenceConfig)
+	}
+	if s.ModelInfo != nil {
+		ret.ModelInfo = s.ModelInfo.Clone()
 	}
 	return ret
 }
@@ -476,6 +535,38 @@ func (ss *InferenceSettings) GetSummary(verbose bool) string {
 
 	if ss.Gemini != nil && verbose {
 		summary.WriteString("\nGemini Settings:\n")
+	}
+
+	if ss.ModelInfo != nil {
+		summary.WriteString("\nModel Info:\n")
+		if ss.ModelInfo.ID != nil {
+			fmt.Fprintf(&summary, "  - ID: %s\n", *ss.ModelInfo.ID)
+		}
+		if ss.ModelInfo.Name != nil {
+			fmt.Fprintf(&summary, "  - Name: %s\n", *ss.ModelInfo.Name)
+		}
+		if ss.ModelInfo.Reasoning != nil {
+			fmt.Fprintf(&summary, "  - Reasoning: %t\n", *ss.ModelInfo.Reasoning)
+		}
+		if len(ss.ModelInfo.Input) > 0 {
+			fmt.Fprintf(&summary, "  - Input: %v\n", ss.ModelInfo.Input)
+		}
+		if ss.ModelInfo.ContextWindow != nil {
+			fmt.Fprintf(&summary, "  - Context Window: %d\n", *ss.ModelInfo.ContextWindow)
+		}
+		if ss.ModelInfo.QualityHighWatermark != nil {
+			fmt.Fprintf(&summary, "  - Quality High Watermark: %d\n", *ss.ModelInfo.QualityHighWatermark)
+		}
+		if ss.ModelInfo.MaxOutputTokens != nil {
+			fmt.Fprintf(&summary, "  - Max Output Tokens: %d\n", *ss.ModelInfo.MaxOutputTokens)
+		}
+		if ss.ModelInfo.Cost != nil && verbose {
+			fmt.Fprintf(&summary, "  - Cost (USD/1M): input=%.6f output=%.6f cache_read=%.6f cache_write=%.6f\n",
+				ss.ModelInfo.Cost.Input,
+				ss.ModelInfo.Cost.Output,
+				ss.ModelInfo.Cost.CacheRead,
+				ss.ModelInfo.Cost.CacheWrite)
+		}
 	}
 
 	// Ollama Settings

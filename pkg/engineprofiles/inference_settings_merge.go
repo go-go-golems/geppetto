@@ -41,12 +41,38 @@ func mergeInferenceSettings(base *aistepssettings.InferenceSettings, overlay *ai
 	if err != nil {
 		return nil, err
 	}
-	merged := mergeExtensionValue(baseMap, overlayMap)
+	merged := mergeInferenceSettingsMap(baseMap, overlayMap)
 	mergedMap, ok := merged.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("merged inference settings must resolve to an object")
 	}
 	return inferenceSettingsFromMap(mergedMap)
+}
+
+func mergeInferenceSettingsMap(base map[string]any, overlay map[string]any) any {
+	ret, _ := mergeExtensionValue(base, overlay).(map[string]any)
+	if ret == nil {
+		ret = map[string]any{}
+	}
+	baseModelInfo, baseHasModelInfo := base["model_info"].(map[string]any)
+	overlayModelInfo, overlayHasModelInfo := overlay["model_info"].(map[string]any)
+	if baseHasModelInfo && overlayHasModelInfo {
+		ret["model_info"] = mergeModelInfoMapForInferenceSettings(baseModelInfo, overlayModelInfo)
+	}
+	return ret
+}
+
+func mergeModelInfoMapForInferenceSettings(base map[string]any, overlay map[string]any) map[string]any {
+	merged, _ := mergeExtensionValue(base, overlay).(map[string]any)
+	if merged == nil {
+		merged = map[string]any{}
+	}
+	// Cost rates use value types, so a cost object should be replaced as a unit
+	// instead of recursively preserving omitted base rates.
+	if overlayCost, ok := overlay["cost"]; ok {
+		merged["cost"] = deepCopyAny(overlayCost)
+	}
+	return merged
 }
 
 func inferenceSettingsToMap(in *aistepssettings.InferenceSettings) (map[string]any, error) {

@@ -1,0 +1,411 @@
+---
+Title: Diary
+Ticket: GP-70
+Status: active
+Topics:
+    - geppetto
+    - engine-profiles
+    - inference
+    - model-metadata
+DocType: reference
+Intent: long-term
+Owners: []
+RelatedFiles:
+    - /home/manuel/workspaces/2026-05-06/add-model-metadata/geppetto/pkg/engineprofiles/types.go:Core EngineProfile types where ModelInfo will be consumed
+    - /home/manuel/workspaces/2026-05-06/add-model-metadata/geppetto/pkg/steps/ai/settings/settings-inference.go:InferenceSettings where ModelInfo field will be added
+    - /home/manuel/workspaces/2026-05-06/add-model-metadata/geppetto/pkg/steps/ai/settings/settings-chat.go:ChatSettings pattern for pointer-typed optional fields
+    - /home/manuel/workspaces/2026-05-06/add-model-metadata/geppetto/pkg/inference/engine/inference_config.go:InferenceConfig merge pattern to follow
+    - /home/manuel/workspaces/2026-05-06/add-model-metadata/geppetto/pkg/inference/engine/factory/factory.go:isReasoningModel heuristic to replace
+ExternalSources: []
+Summary: "Implementation diary for GP-70: adding model metadata to engine profiles"
+LastUpdated: 2026-05-06T10:55:00.000000000-04:00
+WhatFor: "Track the investigation, design, and implementation steps for model metadata"
+WhenToUse: "When resuming work on GP-70 or reviewing the implementation"
+---
+
+# Diary
+
+## Goal
+
+Capture the step-by-step implementation journey for adding model metadata (reasoning, input modalities, context window with quality high-watermark, costs, metadata grab-bag) to the geppetto engine profile system.
+
+## Step 1: Codebase Investigation and Design Document
+
+This step covered the full investigation of the geppetto/pinocchio codebase to understand the existing engine profile system, inference settings, stack merge semantics, and extension key patterns. The output is a comprehensive design document written for a new intern.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Create a new docmgr ticket to add metadata to models regarding thinking, input types, costs, context window size (which is both quality high watermark and absolute size, to be able to indicate when the quality of a model degrades). It is for example data like this: {\"id\": \"DeepSeek-V4-Pro\", \"name\": \"DeepSeek V4 Pro\", \"reasoning\": true, \"input\": [\"text\"], \"contextWindow\": 262144, \"maxTokens\": 32768, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0}}. It should be loaded from profiles as part of inference settings, and be both typed data for the above fields, and also allow a map[string]any{} metadata grab bag. Create a detailed analysis / design / implementation guide that is for a new intern, explaining all the parts of the system needed to understand what it is, with prose paragraphs and bullet points and pseudocode and diagrams and api references and file references. It should be very clear and technical. Store in the ticket and then upload to remarkable. Keep a diary as you work."
+
+**Assistant interpretation:** Create a docmgr ticket, write a detailed design/implementation guide for adding model metadata to engine profiles, maintain a diary, and upload to reMarkable.
+
+**Inferred user intent:** Produce an exhaustive, intern-friendly design document that covers the full system context, proposed architecture, and phased implementation plan. Deliver it as both a docmgr ticket document and a reMarkable PDF.
+
+### What I did
+
+- Explored the three-repo workspace (geppetto, pinocchio, glazed) to understand the architecture
+- Read and analyzed 15+ key source files covering engine profiles, inference settings, stack merge, extension keys, engine factory, inference config, JS module surface, and inference results
+- Created docmgr ticket GP-70 with design-doc and diary documents
+- Wrote a comprehensive design document (~45KB) covering:
+  - Executive summary
+  - Problem statement with gap analysis table
+  - Current-state architecture (9 subsections explaining every relevant component)
+  - Proposed architecture with type sketches, field tables, merge semantics, YAML format, and API reference
+  - Data flow diagrams (profile resolution, cost computation, context budgeting)
+  - 6-phase implementation plan with specific file references
+  - Testing strategy
+  - Risks and alternatives
+  - Open questions
+  - Full reference table of key files
+- Revised the document to remove all full Go implementation code, keeping only pseudocode, type sketches, and prose descriptions — leaving freedom for the implementor to make their own decisions
+
+### Why
+
+The design needs to be self-contained enough for a new intern to understand the entire profile system, not just the new feature. Without the current-state walkthrough, the intern would have to reverse-engineer the architecture from the code.
+
+### What worked
+
+- Reading the actual source files gave concrete evidence for every claim in the design
+- Following the ProfileRuntime extension example (pinocchio/pkg/inference/runtime/profile_runtime.go) provided a proven pattern for how to integrate new typed data
+- The three-way decision on ModelInfo placement (InferenceSettings only vs extension only vs both) led to a clean decision (Option A) with explicit rationale
+
+### What didn't work
+
+- Initially considered making ModelInfo both an InferenceSettings field AND a profile extension, but realized this creates a synchronization problem. Settled on InferenceSettings as the single source of truth.
+
+### What I learned
+
+- The stack merge system already handles InferenceSettings field-by-field through YAML round-trip, so adding ModelInfo there means it merges "for free" without custom merge code
+- The `isReasoningModel()` heuristic in factory.go is exactly the kind of hardcoding that model metadata replaces
+- `InferenceResult.Usage` already has all the token fields needed for cost computation—no new tracking needed
+
+### What was tricky to build
+
+- The quality high-watermark concept required careful thought about semantics: it's not just a "recommended limit" but a "quality degradation threshold" that differs from the hard context window. The two-field approach (context_window + quality_high_watermark) is novel but maps to real provider behavior (e.g., Gemini 1M context with quality degradation beyond ~500K).
+- Removing full Go implementation code while keeping enough detail to be actionable required balancing specificity vs. implementor freedom. The solution was to use field tables, merge rule pseudocode, and signature sketches instead of concrete struct definitions and function bodies.
+
+### What warrants a second pair of eyes
+
+- The decision to use value types (not pointers) for `ModelCost` fields—nil `Cost` means unknown, `Cost{}` means free. Make sure this doesn't create confusion when merging costs through the stack (wholesale replacement of Cost, not field-by-field).
+- The validation that `quality_high_watermark <= context_window`—should this be a warning or an error?
+
+### What should be done in the future
+
+- Implement Phase 1 (core types) first, then Phase 2 (profile integration), then validate with YAML fixtures before moving to later phases
+- Add model metadata to the existing example profile YAML files in the repo
+- Consider a CLI command to dump model info for a resolved profile
+
+### Code review instructions
+
+- Start in `design-doc/01-model-metadata-design-and-implementation-guide.md`
+- Key architectural decisions to validate: ModelInfo in InferenceSettings (not extension-only), ModelCost as value types, quality_high_watermark as separate field from context_window
+- Cross-reference the proposed types against `InferenceConfig` and `ChatSettings` for pattern consistency
+
+### Technical details
+
+- docmgr ticket: GP-70
+- Design doc path: `geppetto/ttmp/2026/05/06/GP-70--add-model-metadata-to-engine-profiles/design-doc/01-model-metadata-design-and-implementation-guide.md`
+- Diary path: `geppetto/ttmp/2026/05/06/GP-70--add-model-metadata-to-engine-profiles/reference/01-diary.md`
+- reMarkable upload: `/ai/2026/05/06/GP-70/GP-70 Model Metadata Design.pdf`
+- docmgr doctor: passed (all checks clean)
+- 9 tasks created
+- 5 files related to ticket
+- Vocabulary added: `engine-profiles`, `model-metadata`
+
+## Step 2: Implement Model Metadata Across Geppetto and Pinocchio
+
+This step implemented the model metadata design in the codebase. The core support now lives in Geppetto as `InferenceSettings.ModelInfo`, with typed model capabilities, context limits, pricing, merge semantics, YAML/profile integration, JS exposure, and post-inference cost stamping. Pinocchio now surfaces model metadata in the profile picker and profile API.
+
+The implementation intentionally kept `ModelInfo` as part of `InferenceSettings` rather than adding a second profile-extension source of truth. This preserved the normal profile stack behavior and avoided synchronization problems between `inference_settings` and `extensions`.
+
+### Prompt Context
+
+**User prompt (verbatim):** "implement all of the tasks. Keep commits at appropriate intervals, keep a detailed diary (see skill)."
+
+**Assistant interpretation:** Implement the GP-70 task list, commit at logical milestones, keep the docmgr diary updated, and validate with tests.
+
+**Inferred user intent:** Move from design-only ticket to working code across Geppetto and Pinocchio, preserving reviewability and traceability.
+
+**Commit (code):** `bfcb0d00ad4f3a2b69d6bbb35ab918a69dee858b` — "Geppetto: add model metadata to inference profiles"
+
+**Commit (code):** `d43a21434d00f61fc266213d58f11c56f7c2ca9d` — "Geppetto: accept model metadata in JS engine config"
+
+**Commit (code):** `d53ada144636d14afd7fcbf4f3b7a311e1f6284a` — "Pinocchio: expose profile model metadata"
+
+### What I did
+
+- Added `ModelInfo`, `ModelCost`, and `InputModality` in `geppetto/pkg/steps/ai/settings/model_info.go`.
+- Added context limit helpers, validation, clone support, merge support, and cost computation helpers.
+- Added `ModelInfo *ModelInfo` to `InferenceSettings` and updated clone, metadata flattening, and summary rendering.
+- Updated profile stack merge to treat `model_info.cost` as a wholesale replacement instead of recursively merging partial cost maps.
+- Added YAML/profile decode and stack merge tests for `model_info`.
+- Added `model_info` to `geppetto/examples/js/geppetto/profiles/10-provider-openai.yaml`.
+- Updated reasoning-model decisions in Geppetto factory/OpenAI/OpenAI Responses paths to prefer `ModelInfo.Reasoning` and fall back to name heuristics.
+- Added `Cost *float64` to `turns.InferenceResult` and stamped computed costs in OpenAI, OpenAI Responses, Claude, and Gemini result persistence paths.
+- Exposed `modelInfo` to the Geppetto JS module on resolved profiles and engine objects.
+- Accepted `modelInfo` in `geppetto.engines.fromConfig()` JS options.
+- Updated Geppetto TypeScript declaration template with `ModelInfo` and `ModelCost` interfaces.
+- Updated Pinocchio profile switcher list items to carry model info and render capability summaries.
+- Updated Pinocchio web-chat profile API list/detail responses to include `model_info`.
+- Rewrote ticket tasks as checked implementation tasks with notes for intentional no-op decisions.
+
+### Why
+
+The implementation follows the ticket design: model metadata is profile-loaded, typed, merged with inference settings, visible to JS/UI consumers, and connected to cost computation through existing inference usage data. Pinocchio integration focuses on surfacing the metadata rather than introducing a new token-budgeting subsystem.
+
+### What worked
+
+- YAML round-trip profile loading picked up `model_info` through struct tags as expected.
+- The existing `MergeInferenceSettings` map merge could be reused with a small special case for `model_info.cost` wholesale replacement.
+- Existing provider engines already had access to their `InferenceSettings`, so cost stamping could happen in provider persistence paths without creating an import cycle from `inference/engine` back to `settings`.
+- JS module tests were straightforward because resolved profiles already expose `inferenceSettings`; `modelInfo` is now a direct convenience property.
+
+### What didn't work
+
+- Directly adding model-aware cost computation to `BuildInferenceResultFromEventMetadata()` would have introduced an import cycle (`settings` already imports `inference/engine`). I avoided this by adding `settings.ApplyModelInfoCost()` and calling it from provider packages.
+- Implementing real web-chat prompt trimming was not done in this pass because no token-budgeting/trimming layer was present at the web-chat resolver boundary. Instead, `ModelInfo` is exposed through the API/runtime path so a tokenizer-aware layer can use `EffectiveContextLimit()` and `HardContextLimit()`.
+
+### What I learned
+
+- `InferenceSettings.Clone()` previously assumed all nested settings pointers were non-nil. Updating it to be nil-safe made ModelInfo cloning safer and reduced future YAML edge cases.
+- The profile API and TUI profile picker list raw profile documents, not fully resolved stacks. Metadata displayed there reflects the profile document being listed; resolved paths still carry merged `InferenceSettings.ModelInfo`.
+- Cost should be stamped close to provider result persistence because those paths know both final usage metadata and the model settings used for the call.
+
+### What was tricky to build
+
+- Avoiding import cycles was the main sharp edge. The natural place to compute cost looked like `inference/engine`, but that package cannot import `steps/ai/settings` because settings already imports engine for `InferenceConfig`. The solution was to keep `ComputeCost` and `ApplyModelInfoCost` in the settings package and call them from provider packages.
+- Merge semantics required care: recursive map merge is normally desired, but partial cost merge would preserve stale base output/cache costs. The implementation special-cases `model_info.cost` so overlay cost replaces base cost as a unit.
+
+### What warrants a second pair of eyes
+
+- Review `MergeInferenceSettings` special-casing for `model_info.cost` to ensure it is not too narrow and handles YAML-decoded map shapes consistently.
+- Review cost stamping locations across OpenAI, OpenAI Responses, Claude, and Gemini to ensure every successful inference result path is covered.
+- Review Pinocchio profile picker rendering for terminal compatibility with emoji badges.
+- Review the decision not to add CLI flags for model metadata in v1.
+
+### What should be done in the future
+
+- Add a tokenizer-aware prompt budgeting/trimming layer in web-chat that uses `EffectiveContextLimit()` and `HardContextLimit()`.
+- Consider a model catalog updater or profile generator for keeping provider pricing/context metadata current.
+- Add frontend rendering for `model_info` returned by the web-chat profile API.
+
+### Code review instructions
+
+- Start with `geppetto/pkg/steps/ai/settings/model_info.go` and `settings-inference.go`.
+- Then review merge behavior in `geppetto/pkg/engineprofiles/inference_settings_merge.go` and tests in `stack_merge_model_info_test.go`.
+- Review provider result stamping in `pkg/steps/ai/{openai,openai_responses,claude,gemini}`.
+- Review JS exposure in `geppetto/pkg/js/modules/geppetto/api_runtime_metadata.go` and `api_engines.go`.
+- Review Pinocchio exposure in `pinocchio/pkg/ui/profileswitch/*` and `pinocchio/cmd/web-chat/profiles/*`.
+- Validate with:
+  - `cd geppetto && go test ./...`
+  - `cd pinocchio && go test ./pkg/ui/profileswitch ./cmd/web-chat/profiles ./pkg/cmds/profilebootstrap`
+  - Pinocchio pre-commit also ran `go generate ./...`, frontend build, `go build ./...`, golangci-lint, `go vet`, and `go test ./...` successfully during commit.
+
+### Technical details
+
+- Geppetto full test command passed: `go test ./...`.
+- Pinocchio targeted test command passed: `go test ./pkg/ui/profileswitch ./cmd/web-chat/profiles ./pkg/cmds/profilebootstrap`.
+- Pinocchio pre-commit hook ran and passed full lint/test pipeline during commit `d53ada1`.
+
+## Step 3: Update Permanent Project Documentation
+
+This step followed up on documentation outside the GP-70 ticket. I inspected the existing Geppetto and Pinocchio documentation structure and found the right permanent pages to update: Geppetto's engine profile topic, Geppetto's JS API reference, Geppetto's JS examples README, Pinocchio's main README, and the web-chat README.
+
+The update makes `inference_settings.model_info` discoverable from the normal docs path instead of only from the ticket design document. It documents YAML shape, field semantics, JS exposure, and Pinocchio API/UI behavior.
+
+### Prompt Context
+
+**User prompt (verbatim):** "look at existing documentation in geppetto and pinocchio, I think there should already beenough to go on"
+
+**Assistant interpretation:** Inspect the existing documentation hierarchy and update the appropriate existing docs rather than creating a new standalone page unless needed.
+
+**Inferred user intent:** Ensure the implemented feature is documented where future contributors and users already look for profile/JS/web-chat behavior.
+
+**Commit (docs):** `78e807d4c4524176ee5e79ea08fd5ae3d5f9d387` — "Docs: document model metadata in Geppetto profiles"
+
+**Commit (docs):** `a4569a76a3d488a1a66ea91d76a3d84ef602b5dd` — "Docs: document profile model metadata in Pinocchio"
+
+### What I did
+
+- Read existing docs:
+  - `geppetto/README.md`
+  - `geppetto/pkg/doc/topics/01-profiles.md`
+  - `geppetto/pkg/doc/topics/13-js-api-reference.md`
+  - `geppetto/examples/js/geppetto/README.md`
+  - `pinocchio/README.md`
+  - `pinocchio/cmd/web-chat/README.md`
+  - `pinocchio/examples/js/README.md`
+- Updated Geppetto profile docs with a new `Model Metadata` section covering YAML shape, field semantics, context-window vs quality-high-watermark, cost units, metadata grab-bag, and merge rules.
+- Updated Geppetto JS API docs to mention `resolved.modelInfo`, `engine.modelInfo`, and optional `fromConfig({ modelInfo })`.
+- Updated Geppetto JS example README to call out the fixture model metadata.
+- Updated Pinocchio README engine-profile YAML example with `model_info` and its user-facing meaning.
+- Updated web-chat README to mention profile API responses include `model_info`.
+
+### Why
+
+The ticket design doc is useful for implementation history, but permanent docs need to live where users already learn about profiles, JS APIs, and Pinocchio profile loading.
+
+### What worked
+
+- `geppetto/pkg/doc/topics/01-profiles.md` was the right canonical profile-format page.
+- `geppetto/pkg/doc/topics/13-js-api-reference.md` already described `profiles.resolve` and engine constructors, so the `modelInfo` additions fit there naturally.
+- Pinocchio's README already had a concise engine-profile YAML example, making it the best place to show optional `model_info`.
+
+### What didn't work
+
+- No separate permanent profile-format README was necessary; the existing documentation was sufficient once updated.
+
+### What I learned
+
+- The documentation tree already has clear ownership boundaries: Geppetto documents engine profiles and JS API; Pinocchio documents app-side profile loading and web-chat API behavior.
+
+### What was tricky to build
+
+- The main choice was where not to document: duplicating full schema details in every README would drift. I kept detailed schema semantics in Geppetto's profile topic and referenced only the needed behavior in Pinocchio docs.
+
+### What warrants a second pair of eyes
+
+- Confirm the Pinocchio README example should include concrete OpenAI pricing or whether that should be marked illustrative to avoid stale pricing.
+
+### What should be done in the future
+
+- If a generated docs site indexes `pkg/doc/topics`, verify the new docs render correctly.
+- If pricing changes frequently, consider documenting cost values as examples only and moving provider-pricing updates to profile fixtures/catalogs.
+
+### Code review instructions
+
+- Review `geppetto/pkg/doc/topics/01-profiles.md` first for schema and merge semantics.
+- Then review `geppetto/pkg/doc/topics/13-js-api-reference.md` for JS API shape.
+- Finally review `pinocchio/README.md` and `pinocchio/cmd/web-chat/README.md` for user-facing wording.
+
+## Step 4: Fix Generated TypeScript Declaration CI Failure
+
+This step fixed the GitHub Actions failure on PR #351. The failing job was the Geppetto `test` job at `https://github.com/go-go-golems/geppetto/actions/runs/25707590887/job/75480915000`, specifically the `verify generated files are up to date` step after `go generate ./...`.
+
+The generated declaration file `pkg/doc/types/geppetto.d.ts` was stale after adding `ModelInfo` and `ModelCost` to the TypeScript template. Regenerating assets produced the expected declaration diff.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Fixup https://github.com/go-go-golems/geppetto/actions/runs/25707590887/job/75480915000?pr=351"
+
+**Assistant interpretation:** Inspect the failing CI job, identify the cause, apply the needed fix, commit it, and validate locally.
+
+**Inferred user intent:** Repair the PR so CI no longer fails on generated-file drift.
+
+**Commit (code):** `4b9544fd2b0627aa93fef747474d0e6ff0375a58` — "Geppetto: regenerate TypeScript declarations"
+
+### What I did
+
+- Inspected the GitHub Actions run with `gh run view 25707590887 --json status,conclusion,jobs,url,headBranch,headSha`.
+- Downloaded the job log with `gh api repos/go-go-golems/geppetto/actions/jobs/75480915000/logs`.
+- Found the failing step: `go generate ./...` succeeded, then `git diff --exit-code` failed because `pkg/doc/types/geppetto.d.ts` had generated changes.
+- Ran `go generate ./...` locally in `geppetto`.
+- Committed the generated `pkg/doc/types/geppetto.d.ts` updates.
+- Validated locally with:
+  - `go test ./pkg/js/modules/geppetto ./cmd/tools/gen-dts`
+  - `go generate ./... && git diff --exit-code && go test ./...`
+
+### Why
+
+The code changes updated `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`, but the generated published declaration file `pkg/doc/types/geppetto.d.ts` was not committed. CI checks that generated files are up to date.
+
+### What worked
+
+- The job log clearly showed the exact generated diff: `ModelCost`, `ModelInfo`, `Engine.modelInfo`, and `ResolvedProfile.modelInfo` were missing from `pkg/doc/types/geppetto.d.ts`.
+- Running `go generate ./...` produced the exact expected declaration changes.
+
+### What didn't work
+
+- `gh run view --job ... --log` returned no visible output in this environment, so I used the GitHub API endpoint for job logs instead.
+
+### What I learned
+
+- For Geppetto JS API changes, updating `spec/geppetto.d.ts.tmpl` is not enough; the generated `pkg/doc/types/geppetto.d.ts` must also be committed.
+
+### What was tricky to build
+
+- No code changes were needed beyond generated output, but the local validation needed to mimic CI order: `go generate ./...`, then `git diff --exit-code`, then tests.
+
+### What warrants a second pair of eyes
+
+- Confirm no other generated artifacts are stale in CI. Local `git diff --exit-code` after `go generate ./...` passed.
+
+### What should be done in the future
+
+- When editing JS API TypeScript templates, always run `go generate ./...` before committing.
+
+### Code review instructions
+
+- Review `pkg/doc/types/geppetto.d.ts` and compare it to `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`.
+- Validate with `go generate ./... && git diff --exit-code && go test ./...`.
+
+## Step 5: Address PR #351 Code Review Comments
+
+This step addressed both automated Codex review comments on PR #351. The first comment pointed out that cached prompt tokens were still charged at the full input rate. The second pointed out that `engines.fromConfig({ modelInfo })` accepted only snake_case fields even though the documented JS-facing shape uses camelCase.
+
+The fixes keep the public API coherent: JS callers can now pass the same camelCase `modelInfo` object they receive from `resolved.modelInfo` or `engine.modelInfo`, and cost computation partitions input tokens into standard input, cache-read, and cache-write buckets before applying rates.
+
+### Prompt Context
+
+**User prompt (verbatim):** "https://github.com/go-go-golems/geppetto/pull/351
+
+Address code review comments here: https://github.com/go-go-golems/geppetto/pull/351"
+
+**Assistant interpretation:** Fetch the inline PR review comments, implement the requested fixes, validate, and commit.
+
+**Inferred user intent:** Make PR #351 review-clean by fixing the concrete correctness issues identified by Codex.
+
+**Commit (code):** `8c689bbd3bd865e4dfe3c311cc412dc1cea55105` — "Geppetto: address model metadata review feedback"
+
+### What I did
+
+- Retrieved PR #351 inline comments with `gh api repos/go-go-golems/geppetto/pulls/351/comments --paginate`.
+- Updated `ModelInfo.ComputeCost` so cached tokens are not double-charged at the full input rate:
+  - `CacheReadInputTokens` is preferred for cache reads.
+  - `CachedTokens` is used as a fallback when `CacheReadInputTokens` is zero.
+  - standard input tokens are computed as `InputTokens - cacheReadTokens - cacheWriteTokens`, clamped at zero.
+  - cache-write tokens use `CacheCreationInputTokens`.
+- Added tests for explicit cache-read/cache-write usage and `CachedTokens` fallback.
+- Updated JS `modelInfo` decoding to normalize camelCase JS keys to snake_case Go/YAML keys before decoding:
+  - `contextWindow` → `context_window`
+  - `qualityHighWatermark` → `quality_high_watermark`
+  - `maxOutputTokens` → `max_output_tokens`
+  - `cost.cacheRead` → `cost.cache_read`
+  - `cost.cacheWrite` → `cost.cache_write`
+- Updated the JS test to pass camelCase `modelInfo` through `engines.fromConfig()`.
+
+### Why
+
+The old cost formula charged all `InputTokens` at full input price and then additionally charged cache read/write buckets. That inflated costs for providers that report cached-token subsets inside total prompt/input tokens. The old JS decode path also silently dropped documented camelCase fields, which made the API non-round-trippable.
+
+### What worked
+
+- The review comments were precise and mapped directly to focused changes.
+- Existing tests made it easy to add regression coverage in the right packages.
+
+### What didn't work
+
+- N/A.
+
+### What I learned
+
+- `CachedTokens` and `CacheReadInputTokens` can both describe cache-hit subsets, but different provider reducers may populate one or the other. The cost path needs to account for both.
+- The JS API exposes camelCase while Go/YAML uses snake_case, so option decode paths must normalize when they accept JS-facing objects.
+
+### What was tricky to build
+
+- The key invariant is to avoid double-charging: input tokens reported by provider usage are total prompt/input tokens, so cache-read and cache-write subsets must be subtracted before applying the regular input rate.
+
+### What warrants a second pair of eyes
+
+- Confirm the `CachedTokens` fallback is correct for every provider's usage semantics. It is only used when `CacheReadInputTokens` is zero to avoid double-counting.
+
+### What should be done in the future
+
+- If providers start reporting separate uncached prompt token counts, prefer those directly rather than partitioning total input tokens.
+
+### Code review instructions
+
+- Review `pkg/steps/ai/settings/model_info.go` cost computation and `model_info_test.go` regression cases.
+- Review `pkg/js/modules/geppetto/api_engines.go` normalization and `module_test.go` camelCase fromConfig coverage.
+- Validate with `go test ./...`.

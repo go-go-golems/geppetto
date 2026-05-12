@@ -108,7 +108,7 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSetting
 	}
 	if provider == string(types.ApiTypeOpenAI) && settings != nil && settings.Chat != nil && settings.Chat.Engine != nil {
 		model := strings.ToLower(strings.TrimSpace(*settings.Chat.Engine))
-		if isReasoningModel(model) {
+		if isReasoningModelForSettings(settings, model) {
 			log.Warn().
 				Str("model", model).
 				Str("provider", provider).
@@ -140,6 +140,13 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSetting
 		supported := strings.Join(f.SupportedProviders(), ", ")
 		return nil, errors.Errorf("unsupported provider %s. Supported providers: %s", provider, supported)
 	}
+}
+
+func isReasoningModelForSettings(settings *settings.InferenceSettings, model string) bool {
+	if settings != nil && settings.ModelInfo != nil && settings.ModelInfo.Reasoning != nil {
+		return *settings.ModelInfo.Reasoning
+	}
+	return isReasoningModel(model)
 }
 
 func isReasoningModel(model string) bool {

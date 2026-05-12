@@ -8,6 +8,7 @@ import (
 
 	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -105,6 +106,13 @@ func isReasoningModel(engine string) bool {
 		strings.HasPrefix(m, "o3") ||
 		strings.HasPrefix(m, "o4") ||
 		strings.HasPrefix(m, "gpt-5")
+}
+
+func isReasoningModelForSettings(settings *settings.InferenceSettings, engine string) bool {
+	if settings != nil && settings.ModelInfo != nil && settings.ModelInfo.Reasoning != nil {
+		return *settings.ModelInfo.Reasoning
+	}
+	return isReasoningModel(engine)
 }
 
 // Removed obsolete MakeCompletionRequest (conversation-based)
@@ -538,8 +546,8 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 	// Apply per-turn InferenceConfig overrides (Turn.Data > InferenceSettings.Inference).
 	// ResolveInferenceConfig performs field-level merge: turn fields override engine defaults.
 	if infCfg := infengine.ResolveInferenceConfig(t, settings.Inference); infCfg != nil {
-		reasoning := isReasoningModel(engine)
-		// Reasoning models (o1/o3/o4/gpt-5) reject temperature/top_p; sanitize upfront.
+		reasoning := isReasoningModelForSettings(settings, engine)
+		// Reasoning models reject temperature/top_p; sanitize upfront.
 		if reasoning {
 			infCfg = infengine.SanitizeForReasoningModel(infCfg)
 		}
@@ -581,7 +589,7 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 	// Apply OpenAI-specific per-turn overrides from Turn.Data.
 	if oaiCfg := infengine.ResolveOpenAIInferenceConfig(t); oaiCfg != nil {
 		// Reasoning models reject penalties and N>1; sanitize upfront.
-		if isReasoningModel(engine) {
+		if isReasoningModelForSettings(settings, engine) {
 			oaiCfg = infengine.SanitizeOpenAIForReasoningModel(oaiCfg)
 		}
 		if oaiCfg.N != nil {
