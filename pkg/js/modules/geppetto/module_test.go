@@ -754,12 +754,17 @@ func TestEnginesFromConfigStillWorks(t *testing.T) {
 			modelInfo: {
 				id: "gpt-4o-mini",
 				reasoning: false,
-				context_window: 128000,
-				cost: { input: 0.15, output: 0.60 }
+				contextWindow: 128000,
+				qualityHighWatermark: 64000,
+				maxOutputTokens: 16384,
+				cost: { input: 0.15, output: 0.60, cacheRead: 0.075, cacheWrite: 0.30 }
 			}
 		});
 		if (fromConfig.name !== "config") throw new Error("fromConfig name mismatch");
 		if (!fromConfig.modelInfo || fromConfig.modelInfo.contextWindow !== 128000) throw new Error("fromConfig modelInfo missing");
+		if (fromConfig.modelInfo.qualityHighWatermark !== 64000) throw new Error("fromConfig high watermark missing");
+		if (fromConfig.modelInfo.maxOutputTokens !== 16384) throw new Error("fromConfig max output tokens missing");
+		if (!fromConfig.modelInfo.cost || fromConfig.modelInfo.cost.cacheRead !== 0.075) throw new Error("fromConfig cacheRead missing");
 
 		let threw = false;
 		try {

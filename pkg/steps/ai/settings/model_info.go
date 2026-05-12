@@ -116,10 +116,21 @@ func (m *ModelInfo) ComputeCost(usage *turns.InferenceUsage) *float64 {
 	if m == nil || m.Cost == nil || usage == nil {
 		return nil
 	}
-	total := m.Cost.Input * float64(usage.InputTokens) / 1_000_000
+
+	cacheReadTokens := usage.CacheReadInputTokens
+	if cacheReadTokens == 0 {
+		cacheReadTokens = usage.CachedTokens
+	}
+	cacheWriteTokens := usage.CacheCreationInputTokens
+	standardInputTokens := usage.InputTokens - cacheReadTokens - cacheWriteTokens
+	if standardInputTokens < 0 {
+		standardInputTokens = 0
+	}
+
+	total := m.Cost.Input * float64(standardInputTokens) / 1_000_000
 	total += m.Cost.Output * float64(usage.OutputTokens) / 1_000_000
-	total += m.Cost.CacheRead * float64(usage.CacheReadInputTokens) / 1_000_000
-	total += m.Cost.CacheWrite * float64(usage.CacheCreationInputTokens) / 1_000_000
+	total += m.Cost.CacheRead * float64(cacheReadTokens) / 1_000_000
+	total += m.Cost.CacheWrite * float64(cacheWriteTokens) / 1_000_000
 	return &total
 }
 

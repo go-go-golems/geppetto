@@ -125,20 +125,37 @@ func TestMergeModelInfo(t *testing.T) {
 func TestModelInfoComputeCost(t *testing.T) {
 	mi := &ModelInfo{Cost: &ModelCost{Input: 2, Output: 10, CacheRead: 1, CacheWrite: 4}}
 	usage := &turns.InferenceUsage{
-		InputTokens:              1000,
-		OutputTokens:             2000,
-		CacheReadInputTokens:     3000,
-		CacheCreationInputTokens: 4000,
+		InputTokens:              10_000,
+		OutputTokens:             2_000,
+		CacheReadInputTokens:     3_000,
+		CacheCreationInputTokens: 4_000,
 	}
 	cost := mi.ComputeCost(usage)
 	if cost == nil {
 		t.Fatal("expected cost")
 	}
-	want := 2*1000.0/1_000_000 + 10*2000.0/1_000_000 + 1*3000.0/1_000_000 + 4*4000.0/1_000_000
+	want := 2*3000.0/1_000_000 + 10*2000.0/1_000_000 + 1*3000.0/1_000_000 + 4*4000.0/1_000_000
 	if math.Abs(*cost-want) > 1e-12 {
 		t.Fatalf("cost = %f, want %f", *cost, want)
 	}
 	if got := (*ModelInfo)(nil).ComputeCost(usage); got != nil {
 		t.Fatalf("nil info cost = %#v", got)
+	}
+}
+
+func TestModelInfoComputeCost_UsesCachedTokensFallback(t *testing.T) {
+	mi := &ModelInfo{Cost: &ModelCost{Input: 2, Output: 10, CacheRead: 0.5}}
+	usage := &turns.InferenceUsage{
+		InputTokens:  10_000,
+		OutputTokens: 1_000,
+		CachedTokens: 6_000,
+	}
+	cost := mi.ComputeCost(usage)
+	if cost == nil {
+		t.Fatal("expected cost")
+	}
+	want := 2*4000.0/1_000_000 + 10*1000.0/1_000_000 + 0.5*6000.0/1_000_000
+	if math.Abs(*cost-want) > 1e-12 {
+		t.Fatalf("cost = %f, want %f", *cost, want)
 	}
 }

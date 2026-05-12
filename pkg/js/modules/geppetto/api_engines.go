@@ -208,6 +208,7 @@ func decodeModelInfoFromJSOptions(raw any) (*aistepssettings.ModelInfo, error) {
 	if obj == nil {
 		return nil, fmt.Errorf("modelInfo must be an object")
 	}
+	normalizeModelInfoJSOptionKeys(obj)
 	b, err := yaml.Marshal(obj)
 	if err != nil {
 		return nil, err
@@ -220,6 +221,29 @@ func decodeModelInfoFromJSOptions(raw any) (*aistepssettings.ModelInfo, error) {
 		return nil, err
 	}
 	return &out, nil
+}
+
+func normalizeModelInfoJSOptionKeys(obj map[string]any) {
+	if obj == nil {
+		return
+	}
+	copyIfMissing(obj, "contextWindow", "context_window")
+	copyIfMissing(obj, "qualityHighWatermark", "quality_high_watermark")
+	copyIfMissing(obj, "maxOutputTokens", "max_output_tokens")
+	if cost := decodeMap(obj["cost"]); cost != nil {
+		copyIfMissing(cost, "cacheRead", "cache_read")
+		copyIfMissing(cost, "cacheWrite", "cache_write")
+		obj["cost"] = cost
+	}
+}
+
+func copyIfMissing(obj map[string]any, from string, to string) {
+	if _, exists := obj[to]; exists {
+		return
+	}
+	if v, ok := obj[from]; ok {
+		obj[to] = v
+	}
 }
 
 func (m *moduleRuntime) engineFromInferenceSettings(opts map[string]any) (*engineRef, error) {
