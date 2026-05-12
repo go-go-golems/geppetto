@@ -97,7 +97,6 @@ topics:
       description: OpenAI API and OpenAI-compatible provider integrations
     - slug: wafer-ai
       description: Wafer AI provider configuration and diagnostics
-<<<<<<< Updated upstream
     - slug: code-review
       description: Code review, code-quality inspection, and maintainability analysis
     - slug: intern-onboarding
@@ -106,13 +105,10 @@ topics:
       description: Runtime observability, trace records, debug evidence, and telemetry-style diagnostics
     - slug: claude
       description: Anthropic Claude provider integration and streaming behavior
-||||||| Stash base
-=======
     - slug: engine-profiles
       description: Engine profile system for AI inference configuration
     - slug: model-metadata
       description: Model metadata including capabilities, costs, and context windows
->>>>>>> Stashed changes
 docTypes:
     - slug: index
       description: Ticket index

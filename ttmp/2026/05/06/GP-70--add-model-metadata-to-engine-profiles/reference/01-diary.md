@@ -111,3 +111,98 @@ The design needs to be self-contained enough for a new intern to understand the 
 - 9 tasks created
 - 5 files related to ticket
 - Vocabulary added: `engine-profiles`, `model-metadata`
+
+## Step 2: Implement Model Metadata Across Geppetto and Pinocchio
+
+This step implemented the model metadata design in the codebase. The core support now lives in Geppetto as `InferenceSettings.ModelInfo`, with typed model capabilities, context limits, pricing, merge semantics, YAML/profile integration, JS exposure, and post-inference cost stamping. Pinocchio now surfaces model metadata in the profile picker and profile API.
+
+The implementation intentionally kept `ModelInfo` as part of `InferenceSettings` rather than adding a second profile-extension source of truth. This preserved the normal profile stack behavior and avoided synchronization problems between `inference_settings` and `extensions`.
+
+### Prompt Context
+
+**User prompt (verbatim):** "implement all of the tasks. Keep commits at appropriate intervals, keep a detailed diary (see skill)."
+
+**Assistant interpretation:** Implement the GP-70 task list, commit at logical milestones, keep the docmgr diary updated, and validate with tests.
+
+**Inferred user intent:** Move from design-only ticket to working code across Geppetto and Pinocchio, preserving reviewability and traceability.
+
+**Commit (code):** `bfcb0d00ad4f3a2b69d6bbb35ab918a69dee858b` — "Geppetto: add model metadata to inference profiles"
+
+**Commit (code):** `d43a21434d00f61fc266213d58f11c56f7c2ca9d` — "Geppetto: accept model metadata in JS engine config"
+
+**Commit (code):** `d53ada144636d14afd7fcbf4f3b7a311e1f6284a` — "Pinocchio: expose profile model metadata"
+
+### What I did
+
+- Added `ModelInfo`, `ModelCost`, and `InputModality` in `geppetto/pkg/steps/ai/settings/model_info.go`.
+- Added context limit helpers, validation, clone support, merge support, and cost computation helpers.
+- Added `ModelInfo *ModelInfo` to `InferenceSettings` and updated clone, metadata flattening, and summary rendering.
+- Updated profile stack merge to treat `model_info.cost` as a wholesale replacement instead of recursively merging partial cost maps.
+- Added YAML/profile decode and stack merge tests for `model_info`.
+- Added `model_info` to `geppetto/examples/js/geppetto/profiles/10-provider-openai.yaml`.
+- Updated reasoning-model decisions in Geppetto factory/OpenAI/OpenAI Responses paths to prefer `ModelInfo.Reasoning` and fall back to name heuristics.
+- Added `Cost *float64` to `turns.InferenceResult` and stamped computed costs in OpenAI, OpenAI Responses, Claude, and Gemini result persistence paths.
+- Exposed `modelInfo` to the Geppetto JS module on resolved profiles and engine objects.
+- Accepted `modelInfo` in `geppetto.engines.fromConfig()` JS options.
+- Updated Geppetto TypeScript declaration template with `ModelInfo` and `ModelCost` interfaces.
+- Updated Pinocchio profile switcher list items to carry model info and render capability summaries.
+- Updated Pinocchio web-chat profile API list/detail responses to include `model_info`.
+- Rewrote ticket tasks as checked implementation tasks with notes for intentional no-op decisions.
+
+### Why
+
+The implementation follows the ticket design: model metadata is profile-loaded, typed, merged with inference settings, visible to JS/UI consumers, and connected to cost computation through existing inference usage data. Pinocchio integration focuses on surfacing the metadata rather than introducing a new token-budgeting subsystem.
+
+### What worked
+
+- YAML round-trip profile loading picked up `model_info` through struct tags as expected.
+- The existing `MergeInferenceSettings` map merge could be reused with a small special case for `model_info.cost` wholesale replacement.
+- Existing provider engines already had access to their `InferenceSettings`, so cost stamping could happen in provider persistence paths without creating an import cycle from `inference/engine` back to `settings`.
+- JS module tests were straightforward because resolved profiles already expose `inferenceSettings`; `modelInfo` is now a direct convenience property.
+
+### What didn't work
+
+- Directly adding model-aware cost computation to `BuildInferenceResultFromEventMetadata()` would have introduced an import cycle (`settings` already imports `inference/engine`). I avoided this by adding `settings.ApplyModelInfoCost()` and calling it from provider packages.
+- Implementing real web-chat prompt trimming was not done in this pass because no token-budgeting/trimming layer was present at the web-chat resolver boundary. Instead, `ModelInfo` is exposed through the API/runtime path so a tokenizer-aware layer can use `EffectiveContextLimit()` and `HardContextLimit()`.
+
+### What I learned
+
+- `InferenceSettings.Clone()` previously assumed all nested settings pointers were non-nil. Updating it to be nil-safe made ModelInfo cloning safer and reduced future YAML edge cases.
+- The profile API and TUI profile picker list raw profile documents, not fully resolved stacks. Metadata displayed there reflects the profile document being listed; resolved paths still carry merged `InferenceSettings.ModelInfo`.
+- Cost should be stamped close to provider result persistence because those paths know both final usage metadata and the model settings used for the call.
+
+### What was tricky to build
+
+- Avoiding import cycles was the main sharp edge. The natural place to compute cost looked like `inference/engine`, but that package cannot import `steps/ai/settings` because settings already imports engine for `InferenceConfig`. The solution was to keep `ComputeCost` and `ApplyModelInfoCost` in the settings package and call them from provider packages.
+- Merge semantics required care: recursive map merge is normally desired, but partial cost merge would preserve stale base output/cache costs. The implementation special-cases `model_info.cost` so overlay cost replaces base cost as a unit.
+
+### What warrants a second pair of eyes
+
+- Review `MergeInferenceSettings` special-casing for `model_info.cost` to ensure it is not too narrow and handles YAML-decoded map shapes consistently.
+- Review cost stamping locations across OpenAI, OpenAI Responses, Claude, and Gemini to ensure every successful inference result path is covered.
+- Review Pinocchio profile picker rendering for terminal compatibility with emoji badges.
+- Review the decision not to add CLI flags for model metadata in v1.
+
+### What should be done in the future
+
+- Add a tokenizer-aware prompt budgeting/trimming layer in web-chat that uses `EffectiveContextLimit()` and `HardContextLimit()`.
+- Consider a model catalog updater or profile generator for keeping provider pricing/context metadata current.
+- Add frontend rendering for `model_info` returned by the web-chat profile API.
+
+### Code review instructions
+
+- Start with `geppetto/pkg/steps/ai/settings/model_info.go` and `settings-inference.go`.
+- Then review merge behavior in `geppetto/pkg/engineprofiles/inference_settings_merge.go` and tests in `stack_merge_model_info_test.go`.
+- Review provider result stamping in `pkg/steps/ai/{openai,openai_responses,claude,gemini}`.
+- Review JS exposure in `geppetto/pkg/js/modules/geppetto/api_runtime_metadata.go` and `api_engines.go`.
+- Review Pinocchio exposure in `pinocchio/pkg/ui/profileswitch/*` and `pinocchio/cmd/web-chat/profiles/*`.
+- Validate with:
+  - `cd geppetto && go test ./...`
+  - `cd pinocchio && go test ./pkg/ui/profileswitch ./cmd/web-chat/profiles ./pkg/cmds/profilebootstrap`
+  - Pinocchio pre-commit also ran `go generate ./...`, frontend build, `go build ./...`, golangci-lint, `go vet`, and `go test ./...` successfully during commit.
+
+### Technical details
+
+- Geppetto full test command passed: `go test ./...`.
+- Pinocchio targeted test command passed: `go test ./pkg/ui/profileswitch ./cmd/web-chat/profiles ./pkg/cmds/profilebootstrap`.
+- Pinocchio pre-commit hook ran and passed full lint/test pipeline during commit `d53ada1`.
