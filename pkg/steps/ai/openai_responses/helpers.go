@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/rs/zerolog/log"
 )
@@ -190,8 +191,8 @@ func (e *Engine) buildResponsesRequest(t *turns.Turn) (responsesRequest, error) 
 		if s.Chat.MaxResponseTokens != nil {
 			req.MaxOutputTokens = s.Chat.MaxResponseTokens
 		}
-		// Some reasoning models (o1/o3/o4/gpt-5) do not accept temperature/top_p; omit for those.
-		allowSampling := !isResponsesReasoningModel(req.Model)
+		// Some reasoning models do not accept temperature/top_p; omit for those.
+		allowSampling := !isResponsesReasoningModelForSettings(s, req.Model)
 		if allowSampling && s.Chat.Temperature != nil {
 			req.Temperature = s.Chat.Temperature
 		}
@@ -243,8 +244,8 @@ func (e *Engine) buildResponsesRequest(t *turns.Turn) (responsesRequest, error) 
 		engineInference = s.Inference
 	}
 	if infCfg := engine.ResolveInferenceConfig(t, engineInference); infCfg != nil {
-		// Reasoning models (o1/o3/o4/gpt-5) reject temperature/top_p; sanitize upfront.
-		if isResponsesReasoningModel(req.Model) {
+		// Reasoning models reject temperature/top_p; sanitize upfront.
+		if isResponsesReasoningModelForSettings(s, req.Model) {
 			infCfg = engine.SanitizeForReasoningModel(infCfg)
 		}
 		if infCfg.ReasoningEffort != nil {
@@ -319,6 +320,13 @@ func isResponsesReasoningModel(model string) bool {
 		strings.HasPrefix(m, "o3") ||
 		strings.HasPrefix(m, "o4") ||
 		strings.HasPrefix(m, "gpt-5")
+}
+
+func isResponsesReasoningModelForSettings(s *settings.InferenceSettings, model string) bool {
+	if s != nil && s.ModelInfo != nil && s.ModelInfo.Reasoning != nil {
+		return *s.ModelInfo.Reasoning
+	}
+	return isResponsesReasoningModel(model)
 }
 
 func mapEffortString(v string) string {

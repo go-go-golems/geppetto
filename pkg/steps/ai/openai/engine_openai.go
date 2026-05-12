@@ -336,6 +336,7 @@ func (e *OpenAIEngine) completeOpenAIChatStream(
 		Msg("OpenAI streaming complete, preparing messages")
 
 	result := engine.BuildInferenceResultFromEventMetadata(metadata, "openai", includeToolCalls && toolCallCount > 0)
+	settings.ApplyModelInfoCost(&result, e.settings.ModelInfo)
 	if err := engine.PersistInferenceResult(t, result); err != nil {
 		log.Warn().Err(err).Msg("OpenAI: failed to persist canonical inference_result")
 	}

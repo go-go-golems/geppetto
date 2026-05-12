@@ -33,6 +33,7 @@ type InferenceResult struct {
 	Usage      *InferenceUsage `json:"usage,omitempty" yaml:"usage,omitempty" mapstructure:"usage,omitempty"`
 	MaxTokens  *int            `json:"max_tokens,omitempty" yaml:"max_tokens,omitempty" mapstructure:"max_tokens,omitempty"`
 	DurationMs *int64          `json:"duration_ms,omitempty" yaml:"duration_ms,omitempty" mapstructure:"duration_ms,omitempty"`
+	Cost       *float64        `json:"cost,omitempty" yaml:"cost,omitempty" mapstructure:"cost,omitempty"`
 
 	RequestID  string         `json:"request_id,omitempty" yaml:"request_id,omitempty" mapstructure:"request_id,omitempty"`
 	ResponseID string         `json:"response_id,omitempty" yaml:"response_id,omitempty" mapstructure:"response_id,omitempty"`

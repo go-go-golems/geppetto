@@ -132,7 +132,7 @@ func (e *Engine) completeResponsesStream(ctx context.Context, t *turns.Turn, met
 
 	includeToolCalls := terminal.Kind == responsesStreamTerminalEOF
 	toolCallCount := appendResponsesFinalTurnBlocks(t, state, includeToolCalls)
-	persistResponsesInferenceResult(t, metadata, responsesInferenceProvider(e.settings), includeToolCalls && toolCallCount > 0)
+	persistResponsesInferenceResult(t, metadata, responsesInferenceProvider(e.settings), includeToolCalls && toolCallCount > 0, e.settings.ModelInfo)
 	finishClass := responsesFinishClass(state, terminal, toolCallCount)
 	stopReasonValue := ""
 	if metadata.StopReason != nil {

@@ -19,6 +19,9 @@ func (m *moduleRuntime) newResolvedEngineProfileObject(resolved *profiles.Resolv
 	m.mustSet(out, "profileSlug", resolved.EngineProfileSlug.String())
 	if resolved.InferenceSettings != nil {
 		m.mustSet(out, "inferenceSettings", encodeInferenceSettingsValue(resolved.InferenceSettings))
+		if resolved.InferenceSettings.ModelInfo != nil {
+			m.mustSet(out, "modelInfo", m.newModelInfoObject(resolved.InferenceSettings.ModelInfo))
+		}
 	}
 	if len(resolved.Metadata) > 0 {
 		m.mustSet(out, "metadata", cloneJSONMap(resolved.Metadata))
@@ -118,6 +121,51 @@ func encodeInferenceSettingsValue(in *aistepssettings.InferenceSettings) any {
 	var out any
 	if err := yaml.Unmarshal(b, &out); err != nil {
 		return cloneJSONValue(in)
+	}
+	return out
+}
+
+func (m *moduleRuntime) newModelInfoObject(info *aistepssettings.ModelInfo) *goja.Object {
+	out := m.vm.NewObject()
+	if info == nil {
+		return out
+	}
+	if info.ID != nil {
+		m.mustSet(out, "id", *info.ID)
+	}
+	if info.Name != nil {
+		m.mustSet(out, "name", *info.Name)
+	}
+	if info.Reasoning != nil {
+		m.mustSet(out, "reasoning", *info.Reasoning)
+	}
+	if len(info.Input) > 0 {
+		input := make([]string, 0, len(info.Input))
+		for _, modality := range info.Input {
+			input = append(input, string(modality))
+		}
+		m.mustSet(out, "input", input)
+	}
+	if info.ContextWindow != nil {
+		m.mustSet(out, "contextWindow", *info.ContextWindow)
+	}
+	if info.QualityHighWatermark != nil {
+		m.mustSet(out, "qualityHighWatermark", *info.QualityHighWatermark)
+	}
+	if info.MaxOutputTokens != nil {
+		m.mustSet(out, "maxOutputTokens", *info.MaxOutputTokens)
+	}
+	if info.Cost != nil {
+		cost := map[string]any{
+			"input":      info.Cost.Input,
+			"output":     info.Cost.Output,
+			"cacheRead":  info.Cost.CacheRead,
+			"cacheWrite": info.Cost.CacheWrite,
+		}
+		m.mustSet(out, "cost", cost)
+	}
+	if len(info.Metadata) > 0 {
+		m.mustSet(out, "metadata", cloneJSONMap(info.Metadata))
 	}
 	return out
 }

@@ -12,3 +12,18 @@ profiles:
       chat:
         api_type: openai
         engine: gpt-4o-mini
+      model_info:
+        id: gpt-4o-mini
+        name: GPT-4o Mini
+        reasoning: false
+        input:
+          - text
+          - image
+        context_window: 128000
+        quality_high_watermark: 128000
+        max_output_tokens: 16384
+        cost:
+          input: 0.15
+          output: 0.60
+          cache_read: 0.075
+          cache_write: 0.30

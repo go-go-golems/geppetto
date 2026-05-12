@@ -870,6 +870,9 @@ func TestEnginesFromResolvedProfileBuildsEngine(t *testing.T) {
 		if (fromProfile.name !== "resolvedProfile") throw new Error("fromProfile name mismatch");
 		if (fromResolved.metadata.profileSlug !== "explicit-model") throw new Error("fromResolvedProfile metadata missing");
 		if (fromProfile.metadata.registrySlug !== "default") throw new Error("fromProfile metadata missing");
+		if (!resolved.modelInfo || resolved.modelInfo.reasoning !== true) throw new Error("resolved modelInfo missing");
+		if (!fromResolved.modelInfo || fromResolved.modelInfo.cost.input !== 2.5) throw new Error("fromResolved modelInfo missing");
+		if (!fromProfile.modelInfo || fromProfile.modelInfo.contextWindow !== 1000000) throw new Error("fromProfile modelInfo missing");
 	`)
 }
 
@@ -1809,6 +1812,10 @@ func TestToolLoopHooksMutationRetryAbortAndHookPolicy(t *testing.T) {
 	`)
 }
 
+func jsStringPtr(v string) *string { return &v }
+func jsBoolPtr(v bool) *bool       { return &v }
+func jsIntPtr(v int) *int          { return &v }
+
 func mustNewJSEngineProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 	t.Helper()
 	newSettings := func(apiType aitypes.ApiType, model string) *aistepssettings.InferenceSettings {
@@ -1819,6 +1826,19 @@ func mustNewJSEngineProfileRegistry(t *testing.T) gepprofiles.RegistryReader {
 		}
 		ss.Chat.ApiType = &apiType
 		ss.Chat.Engine = &model
+		if model == "gpt-5-mini" {
+			ss.ModelInfo = &aistepssettings.ModelInfo{
+				ID:                   jsStringPtr(model),
+				Name:                 jsStringPtr("GPT-5 Mini"),
+				Reasoning:            jsBoolPtr(true),
+				Input:                []aistepssettings.InputModality{aistepssettings.InputModalityText},
+				ContextWindow:        jsIntPtr(1000000),
+				QualityHighWatermark: jsIntPtr(500000),
+				MaxOutputTokens:      jsIntPtr(32768),
+				Cost:                 &aistepssettings.ModelCost{Input: 2.5, Output: 10, CacheRead: 1.25, CacheWrite: 5},
+				Metadata:             map[string]any{"family": "gpt-5"},
+			}
+		}
 		switch apiType {
 		case aitypes.ApiTypeOpenResponses, aitypes.ApiTypeOpenAIResponses:
 			ss.API.APIKeys["openai-api-key"] = "test-openai-key"

@@ -44,6 +44,11 @@ func ValidateEngineProfile(profile *EngineProfile) error {
 	if err := ValidateProfileExtensions(profile.Extensions); err != nil {
 		return err
 	}
+	if profile.InferenceSettings != nil && profile.InferenceSettings.ModelInfo != nil {
+		if err := profile.InferenceSettings.ModelInfo.Validate(); err != nil {
+			return &ValidationError{Field: "profile.inference_settings.model_info", Reason: err.Error()}
+		}
+	}
 	for i, ref := range profile.Stack {
 		if err := ValidateEngineProfileRef(ref, fmt.Sprintf("profile.stack[%d]", i)); err != nil {
 			return err

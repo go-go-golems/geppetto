@@ -199,7 +199,7 @@ func (m *moduleRuntime) engineFromInferenceSettings(opts map[string]any) (*engin
 		return nil, err
 	}
 	_ = resolvedProfile
-	return &engineRef{Name: "config", Engine: eng}, nil
+	return &engineRef{Name: "config", Engine: eng, ModelInfo: ss.ModelInfo.Clone()}, nil
 }
 
 func (m *moduleRuntime) newEngineObject(ref *engineRef) goja.Value {
@@ -208,6 +208,9 @@ func (m *moduleRuntime) newEngineObject(ref *engineRef) goja.Value {
 	m.mustSet(o, "name", ref.Name)
 	if len(ref.Metadata) > 0 {
 		m.mustSet(o, "metadata", cloneJSONMap(ref.Metadata))
+	}
+	if ref.ModelInfo != nil {
+		m.mustSet(o, "modelInfo", m.newModelInfoObject(ref.ModelInfo))
 	}
 	return o
 }
@@ -273,8 +276,9 @@ func (m *moduleRuntime) engineFromResolvedProfile(call goja.FunctionCall) goja.V
 		panic(m.vm.NewGoError(err))
 	}
 	return m.newEngineObject(&engineRef{
-		Name:   "resolvedProfile",
-		Engine: eng,
+		Name:      "resolvedProfile",
+		Engine:    eng,
+		ModelInfo: engineSettings.ModelInfo.Clone(),
 		Metadata: map[string]any{
 			"profileSlug":  resolved.EngineProfileSlug.String(),
 			"registrySlug": resolved.RegistrySlug.String(),
