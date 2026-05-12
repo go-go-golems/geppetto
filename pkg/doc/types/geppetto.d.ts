@@ -113,9 +113,29 @@ declare module "geppetto" {
         };
     };
 
+    export interface ModelCost {
+        input: number;
+        output: number;
+        cacheRead: number;
+        cacheWrite: number;
+    }
+
+    export interface ModelInfo {
+        id?: string;
+        name?: string;
+        reasoning?: boolean;
+        input?: string[];
+        contextWindow?: number;
+        qualityHighWatermark?: number;
+        maxOutputTokens?: number;
+        cost?: ModelCost;
+        metadata?: Record<string, any>;
+    }
+
     export interface Engine {
         name: string;
         metadata?: Record<string, any>;
+        modelInfo?: ModelInfo;
     }
 
     export interface EngineOptions {
@@ -200,6 +220,7 @@ declare module "geppetto" {
         registrySlug: string;
         profileSlug: string;
         inferenceSettings?: InferenceSettings;
+        modelInfo?: ModelInfo;
         metadata?: Record<string, any>;
     }
 
