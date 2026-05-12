@@ -24,3 +24,8 @@ Implemented GP-70 model metadata across Geppetto and Pinocchio: typed ModelInfo,
 
 Updated permanent Geppetto and Pinocchio documentation for model_info profile metadata and JS/web-chat exposure.
 
+
+## 2026-05-11
+
+Fixed PR #351 CI generated-file drift by regenerating and committing pkg/doc/types/geppetto.d.ts after the ModelInfo JS API template changes.
+

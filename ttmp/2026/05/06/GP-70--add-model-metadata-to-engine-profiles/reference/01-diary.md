@@ -277,3 +277,64 @@ The ticket design doc is useful for implementation history, but permanent docs n
 - Review `geppetto/pkg/doc/topics/01-profiles.md` first for schema and merge semantics.
 - Then review `geppetto/pkg/doc/topics/13-js-api-reference.md` for JS API shape.
 - Finally review `pinocchio/README.md` and `pinocchio/cmd/web-chat/README.md` for user-facing wording.
+
+## Step 4: Fix Generated TypeScript Declaration CI Failure
+
+This step fixed the GitHub Actions failure on PR #351. The failing job was the Geppetto `test` job at `https://github.com/go-go-golems/geppetto/actions/runs/25707590887/job/75480915000`, specifically the `verify generated files are up to date` step after `go generate ./...`.
+
+The generated declaration file `pkg/doc/types/geppetto.d.ts` was stale after adding `ModelInfo` and `ModelCost` to the TypeScript template. Regenerating assets produced the expected declaration diff.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Fixup https://github.com/go-go-golems/geppetto/actions/runs/25707590887/job/75480915000?pr=351"
+
+**Assistant interpretation:** Inspect the failing CI job, identify the cause, apply the needed fix, commit it, and validate locally.
+
+**Inferred user intent:** Repair the PR so CI no longer fails on generated-file drift.
+
+**Commit (code):** `4b9544fd2b0627aa93fef747474d0e6ff0375a58` — "Geppetto: regenerate TypeScript declarations"
+
+### What I did
+
+- Inspected the GitHub Actions run with `gh run view 25707590887 --json status,conclusion,jobs,url,headBranch,headSha`.
+- Downloaded the job log with `gh api repos/go-go-golems/geppetto/actions/jobs/75480915000/logs`.
+- Found the failing step: `go generate ./...` succeeded, then `git diff --exit-code` failed because `pkg/doc/types/geppetto.d.ts` had generated changes.
+- Ran `go generate ./...` locally in `geppetto`.
+- Committed the generated `pkg/doc/types/geppetto.d.ts` updates.
+- Validated locally with:
+  - `go test ./pkg/js/modules/geppetto ./cmd/tools/gen-dts`
+  - `go generate ./... && git diff --exit-code && go test ./...`
+
+### Why
+
+The code changes updated `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`, but the generated published declaration file `pkg/doc/types/geppetto.d.ts` was not committed. CI checks that generated files are up to date.
+
+### What worked
+
+- The job log clearly showed the exact generated diff: `ModelCost`, `ModelInfo`, `Engine.modelInfo`, and `ResolvedProfile.modelInfo` were missing from `pkg/doc/types/geppetto.d.ts`.
+- Running `go generate ./...` produced the exact expected declaration changes.
+
+### What didn't work
+
+- `gh run view --job ... --log` returned no visible output in this environment, so I used the GitHub API endpoint for job logs instead.
+
+### What I learned
+
+- For Geppetto JS API changes, updating `spec/geppetto.d.ts.tmpl` is not enough; the generated `pkg/doc/types/geppetto.d.ts` must also be committed.
+
+### What was tricky to build
+
+- No code changes were needed beyond generated output, but the local validation needed to mimic CI order: `go generate ./...`, then `git diff --exit-code`, then tests.
+
+### What warrants a second pair of eyes
+
+- Confirm no other generated artifacts are stale in CI. Local `git diff --exit-code` after `go generate ./...` passed.
+
+### What should be done in the future
+
+- When editing JS API TypeScript templates, always run `go generate ./...` before committing.
+
+### Code review instructions
+
+- Review `pkg/doc/types/geppetto.d.ts` and compare it to `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`.
+- Validate with `go generate ./... && git diff --exit-code && go test ./...`.

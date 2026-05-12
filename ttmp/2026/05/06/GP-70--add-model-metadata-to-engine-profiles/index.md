@@ -15,6 +15,8 @@ RelatedFiles:
       Note: Permanent Geppetto engine profile docs now document inference_settings.model_info
     - Path: geppetto/pkg/doc/topics/13-js-api-reference.md
       Note: JS API docs now document resolved.modelInfo and engine.modelInfo
+    - Path: geppetto/pkg/doc/types/geppetto.d.ts
+      Note: Generated TypeScript declarations for ModelInfo/ModelCost JS API
     - Path: geppetto/pkg/engineprofiles/inference_settings_merge.go
       Note: ModelInfo stack merge and cost replacement semantics
     - Path: geppetto/pkg/engineprofiles/stack_merge.go
@@ -45,6 +47,7 @@ LastUpdated: 2026-05-06T10:23:28.668065926-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
