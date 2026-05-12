@@ -1,0 +1,73 @@
+---
+Title: Add Model Metadata to Engine Profiles
+Ticket: GP-70
+Status: active
+Topics:
+    - geppetto
+    - engine-profiles
+    - inference
+    - model-metadata
+DocType: index
+Intent: long-term
+Owners: []
+RelatedFiles:
+    - Path: geppetto/pkg/engineprofiles/stack_merge.go
+      Note: Stack merge for InferenceSettings where ModelInfo will merge
+    - Path: geppetto/pkg/engineprofiles/types.go
+      Note: Core EngineProfile types where ModelInfo will be consumed
+    - Path: geppetto/pkg/inference/engine/factory/factory.go
+      Note: isReasoningModel heuristic to replace with ModelInfo.Reasoning
+    - Path: geppetto/pkg/steps/ai/settings/settings-inference.go
+      Note: InferenceSettings where ModelInfo field will be added
+    - Path: geppetto/pkg/turns/inference_result.go
+      Note: InferenceResult where Cost field will be added
+ExternalSources: []
+Summary: ""
+LastUpdated: 2026-05-06T10:23:28.668065926-04:00
+WhatFor: ""
+WhenToUse: ""
+---
+
+
+
+
+
+
+# Add Model Metadata to Engine Profiles
+
+## Overview
+
+<!-- Provide a brief overview of the ticket, its goals, and current status -->
+
+## Key Links
+
+- **Related Files**: See frontmatter RelatedFiles field
+- **External Sources**: See frontmatter ExternalSources field
+
+## Status
+
+Current status: **active**
+
+## Topics
+
+- geppetto
+- engine-profiles
+- inference
+- model-metadata
+
+## Tasks
+
+See [tasks.md](./tasks.md) for the current task list.
+
+## Changelog
+
+See [changelog.md](./changelog.md) for recent changes and decisions.
+
+## Structure
+
+- design/ - Architecture and design documents
+- reference/ - Prompt packs, API contracts, context summaries
+- playbooks/ - Command sequences and test procedures
+- scripts/ - Temporary code and tooling
+- various/ - Working notes and research
+- archive/ - Deprecated or reference-only artifacts
