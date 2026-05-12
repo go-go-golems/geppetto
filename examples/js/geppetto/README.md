@@ -46,6 +46,8 @@ const gp = require("geppetto");
 - `20-team-agent.yaml`
 - `30-user-overrides.yaml`
 
+The provider fixture includes `inference_settings.model_info` for `gpt-4o-mini`. JS profile resolution exposes this as `resolved.modelInfo`, and engines built from resolved profiles expose it as `engine.modelInfo`.
+
 ## Run One Script
 
 ```bash

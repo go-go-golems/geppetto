@@ -53,6 +53,20 @@ Recommended meaning:
 
 `fromProfile(...)` and `fromResolvedProfile(...)` build the engine only. They do not apply prompts, tool policy, or middleware policy.
 
+When the source profile has `inference_settings.model_info`, the returned engine object includes `engine.modelInfo` with the same shape exposed by `profiles.resolve(...)`. `fromConfig(...)` also accepts an optional `modelInfo` object for scripts that construct engines without profile resolution.
+
+Example:
+
+```javascript
+const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
+console.log(resolved.modelInfo?.reasoning);
+console.log(resolved.modelInfo?.contextWindow);
+console.log(resolved.modelInfo?.cost?.input);
+
+const engine = gp.engines.fromResolvedProfile(resolved);
+console.log(engine.modelInfo?.maxOutputTokens);
+```
+
 ## `profiles`
 
 The `profiles` namespace is now really an **engine profiles** namespace, even though the JS name is still `profiles`.
@@ -73,7 +87,10 @@ Available functions:
 - `registrySlug`
 - `profileSlug`
 - `inferenceSettings`
+- `modelInfo` when the resolved `InferenceSettings` contains `model_info`
 - `metadata`
+
+`modelInfo` is a convenience projection of `inferenceSettings.model_info` using JavaScript-friendly field names such as `contextWindow`, `qualityHighWatermark`, `maxOutputTokens`, and `cost.cacheRead`.
 
 It no longer returns:
 
