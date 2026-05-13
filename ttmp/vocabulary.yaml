@@ -109,6 +109,12 @@ topics:
       description: Engine profile system for AI inference configuration
     - slug: model-metadata
       description: Model metadata including capabilities, costs, and context windows
+    - slug: cli
+      description: Command-line interfaces and flags
+    - slug: coinvault
+      description: CoinVault application integration and behavior
+    - slug: configuration
+      description: Configuration loading, defaults, overlays, and runtime settings
 docTypes:
     - slug: index
       description: Ticket index
