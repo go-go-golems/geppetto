@@ -100,10 +100,22 @@ func BuildProfileRegistryReport(ctx context.Context, cfg AppBootstrapConfig, par
 	if chain == nil {
 		return &ProfileRegistryReport{}, cleanup, nil
 	}
+
+	// Determine the default profile slug from the default registry
+	// when the user has not explicitly selected a profile via --profile.
+	var defaultProfileSlug gepprofiles.EngineProfileSlug
+	if !chain.DefaultRegistrySlug.IsZero() && chain.DefaultProfileResolve.EngineProfileSlug.IsZero() {
+		reg, regErr := chain.Registry.GetRegistry(ctx, chain.DefaultRegistrySlug)
+		if regErr == nil && reg != nil && !reg.DefaultEngineProfileSlug.IsZero() {
+			defaultProfileSlug = reg.DefaultEngineProfileSlug
+		}
+	}
+
 	report, err := BuildProfileRegistryReportFromRegistry(ctx, ProfileRegistryReportInput{
 		SourceEntries:       runtime.ProfileSettings.ProfileRegistries,
 		Registry:            chain.Registry,
 		DefaultRegistrySlug: chain.DefaultRegistrySlug,
+		DefaultProfileSlug:  defaultProfileSlug,
 		ResolveInput:        chain.DefaultProfileResolve,
 	}, opts)
 	if err != nil {
@@ -349,7 +361,16 @@ func sourceReports(entries []string) []ProfileRegistrySourceReport {
 	}
 	ret := make([]ProfileRegistrySourceReport, 0, len(specs))
 	for _, spec := range specs {
-		ret = append(ret, ProfileRegistrySourceReport{Raw: spec.Raw, Kind: string(spec.Kind), Path: spec.Path, DSN: spec.DSN})
+		// Redact DSN to prevent leaking credentials from sqlite-dsn: sources.
+		var dsn, raw string
+		if spec.Kind == gepprofiles.RegistrySourceKindSQLiteDSN {
+			dsn = "***REDACTED***"
+			raw = "sqlite-dsn:***REDACTED***"
+		} else {
+			dsn = spec.DSN
+			raw = spec.Raw
+		}
+		ret = append(ret, ProfileRegistrySourceReport{Raw: raw, Kind: string(spec.Kind), Path: spec.Path, DSN: dsn})
 	}
 	return ret
 }

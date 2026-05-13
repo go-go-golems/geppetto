@@ -70,6 +70,80 @@ func TestRenderProfileRegistryReportText(t *testing.T) {
 	}
 }
 
+func TestDefaultProfileSlugPopulatedFromRegistry(t *testing.T) {
+	// When no explicit --profile is given, the report should still show
+	// the default profile from the default registry.
+	// BuildProfileRegistryReportFromRegistry sets it from the registry metadata
+	// when the caller provides DefaultProfileSlug.
+	ctx := context.Background()
+	registry := testProfileReportRegistry(t)
+	report, err := BuildProfileRegistryReportFromRegistry(ctx, ProfileRegistryReportInput{
+		SourceEntries:       []string{"profiles.yaml"},
+		Registry:            registry,
+		DefaultRegistrySlug: gepprofiles.MustRegistrySlug("default"),
+		DefaultProfileSlug:  gepprofiles.MustEngineProfileSlug("default"),
+		// No ResolveInput.EngineProfileSlug set — simulates no --profile flag.
+	}, ProfileRegistryReportOptions{})
+	if err != nil {
+		t.Fatalf("BuildProfileRegistryReportFromRegistry: %v", err)
+	}
+	// The default registry's default profile is "default" (from the YAML fixture).
+	if report.DefaultProfile != "default" {
+		t.Fatalf("expected default_profile=default, got %q", report.DefaultProfile)
+	}
+}
+
+func TestDefaultProfileSlugExplicitOverridesRegistryDefault(t *testing.T) {
+	// When --profile is explicitly set, DefaultProfileSlug should remain empty
+	// (only the selected/resolve path should reflect the choice).
+	ctx := context.Background()
+	registry := testProfileReportRegistry(t)
+	report, err := BuildProfileRegistryReportFromRegistry(ctx, ProfileRegistryReportInput{
+		SourceEntries:       []string{"profiles.yaml"},
+		Registry:            registry,
+		DefaultRegistrySlug: gepprofiles.MustRegistrySlug("default"),
+		DefaultProfileSlug:  gepprofiles.MustEngineProfileSlug("fast"),
+	}, ProfileRegistryReportOptions{})
+	if err != nil {
+		t.Fatalf("BuildProfileRegistryReportFromRegistry: %v", err)
+	}
+	if report.DefaultProfile != "fast" {
+		t.Fatalf("expected default_profile=fast, got %q", report.DefaultProfile)
+	}
+}
+
+func TestSourceReportRedactsDSN(t *testing.T) {
+	reports := sourceReports([]string{"sqlite-dsn:file:test.db?_auth&_auth_user=admin&_auth_pass=s3cret"})
+	if len(reports) != 1 {
+		t.Fatalf("expected 1 source report, got %d", len(reports))
+	}
+	if reports[0].DSN != "***REDACTED***" {
+		t.Fatalf("expected redacted DSN, got %q", reports[0].DSN)
+	}
+	if reports[0].Raw != "sqlite-dsn:***REDACTED***" {
+		t.Fatalf("expected redacted Raw, got %q", reports[0].Raw)
+	}
+	if reports[0].Kind != "sqlite-dsn" {
+		t.Fatalf("expected kind sqlite-dsn, got %q", reports[0].Kind)
+	}
+}
+
+func TestSourceReportPreservesNonDSN(t *testing.T) {
+	reports := sourceReports([]string{"profiles.yaml"})
+	if len(reports) != 1 {
+		t.Fatalf("expected 1 source report, got %d", len(reports))
+	}
+	if reports[0].Kind != "yaml" {
+		t.Fatalf("expected yaml kind, got %q", reports[0].Kind)
+	}
+	if reports[0].Path != "profiles.yaml" {
+		t.Fatalf("expected path profiles.yaml, got %q", reports[0].Path)
+	}
+	if reports[0].DSN != "" {
+		t.Fatalf("expected empty DSN for yaml source, got %q", reports[0].DSN)
+	}
+}
+
 func testProfileReportRegistry(t *testing.T) gepprofiles.Registry {
 	t.Helper()
 	dir := t.TempDir()
