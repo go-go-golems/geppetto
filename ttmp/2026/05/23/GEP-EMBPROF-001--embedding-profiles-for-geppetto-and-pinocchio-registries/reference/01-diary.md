@@ -339,3 +339,96 @@ It validates:
 - supported provider type (`openai` or `ollama`);
 - `openai-api-key` for OpenAI profiles, after stack resolution;
 - non-zero dimensions for Ollama profiles.
+
+## Step 4: Add example embedding profile registry fixture
+
+I added a concrete example registry fixture under the existing JS profile examples so there is a checked-in YAML shape for profile-backed embeddings. The fixture includes OpenAI embedding profiles that stack the existing provider registry for the API key and local Ollama profiles that carry explicit base URLs, dimensions, and cache settings.
+
+This turns the design guide's recommended profile shapes into copyable repository examples without putting secrets into the repo. I also updated the examples README so future readers know the embeddings fixture exists and what relationship it has to the provider fixture.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 3)
+
+**Assistant interpretation:** Continue implementing ticket tasks incrementally after the initial validation/test/doc work.
+
+**Inferred user intent:** The user wants the ticket's implementation checklist driven toward usable examples, not only helper APIs and prose documentation.
+
+**Commit (code):** 8d045bb8067423732624929fb30931fdc95cefdd — "Add example embedding profile registry"
+
+### What I did
+
+- Added `examples/js/geppetto/profiles/40-embeddings.yaml`.
+- Included four example profiles:
+  - `openai-embedding-small`
+  - `openai-embedding-large`
+  - `ollama-nomic-embedding`
+  - `ollama-all-minilm-embedding`
+- Made the OpenAI profiles stack `provider-openai/default` so they inherit `openai-api-key` from the existing provider fixture.
+- Updated `examples/js/geppetto/README.md` to list and explain the new fixture.
+- Marked task 6 complete.
+- Related the fixture and README to the ticket diary.
+- Updated the ticket changelog.
+
+### Why
+
+- The design doc asked for explicit embedding profiles rather than overloading chat profiles.
+- A repository fixture gives downstream applications and reviewers a known-good registry shape to copy and adapt.
+- Keeping OpenAI credentials in the existing provider fixture demonstrates the intended separation between provider/base profiles and embedding-specific profiles.
+
+### What worked
+
+- The new registry decoded successfully with `DecodeEngineProfileYAMLSingleRegistry`:
+  - `go run /tmp/check_embedding_profiles.go examples/js/geppetto/profiles/10-provider-openai.yaml examples/js/geppetto/profiles/40-embeddings.yaml`
+- Cross-registry resolution and validation succeeded for both OpenAI and Ollama examples:
+  - `go run /tmp/check_embedding_profiles_resolve.go examples/js/geppetto/profiles/10-provider-openai.yaml examples/js/geppetto/profiles/40-embeddings.yaml`
+  - output included `openai-embedding-small ok` and `ollama-nomic-embedding ok`.
+- The commit pre-commit hook skipped Go test/lint because only YAML/Markdown/ticket files were staged.
+
+### What didn't work
+
+- N/A. The YAML decoded and the selected profiles resolved/validated with the new helper.
+
+### What I learned
+
+- The examples registry directory is a better place for checked-in embedding profile examples than `misc/profiles.yaml`, which currently uses an older/simple configuration shape rather than the engine profile registry schema.
+- Cross-registry stacking works for OpenAI embedding profiles as expected when both the provider and embeddings registries are loaded together.
+
+### What was tricky to build
+
+- The main decision was where to place the example profiles. `misc/profiles.yaml` was named in the design guide, but the actual file currently does not use the newer `slug`/`profiles` engine registry shape, while `examples/js/geppetto/profiles` already contains runtime YAML registry fixtures.
+- I avoided copying real keys or inventing a second provider base. Instead, the OpenAI embedding examples stack the existing `provider-openai/default` fixture, which demonstrates credential reuse and keeps the embedding profiles focused on model/dimension/cache settings.
+
+### What warrants a second pair of eyes
+
+- Confirm whether `examples/js/geppetto/profiles/40-embeddings.yaml` is the right long-term home, or whether the project should add a dedicated non-JS profile fixture directory.
+- Confirm whether cache directories in shared profile examples should stay relative to the caller working directory or use an app/config-root convention.
+
+### What should be done in the future
+
+- Wire the new embeddings fixture into an automated example or docs test if profile-backed embedding resolution becomes part of CI.
+- Add a profile inspection command or smoke command when the CLI surface is ready.
+
+### Code review instructions
+
+- Review `examples/js/geppetto/profiles/40-embeddings.yaml` first.
+- Check that OpenAI profiles stack `provider-openai/default` and do not duplicate secrets.
+- Check that Ollama profiles set explicit dimensions matching the documented model expectations.
+- Validate manually with the same temporary decode/resolve commands recorded above, or convert them into a permanent test if desired.
+
+### Technical details
+
+The key OpenAI example shape is:
+
+```yaml
+profiles:
+  openai-embedding-small:
+    stack:
+      - registry_slug: provider-openai
+        profile_slug: default
+    inference_settings:
+      embeddings:
+        type: openai
+        engine: text-embedding-3-small
+        dimensions: 1536
+```
