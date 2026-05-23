@@ -131,7 +131,7 @@ const eng = gp.engines.fromConfig({
 Notes:
 
 - `apiKey` is required for provider-backed execution.
-- Do not rely on `OPENAI_API_KEY`/`ANTHROPIC_API_KEY` being read by runtime engine helpers.
+- Do not rely on `profile-resolved OpenAI key`/`ANTHROPIC_API_KEY` being read by runtime engine helpers.
 
 ## Wiring Path C: Go Runner + Profile Registries (Preferred)
 

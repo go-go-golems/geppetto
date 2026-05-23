@@ -816,7 +816,7 @@ const out = gp.runner.run({
   engine: gp.engines.fromConfig({
     apiType: "openai",
     model: "gpt-4.1-mini",
-    apiKey: ENV.OPENAI_API_KEY,
+    apiKey: resolvedProfile.apiKeys["openai-api-key"],
   }),
   prompt: "Summarize why explicit runtime boundaries help.",
   runtime,
@@ -846,7 +846,7 @@ const handle = gp.runner.start({
   engine: gp.engines.fromConfig({
     apiType: "openai",
     model: "gpt-4.1-mini",
-    apiKey: ENV.OPENAI_API_KEY,
+    apiKey: resolvedProfile.apiKeys["openai-api-key"],
   }),
   prompt: "If needed, use the weather tool for Berlin.",
   runtime: gp.runner.resolveRuntime({

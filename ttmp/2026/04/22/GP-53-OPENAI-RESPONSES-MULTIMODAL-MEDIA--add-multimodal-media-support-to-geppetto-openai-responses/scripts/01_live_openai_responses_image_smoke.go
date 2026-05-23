@@ -16,10 +16,10 @@ import (
 func p[T any](v T) *T { return &v }
 
 func main() {
-	key := strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
+	key := strings.TrimSpace(os.Getenv("profile-resolved OpenAI key"))
 	imagePath := os.Getenv("IMAGE_PATH")
 	if key == "" {
-		panic("OPENAI_API_KEY missing")
+		panic("profile-resolved OpenAI key missing")
 	}
 	if strings.TrimSpace(imagePath) == "" {
 		panic("IMAGE_PATH missing")

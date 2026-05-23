@@ -46,7 +46,7 @@ Added example embedding profile registry fixture for OpenAI and Ollama profile-b
 
 ## 2026-05-23
 
-Ran profile-backed Ollama embedding smoke successfully; OpenAI live smoke remains pending because OPENAI_API_KEY is not set.
+Ran profile-backed Ollama embedding smoke successfully; OpenAI live smoke remains pending because process OpenAI key env var is not set.
 
 ### Related Files
 
@@ -60,4 +60,15 @@ Corrected OpenAI smoke approach: resolved the OpenAI key through the Pinocchio p
 ### Related Files
 
 - /home/manuel/.config/pinocchio/profiles.yaml — Runtime profile registry used for OpenAI key resolution (secret not copied)
+
+
+## 2026-05-23
+
+Removed OpenAI environment-key examples from active code/docs and aligned runner examples/E2E smoke with ~/.config/pinocchio/profiles.yaml profile resolution.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/cmd/examples/internal/runnerexample/inference_settings.go — Runner examples now resolve credentials through Pinocchio profiles
+- /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/pkg/doc/topics/06-embeddings.md — Embedding docs now use profile-backed provider construction
+- /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/pkg/steps/ai/openai_responses/helpers_e2e_test.go — E2E test resolves OpenAI credentials through profiles
 

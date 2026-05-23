@@ -363,7 +363,7 @@ Then continue"
   - passcode `4319`
   - a blue triangle on the left
 - Used the local Geppetto module directly in the Go smoke program so the live call exercised the exact GP-53 patch in `pkg/steps/ai/openai_responses/helpers.go`.
-- Reused the locally configured OpenAI key by resolving it from `~/.config/pinocchio/profiles.yaml` only when `OPENAI_API_KEY` was absent, without printing the secret.
+- Reused the locally configured OpenAI key by resolving it from `~/.config/pinocchio/profiles.yaml` only when `profile-resolved OpenAI key` was absent, without printing the secret.
 - Ran the local live smoke script successfully.
 - Ran the pinocchio probe script successfully.
 
@@ -394,7 +394,7 @@ Then continue"
 
 ### What was tricky to build
 - The hardest part was making sure the test proved actual visual grounding rather than textual inference. I solved that by generating a synthetic image with a passcode and shape description that were never included in the prompt text.
-- Another tricky part was credential handling for the local live smoke. `OPENAI_API_KEY` was not set in the current shell environment, so I added a careful fallback in the ticket-local shell script to resolve the key from the local pinocchio profiles file without printing it.
+- Another tricky part was credential handling for the local live smoke. `profile-resolved OpenAI key` was not set in the current shell environment, so I added a careful fallback in the ticket-local shell script to resolve the key from the local pinocchio profiles file without printing it.
 - There was also an ambiguity about which path should count as the real test: the installed `pinocchio` binary or the local Geppetto module. Since GP-53 changes Geppetto itself, the decisive validation had to use the local Geppetto module directly.
 
 ### What warrants a second pair of eyes

@@ -32,9 +32,9 @@ img.save(image_path)
 print(image_path)
 PY
 
-if [[ -z "${OPENAI_API_KEY:-}" && -f "$HOME/.config/pinocchio/profiles.yaml" ]]; then
-  export OPENAI_API_KEY
-  OPENAI_API_KEY=$(python3 - <<'PY'
+if [[ -z "${profile-resolved OpenAI key:-}" && -f "$HOME/.config/pinocchio/profiles.yaml" ]]; then
+  export profile-resolved OpenAI key
+  profile-resolved OpenAI key=$(python3 - <<'PY'
 import os, yaml
 path=os.path.expanduser('~/.config/pinocchio/profiles.yaml')
 with open(path) as f:
@@ -60,8 +60,8 @@ PY
 )
 fi
 
-if [[ -z "${OPENAI_API_KEY:-}" ]]; then
-  echo "OPENAI_API_KEY is not set and no fallback key could be resolved from ~/.config/pinocchio/profiles.yaml" >&2
+if [[ -z "${profile-resolved OpenAI key:-}" ]]; then
+  echo "profile-resolved OpenAI key is not set and no fallback key could be resolved from ~/.config/pinocchio/profiles.yaml" >&2
   exit 1
 fi
 

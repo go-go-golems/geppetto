@@ -683,7 +683,7 @@ profiles:
     inference_settings:
       api:
         api_keys:
-          openai-api-key: ${OPENAI_API_KEY}
+          openai-api-key: <configured in ~/.config/pinocchio/profiles.yaml>
 ```
 
 Less reusable base profile:
@@ -694,7 +694,7 @@ profiles:
     inference_settings:
       api:
         api_keys:
-          openai-api-key: ${OPENAI_API_KEY}
+          openai-api-key: <configured in ~/.config/pinocchio/profiles.yaml>
       chat:
         engine: gpt-5
 ```

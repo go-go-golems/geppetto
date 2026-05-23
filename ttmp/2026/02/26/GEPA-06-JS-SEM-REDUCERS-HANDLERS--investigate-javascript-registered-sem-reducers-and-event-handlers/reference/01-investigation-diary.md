@@ -485,7 +485,7 @@ Observed:
 ### gpt-5-nano note
 
 1. The resolver/profile-path test for `gpt-5-nano` was re-run and passed (`TestProfileResolver_GPT5NanoProfileIsResolvedForChatRequest`).
-2. A live provider call with `gpt-5-nano` was **not** executed in this environment because `OPENAI_API_KEY` is currently not set.
+2. A live provider call with `gpt-5-nano` was **not** executed in this environment because `profile-resolved OpenAI key` is currently not set.
 
 ---
 

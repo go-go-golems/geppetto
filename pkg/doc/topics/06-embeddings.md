@@ -36,26 +36,25 @@ Example: "The cat sat on the mat" and "A feline rested on the rug" would have si
 ## Quick Start
 
 ```go
-import (
-    "context"
-    "os"
-    "github.com/go-go-golems/geppetto/pkg/embeddings"
-)
+resolved, err := profilebootstrap.ResolveCLIEngineSettings(ctx, parsedValues)
+if err != nil { panic(err) }
+defer resolved.Close()
 
-// Create provider
-provider := embeddings.NewOpenAIProvider(
-    os.Getenv("OPENAI_API_KEY"),
-    "text-embedding-3-small",
-    1536,
-)
+if err := embeddings.ValidateInferenceSettingsForEmbeddings(resolved.FinalInferenceSettings); err != nil {
+    panic(err)
+}
 
-// Generate embedding
-ctx := context.Background()
+factory := embeddings.NewSettingsFactoryFromInferenceSettings(resolved.FinalInferenceSettings)
+provider, err := factory.NewProvider()
+if err != nil { panic(err) }
+
 vector, err := provider.GenerateEmbedding(ctx, "Hello, world!")
 if err != nil { panic(err) }
 
 fmt.Printf("Generated %d-dimensional vector\n", len(vector))
 ```
+
+Use `--profile-registries ~/.config/pinocchio/profiles.yaml` and select an embedding-capable profile such as `openai-embedding-small` or `ollama-nomic-embedding`.
 
 ## Core Concepts
 
@@ -100,20 +99,22 @@ package main
 import (
     "context"
     "fmt"
-    "os"
-    
+
     "github.com/go-go-golems/geppetto/pkg/embeddings"
-    "github.com/sashabaranov/go-openai"
 )
 
 func main() {
-    // Create an OpenAI embedding provider
-    apiKey := os.Getenv("OPENAI_API_KEY")
-    provider := embeddings.NewOpenAIProvider(
-        apiKey,                        // OpenAI API key
-        openai.SmallEmbedding3,        // Model to use
-        1536,                          // Vector dimensions
-    )
+    // Resolve a profile that stacks the OpenAI base credentials from
+    // ~/.config/pinocchio/profiles.yaml, then build the provider from the
+    // final merged InferenceSettings.
+    resolved := resolveEmbeddingProfile("openai-embedding-small") // Application-specific bootstrap.
+    if err := embeddings.ValidateInferenceSettingsForEmbeddings(resolved.FinalInferenceSettings); err != nil {
+        panic(err)
+    }
+    provider, err := embeddings.NewSettingsFactoryFromInferenceSettings(resolved.FinalInferenceSettings).NewProvider()
+    if err != nil {
+        panic(err)
+    }
     
     // Generate an embedding
     ctx := context.Background()
@@ -169,17 +170,17 @@ import (
     "fmt"
     
     "github.com/go-go-golems/geppetto/pkg/embeddings"
-    "github.com/sashabaranov/go-openai"
 )
 
 func main() {
-    // Create a base provider
-    provider := embeddings.NewOpenAIProvider(
-        "your-api-key",
-        openai.SmallEmbedding3,
-        1536,
-    )
-    
+    // Create a base provider from a resolved embedding profile. The profile stack
+    // supplies provider credentials and model settings.
+    resolved := resolveEmbeddingProfile("openai-embedding-small")
+    provider, err := embeddings.NewSettingsFactoryFromInferenceSettings(resolved.FinalInferenceSettings).NewProvider()
+    if err != nil {
+        panic(err)
+    }
+
     // Wrap with a cached provider (storing up to 1000 embeddings)
     cachedProvider := embeddings.NewCachedProvider(provider, 1000)
     
@@ -284,15 +285,17 @@ vectors, err := embeddings.ParallelGenerateBatchEmbeddings(ctx, provider, texts,
 ```go
 import "github.com/go-go-golems/geppetto/pkg/embeddings/config"
 
+resolved := resolveEmbeddingProfile("openai-embedding-small") // Application-specific bootstrap.
 embeddingsConfig := &config.EmbeddingsConfig{
     Type:            "openai",
     Engine:          "text-embedding-3-small",
     Dimensions:      1536,
     CacheType:       "file",  // "none", "memory", or "file"
     CacheMaxEntries: 10000,
-    APIKeys: map[string]string{
-        "openai-api-key": os.Getenv("OPENAI_API_KEY"),
-    },
+    // Prefer NewSettingsFactoryFromInferenceSettings with a resolved profile.
+    // If constructing EmbeddingsConfig directly, pass keys from the already
+    // resolved profile settings rather than reading provider environment variables.
+    APIKeys: resolved.FinalInferenceSettings.API.APIKeys,
 }
 
 factory := embeddings.NewSettingsFactory(embeddingsConfig)
@@ -331,7 +334,7 @@ profiles:
     inference_settings:
       api:
         api_keys:
-          openai-api-key: ${OPENAI_API_KEY}
+          openai-api-key: <configured in ~/.config/pinocchio/profiles.yaml>
 
   openai-embedding-small:
     stack:
@@ -482,16 +485,23 @@ embedding: !Embeddings
     base_url: "http://localhost:11434"
 ```
 
-### OpenAI with Custom URL
+### OpenAI-Compatible Endpoint from a Profile
+
+For OpenAI-compatible endpoints, put the base URL and key in a profile registry layer and resolve that profile before creating the embeddings factory. Keep provider credentials out of templates.
 
 ```yaml
-embedding: !Embeddings
-  text: "Text to embed"
-  config:
-    type: openai
-    engine: text-embedding-3-small
-    base_url: "https://api.mycompany.com/v1"
-    api_key: "${CUSTOM_API_KEY}"
+profiles:
+  openai-compatible-embedding:
+    inference_settings:
+      api:
+        api_keys:
+          openai-api-key: <configured in ~/.config/pinocchio/profiles.yaml>
+        base_urls:
+          openai-base-url: https://api.mycompany.com/v1
+      embeddings:
+        type: openai
+        engine: text-embedding-3-small
+        dimensions: 1536
 ```
 
 ## Practical Applications

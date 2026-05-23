@@ -81,8 +81,8 @@ This tutorial uses that smaller model throughout.
 Before you start, make sure you have:
 
 - a Glazed/Cobra command binary or example app
-- `OPENAI_API_KEY` set if your hidden base settings use OpenAI
-- a profile registry YAML or SQLite source
+- provider credentials configured in a profile registry, preferably `~/.config/pinocchio/profiles.yaml`
+- a profile registry YAML or SQLite source selected with `--profile-registries`
 - familiarity with the basic runner API in [Opinionated Runner API](../topics/10-runner.md)
 
 If you need the background first, read these pages:

@@ -19,3 +19,4 @@
 - [x] Add embeddings.ValidateInferenceSettingsForEmbeddings with profile-oriented errors.
 - [x] Cover validation helper with table-driven unit tests for chat-only, OpenAI, Ollama, and unsupported providers.
 - [x] Document profile-backed embedding usage and chat-profile failure mode in pkg/doc/topics/06-embeddings.md.
+- [x] Remove OpenAI environment-key examples and make docs/examples resolve credentials through profiles.

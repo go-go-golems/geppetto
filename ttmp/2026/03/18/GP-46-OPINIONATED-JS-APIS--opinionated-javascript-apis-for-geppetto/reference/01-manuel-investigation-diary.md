@@ -272,9 +272,9 @@ This step turned the new API from “implemented” into “discoverable.” Bef
 
 ### Commands
 - `go test ./pkg/js/modules/geppetto ./pkg/doc -count=1`
-- `OPENAI_API_KEY=example-openai-key go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/22_runner_run.js`
-- `OPENAI_API_KEY=example-openai-key go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/24_runner_start_handle.js`
-- `OPENAI_API_KEY=example-openai-key go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/23_runner_profile_run.js --profile-registries examples/js/geppetto/profiles/10-provider-openai.yaml,examples/js/geppetto/profiles/20-team-agent.yaml,examples/js/geppetto/profiles/30-user-overrides.yaml`
+- `profile-resolved OpenAI key=example-openai-key go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/22_runner_run.js`
+- `profile-resolved OpenAI key=example-openai-key go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/24_runner_start_handle.js`
+- `profile-resolved OpenAI key=example-openai-key go run ./cmd/examples/geppetto-js-lab --script examples/js/geppetto/23_runner_profile_run.js --profile-registries examples/js/geppetto/profiles/10-provider-openai.yaml,examples/js/geppetto/profiles/20-team-agent.yaml,examples/js/geppetto/profiles/30-user-overrides.yaml`
 - `./.bin/golangci-lint run ./pkg/js/modules/geppetto ./pkg/doc ./cmd/examples/geppetto-js-lab`
 
 ### What worked

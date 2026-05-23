@@ -1,7 +1,7 @@
 ---
 Title: "Wire provider credentials for JS and go runner"
 Slug: wire-provider-credentials-js-go-runner
-Short: Provider/model settings are now explicit app config, not profile runtime patches.
+Short: Resolve provider credentials through Geppetto/Pinocchio profiles and pass final settings to engines.
 Topics:
   - profiles
   - configuration
@@ -21,25 +21,29 @@ SectionType: Tutorial
 
 # Wire provider credentials for JS and go runner
 
-Provider credentials and engine settings must now be wired explicitly:
+Provider credentials belong in Geppetto/Pinocchio profile registries. Applications should resolve the selected profile stack, receive final merged inference settings, and pass those settings to engine or embedding factories.
 
-- Go apps: resolve base `StepSettings` from config/env/flags, then build the engine from those final settings.
-- JS apps: call `gp.engines.fromConfig(...)` with explicit `apiType`, `model`, `apiKey`, and optional `baseURL`.
+Use the user's registry by default:
 
-Profiles no longer carry provider credentials or engine-setting patches. They only contribute runtime metadata such as:
-
-- `system_prompt`
-- `tools`
-- `middlewares`
-
-Example JS:
-
-```javascript
-const gp = require("geppetto");
-
-const engine = gp.engines.fromConfig({
-  apiType: "openai",
-  model: "gpt-4.1-mini",
-  apiKey: process.env.OPENAI_API_KEY,
-});
+```text
+~/.config/pinocchio/profiles.yaml
 ```
+
+Go applications should expose profile selection rather than provider-key flags:
+
+```go
+resolved, err := profilebootstrap.ResolveCLIEngineSettings(ctx, parsedValues)
+if err != nil {
+    return err
+}
+defer resolved.Close()
+
+engine, err := factory.NewEngineFromInferenceSettings(resolved.FinalInferenceSettings)
+if err != nil {
+    return err
+}
+```
+
+JS applications should use profile-aware APIs or runtime settings produced from a resolved profile. If a command needs to override chat-layer details, use the Geppetto chat/profile flags so the final settings still come from the same merge path.
+
+Do not read provider keys directly in application code. Keep keys in profile base layers, such as an OpenAI base profile, and stack model-specific chat or embedding profiles on top.

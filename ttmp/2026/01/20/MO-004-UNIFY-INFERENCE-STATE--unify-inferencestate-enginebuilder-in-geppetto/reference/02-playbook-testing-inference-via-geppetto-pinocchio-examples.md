@@ -46,7 +46,7 @@ Provide a repeatable set of commands to validate:
 ### Pre-reqs
 
 - You have provider credentials in your environment (do **not** paste them in logs/docs):
-  - `OPENAI_API_KEY` (required for OpenAI Chat Completions + OpenAI Responses)
+  - `profile-resolved OpenAI key` (required for OpenAI Chat Completions + OpenAI Responses)
   - optionally: `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`
 - You’re in the workspace root:
   - `/home/manuel/workspaces/2025-10-30/implement-openai-responses-api`

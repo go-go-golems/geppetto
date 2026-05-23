@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-run_smoke.sh --quick|--full [--ai-engine MODEL] [--profile PROFILE]
+run_smoke.sh --quick|--full [--ai-engine MODEL] [--profile PROFILE] [--profile-registries PATHS]
 
 Runs inference smoke tests across geppetto + pinocchio:
 - geppetto: Responses "thinking" + generic tool calling
@@ -14,20 +14,22 @@ Examples:
   bash geppetto/.codex/skills/inference-smoke-tests/scripts/run_smoke.sh --quick --ai-engine gpt-5-mini
 
 Notes:
-  - Requires OPENAI_API_KEY for openai-responses tests.
+  - Resolves OpenAI credentials through Geppetto/Pinocchio profiles.
   - Uses tmux for TUI runs; logs to /tmp/*.log.
 EOF
 }
 
 MODE=""
 AI_ENGINE="gpt-5-mini"
-PROFILE="4o-mini"
+PROFILE="gpt-5-nano-low"
+PROFILE_REGISTRIES="${HOME}/.config/pinocchio/profiles.yaml"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --quick|--full) MODE="$1"; shift ;;
     --ai-engine) AI_ENGINE="${2:-}"; shift 2 ;;
     --profile) PROFILE="${2:-}"; shift 2 ;;
+    --profile-registries) PROFILE_REGISTRIES="${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown arg: $1" >&2; usage; exit 2 ;;
   esac
@@ -38,11 +40,6 @@ if [[ -z "${MODE}" ]]; then
   exit 2
 fi
 
-if [[ -z "${OPENAI_API_KEY:-}" ]]; then
-  echo "OPENAI_API_KEY is not set; aborting." >&2
-  exit 1
-fi
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GEPPETTO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 WORKSPACE_ROOT="$(cd "${GEPPETTO_ROOT}/.." && pwd)"
@@ -50,7 +47,7 @@ PINOCCHIO_ROOT="${WORKSPACE_ROOT}/pinocchio"
 
 echo "[info] GEPPETTO_ROOT=${GEPPETTO_ROOT}"
 echo "[info] PINOCCHIO_ROOT=${PINOCCHIO_ROOT}"
-echo "[info] MODE=${MODE} AI_ENGINE=${AI_ENGINE} PROFILE=${PROFILE}"
+echo "[info] MODE=${MODE} AI_ENGINE=${AI_ENGINE} PROFILE=${PROFILE} PROFILE_REGISTRIES=${PROFILE_REGISTRIES}"
 
 echo
 echo "[1/4] geppetto: OpenAI Responses thinking smoke"

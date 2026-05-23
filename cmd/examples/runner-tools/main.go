@@ -42,16 +42,18 @@ func calculatorTool(req CalculatorRequest) (CalculatorResponse, error) {
 
 func main() {
 	var (
-		model  = flag.String("model", "gpt-4o-mini", "model name")
-		prompt = flag.String("prompt", "Use the calculator tool to multiply 17 by 23, then explain the answer briefly.", "prompt to run")
+		profile           = flag.String("profile", "gpt-5-nano-low", "engine profile slug")
+		profileRegistries = flag.String("profile-registries", runnerexample.PinocchioProfileRegistryPath(), "comma-separated engine profile registry paths")
+		prompt            = flag.String("prompt", "Use the calculator tool to multiply 17 by 23, then explain the answer briefly.", "prompt to run")
 	)
 	flag.Parse()
 
-	stepSettings, err := runnerexample.OpenAIInferenceSettingsFromEnv(*model, true)
+	stepSettings, closeProfiles, err := runnerexample.OpenAIInferenceSettingsFromProfiles(context.Background(), *profileRegistries, *profile, true)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	defer func() { _ = closeProfiles() }()
 
 	r := runner.New(
 		runner.WithFuncTool("calculator", "Basic arithmetic calculator", calculatorTool),

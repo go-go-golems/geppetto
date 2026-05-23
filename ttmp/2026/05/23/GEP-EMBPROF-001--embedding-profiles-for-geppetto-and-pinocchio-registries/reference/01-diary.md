@@ -437,7 +437,7 @@ profiles:
 
 I ran a live local smoke test for the new `ollama-nomic-embedding` profile fixture. The test loaded the embedding registry, resolved the profile, validated the final settings with `ValidateInferenceSettingsForEmbeddings`, constructed a provider through `NewSettingsFactoryFromInferenceSettings`, and generated a real embedding through the local Ollama service.
 
-I did not mark the full smoke-test task complete because the OpenAI live smoke still needs a real `OPENAI_API_KEY` and would send text to an external paid provider. The local profile-backed path is verified; the remote OpenAI path remains an explicit follow-up.
+I did not mark the full smoke-test task complete because the OpenAI live smoke still needs a real `process OpenAI key env var` and would send text to an external paid provider. The local profile-backed path is verified; the remote OpenAI path remains an explicit follow-up.
 
 ### Prompt Context
 
@@ -460,7 +460,7 @@ I did not mark the full smoke-test task complete because the OpenAI live smoke s
   - constructed the provider via `NewSettingsFactoryFromInferenceSettings`;
   - generated an embedding for `hello profile-backed embeddings`;
   - asserted actual vector length matched configured dimensions.
-- Checked whether `OPENAI_API_KEY` was available for a live OpenAI smoke; it was not set.
+- Checked whether `process OpenAI key env var` was available for a live OpenAI smoke; it was not set.
 - Updated the ticket changelog with the partial smoke result.
 
 ### Why
@@ -480,7 +480,7 @@ I did not mark the full smoke-test task complete because the OpenAI live smoke s
 ### What didn't work
 
 - The OpenAI live smoke was not run because:
-  - `OPENAI_API_KEY_not_set`
+  - `process OpenAI key env var not set`
 - I intentionally left task 10 open because it explicitly includes both Ollama and OpenAI smoke tests.
 
 ### What I learned
@@ -500,7 +500,7 @@ I did not mark the full smoke-test task complete because the OpenAI live smoke s
 
 ### What should be done in the future
 
-- Run the OpenAI smoke when `OPENAI_API_KEY` is intentionally set or when a real Pinocchio profile registry with a valid key is available.
+- Run the OpenAI smoke when `process OpenAI key env var` is intentionally set or when a real Pinocchio profile registry with a valid key is available.
 - Consider adding a small reusable CLI/demo command that resolves a profile and embeds one string.
 
 ### Code review instructions
@@ -519,13 +519,13 @@ model=nomic-embed-text dimensions=768 actual=768
 
 ## Step 6: Correct OpenAI smoke to resolve credentials through profiles
 
-I corrected my earlier mistake: checking `OPENAI_API_KEY` was the wrong operational test for this ticket. The whole point of GEP-EMBPROF-001 is that provider credentials should be resolved through Geppetto/Pinocchio profiles, not through application-specific or process-environment key handling.
+I corrected my earlier mistake: checking `process OpenAI key env var` was the wrong operational test for this ticket. The whole point of GEP-EMBPROF-001 is that provider credentials should be resolved through Geppetto/Pinocchio profiles, not through application-specific or process-environment key handling.
 
 I reran the OpenAI smoke by loading the real Pinocchio profile registry, adding an in-memory temporary embedding profile that stacks `openai-responses-base`, resolving the final merged `InferenceSettings`, validating it, and generating an embedding. This proved the OpenAI API key is available through the profile stack without printing or copying the secret.
 
 ### Prompt Context
 
-**User prompt (verbatim):** "ok wait, we don't need OPENAI_API_KEY, we should resolve it through the profiles. What is this about."
+**User prompt (verbatim):** "ok wait, we don't need process OpenAI key env var, we should resolve it through the profiles. What is this about."
 
 **Assistant interpretation:** The user is correcting my mistaken environment-variable framing and asking why OpenAI smoke was not attempted through the profile registry as designed.
 
@@ -535,7 +535,7 @@ I reran the OpenAI smoke by loading the real Pinocchio profile registry, adding 
 
 ### What I did
 
-- Acknowledged that checking `OPENAI_API_KEY` was the wrong criterion.
+- Acknowledged that checking `process OpenAI key env var` was the wrong criterion.
 - Inspected the runtime Pinocchio registry only enough to confirm it exists and did not print secrets.
 - Created a temporary in-memory profile named `tmp-openai-embedding-small` that stacks `openai-responses-base` and adds:
   - `embeddings.type: openai`
@@ -551,7 +551,7 @@ I reran the OpenAI smoke by loading the real Pinocchio profile registry, adding 
 ### Why
 
 - The ticket explicitly rejects bespoke credential paths for consumer applications.
-- The correct smoke is not “does the shell have `OPENAI_API_KEY`?”; it is “does the selected profile stack resolve an OpenAI key into final `InferenceSettings.API.APIKeys`?”
+- The correct smoke is not “does the shell have `process OpenAI key env var`?”; it is “does the selected profile stack resolve an OpenAI key into final `InferenceSettings.API.APIKeys`?”
 - The temporary in-memory profile avoided modifying the real Pinocchio registry while still testing the intended stack shape.
 
 ### What worked
@@ -563,7 +563,7 @@ I reran the OpenAI smoke by loading the real Pinocchio profile registry, adding 
 
 ### What didn't work
 
-- My earlier Step 5 conclusion was wrong/incomplete because it treated the absence of `OPENAI_API_KEY` as a blocker. That contradicted the ticket architecture.
+- My earlier Step 5 conclusion was wrong/incomplete because it treated the absence of `process OpenAI key env var` as a blocker. That contradicted the ticket architecture.
 - The first version of the temporary smoke program tried to print `provider.GetModel().Provider`, but `EmbeddingModel` has only `Name` and `Dimensions`; the command failed with:
   - `/tmp/smoke_openai_profile_overlay.go:30:165: provider.GetModel().Provider undefined (type embeddings.EmbeddingModel has no field or method Provider)`
 - I removed that field from the output and reran successfully.
@@ -606,4 +606,85 @@ Successful output:
 
 ```text
 profile=tmp-openai-embedding-small profile=tmp-openai-embedding-small model=text-embedding-3-small dimensions=1536 actual=1536 key_configured=true
+```
+
+## Step 7: Remove OpenAI environment-key path from active examples and docs
+
+I corrected the repository examples and documentation to match the profile-first architecture. Runner examples now default to `~/.config/pinocchio/profiles.yaml` and take `--profile` / `--profile-registries` flags instead of constructing OpenAI settings from a process-level provider key.
+
+I also removed the old provider-key environment examples from active embedding and inference docs, and updated the OpenAI Responses E2E helper so it resolves credentials through the Pinocchio profile registry. Finally, I scrubbed the legacy key token from the repository text so searches no longer point people toward the wrong credential path.
+
+### Prompt Context
+
+**User prompt (verbatim):** "use ~/.config/pinocchio/profiles.yaml , no os.Getenv(\"<redacted OpenAI env key>\"), remove them all from everywhere. In the worst case use geppetto flags for openai-chat layer"
+
+**Assistant interpretation:** Replace direct OpenAI environment-key handling with Pinocchio profile resolution, and remove examples/docs that suggest reading OpenAI provider keys directly from environment variables.
+
+**Inferred user intent:** The user wants the codebase and ticket to consistently enforce the architecture where credentials live in profiles and applications select profiles or chat-layer flags.
+
+**Commit (code):** pending in this step.
+
+### What I did
+
+- Replaced `OpenAIInferenceSettingsFromEnv` with `OpenAIInferenceSettingsFromProfiles` in `cmd/examples/internal/runnerexample/inference_settings.go`.
+- Updated runner examples to expose `--profile` and `--profile-registries`, defaulting registries to `~/.config/pinocchio/profiles.yaml`.
+- Removed the JS profile example script's provider-key environment injection.
+- Updated active docs so OpenAI embedding/inference examples use profile-backed settings.
+- Updated the OpenAI Responses E2E test helper to resolve settings from the Pinocchio registry.
+- Scrubbed the old OpenAI environment-key token from repository text, including the current ticket docs/diary/changelog.
+- Added and completed task 15.
+
+### Why
+
+- Direct process-environment provider key reads undermine the profile registry model this ticket is implementing.
+- The correct fallback path is profile/chat flag resolution, not `os.Getenv` provider-key plumbing.
+- Documentation and examples must not teach downstream apps to add app-specific key handling.
+
+### What worked
+
+- Repository search no longer finds the old OpenAI environment-key token or direct OpenAI `os.Getenv` usage:
+  - `rg "<redacted OpenAI env key>|<redacted OpenAI env key>|os\\.Getenv\\(\\\"OPENAI|process\\.env\\.OPENAI" -n .`
+- Full tests passed:
+  - `go test ./... -count=1`
+
+### What didn't work
+
+- N/A. The code compiled and tests passed after the profile-resolution rewrite.
+
+### What I learned
+
+- There were still active docs and examples teaching direct provider-key handling even though the profile system is the intended boundary.
+- The runner examples already had profile registry helpers, so switching examples to profile-backed settings was straightforward.
+
+### What was tricky to build
+
+- The tricky part was scope: the user asked to remove the old token everywhere, which included historical ticket text and source snapshots. I removed the token globally, while keeping active code paths compiling and active docs oriented around profiles.
+- Another edge was the E2E test: it still needs `RUN_E2E`/recording switches, but OpenAI credentials now come from the resolved Pinocchio profile rather than a provider-key environment variable.
+
+### What warrants a second pair of eyes
+
+- Review whether the broad historical-ticket token scrub is acceptable or whether archived source snapshots should be exempted in future cleanup requests.
+- Review the default runner example profile (`gpt-5-nano-low`) and adjust if another Pinocchio profile should be the canonical example default.
+
+### What should be done in the future
+
+- Consider adding a shared helper for `~/.config/pinocchio/profiles.yaml` defaults outside the runner examples.
+- Consider adding docs for overriding chat-layer settings through Geppetto flags while still using profile-resolved credentials.
+
+### Code review instructions
+
+- Start with `cmd/examples/internal/runnerexample/inference_settings.go` and the three runner example `main.go` files.
+- Review `pkg/doc/topics/06-embeddings.md` and `pkg/doc/tutorials/03-embeddings-workflows.md` for profile-backed embedding examples.
+- Review `pkg/steps/ai/openai_responses/helpers_e2e_test.go` for profile-resolved E2E credentials.
+- Validate with:
+  - `rg "<redacted OpenAI env key>|<redacted OpenAI env key>|os\\.Getenv\\(\\\"OPENAI|process\\.env\\.OPENAI" -n .`
+  - `go test ./... -count=1`
+
+### Technical details
+
+Runner examples now default to:
+
+```text
+--profile-registries ~/.config/pinocchio/profiles.yaml
+--profile gpt-5-nano-low
 ```

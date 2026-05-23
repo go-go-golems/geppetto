@@ -60,7 +60,7 @@ Other behavior:
   - otherwise inferred from model/profile name
 - API key resolution:
   - `opts.apiKey`
-  - env fallback by provider (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`/`GOOGLE_API_KEY`)
+  - env fallback by provider (`profile-resolved OpenAI key`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`/`GOOGLE_API_KEY`)
 
 ## Step 3: Safe Config Overrides
 

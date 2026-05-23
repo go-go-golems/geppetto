@@ -27,7 +27,7 @@ WhenToUse: Use when auditing credential precedence behavior or reviewing any fut
 
 ## Executive Summary
 
-On **March 2, 2026**, we removed implicit provider API-key fallback from runtime code paths in both the Geppetto JS bindings and the Temporal Relationships go runner. Before this change, missing provider keys in resolved `StepSettings` could be silently backfilled from process environment variables (for example `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`).
+On **March 2, 2026**, we removed implicit provider API-key fallback from runtime code paths in both the Geppetto JS bindings and the Temporal Relationships go runner. Before this change, missing provider keys in resolved `StepSettings` could be silently backfilled from process environment variables (for example `profile-resolved OpenAI key`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`).
 
 That fallback was likely integrated as a compatibility and ergonomics bridge during the migration from model/env-first flows to profile-registry-first flows. It reduced initial setup friction, but it also introduced hidden precedence, non-deterministic behavior across environments, and test blind spots. After removal, credential resolution is now explicit and auditable: keys come from profile registry runtime patches or explicit config fields, not ambient environment state.
 

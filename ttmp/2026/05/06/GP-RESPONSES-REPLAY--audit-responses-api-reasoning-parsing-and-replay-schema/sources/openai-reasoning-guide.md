@@ -283,7 +283,7 @@ When using the Responses API in a stateless mode (either with `store` set to `fa
 
 curl https://api.openai.com/v1/responses \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Authorization: Bearer $profile-resolved OpenAI key" \
   -d '{
     "model": "gpt-5.5",
     "reasoning": {"effort": "medium"},
