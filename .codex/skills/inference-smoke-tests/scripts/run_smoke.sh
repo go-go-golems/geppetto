@@ -45,6 +45,9 @@ GEPPETTO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 WORKSPACE_ROOT="$(cd "${GEPPETTO_ROOT}/.." && pwd)"
 PINOCCHIO_ROOT="${WORKSPACE_ROOT}/pinocchio"
 
+PROFILE_ARGS=(--profile "${PROFILE}" --profile-registries "${PROFILE_REGISTRIES}")
+printf -v PROFILE_ARGS_QUOTED ' %q' "${PROFILE_ARGS[@]}"
+
 echo "[info] GEPPETTO_ROOT=${GEPPETTO_ROOT}"
 echo "[info] PINOCCHIO_ROOT=${PINOCCHIO_ROOT}"
 echo "[info] MODE=${MODE} AI_ENGINE=${AI_ENGINE} PROFILE=${PROFILE} PROFILE_REGISTRIES=${PROFILE_REGISTRIES}"
@@ -52,7 +55,8 @@ echo "[info] MODE=${MODE} AI_ENGINE=${AI_ENGINE} PROFILE=${PROFILE} PROFILE_REGI
 echo
 echo "[1/4] geppetto: OpenAI Responses thinking smoke"
 (cd "${GEPPETTO_ROOT}" && \
-  go run ./cmd/examples/openai-tools test-openai-tools \
+  go run ./cmd/examples/advanced/openai-tools test-openai-tools \
+    "${PROFILE_ARGS[@]}" \
     --ai-api-type openai-responses \
     --ai-engine "${AI_ENGINE}" \
     --mode thinking \
@@ -62,7 +66,8 @@ echo "[1/4] geppetto: OpenAI Responses thinking smoke"
 echo
 echo "[2/4] geppetto: generic tool loop smoke"
 (cd "${GEPPETTO_ROOT}" && \
-  go run ./cmd/examples/generic-tool-calling generic-tool-calling \
+  go run ./cmd/examples/advanced/generic-tool-calling generic-tool-calling \
+    "${PROFILE_ARGS[@]}" \
     --pinocchio-profile "${PROFILE}" \
     "What's the weather in Paris and what is 2+2?" \
     --tools-enabled \
@@ -73,7 +78,8 @@ echo "[2/4] geppetto: generic tool loop smoke"
 echo
 echo "[3/4] geppetto: Claude tool calling smoke"
 (cd "${GEPPETTO_ROOT}" && \
-  go run ./cmd/examples/claude-tools test-claude-tools \
+  go run ./cmd/examples/advanced/claude-tools test-claude-tools \
+    "${PROFILE_ARGS[@]}" \
     --ai-api-type claude \
     --ai-engine "claude-haiku-4-5" \
   | head -n 120)
@@ -90,7 +96,7 @@ rm -f "${AGENT_LOG}"
 
 tmux kill-session -t mo4-agent-smoke 2>/dev/null || true
 tmux new-session -d -s mo4-agent-smoke \
-  "cd \"${PINOCCHIO_ROOT}\" && go run ./cmd/agents/simple-chat-agent simple-chat-agent \
+  "cd \"${PINOCCHIO_ROOT}\" && go run ./cmd/agents/simple-chat-agent simple-chat-agent${PROFILE_ARGS_QUOTED} \
     --ai-api-type openai-responses \
     --ai-engine \"${AI_ENGINE}\" \
     --ai-max-response-tokens 256 \
