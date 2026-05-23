@@ -2,14 +2,20 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
-	"os"
+	"io"
 	"strings"
 
+	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplecmd"
 	"github.com/go-go-golems/geppetto/cmd/examples/internal/runnerexample"
 	"github.com/go-go-golems/geppetto/pkg/inference/runner"
+	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 )
 
 type CalculatorRequest struct {
@@ -40,26 +46,67 @@ func calculatorTool(req CalculatorRequest) (CalculatorResponse, error) {
 	}
 }
 
-func main() {
-	var (
-		profile           = flag.String("profile", "gpt-5-nano-low", "engine profile slug")
-		profileRegistries = flag.String("profile-registries", runnerexample.PinocchioProfileRegistryPath(), "comma-separated engine profile registry paths")
-		prompt            = flag.String("prompt", "Use the calculator tool to multiply 17 by 23, then explain the answer briefly.", "prompt to run")
-	)
-	flag.Parse()
+type runCommand struct {
+	*cmds.CommandDescription
+}
 
-	stepSettings, closeProfiles, err := runnerexample.OpenAIInferenceSettingsFromProfiles(context.Background(), *profileRegistries, *profile, true)
+var _ cmds.WriterCommand = (*runCommand)(nil)
+
+type runSettings struct {
+	Prompt string `glazed:"prompt"`
+}
+
+func newRunCommand() (*runCommand, error) {
+	profileSettingsSection, err := geppettosections.NewProfileSettingsSection(
+		geppettosections.WithProfileDefault("gpt-5-nano-low"),
+		geppettosections.WithProfileRegistriesDefault(runnerexample.PinocchioProfileRegistryPath()),
+	)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return nil, err
 	}
-	defer func() { _ = closeProfiles() }()
+
+	description := cmds.NewCommandDescription(
+		"run",
+		cmds.WithShort("Run a profile-backed inference request with a calculator tool"),
+		cmds.WithArguments(
+			fields.New(
+				"prompt",
+				fields.TypeString,
+				fields.WithHelp("Prompt to run"),
+				fields.WithDefault("Use the calculator tool to multiply 17 by 23, then explain the answer briefly."),
+			),
+		),
+		cmds.WithSections(profileSettingsSection),
+	)
+
+	return &runCommand{CommandDescription: description}, nil
+}
+
+func (c *runCommand) RunIntoWriter(ctx context.Context, parsedValues *values.Values, w io.Writer) error {
+	s := &runSettings{}
+	if err := parsedValues.DecodeSectionInto(values.DefaultSlug, s); err != nil {
+		return errors.Wrap(err, "decode run settings")
+	}
+	profileSettings := &geppettosections.ProfileSettings{}
+	if err := parsedValues.DecodeSectionInto(geppettosections.ProfileSettingsSectionSlug, profileSettings); err != nil {
+		return errors.Wrap(err, "decode profile settings")
+	}
+
+	stepSettings, closeProfiles, err := runnerexample.ResolveInferenceSettingsFromRegistry(ctx, profileSettings.ProfileRegistries, profileSettings.Profile)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeProfiles != nil {
+			_ = closeProfiles()
+		}
+	}()
 
 	r := runner.New(
 		runner.WithFuncTool("calculator", "Basic arithmetic calculator", calculatorTool),
 	)
-	_, out, err := r.Run(context.Background(), runner.StartRequest{
-		Prompt: *prompt,
+	_, out, err := r.Run(ctx, runner.StartRequest{
+		Prompt: s.Prompt,
 		Runtime: runner.Runtime{
 			InferenceSettings: stepSettings,
 			SystemPrompt:      "You are a concise assistant that uses tools when needed.",
@@ -67,9 +114,16 @@ func main() {
 		},
 	})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
 
-	turns.FprintTurn(os.Stdout, out)
+	turns.FprintTurn(w, out)
+	return nil
+}
+
+func main() {
+	root := examplecmd.NewRoot("runner-tools", "Profile-backed runner example with a tool")
+	cmd, err := newRunCommand()
+	cobra.CheckErr(err)
+	cobra.CheckErr(examplecmd.ExecuteSingleCommand(root, "geppetto", cmd))
 }

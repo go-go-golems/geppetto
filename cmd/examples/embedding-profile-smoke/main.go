@@ -2,111 +2,158 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplecmd"
 	"github.com/go-go-golems/geppetto/pkg/embeddings"
 	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
+	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
+	"github.com/go-go-golems/glazed/pkg/types"
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 )
 
-type output struct {
-	Profile           string    `json:"profile"`
-	ProfileRegistries string    `json:"profile_registries"`
-	ProviderType      string    `json:"provider_type"`
-	Model             string    `json:"model"`
-	ConfiguredDims    int       `json:"configured_dimensions"`
-	ActualDims        int       `json:"actual_dimensions"`
-	KeyConfigured     bool      `json:"key_configured,omitempty"`
-	BaseURLConfigured bool      `json:"base_url_configured,omitempty"`
-	Preview           []float32 `json:"preview,omitempty"`
+type embeddingCommand struct {
+	*cmds.CommandDescription
 }
 
-func main() {
-	var (
-		profileRegistries = flag.String("profile-registries", defaultPinocchioProfilesPath(), "comma-separated profile registry paths/DSNs")
-		profile           = flag.String("profile", "", "embedding-capable profile to resolve; if empty, stack --base-profile with embedding flags")
-		baseProfile       = flag.String("base-profile", "openai-responses-base", "base profile to stack when --profile is empty")
-		embeddingType     = flag.String("embeddings-type", "openai", "embedding provider type: openai or ollama")
-		embeddingEngine   = flag.String("embeddings-engine", "text-embedding-3-small", "embedding model/engine")
-		dimensions        = flag.Int("embeddings-dimensions", 1536, "expected embedding vector dimensions")
-		text              = flag.String("text", "hello profile-backed embeddings", "text to embed")
-		jsonOutput        = flag.Bool("json", false, "print JSON output")
-		preview           = flag.Int("preview", 5, "number of vector dimensions to print in preview")
-		timeout           = flag.Duration("timeout", 30*time.Second, "embedding request timeout")
-	)
-	flag.Parse()
+var _ cmds.GlazeCommand = (*embeddingCommand)(nil)
 
-	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+type embeddingSettings struct {
+	BaseProfile         string `glazed:"base-profile"`
+	EmbeddingType       string `glazed:"embeddings-type"`
+	EmbeddingEngine     string `glazed:"embeddings-engine"`
+	EmbeddingDimensions int    `glazed:"embeddings-dimensions"`
+	Text                string `glazed:"text"`
+	Preview             int    `glazed:"preview"`
+	TimeoutSeconds      int    `glazed:"timeout-seconds"`
+}
+
+func newEmbeddingCommand() (*embeddingCommand, error) {
+	profileSettingsSection, err := geppettosections.NewProfileSettingsSection(
+		geppettosections.WithProfileRegistriesDefault(defaultPinocchioProfilesPath()),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	description := cmds.NewCommandDescription(
+		"run",
+		cmds.WithShort("Generate one embedding from a profile-backed embedding configuration"),
+		cmds.WithLong(`Generate one embedding using profile registry settings.
+
+If --profile is set, the selected profile must already contain embeddings settings.
+If --profile is empty, the command resolves --base-profile and overlays the
+embedding flags onto that base profile.
+
+Use Glazed output flags for machine-readable output, for example:
+  embedding-profile-smoke run --output json --text "hello"`),
+		cmds.WithFlags(
+			fields.New("base-profile", fields.TypeString,
+				fields.WithDefault("openai-responses-base"),
+				fields.WithHelp("Base profile to stack when --profile is empty"),
+			),
+			fields.New("embeddings-type", fields.TypeString,
+				fields.WithDefault("openai"),
+				fields.WithHelp("Embedding provider type: openai or ollama"),
+			),
+			fields.New("embeddings-engine", fields.TypeString,
+				fields.WithDefault("text-embedding-3-small"),
+				fields.WithHelp("Embedding model/engine"),
+			),
+			fields.New("embeddings-dimensions", fields.TypeInteger,
+				fields.WithDefault(1536),
+				fields.WithHelp("Expected embedding vector dimensions"),
+			),
+			fields.New("text", fields.TypeString,
+				fields.WithDefault("hello profile-backed embeddings"),
+				fields.WithHelp("Text to embed"),
+			),
+			fields.New("preview", fields.TypeInteger,
+				fields.WithDefault(5),
+				fields.WithHelp("Number of vector dimensions to include in preview"),
+			),
+			fields.New("timeout-seconds", fields.TypeInteger,
+				fields.WithDefault(30),
+				fields.WithHelp("Embedding request timeout in seconds"),
+			),
+		),
+		cmds.WithSections(profileSettingsSection),
+	)
+
+	return &embeddingCommand{CommandDescription: description}, nil
+}
+
+func (c *embeddingCommand) RunIntoGlazeProcessor(ctx context.Context, parsedValues *values.Values, gp middlewares.Processor) error {
+	s := &embeddingSettings{}
+	if err := parsedValues.DecodeSectionInto(values.DefaultSlug, s); err != nil {
+		return errors.Wrap(err, "decode embedding settings")
+	}
+	profileSettings := &geppettosections.ProfileSettings{}
+	if err := parsedValues.DecodeSectionInto(geppettosections.ProfileSettingsSectionSlug, profileSettings); err != nil {
+		return errors.Wrap(err, "decode profile settings")
+	}
+
+	timeout := time.Duration(s.TimeoutSeconds) * time.Second
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	resolved, closeFn, effectiveProfile, err := resolveSettings(ctx, *profileRegistries, *profile, *baseProfile, *embeddingType, *embeddingEngine, *dimensions)
+	resolved, closeFn, effectiveProfile, err := resolveSettings(ctx, profileSettings.ProfileRegistries, profileSettings.Profile, s.BaseProfile, s.EmbeddingType, s.EmbeddingEngine, s.EmbeddingDimensions)
 	if err != nil {
-		fatal(err)
+		return err
 	}
 	if closeFn != nil {
 		defer func() { _ = closeFn() }()
 	}
 
 	if err := embeddings.ValidateInferenceSettingsForEmbeddings(resolved); err != nil {
-		fatal(err)
+		return err
 	}
 
 	provider, err := embeddings.NewSettingsFactoryFromInferenceSettings(resolved).NewProvider()
 	if err != nil {
-		fatal(err)
+		return err
 	}
 
-	vector, err := provider.GenerateEmbedding(ctx, *text)
+	vector, err := provider.GenerateEmbedding(ctx, s.Text)
 	if err != nil {
-		fatal(err)
+		return err
 	}
 
 	model := provider.GetModel()
 	if len(vector) != model.Dimensions {
-		fatal(fmt.Errorf("dimension mismatch: configured=%d actual=%d", model.Dimensions, len(vector)))
+		return fmt.Errorf("dimension mismatch: configured=%d actual=%d", model.Dimensions, len(vector))
 	}
 
-	out := output{
-		Profile:           effectiveProfile,
-		ProfileRegistries: *profileRegistries,
-		ProviderType:      resolved.Embeddings.Type,
-		Model:             model.Name,
-		ConfiguredDims:    model.Dimensions,
-		ActualDims:        len(vector),
-		KeyConfigured:     resolved.API != nil && strings.TrimSpace(resolved.API.APIKeys["openai-api-key"]) != "",
-		BaseURLConfigured: resolved.API != nil && (strings.TrimSpace(resolved.API.BaseUrls["ollama-base-url"]) != "" || strings.TrimSpace(resolved.API.BaseUrls["openai-base-url"]) != ""),
-		Preview:           vectorPreview(vector, *preview),
-	}
-
-	if *jsonOutput {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(out); err != nil {
-			fatal(err)
-		}
-		return
-	}
-
-	fmt.Printf("profile: %s\n", out.Profile)
-	fmt.Printf("registries: %s\n", out.ProfileRegistries)
-	fmt.Printf("provider: %s\n", out.ProviderType)
-	fmt.Printf("model: %s\n", out.Model)
-	fmt.Printf("dimensions: configured=%d actual=%d\n", out.ConfiguredDims, out.ActualDims)
-	fmt.Printf("openai-key-configured: %t\n", out.KeyConfigured)
-	fmt.Printf("base-url-configured: %t\n", out.BaseURLConfigured)
-	fmt.Printf("preview: %v\n", out.Preview)
+	row := types.NewRow(
+		types.MRP("profile", effectiveProfile),
+		types.MRP("profile_registries", strings.Join(profileSettings.ProfileRegistries, ",")),
+		types.MRP("provider_type", resolved.Embeddings.Type),
+		types.MRP("model", model.Name),
+		types.MRP("configured_dimensions", model.Dimensions),
+		types.MRP("actual_dimensions", len(vector)),
+		types.MRP("key_configured", openAIKeyConfigured(resolved)),
+		types.MRP("base_url_configured", baseURLConfigured(resolved)),
+		types.MRP("preview", vectorPreview(vector, s.Preview)),
+	)
+	return gp.AddRow(ctx, row)
 }
 
-func resolveSettings(ctx context.Context, registryEntries string, profile string, baseProfile string, embeddingType string, embeddingEngine string, dimensions int) (*settings.InferenceSettings, func() error, string, error) {
-	entries := splitRegistryEntries(registryEntries)
-	specs, err := profiles.ParseRegistrySourceSpecs(entries)
+func resolveSettings(ctx context.Context, registryEntries []string, profile string, baseProfile string, embeddingType string, embeddingEngine string, dimensions int) (*settings.InferenceSettings, func() error, string, error) {
+	specs, err := profiles.ParseRegistrySourceSpecs(registryEntries)
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -156,23 +203,15 @@ func resolveSettings(ctx context.Context, registryEntries string, profile string
 }
 
 func defaultPinocchioProfilesPath() string {
-	home, err := os.UserHomeDir()
+	home, err := homeDir()
 	if err != nil || strings.TrimSpace(home) == "" {
 		return filepath.Join(".config", "pinocchio", "profiles.yaml")
 	}
 	return filepath.Join(home, ".config", "pinocchio", "profiles.yaml")
 }
 
-func splitRegistryEntries(raw string) []string {
-	parts := strings.Split(raw, ",")
-	entries := make([]string, 0, len(parts))
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part != "" {
-			entries = append(entries, part)
-		}
-	}
-	return entries
+func homeDir() (string, error) {
+	return os.UserHomeDir()
 }
 
 func vectorPreview(vector []float32, n int) []float32 {
@@ -185,7 +224,17 @@ func vectorPreview(vector []float32, n int) []float32 {
 	return vector[:n]
 }
 
-func fatal(err error) {
-	fmt.Fprintf(os.Stderr, "error: %v\n", err)
-	os.Exit(1)
+func openAIKeyConfigured(s *settings.InferenceSettings) bool {
+	return s != nil && s.API != nil && strings.TrimSpace(s.API.APIKeys["openai-api-key"]) != ""
+}
+
+func baseURLConfigured(s *settings.InferenceSettings) bool {
+	return s != nil && s.API != nil && (strings.TrimSpace(s.API.BaseUrls["ollama-base-url"]) != "" || strings.TrimSpace(s.API.BaseUrls["openai-base-url"]) != "")
+}
+
+func main() {
+	root := examplecmd.NewRoot("embedding-profile-smoke", "Profile-backed embeddings smoke test")
+	cmd, err := newEmbeddingCommand()
+	cobra.CheckErr(err)
+	cobra.CheckErr(examplecmd.ExecuteSingleCommand(root, "geppetto", cmd))
 }

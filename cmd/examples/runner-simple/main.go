@@ -2,42 +2,95 @@ package main
 
 import (
 	"context"
-	"flag"
-	"fmt"
-	"os"
+	"io"
 
+	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplecmd"
 	"github.com/go-go-golems/geppetto/cmd/examples/internal/runnerexample"
 	"github.com/go-go-golems/geppetto/pkg/inference/runner"
+	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	var (
-		profile           = flag.String("profile", "gpt-5-nano-low", "engine profile slug")
-		profileRegistries = flag.String("profile-registries", runnerexample.PinocchioProfileRegistryPath(), "comma-separated engine profile registry paths")
-		prompt            = flag.String("prompt", "Give me a one-sentence explanation of why event-driven inference loops are useful.", "prompt to run")
-	)
-	flag.Parse()
+type runCommand struct {
+	*cmds.CommandDescription
+}
 
-	stepSettings, closeProfiles, err := runnerexample.OpenAIInferenceSettingsFromProfiles(context.Background(), *profileRegistries, *profile, true)
+var _ cmds.WriterCommand = (*runCommand)(nil)
+
+type runSettings struct {
+	Prompt string `glazed:"prompt"`
+}
+
+func newRunCommand() (*runCommand, error) {
+	profileSettingsSection, err := geppettosections.NewProfileSettingsSection(
+		geppettosections.WithProfileDefault("gpt-5-nano-low"),
+		geppettosections.WithProfileRegistriesDefault(runnerexample.PinocchioProfileRegistryPath()),
+	)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return nil, err
 	}
-	defer func() { _ = closeProfiles() }()
+
+	description := cmds.NewCommandDescription(
+		"run",
+		cmds.WithShort("Run a simple profile-backed inference request"),
+		cmds.WithArguments(
+			fields.New(
+				"prompt",
+				fields.TypeString,
+				fields.WithHelp("Prompt to run"),
+				fields.WithDefault("Give me a one-sentence explanation of why event-driven inference loops are useful."),
+			),
+		),
+		cmds.WithSections(profileSettingsSection),
+	)
+
+	return &runCommand{CommandDescription: description}, nil
+}
+
+func (c *runCommand) RunIntoWriter(ctx context.Context, parsedValues *values.Values, w io.Writer) error {
+	s := &runSettings{}
+	if err := parsedValues.DecodeSectionInto(values.DefaultSlug, s); err != nil {
+		return errors.Wrap(err, "decode run settings")
+	}
+	profileSettings := &geppettosections.ProfileSettings{}
+	if err := parsedValues.DecodeSectionInto(geppettosections.ProfileSettingsSectionSlug, profileSettings); err != nil {
+		return errors.Wrap(err, "decode profile settings")
+	}
+
+	stepSettings, closeProfiles, err := runnerexample.ResolveInferenceSettingsFromRegistry(ctx, profileSettings.ProfileRegistries, profileSettings.Profile)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeProfiles != nil {
+			_ = closeProfiles()
+		}
+	}()
 
 	r := runner.New()
-	_, out, err := r.Run(context.Background(), runner.StartRequest{
-		Prompt: *prompt,
+	_, out, err := r.Run(ctx, runner.StartRequest{
+		Prompt: s.Prompt,
 		Runtime: runner.Runtime{
 			InferenceSettings: stepSettings,
 			SystemPrompt:      "You are a concise assistant.",
 		},
 	})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
 
-	turns.FprintTurn(os.Stdout, out)
+	turns.FprintTurn(w, out)
+	return nil
+}
+
+func main() {
+	root := examplecmd.NewRoot("runner-simple", "Profile-backed runner example")
+	cmd, err := newRunCommand()
+	cobra.CheckErr(err)
+	cobra.CheckErr(examplecmd.ExecuteSingleCommand(root, "geppetto", cmd))
 }
