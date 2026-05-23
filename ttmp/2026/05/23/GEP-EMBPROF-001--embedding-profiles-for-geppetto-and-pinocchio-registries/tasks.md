@@ -77,4 +77,4 @@
 - [ ] Rebuild downstream binaries and rerun the original vector-search command with `--profile openai-embedding-small` or `--profile ollama-nomic-embedding`.
 - [ ] Add downstream error handling so selecting `gpt-5-low` for vector search says it is a chat profile, not an embedding-capable profile.
 - [ ] Optionally add a small CLI/profile inspection command that reports embedding provider metadata with secrets redacted.
-- [ ] Add a small CLI smoke tool that loads Pinocchio profiles and computes one embedding.
+- [x] Add a small CLI smoke tool that loads Pinocchio profiles and computes one embedding.
