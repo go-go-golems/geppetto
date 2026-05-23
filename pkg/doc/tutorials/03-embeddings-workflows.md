@@ -54,21 +54,20 @@ package main
 import (
     "context"
     "fmt"
-    "os"
 
     "github.com/go-go-golems/geppetto/pkg/embeddings"
-    "github.com/sashabaranov/go-openai"
 )
 
 func main() {
-    // Create OpenAI provider
-    provider := embeddings.NewOpenAIProvider(
-        os.Getenv("OPENAI_API_KEY"),  // API key
-        openai.SmallEmbedding3,        // Model: text-embedding-3-small
-        1536,                          // Dimensions
-    )
-
     ctx := context.Background()
+    resolved := resolveEmbeddingProfile("openai-embedding-small") // Loads ~/.config/pinocchio/profiles.yaml.
+    if err := embeddings.ValidateInferenceSettingsForEmbeddings(resolved.FinalInferenceSettings); err != nil {
+        panic(err)
+    }
+    provider, err := embeddings.NewSettingsFactoryFromInferenceSettings(resolved.FinalInferenceSettings).NewProvider()
+    if err != nil {
+        panic(err)
+    }
     vector, err := provider.GenerateEmbedding(ctx, "Hello, world!")
     if err != nil {
         panic(err)
@@ -252,8 +251,13 @@ type SearchResult struct {
 func main() {
     ctx := context.Background()
 
-    // Create cached provider
-    provider := embeddings.NewOpenAIProvider(apiKey, model, 1536)
+    // Create cached provider from a resolved profile. The profile stack supplies
+    // provider credentials, model, and dimensions.
+    resolved := resolveEmbeddingProfile("openai-embedding-small")
+    provider, err := embeddings.NewSettingsFactoryFromInferenceSettings(resolved.FinalInferenceSettings).NewProvider()
+    if err != nil {
+        panic(err)
+    }
     cachedProvider := embeddings.NewCachedProvider(provider, 1000)
 
     // Document collection
@@ -332,22 +336,15 @@ For CLI applications, use the settings factory:
 ```go
 import (
     "github.com/go-go-golems/geppetto/pkg/embeddings"
-    "github.com/go-go-golems/geppetto/pkg/embeddings/config"
 )
 
-func createProviderFromConfig() (embeddings.Provider, error) {
-    cfg := &config.EmbeddingsConfig{
-        Type:            "openai",
-        Engine:          "text-embedding-3-small",
-        Dimensions:      1536,
-        CacheType:       "file",  // "none", "memory", or "file"
-        CacheMaxEntries: 10000,
-        APIKeys: map[string]string{
-            "openai-api-key": os.Getenv("OPENAI_API_KEY"),
-        },
+func createProviderFromProfile() (embeddings.Provider, error) {
+    resolved := resolveEmbeddingProfile("openai-embedding-small") // Loads ~/.config/pinocchio/profiles.yaml.
+    if err := embeddings.ValidateInferenceSettingsForEmbeddings(resolved.FinalInferenceSettings); err != nil {
+        return nil, err
     }
 
-    factory := embeddings.NewSettingsFactory(cfg)
+    factory := embeddings.NewSettingsFactoryFromInferenceSettings(resolved.FinalInferenceSettings)
     return factory.NewProvider()
 }
 ```

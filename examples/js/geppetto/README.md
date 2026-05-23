@@ -45,8 +45,9 @@ const gp = require("geppetto");
 - `10-provider-openai.yaml`
 - `20-team-agent.yaml`
 - `30-user-overrides.yaml`
+- `40-embeddings.yaml`
 
-The provider fixture includes `inference_settings.model_info` for `gpt-4o-mini`. JS profile resolution exposes this as `resolved.modelInfo`, and engines built from resolved profiles expose it as `engine.modelInfo`.
+The provider fixture includes `inference_settings.model_info` for `gpt-4o-mini`. JS profile resolution exposes this as `resolved.modelInfo`, and engines built from resolved profiles expose it as `engine.modelInfo`. The embeddings fixture shows OpenAI embedding profiles that stack the provider fixture for `openai-api-key`, plus local Ollama embedding profiles with explicit base URLs and dimensions.
 
 ## Run One Script
 

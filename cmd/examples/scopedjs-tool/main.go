@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -12,29 +11,45 @@ import (
 	ggjmodules "github.com/go-go-golems/go-go-goja/modules"
 	_ "github.com/go-go-golems/go-go-goja/modules/fs"
 
+	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplecmd"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools/scopedjs"
+	"github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
+	"github.com/go-go-golems/glazed/pkg/types"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	ctx := context.Background()
+type runCommand struct {
+	*cmds.CommandDescription
+}
 
+var _ cmds.GlazeCommand = (*runCommand)(nil)
+
+func newRunCommand() (*runCommand, error) {
+	description := cmds.NewCommandDescription(
+		"run",
+		cmds.WithShort("Execute the scoped JavaScript fs tool example"),
+	)
+	return &runCommand{CommandDescription: description}, nil
+}
+
+func (c *runCommand) RunIntoGlazeProcessor(ctx context.Context, _ *values.Values, gp middlewares.Processor) error {
 	fsModule := ggjmodules.GetModule("fs")
 	if fsModule == nil {
-		log.Fatal("fs module is not registered")
+		return os.ErrNotExist
 	}
 
 	workspaceDir, err := os.MkdirTemp("", "scopedjs-example-*")
 	if err != nil {
-		log.Fatalf("create temp dir: %v", err)
+		return err
 	}
-	defer func() {
-		_ = os.RemoveAll(workspaceDir)
-	}()
+	defer func() { _ = os.RemoveAll(workspaceDir) }()
 
 	notePath := filepath.Join(workspaceDir, "note.txt")
 	if err := os.WriteFile(notePath, []byte("hello from scopedjs"), 0o644); err != nil {
-		log.Fatalf("write note: %v", err)
+		return err
 	}
 
 	spec := scopedjs.EnvironmentSpec[string, struct{}]{
@@ -85,20 +100,18 @@ function joinPath(a, b) {
 
 	handle, err := scopedjs.BuildRuntime(ctx, spec, workspaceDir)
 	if err != nil {
-		log.Fatalf("build runtime: %v", err)
+		return err
 	}
-	defer func() {
-		_ = handle.Cleanup()
-	}()
+	defer func() { _ = handle.Cleanup() }()
 
 	registry := tools.NewInMemoryToolRegistry()
 	if err := scopedjs.RegisterPrebuilt(registry, spec, handle, scopedjs.EvalOptionOverrides{}); err != nil {
-		log.Fatalf("register tool: %v", err)
+		return err
 	}
 
 	def, err := registry.GetTool("eval_fs_demo")
 	if err != nil {
-		log.Fatalf("get tool: %v", err)
+		return err
 	}
 
 	args, err := json.Marshal(scopedjs.EvalInput{
@@ -116,17 +129,31 @@ return {
 		},
 	})
 	if err != nil {
-		log.Fatalf("marshal args: %v", err)
+		return err
 	}
 
 	result, err := def.Function.ExecuteWithContext(ctx, args)
 	if err != nil {
-		log.Fatalf("execute tool: %v", err)
+		return err
 	}
 
 	out, ok := result.(scopedjs.EvalOutput)
 	if !ok {
-		log.Fatalf("unexpected result type %T", result)
+		return fmt.Errorf("unexpected result type %T", result)
 	}
-	fmt.Printf("tool result: %#v\n", out)
+	return gp.AddRow(ctx, types.NewRow(
+		types.MRP("tool", "eval_fs_demo"),
+		types.MRP("workspace", workspaceDir),
+		types.MRP("result", out.Result),
+		types.MRP("console", out.Console),
+		types.MRP("duration_ms", out.DurationMs),
+		types.MRP("error", out.Error),
+	))
+}
+
+func main() {
+	root := examplecmd.NewRoot("scopedjs-tool", "Scoped JavaScript tool example")
+	cmd, err := newRunCommand()
+	cobra.CheckErr(err)
+	cobra.CheckErr(examplecmd.ExecuteSingleCommand(root, "geppetto", cmd))
 }

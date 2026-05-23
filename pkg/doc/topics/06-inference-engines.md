@@ -192,23 +192,16 @@ import (
 )
 
 func programmaticInference(ctx context.Context, prompt string) error {
-    apiType := types.ApiTypeOpenAI
-    model := "gpt-4o-mini"
-    temp := 0.7
-
-    stepSettings, err := settings.NewStepSettings()
+    // Resolve credentials and chat defaults from ~/.config/pinocchio/profiles.yaml.
+    // Override chat-layer fields through Geppetto profile/flag merging rather than
+    // reading provider API keys directly in application code.
+    resolved, err := profilebootstrap.ResolveCLIEngineSettings(ctx, parsedValues)
     if err != nil {
         return err
     }
+    defer resolved.Close()
 
-    stepSettings.Chat.ApiType = &apiType
-    stepSettings.Chat.Engine = &model
-    stepSettings.Chat.Temperature = &temp
-    stepSettings.Chat.APIKeys = map[string]string{
-        "openai-api-key": os.Getenv("OPENAI_API_KEY"),
-    }
-
-    eng, err := factory.NewEngineFromStepSettings(stepSettings)
+    eng, err := factory.NewEngineFromInferenceSettings(resolved.FinalInferenceSettings)
     if err != nil {
         return err
     }
@@ -702,12 +695,15 @@ The factory automatically selects the correct provider based on configuration:
 ### OpenAI Engine (Chat Completions)
 
 ```yaml
-# Configuration for OpenAI
-api:
-  openai:
-    api_key: "your-openai-key"
-    model: "gpt-4"
-    base_url: "https://api.openai.com/v1"
+# Profile-backed configuration for OpenAI
+profiles:
+  openai-chat:
+    stack:
+      - profile_slug: openai-base
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-4
 ```
 
 ### OpenAI Responses Engine (Reasoning + Tools)

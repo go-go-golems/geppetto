@@ -2,7 +2,6 @@ package runnerexample
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -10,34 +9,33 @@ import (
 
 	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/rs/zerolog/log"
 )
 
-// OpenAIInferenceSettingsFromEnv returns basic OpenAI-backed inference settings suitable
-// for example programs.
-func OpenAIInferenceSettingsFromEnv(model string, stream bool) (*settings.InferenceSettings, error) {
-	ss, err := settings.NewInferenceSettings()
+// PinocchioProfileRegistryPath returns the user's Pinocchio profile registry path.
+func PinocchioProfileRegistryPath() string {
+	return filepath.Join(homeDir(), ".config", "pinocchio", "profiles.yaml")
+}
+
+// OpenAIInferenceSettingsFromProfiles resolves OpenAI-backed inference settings from
+// Geppetto/Pinocchio profiles. Credentials must come from the profile stack; examples
+// should not read provider API keys directly from process environment variables.
+func OpenAIInferenceSettingsFromProfiles(ctx context.Context, registryEntries string, profileSlug string, stream bool) (*settings.InferenceSettings, func() error, error) {
+	if strings.TrimSpace(registryEntries) == "" {
+		registryEntries = PinocchioProfileRegistryPath()
+	}
+	if strings.TrimSpace(profileSlug) == "" {
+		profileSlug = "gpt-5-nano-low"
+	}
+
+	ss, closeFn, err := ResolveInferenceSettingsFromRegistry(ctx, splitRegistryEntries(registryEntries), profileSlug)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-
-	apiKey := strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
-	if apiKey == "" {
-		return nil, fmt.Errorf("OPENAI_API_KEY is not set")
+	if ss != nil && ss.Chat != nil {
+		ss.Chat.Stream = stream
 	}
-
-	if strings.TrimSpace(model) == "" {
-		model = "gpt-4o-mini"
-	}
-
-	apiType := types.ApiTypeOpenAI
-	ss.Chat.ApiType = &apiType
-	ss.Chat.Engine = &model
-	ss.Chat.Stream = stream
-	ss.API.APIKeys["openai-api-key"] = apiKey
-
-	return ss, nil
+	return ss, closeFn, nil
 }
 
 // ExampleEngineProfileRegistryPath returns the bundled sample profile registry path.
@@ -47,6 +45,32 @@ func ExampleEngineProfileRegistryPath() string {
 		return "cmd/examples/internal/runnerexample/profiles/basic.yaml"
 	}
 	return filepath.Join(filepath.Dir(file), "profiles", "basic.yaml")
+}
+
+func homeDir() string {
+	if home := strings.TrimSpace(SystemHomeDir()); home != "" {
+		return home
+	}
+	return "."
+}
+
+// SystemHomeDir exists so tests can replace home-dir lookup without changing the
+// public example helper API.
+var SystemHomeDir = func() string {
+	home, _ := os.UserHomeDir()
+	return home
+}
+
+func splitRegistryEntries(raw string) []string {
+	parts := strings.Split(raw, ",")
+	entries := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			entries = append(entries, part)
+		}
+	}
+	return entries
 }
 
 // ResolveInferenceSettingsFromRegistry loads a chained registry, resolves one engine

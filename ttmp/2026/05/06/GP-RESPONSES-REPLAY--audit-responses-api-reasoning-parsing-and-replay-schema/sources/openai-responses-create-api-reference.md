@@ -10759,7 +10759,7 @@ This field is being replaced by `safety_identifier` and `prompt_cache_key`. Use 
 ```
 curl https://api.openai.com/v1/responses \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Authorization: Bearer $profile-resolved OpenAI key" \
   -d '{
     "model": "gpt-5.4",
     "input": "Tell me a three sentence bedtime story about a unicorn."
@@ -10831,7 +10831,7 @@ curl https://api.openai.com/v1/responses \
 ```
 curl https://api.openai.com/v1/responses \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Authorization: Bearer $profile-resolved OpenAI key" \
   -d '{
     "model": "gpt-5.4",
     "input": [
@@ -10914,7 +10914,7 @@ curl https://api.openai.com/v1/responses \
 ```
 curl https://api.openai.com/v1/responses \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Authorization: Bearer $profile-resolved OpenAI key" \
   -d '{
     "model": "gpt-5.4",
     "input": [
@@ -11002,7 +11002,7 @@ curl https://api.openai.com/v1/responses \
 ```
 curl https://api.openai.com/v1/responses \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Authorization: Bearer $profile-resolved OpenAI key" \
   -d '{
     "model": "gpt-5.4",
     "tools": [{ "type": "web_search_preview" }],
@@ -11115,7 +11115,7 @@ curl https://api.openai.com/v1/responses \
 ```
 curl https://api.openai.com/v1/responses \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Authorization: Bearer $profile-resolved OpenAI key" \
   -d '{
     "model": "gpt-5.4",
     "tools": [{
@@ -11263,7 +11263,7 @@ curl https://api.openai.com/v1/responses \
 ```
 curl https://api.openai.com/v1/responses \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Authorization: Bearer $profile-resolved OpenAI key" \
   -d '{
     "model": "gpt-5.4",
     "instructions": "You are a helpful assistant.",
@@ -11308,7 +11308,7 @@ data: {"type":"response.completed","response":{"id":"resp_67c9fdcecf488190bdd9a0
 ```
 curl https://api.openai.com/v1/responses \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Authorization: Bearer $profile-resolved OpenAI key" \
   -d '{
     "model": "gpt-5.4",
     "input": "What is the weather like in Boston today?",
@@ -11421,7 +11421,7 @@ curl https://api.openai.com/v1/responses \
 ```
 curl https://api.openai.com/v1/responses \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Authorization: Bearer $profile-resolved OpenAI key" \
   -d '{
     "model": "o3-mini",
     "input": "How much wood would a woodchuck chuck?",

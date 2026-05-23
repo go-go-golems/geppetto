@@ -11,12 +11,32 @@ import (
 	"time"
 
 	"github.com/dnaeon/go-vcr/recorder"
+	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	openaisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 func p[T any](v T) *T { return &v }
+
+func resolvePinocchioResponsesSettings(ctx context.Context) (*settings.InferenceSettings, error) {
+	registryPath := filepath.Join(os.Getenv("HOME"), ".config", "pinocchio", "profiles.yaml")
+	specs, err := profiles.ParseRegistrySourceSpecs([]string{registryPath})
+	if err != nil {
+		return nil, err
+	}
+	chain, err := profiles.NewChainedRegistryFromSourceSpecs(ctx, specs)
+	if err != nil {
+		return nil, err
+	}
+	defer chain.Close()
+
+	resolved, err := chain.ResolveEngineProfile(ctx, profiles.ResolveInput{EngineProfileSlug: profiles.MustEngineProfileSlug("gpt-5-nano-low")})
+	if err != nil {
+		return nil, err
+	}
+	return resolved.InferenceSettings, nil
+}
 
 func TestResponses_E2E_VCR_Simple(t *testing.T) {
 	if os.Getenv("RUN_E2E") != "1" {
@@ -40,21 +60,19 @@ func TestResponses_E2E_VCR_Simple(t *testing.T) {
 	http.DefaultTransport = r
 	defer func() { http.DefaultTransport = origTransport }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
-		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": os.Getenv("OPENAI_API_KEY")},
-			BaseUrls: map[string]string{"openai-base-url": "https://api.openai.com/v1"},
-		},
-		Chat: &settings.ChatSettings{
-			Engine:            p("o4-mini"),
-			Stream:            true,
-			MaxResponseTokens: p(512),
-		},
-		OpenAI: &openaisettings.Settings{
-			ReasoningEffort:  p("medium"),
-			ReasoningSummary: p("detailed"),
-		},
-	})
+	ss, err := resolvePinocchioResponsesSettings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ss.Chat.Engine = p("o4-mini")
+	ss.Chat.Stream = true
+	ss.Chat.MaxResponseTokens = p(512)
+	ss.OpenAI = &openaisettings.Settings{
+		ReasoningEffort:  p("medium"),
+		ReasoningSummary: p("detailed"),
+	}
+
+	eng, err := NewEngine(ss)
 	if err != nil {
 		t.Fatal(err)
 	}

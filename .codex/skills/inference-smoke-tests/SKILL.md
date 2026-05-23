@@ -19,7 +19,7 @@ If you need the full manual checklist, open:
 
 ## Preconditions
 
-- Ensure `OPENAI_API_KEY` is set (for OpenAI Chat + OpenAI Responses).
+- Ensure `~/.config/pinocchio/profiles.yaml` contains the OpenAI/Responses base profiles used by the smoke profile selections.
 - Ensure Claude credentials are available (e.g. `ANTHROPIC_API_KEY`) if you want the Claude tool-calling smoke step to pass.
 - Ensure `tmux` is installed (required for non-interactive TUI runs).
 - Expect costs: these tests make real API calls.

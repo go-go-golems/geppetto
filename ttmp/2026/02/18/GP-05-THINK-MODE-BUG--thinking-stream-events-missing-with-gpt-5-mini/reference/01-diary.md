@@ -87,7 +87,7 @@ Keep a detailed diary as you work."
 
 ### What was tricky to build
 - Without live API credentials, I could not rely on real provider streams.
-Cause: `OPENAI_API_KEY` was unset.
+Cause: `profile-resolved OpenAI key` was unset.
 Symptoms: direct live run path unavailable.
 Approach: moved to deterministic mocked SSE harnesses with trace logs, which still exercises the exact parsing and event publication logic.
 
@@ -151,7 +151,7 @@ This step generated concrete output artifacts in `sources/` and established whic
 
 ### What didn't work
 - Live API reproduction was not possible:
-  - `OPENAI_API_KEY is NOT set`
+  - `profile-resolved OpenAI key is NOT set`
 
 ### What I learned
 - Missing thinking streams can be reproduced locally in a deterministic way without external API traffic.

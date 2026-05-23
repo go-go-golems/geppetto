@@ -155,7 +155,7 @@ This included updating examples and documentation that previously demonstrated t
 ### Validation
 - `cd geppetto && go test ./...`
 - `cd geppetto && go vet ./...`
-- Smoke suite (requires network + `OPENAI_API_KEY`):
+- Smoke suite (requires network + `profile-resolved OpenAI key`):
   - `bash geppetto/.codex/skills/inference-smoke-tests/scripts/run_smoke.sh --quick`
 
 ### Max-iterations semantics (decision)

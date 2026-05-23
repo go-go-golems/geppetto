@@ -115,6 +115,8 @@ topics:
       description: CoinVault application integration and behavior
     - slug: configuration
       description: Configuration loading, defaults, overlays, and runtime settings
+    - slug: vector-search
+      description: Vector search and embedding-backed retrieval
 docTypes:
     - slug: index
       description: Ticket index

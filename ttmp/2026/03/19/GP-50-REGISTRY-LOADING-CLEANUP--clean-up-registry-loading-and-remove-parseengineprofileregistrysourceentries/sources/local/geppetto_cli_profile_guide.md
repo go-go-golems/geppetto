@@ -494,7 +494,7 @@ ai-client:
   timeout: 30s
 
 openai-chat:
-  openai-api-key: ${OPENAI_API_KEY}
+  openai-api-key: ${profile-resolved OpenAI key}
 
 ai-inference:
   inference-reasoning-effort: medium
@@ -1351,7 +1351,7 @@ ai-client:
   timeout: 30s
 
 openai-chat:
-  openai-api-key: ${OPENAI_API_KEY}
+  openai-api-key: ${profile-resolved OpenAI key}
 
 ai-inference:
   inference-reasoning-effort: low

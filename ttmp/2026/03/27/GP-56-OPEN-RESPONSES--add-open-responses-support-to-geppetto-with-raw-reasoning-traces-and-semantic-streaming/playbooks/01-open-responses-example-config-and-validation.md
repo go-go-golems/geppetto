@@ -42,7 +42,7 @@ profiles:
         stream: true
       api:
         api_keys:
-          open-responses-api-key: ${OPENAI_API_KEY}
+          open-responses-api-key: ${profile-resolved OpenAI key}
         base_urls:
           open-responses-base-url: https://api.openai.com/v1
 ```

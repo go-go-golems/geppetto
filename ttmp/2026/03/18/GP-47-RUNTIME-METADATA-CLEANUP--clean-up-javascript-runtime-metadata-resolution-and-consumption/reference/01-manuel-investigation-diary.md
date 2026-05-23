@@ -190,7 +190,7 @@ GoError: materialize middleware 0 (retry): unknown go middleware: retry
 - Command that exposed it:
 
 ```bash
-OPENAI_API_KEY=example-openai-key go run ./cmd/examples/geppetto-js-lab \
+profile-resolved OpenAI key=example-openai-key go run ./cmd/examples/geppetto-js-lab \
   --script examples/js/geppetto/21_resolved_profile_session.js \
   --profile-registries examples/js/geppetto/profiles/10-provider-openai.yaml,examples/js/geppetto/profiles/20-team-agent.yaml,examples/js/geppetto/profiles/30-user-overrides.yaml
 ```
@@ -228,7 +228,7 @@ OPENAI_API_KEY=example-openai-key go run ./cmd/examples/geppetto-js-lab \
 - Finally run the example:
 
 ```bash
-OPENAI_API_KEY=example-openai-key go run ./cmd/examples/geppetto-js-lab \
+profile-resolved OpenAI key=example-openai-key go run ./cmd/examples/geppetto-js-lab \
   --script examples/js/geppetto/21_resolved_profile_session.js \
   --profile-registries examples/js/geppetto/profiles/10-provider-openai.yaml,examples/js/geppetto/profiles/20-team-agent.yaml,examples/js/geppetto/profiles/30-user-overrides.yaml
 ```

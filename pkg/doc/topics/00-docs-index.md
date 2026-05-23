@@ -113,11 +113,8 @@ Find examples in: `geppetto/cmd/examples/`
 ## Prerequisites
 
 - **Go 1.25+** (repository currently uses `go 1.25.7`)
-- **API keys** for your chosen provider(s):
-  - OpenAI: `OPENAI_API_KEY`
-  - Claude: `ANTHROPIC_API_KEY`
-  - Gemini: `GOOGLE_API_KEY`
-  - Ollama: running locally at `http://localhost:11434`
+- **Profile-backed provider configuration** for your chosen provider(s), preferably in `~/.config/pinocchio/profiles.yaml` and selected with `--profile` / `--profile-registries`.
+- **Ollama**, when using local models, running at `http://localhost:11434` or at the base URL configured in the selected profile.
 
 ## Architecture Overview
 

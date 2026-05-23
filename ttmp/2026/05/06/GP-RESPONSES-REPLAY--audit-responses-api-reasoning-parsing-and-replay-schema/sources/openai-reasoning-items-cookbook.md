@@ -19,7 +19,7 @@ Let us examine the response object being returned:
 ```python
 from openai import OpenAI
 import os
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=os.getenv("profile-resolved OpenAI key"))
 ```
 ```python
 response = client.responses.create(

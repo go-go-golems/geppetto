@@ -110,7 +110,7 @@ profiles:
           ai-api-type: openai
         openai-chat:
           openai-base-url: https://api.openai.com/v1
-          openai-api-key: ${OPENAI_API_KEY}
+          openai-api-key: ${profile-resolved OpenAI key}
 ```
 
 Hard-cut rules:

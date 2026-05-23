@@ -6,7 +6,6 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 LAB=(go run ./cmd/examples/geppetto-js-lab)
 STACK_REGISTRIES="${SCRIPT_DIR}/profiles/10-provider-openai.yaml,${SCRIPT_DIR}/profiles/20-team-agent.yaml,${SCRIPT_DIR}/profiles/30-user-overrides.yaml"
-OPENAI_API_KEY_DEFAULT="${OPENAI_API_KEY:-example-openai-key}"
 
 TMP_DIR="$(mktemp -d)"
 SQLITE_PATH="${TMP_DIR}/workspace-profiles.db"
@@ -16,7 +15,7 @@ run_script() {
   local script_path="$1"
   shift
   echo "==> ${script_path}"
-  (cd "${REPO_ROOT}" && OPENAI_API_KEY="${OPENAI_API_KEY_DEFAULT}" "${LAB[@]}" --script "${script_path}" "$@")
+  (cd "${REPO_ROOT}" && "${LAB[@]}" --script "${script_path}" "$@")
 }
 
 echo "==> Seeding sqlite profile registry: ${SQLITE_PATH}"
