@@ -12,6 +12,10 @@ Intent: long-term
 Owners:
     - manuel
 RelatedFiles:
+    - Path: examples/js/geppetto/README.md
+      Note: Documents the new embedding profile fixture
+    - Path: examples/js/geppetto/profiles/40-embeddings.yaml
+      Note: Example embedding profile registry with OpenAI stacked profiles and Ollama local profiles
     - Path: pkg/doc/topics/06-embeddings.md
       Note: Documents profile-backed embedding profile shapes and consumer validation
     - Path: pkg/embeddings/settings_validation.go
@@ -32,6 +36,7 @@ LastUpdated: 2026-05-23T12:49:15.130617936-04:00
 WhatFor: Use to resume or review the documentation/design work for embedding-capable Geppetto profiles.
 WhenToUse: When continuing GEP-EMBPROF-001 or checking what was investigated and documented.
 ---
+
 
 
 

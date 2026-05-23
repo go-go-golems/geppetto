@@ -34,3 +34,12 @@ Added embedding profile stack tests, profile-aware embedding settings validation
 - /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/pkg/doc/topics/06-embeddings.md — User-facing documentation
 - /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/pkg/embeddings/settings_validation.go — Validation helper
 
+
+## 2026-05-23
+
+Added example embedding profile registry fixture for OpenAI and Ollama profile-backed embeddings.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/examples/js/geppetto/profiles/40-embeddings.yaml — Embedding profile examples
+

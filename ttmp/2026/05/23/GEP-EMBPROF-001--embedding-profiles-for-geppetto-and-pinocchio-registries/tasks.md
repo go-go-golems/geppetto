@@ -10,7 +10,7 @@
 
 ## Future implementation tasks
 
-- [ ] Add example embedding profiles to an appropriate Geppetto/Pinocchio profile registry.
+- [x] Add example embedding profiles to an appropriate Geppetto/Pinocchio profile registry.
 - [x] Add profile-resolution tests proving embedding profiles inherit API keys/base URLs from stacked base profiles.
 - [x] Add a profile-aware embedding settings validation helper.
 - [x] Update Geppetto embedding documentation with profile-backed examples.
