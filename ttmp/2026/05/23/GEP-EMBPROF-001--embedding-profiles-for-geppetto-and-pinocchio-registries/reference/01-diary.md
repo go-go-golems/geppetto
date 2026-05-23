@@ -935,3 +935,102 @@ go run ./cmd/examples/embedding-profile-smoke \
   --text "hello" \
   --json
 ```
+
+## Step 9: Verify permanent Pinocchio embedding profiles and next steps
+
+I checked the real `~/.config/pinocchio/profiles.yaml` registry and verified that permanent embedding profiles are present. The registry now contains OpenAI profiles that stack `openai-responses-base` for credentials and Ollama profiles that carry local base URLs, dimensions, and cache settings.
+
+I then smoke-tested the permanent profiles directly with the new CLI instead of relying on the in-memory overlay mode. Both OpenAI and Ollama generated vectors with the expected dimensions.
+
+### Prompt Context
+
+**User prompt (verbatim):** "add a permanent profile. Then, what's after that?"
+
+**Assistant interpretation:** Ensure the user's Pinocchio registry has durable embedding profiles and explain the next practical steps after that profile exists.
+
+**Inferred user intent:** The user wants to stop using temporary overlays, validate the real registry, and understand what should be wired next in consumer applications.
+
+**Commit (code):** N/A — runtime profile registry verification plus ticket documentation.
+
+### What I did
+
+- Checked `~/.config/pinocchio/profiles.yaml` without printing secrets.
+- Verified these permanent profiles exist:
+  - `openai-embedding-small`
+  - `openai-embedding-large`
+  - `ollama-nomic-embedding`
+  - `ollama-all-minilm-embedding`
+- Verified OpenAI embedding profiles stack `openai-responses-base`.
+- Verified Ollama embedding profiles configure `ollama-base-url`.
+- Ran OpenAI permanent profile smoke:
+  - `go run ./cmd/examples/embedding-profile-smoke --profile openai-embedding-small --text "permanent profile smoke" --json`
+- Ran Ollama permanent profile smoke:
+  - `go run ./cmd/examples/embedding-profile-smoke --profile ollama-nomic-embedding --text "permanent ollama profile smoke" --json`
+- Updated the ticket changelog.
+
+### Why
+
+- A permanent profile is the real operational target; the overlay mode was only a bootstrap smoke for registries that had a base credential profile but no embedding profile yet.
+- Direct profile smoke tests prove downstream apps can simply accept `--profile openai-embedding-small` or `--profile ollama-nomic-embedding` and avoid bespoke provider-key handling.
+
+### What worked
+
+- OpenAI permanent profile output included:
+  - `profile: openai-embedding-small`
+  - `provider_type: openai`
+  - `model: text-embedding-3-small`
+  - `configured_dimensions: 1536`
+  - `actual_dimensions: 1536`
+  - `key_configured: true`
+- Ollama permanent profile output included:
+  - `profile: ollama-nomic-embedding`
+  - `provider_type: ollama`
+  - `model: nomic-embed-text`
+  - `configured_dimensions: 768`
+  - `actual_dimensions: 768`
+  - `base_url_configured: true`
+
+### What didn't work
+
+- N/A. Both permanent profile smoke tests succeeded.
+
+### What I learned
+
+- The registry has both cost/quality choices (`openai-embedding-small`, `openai-embedding-large`) and local/private choices (`ollama-nomic-embedding`, `ollama-all-minilm-embedding`).
+- The next bottleneck is not Geppetto profile resolution anymore; it is downstream application integration and index metadata compatibility.
+
+### What was tricky to build
+
+- The main caution was avoiding secret leakage while inspecting the runtime registry. I only printed profile names, stack references, embedding fields, and base-url key names, never provider key values.
+- The second caution is vector dimension compatibility: any existing vector index must match the selected profile's dimensions, so switching profiles may require rebuilding the index.
+
+### What warrants a second pair of eyes
+
+- Confirm whether `openai-embedding-small` should be the default for Readwise/vector search or whether local Ollama should be the safer default for privacy.
+- Review cache directory semantics before using these profiles in multiple applications from different working directories.
+
+### What should be done in the future
+
+- Wire the consumer application (for example Readwise Viewer) to use `--profile openai-embedding-small` or `--profile ollama-nomic-embedding` with `--profile-registries ~/.config/pinocchio/profiles.yaml`.
+- Add a preflight command in the consumer that reports provider, model, dimensions, key/base-url presence, and privacy implications without printing secrets.
+- Ensure vector index metadata stores provider/model/dimensions and refuses searches with mismatched profile dimensions.
+- Rebuild or migrate existing vector indexes when changing embedding profiles.
+
+### Code review instructions
+
+- Use `cmd/examples/embedding-profile-smoke` as the canonical Geppetto-side verification command.
+- For downstream apps, start review at the profile bootstrap path and ensure final `InferenceSettings` are passed into `embeddings.NewSettingsFactoryFromInferenceSettings`.
+- Validate permanent profiles with:
+  - `go run ./cmd/examples/embedding-profile-smoke --profile openai-embedding-small --text "hello" --json`
+  - `go run ./cmd/examples/embedding-profile-smoke --profile ollama-nomic-embedding --text "hello" --json`
+
+### Technical details
+
+Permanent profile names now available in `~/.config/pinocchio/profiles.yaml`:
+
+```text
+openai-embedding-small
+openai-embedding-large
+ollama-nomic-embedding
+ollama-all-minilm-embedding
+```

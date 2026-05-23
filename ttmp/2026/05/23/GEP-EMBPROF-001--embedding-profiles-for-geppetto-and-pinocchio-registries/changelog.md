@@ -92,3 +92,13 @@ Added cmd/examples/embedding-profile-smoke CLI and verified it computes an OpenA
 
 - /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/cmd/examples/embedding-profile-smoke/main.go — Profile-backed embedding smoke CLI
 
+
+## 2026-05-23
+
+Verified permanent embedding profiles in ~/.config/pinocchio/profiles.yaml and smoke-tested openai-embedding-small plus ollama-nomic-embedding with cmd/examples/embedding-profile-smoke.
+
+### Related Files
+
+- /home/manuel/.config/pinocchio/profiles.yaml — Runtime Pinocchio registry now has permanent OpenAI and Ollama embedding profiles
+- /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/cmd/examples/embedding-profile-smoke/main.go — Smoke CLI used to verify permanent profiles
+
