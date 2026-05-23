@@ -432,3 +432,87 @@ profiles:
         engine: text-embedding-3-small
         dimensions: 1536
 ```
+
+## Step 5: Smoke-test the Ollama embedding profile path
+
+I ran a live local smoke test for the new `ollama-nomic-embedding` profile fixture. The test loaded the embedding registry, resolved the profile, validated the final settings with `ValidateInferenceSettingsForEmbeddings`, constructed a provider through `NewSettingsFactoryFromInferenceSettings`, and generated a real embedding through the local Ollama service.
+
+I did not mark the full smoke-test task complete because the OpenAI live smoke still needs a real `OPENAI_API_KEY` and would send text to an external paid provider. The local profile-backed path is verified; the remote OpenAI path remains an explicit follow-up.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 3)
+
+**Assistant interpretation:** Continue incremental ticket work by validating the profile-backed embedding path where safe and available.
+
+**Inferred user intent:** The user wants implementation evidence, not just compile-time tests, while preserving provider-key and privacy discipline.
+
+**Commit (code):** N/A — smoke-test documentation only.
+
+### What I did
+
+- Checked local Ollama availability with `ollama list`.
+- Confirmed `nomic-embed-text` and `all-minilm` were already installed locally.
+- Ran a temporary Go smoke program at `/tmp/smoke_ollama_embedding_profile.go` that:
+  - decoded `examples/js/geppetto/profiles/40-embeddings.yaml`;
+  - resolved `ollama-nomic-embedding` from the `embeddings` registry;
+  - validated the final settings;
+  - constructed the provider via `NewSettingsFactoryFromInferenceSettings`;
+  - generated an embedding for `hello profile-backed embeddings`;
+  - asserted actual vector length matched configured dimensions.
+- Checked whether `OPENAI_API_KEY` was available for a live OpenAI smoke; it was not set.
+- Updated the ticket changelog with the partial smoke result.
+
+### Why
+
+- The design calls for validating profile-backed providers end-to-end.
+- Ollama is the safest first smoke because it is local and does not require external credentials or paid API calls.
+- OpenAI should only be smoke-tested when a real key is intentionally available and the user is comfortable sending a small test string to OpenAI.
+
+### What worked
+
+- `ollama list` succeeded and showed `nomic-embed-text:latest` installed.
+- The live smoke command succeeded:
+  - `go run /tmp/smoke_ollama_embedding_profile.go examples/js/geppetto/profiles/40-embeddings.yaml`
+- Output:
+  - `model=nomic-embed-text dimensions=768 actual=768`
+
+### What didn't work
+
+- The OpenAI live smoke was not run because:
+  - `OPENAI_API_KEY_not_set`
+- I intentionally left task 10 open because it explicitly includes both Ollama and OpenAI smoke tests.
+
+### What I learned
+
+- The local profile-backed path works all the way from YAML registry to resolved settings to provider construction to actual vector generation.
+- The fixture can be smoke-tested without loading the OpenAI provider registry when testing Ollama-only profiles because the Ollama profile is self-contained.
+
+### What was tricky to build
+
+- The key boundary was avoiding a false “complete” status for smoke testing. Ollama passed, but OpenAI requires a real secret and network call. I recorded the successful local evidence while keeping the broader task open.
+- The temporary smoke code uses the exported registry decode and store APIs rather than application-specific bootstrap code, so it validates the core Geppetto profile/provider path without depending on a downstream app.
+
+### What warrants a second pair of eyes
+
+- Decide whether to add a permanent non-network smoke or example command for profile-backed embeddings.
+- Decide the policy for OpenAI smoke tests: manual only, environment-gated, or skipped in CI.
+
+### What should be done in the future
+
+- Run the OpenAI smoke when `OPENAI_API_KEY` is intentionally set or when a real Pinocchio profile registry with a valid key is available.
+- Consider adding a small reusable CLI/demo command that resolves a profile and embeds one string.
+
+### Code review instructions
+
+- No source code changed in this step.
+- To reproduce the local smoke, use the temporary program shape from this diary or create a permanent test/demo from it.
+- Ensure Ollama is running and `nomic-embed-text` is installed before reproducing.
+
+### Technical details
+
+Successful smoke output:
+
+```text
+model=nomic-embed-text dimensions=768 actual=768
+```

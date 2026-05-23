@@ -43,3 +43,12 @@ Added example embedding profile registry fixture for OpenAI and Ollama profile-b
 
 - /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/examples/js/geppetto/profiles/40-embeddings.yaml — Embedding profile examples
 
+
+## 2026-05-23
+
+Ran profile-backed Ollama embedding smoke successfully; OpenAI live smoke remains pending because OPENAI_API_KEY is not set.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/examples/js/geppetto/profiles/40-embeddings.yaml — Smoke-tested ollama-nomic-embedding profile
+
