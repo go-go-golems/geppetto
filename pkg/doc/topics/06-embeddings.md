@@ -319,6 +319,75 @@ Available flags:
 - `--embeddings-cache-max-entries` — max entries
 - `--embeddings-cache-directory` — custom cache path
 
+### Using Embeddings from Engine Profiles
+
+Applications that already expose Geppetto engine profile flags should prefer profile-backed embedding configuration over application-specific API-key flags. The application selects and resolves a profile, validates that the final merged settings are embedding-capable, and then asks the embeddings package to construct the provider.
+
+A reusable OpenAI embedding profile should stack a provider base profile that owns the key and add only embedding-specific settings:
+
+```yaml
+profiles:
+  openai-base:
+    inference_settings:
+      api:
+        api_keys:
+          openai-api-key: ${OPENAI_API_KEY}
+
+  openai-embedding-small:
+    stack:
+      - profile_slug: openai-base
+    display_name: OpenAI text-embedding-3-small
+    description: Embedding profile for semantic search and vector indexing.
+    inference_settings:
+      embeddings:
+        type: openai
+        engine: text-embedding-3-small
+        dimensions: 1536
+        cache_type: file
+        cache_directory: ./.geppetto/embeddings-cache/openai-text-embedding-3-small
+```
+
+A local Ollama profile can carry the base URL and embedding model in the same profile, or stack a shared Ollama base profile:
+
+```yaml
+profiles:
+  ollama-nomic-embedding:
+    display_name: Ollama nomic-embed-text embeddings
+    description: Local embedding profile for private smoke tests.
+    inference_settings:
+      api:
+        base_urls:
+          ollama-base-url: http://localhost:11434
+      embeddings:
+        type: ollama
+        engine: nomic-embed-text
+        dimensions: 768
+        cache_type: file
+        cache_directory: ./.geppetto/embeddings-cache/ollama-nomic-embed-text
+```
+
+Consumer code should validate the resolved final settings before provider construction:
+
+```go
+resolved, err := profilebootstrap.ResolveCLIEngineSettings(ctx, parsedValues)
+if err != nil {
+    return err
+}
+defer resolved.Close()
+
+if err := embeddings.ValidateInferenceSettingsForEmbeddings(resolved.FinalInferenceSettings); err != nil {
+    return err
+}
+
+factory := embeddings.NewSettingsFactoryFromInferenceSettings(resolved.FinalInferenceSettings)
+provider, err := factory.NewProvider()
+if err != nil {
+    return err
+}
+```
+
+A chat profile is not automatically an embedding profile. For example, a profile that sets `inference_settings.chat.engine: gpt-5` can be valid for chat while still missing `inference_settings.embeddings`. Vector-search commands should report that shape problem and ask the user to choose or create an embedding profile, rather than asking for an application-specific `--openai-api-key`.
+
 ### Loading Settings from Parsed Values
 
 For CLI applications using Glazed's parameter system:

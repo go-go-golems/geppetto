@@ -12,6 +12,14 @@ Intent: long-term
 Owners:
     - manuel
 RelatedFiles:
+    - Path: pkg/doc/topics/06-embeddings.md
+      Note: Documents profile-backed embedding profile shapes and consumer validation
+    - Path: pkg/embeddings/settings_validation.go
+      Note: Adds profile-aware final InferenceSettings validation for embedding providers (commit bf38f712)
+    - Path: pkg/embeddings/settings_validation_test.go
+      Note: Covers validation helper failure modes and supported providers (commit bf38f712)
+    - Path: pkg/engineprofiles/stack_merge_embeddings_test.go
+      Note: Proves embedding profiles inherit stacked API keys and base URLs (commit bf38f712)
     - Path: ttmp/2026/05/23/GEP-EMBPROF-001--embedding-profiles-for-geppetto-and-pinocchio-registries/design-doc/01-embedding-profiles-analysis-design-and-implementation-guide.md
       Note: Initial intern-facing design guide
     - Path: ttmp/2026/05/23/GEP-EMBPROF-001--embedding-profiles-for-geppetto-and-pinocchio-registries/sources/pinocchio-profiles-redacted-relevant-snippets.yaml
@@ -24,6 +32,7 @@ LastUpdated: 2026-05-23T12:49:15.130617936-04:00
 WhatFor: Use to resume or review the documentation/design work for embedding-capable Geppetto profiles.
 WhenToUse: When continuing GEP-EMBPROF-001 or checking what was investigated and documented.
 ---
+
 
 
 # Diary
@@ -224,3 +233,104 @@ remarquee upload bundle <guide.md> <diary.md> <tasks.md> \
   --toc-depth 2 \
   --non-interactive
 ```
+
+## Step 3: Add embedding profile validation and stack tests
+
+I moved the ticket from design-only into implementation by adding focused tests for embedding profile stack resolution and a validation helper for final merged inference settings. The tests prove that an OpenAI embedding profile can inherit `openai-api-key` from a stacked base profile and that an Ollama embedding profile can inherit `ollama-base-url`, while the helper gives profile-oriented errors before provider construction.
+
+I also added a profile-backed usage section to the embeddings documentation so consumer applications have a concrete integration path: resolve profiles, validate `InferenceSettings`, then create a provider with `NewSettingsFactoryFromInferenceSettings`.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Work on @geppetto/ttmp/2026/05/23/GEP-EMBPROF-001--embedding-profiles-for-geppetto-and-pinocchio-registries/ docmgr ticket, add tasks to the ticket after reading the design doc, then work on them incrementally, committing at a ppropriate intervals, and keeping a detailed diary."
+
+**Assistant interpretation:** Continue the existing GEP-EMBPROF-001 docmgr ticket, derive concrete implementation tasks from the design guide, implement them in small increments, commit when useful, and keep the ticket diary/changelog current.
+
+**Inferred user intent:** The user wants the design converted into working Geppetto code and docs without losing traceability between ticket tasks, commits, tests, and review notes.
+
+**Commit (code):** bf38f712aa30394708e339de7cfec1cc339fa74e — "Add embedding profile validation tests"
+
+### What I did
+
+- Read the design guide, existing diary, and task checklist.
+- Added implementation tasks for stack tests, validation, validation tests, and documentation.
+- Added `pkg/engineprofiles/stack_merge_embeddings_test.go` with OpenAI and Ollama embedding profile stack-resolution tests.
+- Added `pkg/embeddings/settings_validation.go` with `ValidateInferenceSettingsForEmbeddings`.
+- Added `pkg/embeddings/settings_validation_test.go` with table-driven coverage for nil settings, chat-only profiles, missing type/engine, missing OpenAI keys, unsupported providers, Ollama dimensions, and valid OpenAI/Ollama settings.
+- Updated `pkg/doc/topics/06-embeddings.md` with profile-backed embedding examples and consumer integration code.
+- Marked tasks 7, 8, 9, 11, 12, 13, and 14 complete.
+- Related the modified implementation and documentation files to this diary.
+- Updated the ticket changelog.
+
+### Why
+
+- The design doc's core implementation rule is that applications should validate final merged profile settings instead of managing provider credentials themselves.
+- Tests make the intended profile composition explicit: base profiles carry API keys/base URLs, embedding profiles carry model/dimension/cache settings.
+- The validation helper gives consumer commands a stable place to surface helpful profile errors before low-level providers return less actionable messages such as `no API key provided for OpenAI`.
+
+### What worked
+
+- Focused package tests passed:
+  - `go test ./pkg/embeddings ./pkg/engineprofiles -count=1`
+  - `go test ./pkg/doc ./pkg/embeddings ./pkg/engineprofiles -count=1`
+- The commit pre-commit hook also ran the full test and lint suite successfully:
+  - `go test ./...`
+  - `golangci-lint run -v --max-same-issues=100 --timeout=5m ./cmd/... ./pkg/...`
+  - `go vet -vettool=/tmp/geppetto-lint ...`
+- `docmgr task check` updated the ticket checklist cleanly.
+- `docmgr doc relate` added focused code/documentation file relationships to this diary.
+
+### What didn't work
+
+- N/A for this implementation step. The first code/test pass compiled, passed focused tests, and passed the repository pre-commit hook.
+
+### What I learned
+
+- The existing engine profile merge path already preserves nested `api` maps and overlays `embeddings` blocks correctly; the new tests primarily lock down that behavior for embedding-specific profiles.
+- The most useful validation boundary is still after stack resolution: raw profile YAML cannot tell whether a missing key will be provided by a base profile.
+- OpenAI can technically default dimensions later in `SettingsFactory.NewProvider`, but profile-backed documentation and tests should still encourage explicit dimensions for predictable vector-index metadata.
+
+### What was tricky to build
+
+- The main sharp edge was deciding how profile-aware the embeddings package should become. I kept the helper focused on final `InferenceSettings` rather than taking a profile slug, registry, or raw YAML, which preserves separation from the engineprofiles package while still giving applications better errors.
+- Another subtle point was OpenAI dimensions: the low-level provider factory can default dimensions to 1536, but the validation helper currently only requires type, engine, and key for OpenAI. This avoids rejecting older direct configurations while the docs recommend explicit dimensions for profiles.
+- The documentation had to distinguish three ways to configure embeddings: direct providers, `EmbeddingsConfig`, and engine profiles. I inserted the profile-backed section near settings configuration so it appears before lower-level parsed-values examples.
+
+### What warrants a second pair of eyes
+
+- Review whether `ValidateInferenceSettingsForEmbeddings` should require OpenAI dimensions as strictly as Ollama or only warn/document the preference.
+- Review the exported helper name and package placement before downstream applications adopt it.
+- Confirm whether supported provider strings should be constants exported from the embeddings package rather than private strings in the validation file.
+
+### What should be done in the future
+
+- Add concrete example embedding profiles to a real registry file if the team decides Geppetto should ship them rather than only documenting them.
+- Run local Ollama and OpenAI smoke tests with real profile registries when credentials/services are available.
+- Consider a CLI inspection/validation command for embedding-capable profiles.
+
+### Code review instructions
+
+- Start with `pkg/embeddings/settings_validation.go` and confirm the error messages match the intended profile-backed UX.
+- Then review `pkg/embeddings/settings_validation_test.go` to check supported and rejected shapes.
+- Review `pkg/engineprofiles/stack_merge_embeddings_test.go` to confirm the stack tests reflect the desired OpenAI/Ollama profile patterns.
+- Review `pkg/doc/topics/06-embeddings.md` for the new “Using Embeddings from Engine Profiles” section.
+- Validate with:
+  - `go test ./pkg/doc ./pkg/embeddings ./pkg/engineprofiles -count=1`
+  - optionally `go test ./...`
+
+### Technical details
+
+The new validation API is:
+
+```go
+func ValidateInferenceSettingsForEmbeddings(s *settings.InferenceSettings) error
+```
+
+It validates:
+
+- non-nil final inference settings;
+- presence of `inference_settings.embeddings`;
+- `embeddings.type` and `embeddings.engine`;
+- supported provider type (`openai` or `ollama`);
+- `openai-api-key` for OpenAI profiles, after stack resolution;
+- non-zero dimensions for Ollama profiles.

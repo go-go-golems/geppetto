@@ -24,3 +24,13 @@ Uploaded the embedding profiles guide bundle to reMarkable at /ai/2026/05/23/GEP
 - /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/ttmp/2026/05/23/GEP-EMBPROF-001--embedding-profiles-for-geppetto-and-pinocchio-registries/design-doc/01-embedding-profiles-analysis-design-and-implementation-guide.md — Uploaded primary guide
 - /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/ttmp/2026/05/23/GEP-EMBPROF-001--embedding-profiles-for-geppetto-and-pinocchio-registries/reference/01-diary.md — Records reMarkable upload
 
+
+## 2026-05-23
+
+Added embedding profile stack tests, profile-aware embedding settings validation, and profile-backed embedding documentation (code commit bf38f712).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/pkg/doc/topics/06-embeddings.md — User-facing documentation
+- /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/pkg/embeddings/settings_validation.go — Validation helper
+
