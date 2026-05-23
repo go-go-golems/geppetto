@@ -1,0 +1,45 @@
+slug: default
+profiles:
+  openai-responses-base:
+    display_name: OpenAI Responses base
+    description: Shared OpenAI API key and OpenAI Responses API type.
+    inference_settings:
+      chat:
+        api_type: openai-responses
+      api:
+        api_keys:
+          openai-api-key: <redacted>
+  ollama-openai-base:
+    display_name: Ollama OpenAI-compatible base
+    description: Shared local Ollama OpenAI-compatible base URL.
+    inference_settings:
+      chat:
+        api_type: openai
+      api:
+        base_urls:
+          openai-base-url: http://localhost:11434/v1
+  gpt-5-low:
+    stack:
+    - profile_slug: openai-responses-base
+    display_name: GPT-5 Low Effort
+    description: OpenAI Responses GPT-5 profile with low reasoning effort and concise
+      summaries.
+    inference_settings:
+      chat:
+        engine: gpt-5
+      inference:
+        reasoning_effort: low
+        reasoning_summary: concise
+  gpt-5-nano-low:
+    stack:
+    - profile_slug: openai-responses-base
+    display_name: GPT-5 Nano Low Effort
+    description: OpenAI Responses nano profile with low reasoning effort and concise
+      summaries.
+    inference_settings:
+      chat:
+        engine: gpt-5-nano
+        max_response_tokens: 128000
+      inference:
+        reasoning_effort: low
+        reasoning_summary: concise
