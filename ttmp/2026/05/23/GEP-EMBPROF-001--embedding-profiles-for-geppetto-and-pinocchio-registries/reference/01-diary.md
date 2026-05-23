@@ -516,3 +516,94 @@ Successful smoke output:
 ```text
 model=nomic-embed-text dimensions=768 actual=768
 ```
+
+## Step 6: Correct OpenAI smoke to resolve credentials through profiles
+
+I corrected my earlier mistake: checking `OPENAI_API_KEY` was the wrong operational test for this ticket. The whole point of GEP-EMBPROF-001 is that provider credentials should be resolved through Geppetto/Pinocchio profiles, not through application-specific or process-environment key handling.
+
+I reran the OpenAI smoke by loading the real Pinocchio profile registry, adding an in-memory temporary embedding profile that stacks `openai-responses-base`, resolving the final merged `InferenceSettings`, validating it, and generating an embedding. This proved the OpenAI API key is available through the profile stack without printing or copying the secret.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok wait, we don't need OPENAI_API_KEY, we should resolve it through the profiles. What is this about."
+
+**Assistant interpretation:** The user is correcting my mistaken environment-variable framing and asking why OpenAI smoke was not attempted through the profile registry as designed.
+
+**Inferred user intent:** The user wants the implementation and validation workflow to respect the architecture: Geppetto/Pinocchio profiles own provider keys, while embedding profiles stack those bases.
+
+**Commit (code):** N/A — smoke-test correction and ticket documentation only.
+
+### What I did
+
+- Acknowledged that checking `OPENAI_API_KEY` was the wrong criterion.
+- Inspected the runtime Pinocchio registry only enough to confirm it exists and did not print secrets.
+- Created a temporary in-memory profile named `tmp-openai-embedding-small` that stacks `openai-responses-base` and adds:
+  - `embeddings.type: openai`
+  - `embeddings.engine: text-embedding-3-small`
+  - `embeddings.dimensions: 1536`
+- Resolved that profile through the engine profile registry APIs.
+- Ran `ValidateInferenceSettingsForEmbeddings` on the resolved final settings.
+- Constructed an embedding provider with `NewSettingsFactoryFromInferenceSettings`.
+- Generated a live OpenAI embedding and verified dimensions.
+- Marked task 10 complete.
+- Updated the ticket changelog.
+
+### Why
+
+- The ticket explicitly rejects bespoke credential paths for consumer applications.
+- The correct smoke is not “does the shell have `OPENAI_API_KEY`?”; it is “does the selected profile stack resolve an OpenAI key into final `InferenceSettings.API.APIKeys`?”
+- The temporary in-memory profile avoided modifying the real Pinocchio registry while still testing the intended stack shape.
+
+### What worked
+
+- OpenAI profile-backed smoke succeeded with output:
+  - `profile=tmp-openai-embedding-small profile=tmp-openai-embedding-small model=text-embedding-3-small dimensions=1536 actual=1536 key_configured=true`
+- The key was resolved through `~/.config/pinocchio/profiles.yaml` via `openai-responses-base`.
+- No API key value was printed or copied into the ticket.
+
+### What didn't work
+
+- My earlier Step 5 conclusion was wrong/incomplete because it treated the absence of `OPENAI_API_KEY` as a blocker. That contradicted the ticket architecture.
+- The first version of the temporary smoke program tried to print `provider.GetModel().Provider`, but `EmbeddingModel` has only `Name` and `Dimensions`; the command failed with:
+  - `/tmp/smoke_openai_profile_overlay.go:30:165: provider.GetModel().Provider undefined (type embeddings.EmbeddingModel has no field or method Provider)`
+- I removed that field from the output and reran successfully.
+
+### What I learned
+
+- The existing Pinocchio base profile already provides the OpenAI key correctly for stacked embedding profiles.
+- The validation helper correctly accepts the final merged settings once the temporary embedding profile stacks `openai-responses-base`.
+- Future smoke documentation should explicitly say to resolve a profile registry, not check provider environment variables directly.
+
+### What was tricky to build
+
+- The important nuance is that the real registry currently has base and chat profiles but no dedicated embedding profile. To avoid editing the user's real registry during a smoke, I added the embedding profile in memory and stacked the existing base profile.
+- This is still a valid architecture smoke because it exercises the same merge path a permanent `openai-embedding-small` profile would use.
+
+### What warrants a second pair of eyes
+
+- Decide whether to add `openai-embedding-small` directly to the user's Pinocchio registry or keep only repository examples until the user explicitly asks.
+- Review whether a permanent smoke/demo command should support an overlay profile file so users do not need temporary Go programs.
+
+### What should be done in the future
+
+- Replace temporary smoke code with a maintained CLI/demo if profile-backed embedding testing becomes a common workflow.
+- Consider documenting an overlay-registry smoke pattern for users who have base profiles but have not yet committed embedding profiles to their real registry.
+
+### Code review instructions
+
+- No production source changed in this correction.
+- Review the earlier validation helper and stack tests with this corrected smoke in mind: the helper should be used after profile resolution and must not assume environment-variable credential plumbing.
+
+### Technical details
+
+Temporary smoke command:
+
+```bash
+go run /tmp/smoke_openai_profile_overlay.go
+```
+
+Successful output:
+
+```text
+profile=tmp-openai-embedding-small profile=tmp-openai-embedding-small model=text-embedding-3-small dimensions=1536 actual=1536 key_configured=true
+```

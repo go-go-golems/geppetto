@@ -52,3 +52,12 @@ Ran profile-backed Ollama embedding smoke successfully; OpenAI live smoke remain
 
 - /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/examples/js/geppetto/profiles/40-embeddings.yaml — Smoke-tested ollama-nomic-embedding profile
 
+
+## 2026-05-23
+
+Corrected OpenAI smoke approach: resolved the OpenAI key through the Pinocchio profile stack and successfully generated a text-embedding-3-small vector; task 10 complete.
+
+### Related Files
+
+- /home/manuel/.config/pinocchio/profiles.yaml — Runtime profile registry used for OpenAI key resolution (secret not copied)
+
