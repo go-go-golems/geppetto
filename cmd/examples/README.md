@@ -12,6 +12,7 @@ These are the smallest examples that match the current recommended API surface:
 - `runner-registry/`: runner API with profile-registry runtime selection
 - `runner-glazed-full-flags/`: runner API driven by full Geppetto sections and Glazed/Cobra parsing
 - `runner-glazed-registry-flags/`: runner API with only profile-registry selection exposed publicly through Glazed; base `StepSettings` stay hidden in app bootstrap
+- `embedding-profile-smoke/`: resolves `~/.config/pinocchio/profiles.yaml` and computes one embedding through a profile-backed provider
 - `inference/`: direct engine/session blocking example
 - `streaming-inference/`: direct engine/session streaming example
 

@@ -83,3 +83,12 @@ Installed embedding profiles into ~/.config/pinocchio/profiles.yaml, validated Y
 - /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/ttmp/2026/05/23/GEP-EMBPROF-001--embedding-profiles-for-geppetto-and-pinocchio-registries/reference/01-diary.md — Records profile installation and validation
 - /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/ttmp/2026/05/23/GEP-EMBPROF-001--embedding-profiles-for-geppetto-and-pinocchio-registries/tasks.md — Phased task checklist
 
+
+## 2026-05-23
+
+Added cmd/examples/embedding-profile-smoke CLI and verified it computes an OpenAI embedding through ~/.config/pinocchio/profiles.yaml.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/cmd/examples/embedding-profile-smoke/main.go — Profile-backed embedding smoke CLI
+

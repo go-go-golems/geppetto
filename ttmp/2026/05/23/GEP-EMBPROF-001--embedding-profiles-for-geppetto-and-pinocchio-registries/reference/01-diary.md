@@ -14,6 +14,10 @@ Owners:
 RelatedFiles:
     - Path: ../../../../../../../../../../.config/pinocchio/profiles.yaml
       Note: Installed user-level embedding profiles that stack existing provider/base profiles
+    - Path: cmd/examples/README.md
+      Note: Documents embedding profile smoke example
+    - Path: cmd/examples/embedding-profile-smoke/main.go
+      Note: Small CLI that resolves Pinocchio profiles and computes embeddings
     - Path: examples/js/geppetto/README.md
       Note: Documents the new embedding profile fixture
     - Path: examples/js/geppetto/profiles/40-embeddings.yaml
@@ -42,6 +46,7 @@ LastUpdated: 2026-05-23T12:49:15.130617936-04:00
 WhatFor: Use to resume or review the documentation/design work for embedding-capable Geppetto profiles.
 WhenToUse: When continuing GEP-EMBPROF-001 or checking what was investigated and documented.
 ---
+
 
 
 
@@ -826,4 +831,107 @@ ollama-nomic-embedding:
       type: ollama
       engine: nomic-embed-text
       dimensions: 768
+```
+
+## Step 8: Add a profile-backed embedding smoke CLI
+
+I added a small CLI example that answers the practical question: “does profile-backed embedding resolution work on this machine?” It loads `~/.config/pinocchio/profiles.yaml` by default, resolves either an embedding-capable profile or a base profile plus temporary embedding settings, constructs a Geppetto embedding provider from final merged settings, and computes one vector.
+
+The default path intentionally does not require editing the user's Pinocchio registry first. It stacks `openai-responses-base` from the real registry with an in-memory `text-embedding-3-small` embedding overlay, so it proves that credentials come from profiles while still giving a one-command smoke test.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, does it work? how can I test this? can you make (if it doesn't exist) a small CLI tool that loads the pinocchio profiles and computes embeddings"
+
+**Assistant interpretation:** Provide a concrete way to test profile-backed embeddings and add a small CLI if one does not already exist.
+
+**Inferred user intent:** The user wants executable evidence and an easy command to verify the Pinocchio profile registry can supply credentials for embeddings.
+
+**Commit (code):** pending in this step.
+
+### What I did
+
+- Added `cmd/examples/embedding-profile-smoke/main.go`.
+- Added the example to `cmd/examples/README.md`.
+- The CLI supports:
+  - `--profile-registries` (defaults to `~/.config/pinocchio/profiles.yaml`)
+  - `--profile` for a real embedding-capable profile
+  - `--base-profile` plus `--embeddings-type`, `--embeddings-engine`, and `--embeddings-dimensions` for an in-memory embedding overlay
+  - `--text`, `--json`, `--preview`, and `--timeout`
+- Ran the tool against the real local Pinocchio registry.
+- Added and completed task 16.
+- Related the CLI and examples README to this diary.
+- Updated the ticket changelog.
+
+### Why
+
+- The previous smoke was captured in temporary `/tmp` programs, which is not discoverable or reusable.
+- A checked-in example CLI gives users and future agents a simple test command before wiring profile-backed embeddings into downstream applications.
+- The default overlay mode is useful because the current Pinocchio registry has an OpenAI base profile but may not yet have a permanent embedding profile.
+
+### What worked
+
+- This command succeeded:
+  - `go run ./cmd/examples/embedding-profile-smoke --text "hello from the profile embedding smoke" --json`
+- It loaded:
+  - `~/.config/pinocchio/profiles.yaml`
+- It resolved credentials through:
+  - `openai-responses-base`
+- It generated a real OpenAI embedding with:
+  - `model=text-embedding-3-small`
+  - `configured_dimensions=1536`
+  - `actual_dimensions=1536`
+  - `key_configured=true`
+- Focused tests passed:
+  - `go test ./cmd/examples/embedding-profile-smoke ./pkg/embeddings ./pkg/engineprofiles -count=1`
+
+### What didn't work
+
+- N/A. The CLI compiled and the live OpenAI profile-backed smoke succeeded.
+
+### What I learned
+
+- The cleanest immediate smoke is base-profile plus embedding overlay because it avoids mutating the user's real profile registry.
+- Once a real embedding profile exists in the registry, the same tool can validate it with `--profile openai-embedding-small` and no overlay flags.
+
+### What was tricky to build
+
+- The subtle part was choosing defaults. Defaulting to a non-existent embedding profile would fail on current registries, while defaulting to direct key flags would violate the architecture. The base-profile overlay preserves the profile credential model and still works out of the box.
+- The tool validates final merged settings with `ValidateInferenceSettingsForEmbeddings` before creating the provider, so failures should point at missing profile shape rather than low-level provider errors.
+
+### What warrants a second pair of eyes
+
+- Decide whether this should remain under `cmd/examples` or become a real `geppetto embeddings smoke` command.
+- Review the default `--base-profile openai-responses-base` name; it matches the current Pinocchio registry but may be user-specific.
+
+### What should be done in the future
+
+- Add a permanent embedding profile to the Pinocchio registry if desired, then test with `--profile openai-embedding-small`.
+- Add an Ollama smoke example to the CLI docs once a standard local embedding profile name is agreed.
+
+### Code review instructions
+
+- Start with `cmd/examples/embedding-profile-smoke/main.go`.
+- Check that no provider keys are read from environment variables or printed.
+- Validate with:
+  - `go run ./cmd/examples/embedding-profile-smoke --text "hello" --json`
+  - `go test ./cmd/examples/embedding-profile-smoke ./pkg/embeddings ./pkg/engineprofiles -count=1`
+
+### Technical details
+
+Default OpenAI smoke command:
+
+```bash
+go run ./cmd/examples/embedding-profile-smoke \
+  --text "hello from the profile embedding smoke" \
+  --json
+```
+
+If a permanent embedding profile exists, use:
+
+```bash
+go run ./cmd/examples/embedding-profile-smoke \
+  --profile openai-embedding-small \
+  --text "hello" \
+  --json
 ```
