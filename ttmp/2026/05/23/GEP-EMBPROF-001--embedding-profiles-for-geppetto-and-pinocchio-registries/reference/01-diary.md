@@ -12,6 +12,8 @@ Intent: long-term
 Owners:
     - manuel
 RelatedFiles:
+    - Path: ../../../../../../../../../../.config/pinocchio/profiles.yaml
+      Note: Installed user-level embedding profiles that stack existing provider/base profiles
     - Path: examples/js/geppetto/README.md
       Note: Documents the new embedding profile fixture
     - Path: examples/js/geppetto/profiles/40-embeddings.yaml
@@ -27,15 +29,20 @@ RelatedFiles:
     - Path: ttmp/2026/05/23/GEP-EMBPROF-001--embedding-profiles-for-geppetto-and-pinocchio-registries/design-doc/01-embedding-profiles-analysis-design-and-implementation-guide.md
       Note: Initial intern-facing design guide
     - Path: ttmp/2026/05/23/GEP-EMBPROF-001--embedding-profiles-for-geppetto-and-pinocchio-registries/sources/pinocchio-profiles-redacted-relevant-snippets.yaml
-      Note: Initial source snapshot
+      Note: |-
+        Initial source snapshot
+        Updated redacted snapshot with installed embedding profiles
     - Path: ttmp/2026/05/23/GEP-EMBPROF-001--embedding-profiles-for-geppetto-and-pinocchio-registries/tasks.md
-      Note: Initial task checklist
+      Note: |-
+        Initial task checklist
+        Detailed phased checklist including user-registry installation
 ExternalSources: []
 Summary: Chronological diary for the embedding profiles analysis/design ticket.
 LastUpdated: 2026-05-23T12:49:15.130617936-04:00
 WhatFor: Use to resume or review the documentation/design work for embedding-capable Geppetto profiles.
 WhenToUse: When continuing GEP-EMBPROF-001 or checking what was investigated and documented.
 ---
+
 
 
 
@@ -687,4 +694,136 @@ Runner examples now default to:
 ```text
 --profile-registries ~/.config/pinocchio/profiles.yaml
 --profile gpt-5-nano-low
+```
+
+## Step 8: Install embedding profiles into the Pinocchio user registry
+
+I added the four embedding profiles from the design and example registry into the real Pinocchio profile registry at `~/.config/pinocchio/profiles.yaml`. The OpenAI embedding profiles stack the existing `openai-responses-base` profile, so they reuse the existing OpenAI key without copying or exposing it. The Ollama embedding profiles are local and self-contained, with explicit `ollama-base-url`, model names, dimensions, and file cache directories.
+
+I also rewrote the ticket task list into detailed phases so the completed implementation work, the user-registry installation, and the downstream adoption follow-ups are all visible in one checklist. After editing the user registry, I validated YAML parsing and resolved all four new profiles with Geppetto's current profile and embedding validation APIs.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Ok, add them to pinocchio profile.yaml"
+
+**User prompt (verbatim, follow-up):** "Add tasks to the ticket, detailed and split in phases, and then implement one by one, committing at appropriat eintervals, keeping a detailed diary"
+
+**Assistant interpretation:** Install the embedding profiles into the user's real Pinocchio registry, update the ticket with a phased implementation checklist, perform validation, and keep the ticket diary/changelog current.
+
+**Inferred user intent:** The user wants the profile-backed embedding design to become an operational default in their existing provider registry, while preserving traceable ticket documentation and avoiding ad hoc provider-key handling.
+
+**Commit (code):** pending — documentation/ticket update for the user-registry installation.
+
+### What I did
+
+- Backed up the profile registry before editing:
+  - `/home/manuel/.config/pinocchio/profiles.yaml.bak-20260523-143437`
+- Added four profiles to `/home/manuel/.config/pinocchio/profiles.yaml`:
+  - `openai-embedding-small`
+  - `openai-embedding-large`
+  - `ollama-nomic-embedding`
+  - `ollama-all-minilm-embedding`
+- Kept OpenAI credentials centralized by stacking:
+  - `openai-embedding-small -> openai-responses-base`
+  - `openai-embedding-large -> openai-responses-base`
+- Kept local Ollama profiles key-free with:
+  - `ollama-base-url: http://localhost:11434`
+- Validated the edited YAML parses with Python/YAML.
+- Ran a temporary Geppetto validation program against the real Pinocchio registry:
+  - `go run /tmp/check_pinocchio_embedding_profiles.go ~/.config/pinocchio/profiles.yaml`
+- Refreshed the redacted ticket source snapshot:
+  - `sources/pinocchio-profiles-redacted-relevant-snippets.yaml`
+- Rewrote `tasks.md` into detailed phases with completed and follow-up work.
+- Re-ran focused tests:
+  - `go test ./pkg/embeddings ./pkg/engineprofiles -count=1`
+
+### Why
+
+- The checked-in examples prove the shape, but the user's actual workflows use `~/.config/pinocchio/profiles.yaml`.
+- Adding the profiles there lets commands select `openai-embedding-small` or `ollama-nomic-embedding` directly instead of trying to use a chat profile such as `gpt-5-low` for vector search.
+- The phased task list makes clear what is already implemented in Geppetto and what remains for downstream consumers such as Readwise Viewer.
+
+### What worked
+
+- YAML parsing succeeded after editing `~/.config/pinocchio/profiles.yaml`.
+- Geppetto resolved and validated all four profiles:
+  - `openai-embedding-small ok type=openai engine=text-embedding-3-small dimensions=1536 openai_key_configured=true ollama_base_url=""`
+  - `openai-embedding-large ok type=openai engine=text-embedding-3-large dimensions=3072 openai_key_configured=true ollama_base_url=""`
+  - `ollama-nomic-embedding ok type=ollama engine=nomic-embed-text dimensions=768 openai_key_configured=false ollama_base_url="http://localhost:11434"`
+  - `ollama-all-minilm-embedding ok type=ollama engine=all-minilm dimensions=384 openai_key_configured=false ollama_base_url="http://localhost:11434"`
+- Focused package tests still passed:
+  - `go test ./pkg/embeddings ./pkg/engineprofiles -count=1`
+
+### What didn't work
+
+- The first version of the temporary validation program called `ResolveEngineProfile` directly on `*EngineProfileRegistry`, which does not expose that method. The exact error was:
+  - `/tmp/check_pinocchio_embedding_profiles.go:27:29: registry.ResolveEngineProfile undefined (type *engineprofiles.EngineProfileRegistry has no field or method ResolveEngineProfile)`
+- I fixed the smoke by loading the decoded registry into `NewInMemoryEngineProfileStore`, constructing `NewStoreRegistry`, and resolving profiles through that registry service.
+
+### What I learned
+
+- The installed OpenAI embedding profiles now resolve `openai_key_configured=true` through the existing profile stack, without printing or copying the key.
+- The Ollama profiles do not need to stack `ollama-openai-base`, because Geppetto's Ollama embedding provider uses `ollama-base-url`, while the existing chat base uses the OpenAI-compatible `openai-base-url`.
+- The downstream Readwise Viewer command should use `--profile openai-embedding-small` or `--profile ollama-nomic-embedding`; using `--profile gpt-5-low` remains the wrong semantic selection for vector search.
+
+### What was tricky to build
+
+- Editing the user's real profile registry required preserving secrets and file shape. I appended profiles rather than serializing the entire YAML file, because full YAML reserialization could reorder the user's registry and make accidental secret exposure/noisy diffs more likely.
+- The validation needed to check final merged profile semantics, not just the raw YAML blocks. The OpenAI profiles only contain `embeddings`; their key comes from the stacked base profile, so raw YAML validation would be insufficient.
+
+### What warrants a second pair of eyes
+
+- Review whether the cache directories should be relative paths as installed now, or whether user-level profiles should point to an absolute shared cache directory.
+- Review whether the OpenAI embedding profiles should stack `openai-responses-base` or a more generic `openai-base` if one is introduced later.
+- Review downstream consumers for compatibility with the current Geppetto profile decoding behavior.
+
+### What should be done in the future
+
+- Update Readwise Viewer to a Geppetto version containing the current profile API/validation helper before relying on the new profiles there.
+- Re-run the original vector-search workflow with `--profile openai-embedding-small` and/or `--profile ollama-nomic-embedding` after downstream dependency alignment.
+- Add a user-facing profile inspection command if this manual validation pattern becomes common.
+
+### Code review instructions
+
+- Review the ticket task phases in `tasks.md`.
+- Review the redacted installed profile snapshot in `sources/pinocchio-profiles-redacted-relevant-snippets.yaml`.
+- Verify the live user profile registry with:
+
+```bash
+go run /tmp/check_pinocchio_embedding_profiles.go ~/.config/pinocchio/profiles.yaml
+```
+
+- Validate focused packages with:
+
+```bash
+go test ./pkg/embeddings ./pkg/engineprofiles -count=1
+```
+
+### Technical details
+
+Installed OpenAI profile shape:
+
+```yaml
+openai-embedding-small:
+  stack:
+  - profile_slug: openai-responses-base
+  inference_settings:
+    embeddings:
+      type: openai
+      engine: text-embedding-3-small
+      dimensions: 1536
+```
+
+Installed Ollama profile shape:
+
+```yaml
+ollama-nomic-embedding:
+  inference_settings:
+    api:
+      base_urls:
+        ollama-base-url: http://localhost:11434
+    embeddings:
+      type: ollama
+      engine: nomic-embed-text
+      dimensions: 768
 ```

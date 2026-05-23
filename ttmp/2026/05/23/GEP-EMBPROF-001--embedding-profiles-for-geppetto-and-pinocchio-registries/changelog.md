@@ -72,3 +72,14 @@ Removed OpenAI environment-key examples from active code/docs and aligned runner
 - /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/pkg/doc/topics/06-embeddings.md — Embedding docs now use profile-backed provider construction
 - /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/pkg/steps/ai/openai_responses/helpers_e2e_test.go — E2E test resolves OpenAI credentials through profiles
 
+
+## 2026-05-23
+
+Installed embedding profiles into ~/.config/pinocchio/profiles.yaml, validated YAML/profile resolution, refreshed phased tasks, and updated the redacted source snapshot.
+
+### Related Files
+
+- /home/manuel/.config/pinocchio/profiles.yaml — User registry now contains openai and ollama embedding profiles
+- /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/ttmp/2026/05/23/GEP-EMBPROF-001--embedding-profiles-for-geppetto-and-pinocchio-registries/reference/01-diary.md — Records profile installation and validation
+- /home/manuel/workspaces/2026-05-23/add-embeddings-profiles/geppetto/ttmp/2026/05/23/GEP-EMBPROF-001--embedding-profiles-for-geppetto-and-pinocchio-registries/tasks.md — Phased task checklist
+
