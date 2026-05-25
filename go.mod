@@ -12,7 +12,7 @@ require (
 	github.com/go-go-golems/clay v0.4.9
 	github.com/go-go-golems/glazed v1.2.7
 	github.com/go-go-golems/go-emrichen v0.0.10
-	github.com/go-go-golems/go-go-goja v0.4.15
+	github.com/go-go-golems/go-go-goja v0.4.17
 	github.com/go-go-golems/sanitize v0.0.1
 	github.com/google/generative-ai-go v0.20.1
 	github.com/huandu/go-clone v1.7.2

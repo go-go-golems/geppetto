@@ -120,8 +120,8 @@ github.com/go-go-golems/glazed v1.2.7 h1:/zSSeteH++rsJDmTmIZappaGpEXKT40GvtZgBfG
 github.com/go-go-golems/glazed v1.2.7/go.mod h1:1oF2sFLSCHFJBGx7xQ/pIXI+9WLZhonD4U8X46AqQrM=
 github.com/go-go-golems/go-emrichen v0.0.10 h1:y6RzGopArsUSuHfWHh3dqPnOJwIlftPkdfyJxRZboGU=
 github.com/go-go-golems/go-emrichen v0.0.10/go.mod h1:XjfFqbY7l9cYqMX9jrlbgVdjRtMHdXGIBf92F3hezVM=
-github.com/go-go-golems/go-go-goja v0.4.15 h1:0PNFBk4yRpfvi3o/cP5ciduyJGB3b52EINGTpBcgOYg=
-github.com/go-go-golems/go-go-goja v0.4.15/go.mod h1:mnEFH70HM3+JROMsBSBNTV8REF0K4YSYes6d0NS900o=
+github.com/go-go-golems/go-go-goja v0.4.17 h1:ntiNh16h9GP1hhiBYpk2o0HnSozIoF2YQpSmhh80KgY=
+github.com/go-go-golems/go-go-goja v0.4.17/go.mod h1:h2eI4uVtUFy7UdOmUWVwUgg3iLl3CHpyk3gEbOYvbJc=
 github.com/go-go-golems/sanitize v0.0.1 h1:Kdi7QC5pNtc7H9BsskQQiuhXnly9lMei+LhXf1AtUiQ=
 github.com/go-go-golems/sanitize v0.0.1/go.mod h1:ahtFsvUHMZC+/CIRxbrC5RKEqgCcyDyd6fSns+zWEN0=
 github.com/go-jose/go-jose/v4 v4.1.4 h1:moDMcTHmvE6Groj34emNPLs/qtYXRVcd6S7NHbHz3kA=

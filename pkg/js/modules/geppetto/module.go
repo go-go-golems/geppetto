@@ -48,13 +48,19 @@ type Options struct {
 	Logger                   zerolog.Logger
 }
 
+// NewLoader returns the native geppetto module loader for use with a require
+// registry or an xgoja provider wrapper.
+func NewLoader(opts Options) require.ModuleLoader {
+	mod := &module{opts: opts}
+	return mod.Loader
+}
+
 // Register registers the geppetto native module on a require registry.
 func Register(reg *require.Registry, opts Options) {
 	if reg == nil {
 		return
 	}
-	mod := &module{opts: opts}
-	reg.RegisterNativeModule(ModuleName, mod.Loader)
+	reg.RegisterNativeModule(ModuleName, NewLoader(opts))
 }
 
 type module struct {
