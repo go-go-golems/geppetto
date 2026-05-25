@@ -15,7 +15,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/turns/serde"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 // Engine implements the Engine interface for Open Responses-compatible API calls.

@@ -10,7 +10,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
-	"github.com/rs/zerolog/log"
 )
 
 type responsesStreamTerminalKind string

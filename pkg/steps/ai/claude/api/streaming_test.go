@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	zlog "github.com/rs/zerolog/log"
 )
 
 type errReadCloser struct {
@@ -41,10 +41,10 @@ func TestStreamEventsDoesNotPanicOnDeadlineExceeded(t *testing.T) {
 
 func TestStreamEventsDoesNotWarnOnCleanEOF(t *testing.T) {
 	var logBuf bytes.Buffer
-	previousLogger := log.Logger
-	log.Logger = zerolog.New(&logBuf).Level(zerolog.TraceLevel)
+	previousLogger := zlog.Logger
+	zlog.Logger = zerolog.New(&logBuf).Level(zerolog.TraceLevel)
 	defer func() {
-		log.Logger = previousLogger
+		zlog.Logger = previousLogger
 	}()
 
 	resp := &http.Response{

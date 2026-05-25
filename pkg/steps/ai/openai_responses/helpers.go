@@ -9,7 +9,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
-	"github.com/rs/zerolog/log"
 )
 
 // HTTP JSON models for an Open Responses-compatible API (minimal subset: text + reasoning + sampling)

@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 // NewSystemPromptMiddleware returns a middleware that ensures a fixed system prompt

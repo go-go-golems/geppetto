@@ -11,7 +11,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 type messageProjection struct {

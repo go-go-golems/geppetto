@@ -17,7 +17,7 @@ import (
 	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	zlog "github.com/rs/zerolog/log"
 )
 
 const (
@@ -91,7 +91,7 @@ type moduleRuntime struct {
 func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 	lg := opts.Logger
 	if lg.GetLevel() == zerolog.NoLevel {
-		lg = log.Logger
+		lg = zlog.Logger
 	}
 	m := &moduleRuntime{
 		vm:                       vm,

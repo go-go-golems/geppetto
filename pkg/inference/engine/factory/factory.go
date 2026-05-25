@@ -12,7 +12,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 // EngineFactory creates AI inference engines based on provider settings.

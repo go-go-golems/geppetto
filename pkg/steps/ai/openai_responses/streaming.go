@@ -14,7 +14,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	gepsession "github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/turns"
-	"github.com/rs/zerolog/log"
 )
 
 func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpClient *http.Client, url string, body []byte, apiKey string, metadata events.EventMetadata, tap engine.DebugTap, startTime time.Time, reqBody responsesRequest) (*turns.Turn, error) {

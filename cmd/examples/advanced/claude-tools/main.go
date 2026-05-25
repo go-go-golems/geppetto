@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 
-	clay "github.com/go-go-golems/clay/pkg"
 	examplebootstrap "github.com/go-go-golems/geppetto/cmd/examples/internal/bootstrap"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
@@ -181,7 +180,7 @@ func (c *TestClaudeToolsCommand) RunIntoWriter(ctx context.Context, parsedValues
 
 func main() {
 	// Initialize zerolog with pretty console output
-	err := clay.InitGlazed("pinocchio", rootCmd)
+	err := logging.AddLoggingSectionToRootCommand(rootCmd, "pinocchio")
 	cobra.CheckErr(err)
 
 	helpSystem := help.NewHelpSystem()

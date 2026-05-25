@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/invopop/jsonschema"
-	"github.com/rs/zerolog/log"
 )
 
 // ToolDefinition represents a tool that can be called by AI models

@@ -5,7 +5,6 @@ import (
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-go-golems/geppetto/pkg/events"
-	"github.com/rs/zerolog/log"
 )
 
 // WatermillSink publishes events to a watermill Publisher.

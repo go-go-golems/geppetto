@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
 )
 

@@ -10,7 +10,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/streamhelpers"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 func normalizeResponsesEventName(eventName string) string {

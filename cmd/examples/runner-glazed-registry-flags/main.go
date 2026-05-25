@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 
-	clay "github.com/go-go-golems/clay/pkg"
 	"github.com/go-go-golems/geppetto/cmd/examples/internal/runnerexample"
 	"github.com/go-go-golems/geppetto/pkg/inference/runner"
 	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
@@ -97,7 +96,7 @@ func (c *registryFlagsCommand) RunIntoWriter(ctx context.Context, parsedValues *
 }
 
 func main() {
-	err := clay.InitGlazed("geppetto", rootCmd)
+	err := logging.AddLoggingSectionToRootCommand(rootCmd, "geppetto")
 	cobra.CheckErr(err)
 
 	helpSystem := help.NewHelpSystem()

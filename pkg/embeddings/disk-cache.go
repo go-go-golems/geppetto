@@ -11,8 +11,6 @@ import (
 	"sort"
 	"sync"
 	"time"
-
-	"github.com/rs/zerolog/log"
 )
 
 // Helper function to truncate text to a maximum length

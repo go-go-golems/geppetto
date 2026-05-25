@@ -22,7 +22,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	"google.golang.org/api/option"
 )
 

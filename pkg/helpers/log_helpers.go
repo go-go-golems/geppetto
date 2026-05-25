@@ -7,7 +7,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/lithammer/shortuuid/v3"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	zlog "github.com/rs/zerolog/log"
 )
 
 // Most of this code inspired if not copied from https://github.com/ThreeDotsLabs/go-event-driven
@@ -66,7 +66,7 @@ func CorrelationIDFromContext(ctx context.Context) string {
 		return v
 	}
 
-	log.Ctx(ctx).Warn().Msg("correlation ID not found in context")
+	zlog.Ctx(ctx).Warn().Msg("correlation ID not found in context")
 
 	// add "gen_" prefix to distinguish generated correlation IDs from correlation IDs passed by the client
 	// it's useful to detect if correlation ID was not passed properly

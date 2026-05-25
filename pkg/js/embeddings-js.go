@@ -8,7 +8,6 @@ import (
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/eventloop"
 	"github.com/go-go-golems/geppetto/pkg/embeddings"
-	"github.com/rs/zerolog/log"
 )
 
 type JSEmbeddingsWrapper struct {

@@ -1,0 +1,3 @@
+package geppetto
+
+//go:generate go tool logcopter-gen -area-prefix go-go-golems.geppetto -strip-prefix github.com/go-go-golems/geppetto ./pkg/...

@@ -19,7 +19,6 @@ import (
 	"github.com/go-go-golems/glazed/pkg/helpers/cast"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 // ClaudeEngine implements the Engine interface for Claude (Anthropic) API calls.

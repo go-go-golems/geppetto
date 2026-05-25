@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	zlog "github.com/rs/zerolog/log"
 )
 
 // NewTurnLoggingMiddleware logs session/turn and block details before and after inference.
@@ -20,7 +20,7 @@ func NewTurnLoggingMiddleware(logger zerolog.Logger) Middleware {
 			lg := logger
 			// fall back to global if uninitialized
 			if lg.GetLevel() == zerolog.NoLevel {
-				lg = log.Logger
+				lg = zlog.Logger
 			}
 
 			sessionID := ""

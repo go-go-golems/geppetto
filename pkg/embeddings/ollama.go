@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 
@@ -82,7 +81,7 @@ func (p *OllamaProvider) GenerateEmbedding(ctx context.Context, text string) ([]
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Printf("Failed to close response body: %v", err)
+			log.Warn().Err(err).Msg("failed to close response body")
 		}
 	}()
 
