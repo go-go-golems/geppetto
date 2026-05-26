@@ -21,7 +21,7 @@ func (s registeredModuleSpec) ID() string {
 	return s.id
 }
 
-func (s registeredModuleSpec) Register(reg *require.Registry) error {
+func (s registeredModuleSpec) RegisterRuntimeModule(_ *gojengine.RuntimeModuleContext, reg *require.Registry) error {
 	if reg == nil {
 		return fmt.Errorf("require registry is nil")
 	}
@@ -93,8 +93,8 @@ func BuildRuntime[Scope any, Meta any](ctx context.Context, spec EnvironmentSpec
 	}, nil
 }
 
-func (b *Builder) moduleSpecs() []gojengine.ModuleSpec {
-	specs := make([]gojengine.ModuleSpec, 0, len(b.modules)+len(b.nativeModules))
+func (b *Builder) moduleSpecs() []gojengine.RuntimeModuleSpec {
+	specs := make([]gojengine.RuntimeModuleSpec, 0, len(b.modules)+len(b.nativeModules))
 	for _, mod := range b.modules {
 		specs = append(specs, registeredModuleSpec{
 			id:       "module:" + mod.name,
