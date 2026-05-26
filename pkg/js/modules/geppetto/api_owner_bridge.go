@@ -10,7 +10,7 @@ import (
 
 func (m *moduleRuntime) requireBridge(op string) (*runtimebridge.Bridge, error) {
 	if m == nil || m.bridge == nil {
-		return nil, fmt.Errorf("%s requires module options Runner to be configured", op)
+		return nil, fmt.Errorf("%s requires module options runner to be configured", op)
 	}
 	return m.bridge, nil
 }

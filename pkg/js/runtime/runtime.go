@@ -12,8 +12,8 @@ import (
 // Options configure a geppetto JavaScript runtime bootstrapped on top of the
 // go-go-goja owned runtime builder.
 type Options struct {
-	// ModuleOptions are forwarded to geppetto.Register. Runner is always bound
-	// to the created runtime owner.
+	// ModuleOptions are forwarded to geppetto.Register. RuntimeOwner is always
+	// bound to the created runtime owner.
 	ModuleOptions gp.Options
 
 	// RequireOptions are applied to the runtime's module registry.
@@ -41,7 +41,7 @@ func (s geppettoModuleSpec) RegisterRuntimeModule(ctx *gojengine.RuntimeModuleCo
 		return fmt.Errorf("require registry is nil")
 	}
 	opts := s.opts
-	opts.Runner = ctx.Owner
+	opts.RuntimeOwner = ctx.Owner
 	gp.Register(reg, opts)
 	return nil
 }
@@ -67,7 +67,7 @@ func NewRuntime(ctx context.Context, opts Options) (*gojengine.Runtime, error) {
 		return nil, fmt.Errorf("build runtime factory: %w", err)
 	}
 
-	rt, err := factory.NewRuntime(ctx)
+	rt, err := factory.NewRuntime(gojengine.WithStartupContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("create runtime: %w", err)
 	}

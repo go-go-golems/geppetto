@@ -58,6 +58,29 @@ func TestNewRuntime_IncludeDefaultModulesTrueRegistersDefaultModules(t *testing.
 	}
 }
 
+func TestNewRuntime_StartupContextDoesNotOwnRuntimeLifetime(t *testing.T) {
+	startupCtx, cancel := context.WithCancel(context.Background())
+	rt, err := NewRuntime(startupCtx, Options{})
+	if err != nil {
+		t.Fatalf("NewRuntime failed: %v", err)
+	}
+	defer func() {
+		_ = rt.Close(context.Background())
+	}()
+
+	cancel()
+
+	select {
+	case <-rt.Context().Done():
+		t.Fatalf("runtime lifetime was canceled when startup context was canceled")
+	default:
+	}
+
+	if _, err := rt.VM.RunString(`require("geppetto")`); err != nil {
+		t.Fatalf("geppetto module unusable after startup context cancel: %v", err)
+	}
+}
+
 func TestNewRuntime_SkipsNilRuntimeInitializers(t *testing.T) {
 	var initCalls atomic.Int64
 

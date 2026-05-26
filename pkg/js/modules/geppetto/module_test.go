@@ -22,8 +22,8 @@ import (
 )
 
 type jsRuntime struct {
-	vm     *goja.Runtime
-	runner runtimeowner.Runner
+	vm           *goja.Runtime
+	runtimeOwner runtimeowner.RuntimeOwner
 }
 
 func newJSRuntime(t *testing.T, opts Options) *jsRuntime {
@@ -32,11 +32,11 @@ func newJSRuntime(t *testing.T, opts Options) *jsRuntime {
 	if err != nil {
 		t.Fatalf("failed creating go-go-goja factory: %v", err)
 	}
-	rt, err := factory.NewRuntime(context.Background())
+	rt, err := factory.NewRuntime(gojengine.WithStartupContext(context.Background()), gojengine.WithLifetimeContext(context.Background()))
 	if err != nil {
 		t.Fatalf("failed creating go-go-goja runtime: %v", err)
 	}
-	opts.Runner = rt.Owner
+	opts.RuntimeOwner = rt.Owner
 	reg := require.NewRegistry()
 	Register(reg, opts)
 	reg.Enable(rt.VM)
@@ -44,8 +44,8 @@ func newJSRuntime(t *testing.T, opts Options) *jsRuntime {
 		_ = rt.Close(context.Background())
 	})
 	return &jsRuntime{
-		vm:     rt.VM,
-		runner: rt.Owner,
+		vm:           rt.VM,
+		runtimeOwner: rt.Owner,
 	}
 }
 
@@ -55,11 +55,11 @@ func newJSRuntimeWithoutRunner(t *testing.T, opts Options) *jsRuntime {
 	if err != nil {
 		t.Fatalf("failed creating go-go-goja factory: %v", err)
 	}
-	rt, err := factory.NewRuntime(context.Background())
+	rt, err := factory.NewRuntime(gojengine.WithStartupContext(context.Background()), gojengine.WithLifetimeContext(context.Background()))
 	if err != nil {
 		t.Fatalf("failed creating go-go-goja runtime: %v", err)
 	}
-	opts.Runner = nil
+	opts.RuntimeOwner = nil
 	reg := require.NewRegistry()
 	Register(reg, opts)
 	reg.Enable(rt.VM)
@@ -67,8 +67,8 @@ func newJSRuntimeWithoutRunner(t *testing.T, opts Options) *jsRuntime {
 		_ = rt.Close(context.Background())
 	})
 	return &jsRuntime{
-		vm:     rt.VM,
-		runner: rt.Owner,
+		vm:           rt.VM,
+		runtimeOwner: rt.Owner,
 	}
 }
 
@@ -90,7 +90,7 @@ func waitForPromiseExpr(t *testing.T, rt *jsRuntime, expr string, timeout time.D
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	for {
-		ret, err := rt.runner.Call(context.Background(), "module_test.PromiseState", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		ret, err := rt.runtimeOwner.Call(context.Background(), "module_test.PromiseState", func(_ context.Context, vm *goja.Runtime) (any, error) {
 			v, runErr := vm.RunString(expr)
 			if runErr != nil {
 				return nil, runErr
@@ -130,7 +130,7 @@ func waitForPromiseExpr(t *testing.T, rt *jsRuntime, expr string, timeout time.D
 
 func mustEvalExprExport(t *testing.T, rt *jsRuntime, expr string) any {
 	t.Helper()
-	ret, err := rt.runner.Call(context.Background(), "module_test.EvalExpr", func(_ context.Context, vm *goja.Runtime) (any, error) {
+	ret, err := rt.runtimeOwner.Call(context.Background(), "module_test.EvalExpr", func(_ context.Context, vm *goja.Runtime) (any, error) {
 		v, runErr := vm.RunString(expr)
 		if runErr != nil {
 			return nil, runErr

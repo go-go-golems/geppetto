@@ -32,7 +32,7 @@ type MiddlewareFactory func(options map[string]any) (middleware.Middleware, erro
 
 // Options configures module behavior for a specific runtime.
 type Options struct {
-	Runner                   runtimeowner.Runner
+	RuntimeOwner             runtimeowner.RuntimeOwner
 	GoToolRegistry           tools.ToolRegistry
 	GoMiddlewareFactories    map[string]MiddlewareFactory
 	EngineProfileRegistry    profiles.RegistryReader
@@ -68,9 +68,9 @@ type module struct {
 }
 
 type moduleRuntime struct {
-	vm     *goja.Runtime
-	runner runtimeowner.Runner
-	bridge *runtimebridge.Bridge
+	vm           *goja.Runtime
+	runtimeOwner runtimeowner.RuntimeOwner
+	bridge       *runtimebridge.Bridge
 
 	logger zerolog.Logger
 
@@ -101,7 +101,7 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 	}
 	m := &moduleRuntime{
 		vm:                       vm,
-		runner:                   opts.Runner,
+		runtimeOwner:             opts.RuntimeOwner,
 		logger:                   lg,
 		goToolRegistry:           opts.GoToolRegistry,
 		goMiddlewareFactories:    map[string]MiddlewareFactory{},
@@ -121,8 +121,8 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 	}
 	m.baseEngineProfileRegistry = m.profileRegistry
 	m.baseEngineProfileRegistryCloser = m.profileRegistryCloser
-	if m.runner != nil {
-		m.bridge = runtimebridge.New(m.runner)
+	if m.runtimeOwner != nil {
+		m.bridge = runtimebridge.New(m.runtimeOwner)
 	}
 	for k, v := range defaultGoMiddlewareFactories(lg) {
 		m.goMiddlewareFactories[k] = v

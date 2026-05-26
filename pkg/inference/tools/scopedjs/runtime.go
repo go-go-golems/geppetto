@@ -73,7 +73,7 @@ func BuildRuntime[Scope any, Meta any](ctx context.Context, spec EnvironmentSpec
 	if err != nil {
 		return nil, fmt.Errorf("build runtime factory %q: %w", spec.RuntimeLabel, err)
 	}
-	rt, err := factory.NewRuntime(ctx)
+	rt, err := factory.NewRuntime(gojengine.WithStartupContext(ctx), gojengine.WithLifetimeContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("create runtime %q: %w", spec.RuntimeLabel, err)
 	}
