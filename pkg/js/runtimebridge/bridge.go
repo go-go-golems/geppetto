@@ -8,34 +8,34 @@ import (
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 )
 
-// Bridge wraps a runtimeowner.Runner with helpers tailored for goja callback usage.
+// Bridge wraps a runtimeowner.RuntimeOwner with helpers tailored for goja callback usage.
 type Bridge struct {
-	runner runtimeowner.Runner
+	runtimeOwner runtimeowner.RuntimeOwner
 }
 
-func New(runner runtimeowner.Runner) *Bridge {
-	if runner == nil {
-		panic("runtimebridge: runner is nil")
+func New(runtimeOwner runtimeowner.RuntimeOwner) *Bridge {
+	if runtimeOwner == nil {
+		panic("runtimebridge: runtimeOwner is nil")
 	}
-	return &Bridge{runner: runner}
+	return &Bridge{runtimeOwner: runtimeOwner}
 }
 
-func (b *Bridge) Runner() runtimeowner.Runner {
-	return b.runner
+func (b *Bridge) RuntimeOwner() runtimeowner.RuntimeOwner {
+	return b.runtimeOwner
 }
 
 func (b *Bridge) Call(ctx context.Context, op string, fn runtimeowner.CallFunc) (any, error) {
-	if b == nil || b.runner == nil {
+	if b == nil || b.runtimeOwner == nil {
 		return nil, fmt.Errorf("runtimebridge %s: nil bridge", op)
 	}
-	return b.runner.Call(ctx, op, fn)
+	return b.runtimeOwner.Call(ctx, op, fn)
 }
 
 func (b *Bridge) Post(ctx context.Context, op string, fn runtimeowner.PostFunc) error {
-	if b == nil || b.runner == nil {
+	if b == nil || b.runtimeOwner == nil {
 		return fmt.Errorf("runtimebridge %s: nil bridge", op)
 	}
-	return b.runner.Post(ctx, op, fn)
+	return b.runtimeOwner.Post(ctx, op, fn)
 }
 
 func (b *Bridge) InvokeCallable(ctx context.Context, op string, fn goja.Callable, this goja.Value, args ...goja.Value) (goja.Value, error) {
