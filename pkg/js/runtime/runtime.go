@@ -48,7 +48,10 @@ func (s geppettoModuleSpec) RegisterRuntimeModule(ctx *gojengine.RuntimeModuleCo
 
 // NewRuntime creates a new owned JS runtime that exposes require("geppetto").
 func NewRuntime(ctx context.Context, opts Options) (*gojengine.Runtime, error) {
-	builderOpts := make([]gojengine.Option, 0, 1)
+	builderOpts := []gojengine.Option{
+		gojengine.WithImplicitDefaultRegistryModules(false),
+		gojengine.WithDataOnlyDefaultRegistryModules(opts.IncludeDefaultModules),
+	}
 	if len(opts.RequireOptions) > 0 {
 		builderOpts = append(builderOpts, gojengine.WithRequireOptions(opts.RequireOptions...))
 	}
@@ -56,8 +59,8 @@ func NewRuntime(ctx context.Context, opts Options) (*gojengine.Runtime, error) {
 	if opts.IncludeDefaultModules {
 		builder = builder.UseModuleMiddleware(gojengine.Pipeline())
 	}
-	if len(opts.RuntimeInitializers) > 0 {
-		builder = builder.WithRuntimeInitializers(opts.RuntimeInitializers...)
+	if runtimeInitializers := nonNilRuntimeInitializers(opts.RuntimeInitializers); len(runtimeInitializers) > 0 {
+		builder = builder.WithRuntimeInitializers(runtimeInitializers...)
 	}
 	factory, err := builder.Build()
 	if err != nil {
@@ -69,4 +72,14 @@ func NewRuntime(ctx context.Context, opts Options) (*gojengine.Runtime, error) {
 		return nil, fmt.Errorf("create runtime: %w", err)
 	}
 	return rt, nil
+}
+
+func nonNilRuntimeInitializers(inits []gojengine.RuntimeInitializer) []gojengine.RuntimeInitializer {
+	ret := make([]gojengine.RuntimeInitializer, 0, len(inits))
+	for _, init := range inits {
+		if init != nil {
+			ret = append(ret, init)
+		}
+	}
+	return ret
 }
