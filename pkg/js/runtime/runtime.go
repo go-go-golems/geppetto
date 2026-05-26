@@ -67,7 +67,7 @@ func NewRuntime(ctx context.Context, opts Options) (*gojengine.Runtime, error) {
 		return nil, fmt.Errorf("build runtime factory: %w", err)
 	}
 
-	rt, err := factory.NewRuntime(gojengine.WithStartupContext(ctx), gojengine.WithLifetimeContext(ctx))
+	rt, err := factory.NewRuntime(gojengine.WithStartupContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("create runtime: %w", err)
 	}
