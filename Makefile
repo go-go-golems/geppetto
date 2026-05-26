@@ -1,4 +1,4 @@
-.PHONY: all test build lint lintmax docker-lint gosec govulncheck goreleaser tag-major tag-minor tag-patch release bump-glazed install codeql-local turnsdatalint-build turnsdatalint linttool-build linttool gen-dts check-dts logcopter-generate logcopter-check
+.PHONY: all test build lint lintmax docker-lint gosec govulncheck goreleaser tag-major tag-minor tag-patch release bump-glazed install codeql-local turnsdatalint-build turnsdatalint linttool-build linttool glazed-lint-build glazed-lint gen-dts check-dts logcopter-generate logcopter-check
 
 all: test build
 
@@ -18,6 +18,10 @@ golangci-lint-install:
 	GOBIN=$(dir $(GOLANGCI_LINT_BIN)) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 LINTTOOL_BIN ?= /tmp/geppetto-lint
+GLAZED_LINT_BIN ?= /tmp/glazed-lint
+GLAZED_LINT_PKG ?= github.com/go-go-golems/glazed/cmd/tools/glazed-lint
+GLAZED_VERSION ?= $(shell GOWORK=off go list -m -f '{{.Version}}' github.com/go-go-golems/glazed 2>/dev/null)
+GLAZED_LINT_FLAGS ?= -glazedclilint.allow-paths=pkg/analysis/,pkg/cli/,pkg/cmds/fields/,pkg/cmds/logging/,pkg/cmds/sources/,pkg/help/,cmd/tools/
 
 linttool-build:
 	go build -o $(LINTTOOL_BIN) ./cmd/tools/geppetto-lint
@@ -26,15 +30,30 @@ linttool:
 	$(MAKE) linttool-build
 	go vet -vettool=$(LINTTOOL_BIN) $(LINT_DIRS)
 
-lint: linttool-build golangci-lint-install
+glazed-lint-build:
+	@echo "Building glazed-lint from Glazed module..."
+	@if [ -n "$(GLAZED_VERSION)" ] && [ "$(GLAZED_VERSION)" != "(devel)" ]; then \
+		echo "Installing $(GLAZED_LINT_PKG)@$(GLAZED_VERSION)"; \
+		GOBIN=$(dir $(GLAZED_LINT_BIN)) GOWORK=off go install $(GLAZED_LINT_PKG)@$(GLAZED_VERSION); \
+	else \
+		echo "Installing $(GLAZED_LINT_PKG) from workspace/module"; \
+		GOBIN=$(dir $(GLAZED_LINT_BIN)) go install $(GLAZED_LINT_PKG); \
+	fi
+
+glazed-lint: glazed-lint-build
+	go vet -vettool=$(GLAZED_LINT_BIN) $(GLAZED_LINT_FLAGS) $(LINT_DIRS)
+
+lint: linttool-build glazed-lint-build golangci-lint-install
 	$(GOLANGCI_LINT_BIN) config verify
 	$(GOLANGCI_LINT_BIN) run -v $(GOLANGCI_LINT_ARGS)
 	go vet -vettool=$(LINTTOOL_BIN) $(LINT_DIRS)
+	go vet -vettool=$(GLAZED_LINT_BIN) $(GLAZED_LINT_FLAGS) $(LINT_DIRS)
 
-lintmax: linttool-build golangci-lint-install
+lintmax: linttool-build glazed-lint-build golangci-lint-install
 	$(GOLANGCI_LINT_BIN) config verify
 	$(GOLANGCI_LINT_BIN) run -v --max-same-issues=100 $(GOLANGCI_LINT_ARGS)
 	go vet -vettool=$(LINTTOOL_BIN) $(LINT_DIRS)
+	go vet -vettool=$(GLAZED_LINT_BIN) $(GLAZED_LINT_FLAGS) $(LINT_DIRS)
 
 TURNSDATALINT_BIN ?= /tmp/turnsdatalint
 

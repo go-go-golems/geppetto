@@ -32,3 +32,5 @@ jobs:
         with:
           version-file: .golangci-lint-version
           args: --timeout=5m ./cmd/... ./pkg/...
+      - name: Run Glazed CLI policy linters
+        run: make glazed-lint
