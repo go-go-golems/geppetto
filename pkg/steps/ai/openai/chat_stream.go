@@ -15,7 +15,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 type chatStreamConfig struct {

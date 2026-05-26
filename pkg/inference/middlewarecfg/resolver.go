@@ -7,8 +7,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/rs/zerolog/log"
 )
 
 // Resolver resolves middleware config using canonical source precedence and JSON schema validation.

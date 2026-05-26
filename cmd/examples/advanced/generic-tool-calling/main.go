@@ -17,7 +17,6 @@ import (
 
 	// "github.com/go-go-golems/geppetto/pkg/turns"
 
-	clay "github.com/go-go-golems/clay/pkg"
 	examplebootstrap "github.com/go-go-golems/geppetto/cmd/examples/internal/bootstrap"
 	geppettosections "github.com/go-go-golems/geppetto/pkg/sections"
 	"github.com/go-go-golems/glazed/pkg/cli"
@@ -518,7 +517,7 @@ func (c *GenericToolCallingCommand) RunIntoWriter(ctx context.Context, parsedVal
 }
 
 func main() {
-	err := clay.InitGlazed("pinocchio", rootCmd)
+	err := logging.AddLoggingSectionToRootCommand(rootCmd, "pinocchio")
 	cobra.CheckErr(err)
 
 	helpSystem := help.NewHelpSystem()

@@ -20,7 +20,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/turns/serde"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	zlog "github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -125,10 +125,10 @@ func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Blo
 			}
 		}()
 		// Setup multi-writer to both console and file
-		origLogger = log.Logger
+		origLogger = zlog.Logger
 		multi := io.MultiWriter(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}, logFile)
-		log.Logger = log.Logger.Output(multi)
-		defer func() { log.Logger = origLogger }()
+		zlog.Logger = zlog.Logger.Output(multi)
+		defer func() { zlog.Logger = origLogger }()
 	}
 
 	if err := serde.SaveTurnYAML(filepath.Join(opts.OutDir, "input_turn.yaml"), turn, serde.Options{}); err != nil {

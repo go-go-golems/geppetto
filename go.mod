@@ -9,15 +9,15 @@ require (
 	github.com/dnaeon/go-vcr v1.2.0
 	github.com/dop251/goja v0.0.0-20251103141225-af2ceb9156d7
 	github.com/dop251/goja_nodejs v0.0.0-20250409162600-f7acab6894b0
-	github.com/go-go-golems/clay v0.4.9
-	github.com/go-go-golems/glazed v1.2.7
+	github.com/go-go-golems/glazed v1.3.0
 	github.com/go-go-golems/go-emrichen v0.0.10
 	github.com/go-go-golems/go-go-goja v0.5.0
+	github.com/go-go-golems/logcopter v0.1.0
 	github.com/go-go-golems/sanitize v0.0.1
 	github.com/google/generative-ai-go v0.20.1
 	github.com/huandu/go-clone v1.7.2
 	github.com/invopop/jsonschema v0.13.0
-	github.com/mattn/go-sqlite3 v1.14.32
+	github.com/mattn/go-sqlite3 v1.14.42
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.35.1
 	github.com/sashabaranov/go-openai v1.41.1
@@ -25,7 +25,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/yuin/goldmark v1.8.2
 	golang.org/x/sync v0.20.0
-	golang.org/x/tools v0.44.0
+	golang.org/x/tools v0.45.0
 	google.golang.org/api v0.278.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -65,7 +65,6 @@ require (
 	github.com/go-openapi/errors v0.22.0 // indirect
 	github.com/go-openapi/strfmt v0.23.0 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
-	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.15 // indirect
@@ -94,10 +93,7 @@ require (
 	github.com/richardlehane/mscfb v1.0.4 // indirect
 	github.com/richardlehane/msoleps v1.0.4 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
-	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/sahilm/fuzzy v0.1.1 // indirect
-	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
-	github.com/spf13/viper v1.21.0 // indirect
 	github.com/tiendc/go-deepcopy v1.7.1 // indirect
 	github.com/tree-sitter-grammars/tree-sitter-yaml v0.7.2 // indirect
 	github.com/tree-sitter/go-tree-sitter v0.25.0 // indirect
@@ -113,8 +109,7 @@ require (
 	go.opentelemetry.io/otel v1.43.0 // indirect
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/mod v0.35.0 // indirect
+	golang.org/x/mod v0.36.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sys v0.45.0 // indirect
 	golang.org/x/term v0.43.0 // indirect
@@ -140,7 +135,6 @@ require (
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
@@ -158,13 +152,9 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
-	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/spf13/afero v1.15.0 // indirect
-	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tj/go-naturaldate v1.3.0 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect
@@ -173,3 +163,5 @@ require (
 	golang.org/x/text v0.37.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
+
+tool github.com/go-go-golems/logcopter/cmd/logcopter-gen

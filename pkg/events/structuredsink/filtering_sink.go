@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 )
 
 // Options control the filtering sink behavior.

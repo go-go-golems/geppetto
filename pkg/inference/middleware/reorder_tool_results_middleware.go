@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/go-go-golems/geppetto/pkg/turns"
-	"github.com/rs/zerolog/log"
 )
 
 // NewToolResultReorderMiddleware ensures that for any contiguous group of tool_call blocks,

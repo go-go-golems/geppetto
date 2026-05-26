@@ -7,7 +7,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 func (e *Engine) attachToolsToResponsesRequest(ctx context.Context, t *turns.Turn, reqBody *responsesRequest) error {

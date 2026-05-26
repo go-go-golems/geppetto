@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	clay "github.com/go-go-golems/clay/pkg"
 	examplebootstrap "github.com/go-go-golems/geppetto/cmd/examples/internal/bootstrap"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
@@ -272,7 +271,7 @@ func (c *MiddlewareInferenceCommand) RunIntoWriter(ctx context.Context, parsedVa
 }
 
 func main() {
-	err := clay.InitGlazed("pinocchio", rootCmd)
+	err := logging.AddLoggingSectionToRootCommand(rootCmd, "pinocchio")
 	cobra.CheckErr(err)
 
 	helpSystem := help.NewHelpSystem()

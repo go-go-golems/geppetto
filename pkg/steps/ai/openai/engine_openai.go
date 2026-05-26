@@ -21,7 +21,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 // OpenAIEngine implements the Engine interface for OpenAI API calls.

@@ -7,7 +7,6 @@ import (
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/rs/zerolog/log"
 )
 
 // NOTE(manuel, 2024-03-24) This might be worth moving / integrating into the event router

@@ -15,7 +15,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 type Loop struct {

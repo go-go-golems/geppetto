@@ -1,4 +1,4 @@
-.PHONY: all test build lint lintmax docker-lint gosec govulncheck goreleaser tag-major tag-minor tag-patch release bump-glazed install codeql-local turnsdatalint-build turnsdatalint linttool-build linttool gen-dts check-dts
+.PHONY: all test build lint lintmax docker-lint gosec govulncheck goreleaser tag-major tag-minor tag-patch release bump-glazed install codeql-local turnsdatalint-build turnsdatalint linttool-build linttool gen-dts check-dts logcopter-generate logcopter-check
 
 all: test build
 
@@ -58,6 +58,12 @@ gen-dts:
 check-dts:
 	go run ./cmd/tools/gen-dts --schema $(DTS_SCHEMA) --check
 
+logcopter-generate:
+	go generate ./...
+
+logcopter-check:
+	go tool logcopter-gen -area-prefix go-go-golems.geppetto -strip-prefix github.com/go-go-golems/geppetto -check ./pkg/...
+
 #goreleaser:
 # .goreleaser release --skip=sign --snapshot --clean
 
@@ -80,6 +86,7 @@ bump-glazed:
 	go get github.com/go-go-golems/go-emrichen@latest
 	go get github.com/go-go-golems/go-go-goja@latest
 	go get github.com/go-go-golems/sessionstream@latest
+	go get github.com/go-go-golems/logcopter@latest
 	go mod tidy
 
 gosec:

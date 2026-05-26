@@ -3,7 +3,6 @@ package examplecmd
 import (
 	"context"
 
-	clay "github.com/go-go-golems/clay/pkg"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
@@ -26,7 +25,7 @@ func NewRoot(use string, short string) *cobra.Command {
 // ExecuteSingleCommand initializes Glazed root plumbing, adds one Glazed command,
 // and executes the example with a background context.
 func ExecuteSingleCommand(root *cobra.Command, appName string, command cmds.Command, opts ...cli.CobraOption) error {
-	if err := clay.InitGlazed(appName, root); err != nil {
+	if err := logging.AddLoggingSectionToRootCommand(root, appName); err != nil {
 		return err
 	}
 
