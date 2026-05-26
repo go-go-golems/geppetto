@@ -10,3 +10,5 @@
 - Added regression tests in `pkg/js/runtime/runtime_test.go`.
 - Added ELI5 explanation in `reference/01-eli5-pr-358-runtime-review-comments.md`.
 - Validation passed: `go test ./pkg/js/runtime -count=1` and `go test ./pkg/js/... -count=1`.
+- Committed and pushed fix commit `4de12305 fix: preserve geppetto runtime option contracts` to PR 358.
+- Resolved both Codex review threads and posted PR follow-up comment: https://github.com/go-go-golems/geppetto/pull/358#issuecomment-4538749186

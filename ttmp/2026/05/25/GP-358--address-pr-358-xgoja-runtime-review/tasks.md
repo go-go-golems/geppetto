@@ -9,4 +9,4 @@
 - [x] Write ELI5 explanation in `reference/01-eli5-pr-358-runtime-review-comments.md`.
 - [x] Run focused JS runtime validation.
 - [x] Commit code and docs after review.
-- [ ] Resolve/comment on PR review threads after pushing.
+- [x] Resolve/comment on PR review threads after pushing.
