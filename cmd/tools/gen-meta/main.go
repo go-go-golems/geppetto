@@ -1,5 +1,7 @@
 package main
 
+//glazedclilint:file-ignore internal metadata generator uses standard flag package outside user-facing Glazed CLI
+
 import (
 	"bytes"
 	"flag"
