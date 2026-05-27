@@ -1,5 +1,7 @@
 package main
 
+//glazedclilint:file-ignore internal refactor helper uses standard flag package outside user-facing Glazed CLI
+
 import (
 	"flag"
 	"os"
