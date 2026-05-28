@@ -1,5 +1,5 @@
 version: 2
-project_name: pinocchio
+project_name: geppetto
 
 before:
   hooks:
@@ -8,7 +8,8 @@ before:
     # you may remove this if you don't need go generate
     - go generate ./...
 builds:
-  - binary: geppetto
+  - binary: geppetto-lint
+    main: ./cmd/tools/geppetto-lint
     goos:
       - linux
       - darwin
