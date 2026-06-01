@@ -527,3 +527,12 @@ Redesign."
 ### Technical details
 
 - Updated design doc: `/home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/design-doc/01-geppetto-go-go-goja-api-review-and-builder-design-guide.md`
+
+### Delivery note for Step 6
+
+After committing the hard-cut redesign, I re-ran the reMarkable bundle dry-run and then uploaded with `--force` because the previous bundle already existed at the same remote path. The updated PDF is now present at `/ai/2026/06/01/GP-GOJA-API-2026-06-01`.
+
+Exact upload behavior:
+
+- First real upload attempt skipped with: `SKIP: GP-GOJA-API-2026-06-01 Geppetto goja API review already exists in /ai/2026/06/01/GP-GOJA-API-2026-06-01 (use --force to overwrite)`.
+- Forced upload succeeded with: `OK: uploaded GP-GOJA-API-2026-06-01 Geppetto goja API review.pdf -> /ai/2026/06/01/GP-GOJA-API-2026-06-01`.
