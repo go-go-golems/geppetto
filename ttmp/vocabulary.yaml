@@ -117,6 +117,8 @@ topics:
       description: Configuration loading, defaults, overlays, and runtime settings
     - slug: vector-search
       description: Vector search and embedding-backed retrieval
+    - slug: goja
+      description: Goja JavaScript runtime integration and bindings
 docTypes:
     - slug: index
       description: Ticket index
