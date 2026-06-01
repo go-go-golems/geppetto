@@ -74,3 +74,12 @@ Uploaded updated reMarkable bundle including the new reusable Geppetto inference
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/design-doc/02-reusable-geppetto-inference-profile-registry-extraction-guide.md — Included in updated bundle
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/reference/01-investigation-diary.md — Delivery note for updated bundle
 
+
+## 2026-06-01
+
+Uploaded the current design+diary bundle as reMarkable v2 under /ai/2026/06/01/GP-GOJA-API-2026-06-01.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/reference/01-investigation-diary.md — Recorded v2 upload details
+

@@ -710,3 +710,66 @@ I uploaded a new reMarkable bundle that now includes both design documents and t
 3. `01-investigation-diary.md`
 
 The dry run succeeded, then the real upload used `--force` to replace the existing bundle at `/ai/2026/06/01/GP-GOJA-API-2026-06-01`. The remote listing still shows duplicate rows for the same bundle name, which appears to be a remote listing/overwrite artifact already observed in the previous upload step.
+
+## Step 9: Upload the bundle as v2
+
+The user asked to upload the current bundle as a separate v2 document instead of overwriting the existing reMarkable item. I ran a dry-run first, then uploaded the same bundle contents under a new name ending in `v2`.
+
+The remote folder now contains the original repeated listing entries plus the new `GP-GOJA-API-2026-06-01 Geppetto goja API review v2` item.
+
+### Prompt Context
+
+**User prompt (verbatim):** "upload as v2"
+
+**Assistant interpretation:** Upload the current ticket document bundle to reMarkable with a new v2 name.
+
+**Inferred user intent:** Avoid further forced overwrites/duplicate ambiguity by creating a clearly versioned reMarkable document.
+
+### What I did
+
+- Ran `remarquee upload bundle --dry-run` for the two design docs and diary with bundle name `GP-GOJA-API-2026-06-01 Geppetto goja API review v2`.
+- Ran the real `remarquee upload bundle` with the same name.
+- Verified the remote listing with `remarquee cloud ls /ai/2026/06/01/GP-GOJA-API-2026-06-01 --long --non-interactive`.
+
+### Why
+
+- A new `v2` item makes the latest bundle easy to identify on reMarkable.
+- It avoids relying on `--force` overwrite behavior, which had shown duplicate rows for the old bundle name.
+
+### What worked
+
+- Dry-run succeeded.
+- Real upload succeeded:
+  - `OK: uploaded GP-GOJA-API-2026-06-01 Geppetto goja API review v2.pdf -> /ai/2026/06/01/GP-GOJA-API-2026-06-01`
+- Remote listing includes:
+  - `[f]	GP-GOJA-API-2026-06-01 Geppetto goja API review v2`
+
+### What didn't work
+
+- The remote listing still shows several duplicate rows for the original non-v2 bundle name. I did not delete them because the user only asked to upload the new v2 copy.
+
+### What I learned
+
+- Using a versioned bundle name is cleaner than repeated forced upload for this remote directory.
+
+### What was tricky to build
+
+- The remote state is slightly confusing because previous forced uploads left duplicate-looking rows for the original name. The v2 upload avoids adding to that ambiguity for the latest version.
+
+### What warrants a second pair of eyes
+
+- Someone may want to clean up duplicate old reMarkable entries later.
+
+### What should be done in the future
+
+- Use explicit versioned names (`v2`, `v3`, etc.) for future reMarkable deliveries when preserving history matters.
+
+### Code review instructions
+
+- Verify with:
+  - `remarquee cloud ls /ai/2026/06/01/GP-GOJA-API-2026-06-01 --long --non-interactive`
+
+### Technical details
+
+- Remote directory: `/ai/2026/06/01/GP-GOJA-API-2026-06-01`
+- v2 bundle name: `GP-GOJA-API-2026-06-01 Geppetto goja API review v2`
