@@ -441,3 +441,89 @@ The first doctor run caught two issues: `goja` was not yet in the topic vocabula
 
 - reMarkable remote directory: `/ai/2026/06/01/GP-GOJA-API-2026-06-01`
 - Bundle name: `GP-GOJA-API-2026-06-01 Geppetto goja API review`
+
+## Step 6: Revise the design to a hard-cut Go-wrapper API model
+
+The user pushed back on the earlier framing that hidden Go references were the right bridge pattern. I revised the design accordingly: hidden `__geppetto_ref` is now documented as a current transitional identity-preservation mechanism, not the target architecture.
+
+The new target is a hard-cut public API where JavaScript manipulates Go-owned wrapper values directly through methods. Plain object/map construction is removed from the normal public API; explicit serialization and `gp.unsafe` import boundaries are the only places where raw JavaScript objects should appear.
+
+### Prompt Context
+
+**User prompt (verbatim):** "no, let's do ideal API model, we can do a hard cutover as well, we don't have legacy to support. 
+
+Redesign."
+
+**Assistant interpretation:** Rewrite the design away from compatibility and hidden-ref-first thinking, and define the ideal hard-cut API model.
+
+**Inferred user intent:** The user wants the design to prioritize the cleanest long-term API rather than preserving current dynamic JavaScript maps or transitional facade mechanics.
+
+### What I did
+
+- Rewrote the executive summary to state that this is a hard-cut API redesign.
+- Reframed `__geppetto_ref` as a current implementation detail used to preserve Go identity, not the desired conceptual API model.
+- Added a pros/cons table comparing:
+  - hidden `__geppetto_ref` facades;
+  - direct Go wrapper values exposed to JS;
+  - plain JS maps decoded later.
+- Added an `Ideal object model` section:
+  - Go constructs objects;
+  - Go owns state;
+  - Go validates every mutation;
+  - JavaScript uses method calls and explicit `toJSON()`/`snapshot()` boundaries.
+- Replaced the design principles with hard-cut principles:
+  - Go-owned wrappers;
+  - no map-first constructors;
+  - strict by default;
+  - explicit serialization;
+  - unsafe APIs are named as unsafe.
+- Added a final public module contract sketch with only `agent`, `chat`, `turn`, `engine`, `tool`, `toolRegistry`, `embeddings`, `schema`, `engineProfiles`, `events`, and `unsafe`.
+- Replaced the migration strategy with a hard cutover strategy.
+- Updated pseudocode to prefer direct Go wrapper values rather than conceptual hidden refs.
+
+### Why
+
+- The earlier version still treated hidden refs and compatibility as too central.
+- The user clarified that there is no legacy API burden, so the design should optimize for the ideal API.
+- A hard cut makes the implementation and documentation cleaner: the public contract can be small and strict from the start.
+
+### What worked
+
+- The existing document structure was still useful; the redesign could be made by changing the API model and cutover sections rather than starting from a blank document.
+- The current `__geppetto_ref` mechanism became easier to explain once categorized as transitional evidence that identity matters.
+
+### What didn't work
+
+- The prior design language was too compatibility-oriented. It said to keep current namespaces and add preferred APIs next to them. That is no longer the recommendation.
+
+### What I learned
+
+- The clean model is not “JS object with hidden Go pointer”. The clean model is “Go wrapper value with a JS-friendly method surface”.
+- `__geppetto_ref` answers a technical problem in the current facade implementation, but it should not define the new public mental model.
+
+### What was tricky to build
+
+- The tricky part was separating implementation mechanics from API semantics. goja may still require helper objects or hidden references in some places, but the public design should not expose or depend on that. The design now states that hidden refs are allowed only as low-level implementation fallback, while public objects are direct typed wrappers.
+
+### What warrants a second pair of eyes
+
+- The final public module contract should be reviewed carefully before implementation because it intentionally removes current map-first exports from the ordinary API.
+- The `gp.unsafe` namespace should be kept minimal so it does not become the new dumping ground for dynamic behavior.
+
+### What should be done in the future
+
+- Update the TypeScript declaration generator to emit only the hard-cut public API.
+- Add an API inventory test that fails if old map-first names remain public after the cutover.
+
+### Code review instructions
+
+- Start with these sections in the design doc:
+  - `Current wrapper/reference pattern: useful evidence, not the target model`
+  - `Pros and cons: hidden refs vs direct Go wrappers`
+  - `Ideal object model`
+  - `Final public module contract after hard cut`
+  - `Hard Cutover Strategy`
+
+### Technical details
+
+- Updated design doc: `/home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/design-doc/01-geppetto-go-go-goja-api-review-and-builder-design-guide.md`

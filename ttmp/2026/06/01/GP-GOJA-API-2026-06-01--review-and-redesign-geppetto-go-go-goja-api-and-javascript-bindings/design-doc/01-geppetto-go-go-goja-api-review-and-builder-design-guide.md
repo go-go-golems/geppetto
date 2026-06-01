@@ -38,11 +38,11 @@ WhenToUse: Before implementing new Geppetto JS bindings or changing the builder,
 
 ## Executive Summary
 
-The current `require("geppetto")` module already contains many of the right building blocks for an LLM scripting API: it is a native goja module, exposes Go-backed references for engines/builders/sessions/tool registries, has deterministic tests, ships generated TypeScript declarations, and has examples that walk from turns to sessions, middleware, tools, profiles, and streaming handles. The good news is that this is not a greenfield rewrite. The runtime has enough structure to evolve toward a safer and more elegant API.
+This redesign is now a **hard-cut ideal API model**, not an incremental compatibility layer. We do not need to preserve the current JavaScript object/map API as a first-class public contract. The new contract should make JavaScript manipulate Go-owned domain objects through explicit, typed Go wrapper values wherever possible. JavaScript should call methods on Go-backed builders, sessions, turns, tools, engines, embedding models, and result objects; it should not assemble loosely shaped maps that are decoded later.
 
-The main design problem is that the JavaScript-facing surface still looks like a collection of dynamic map adapters around Go internals. Turns, blocks, profile options, tool parameters, runtime settings, and event payloads are mostly accepted as untyped JavaScript objects and decoded later. That makes scripts easy to start, but it weakens the central goal for this ticket: most construction should happen on the Go side so Geppetto can enforce strong typing, runtime validation, canonical defaults, provider-specific invariants, and stable object identity.
+The current `require("geppetto")` module already proves that Go-backed state can be carried through goja, but its `__geppetto_ref` mechanism is a transitional implementation detail rather than the ideal model. The ideal model is: **Go constructs the object, Go owns the object state, Go validates every mutation, JavaScript only receives a method surface and explicit serialization boundaries such as `toJSON()` or `snapshot()`**.
 
-This document proposes a staged redesign centered on a **Go-backed fluid builder API**. JavaScript should primarily compose opaque Go-owned handles such as `gp.turn().user(...).system(...).build()`, `gp.agent().profile(...).system(...).tools(...).run(...)`, `gp.tool(...).schema(...).handler(...)`, and `gp.embeddings().profile(...).embed(...)`. Plain JavaScript objects should remain available as escape hatches, but not as the preferred construction path. The target API should feel like JavaScript while behaving like a typed Go SDK.
+The proposed public API is therefore a clean break: `gp.agent()`, `gp.turn()`, `gp.engine()`, `gp.tool()`, `gp.schema`, and `gp.embeddings()` produce typed Go wrappers. The old `turns.newTurn(map)`, `engines.fromConfig(map)`, `runner.run({ ... })`, and raw JavaScript registry APIs should be removed or moved to an intentionally named `gp.unsafe`/`gp.compat` package only if a concrete need appears. The default API should feel fluid in JavaScript but behave like a typed Go SDK.
 
 ## Problem Statement and Scope
 
@@ -74,7 +74,7 @@ This review covers:
 - Replacing Geppetto inference engines.
 - Rewriting provider event vocabularies.
 - Replacing the Pinocchio webchat architecture.
-- Removing all map-based compatibility immediately.
+- Preserving current JavaScript map/object constructors as public compatibility APIs.
 - Implementing browser TypeScript UI bindings.
 
 ## Current-State Architecture
@@ -91,7 +91,7 @@ This review covers:
 +------------------------- Geppetto goja module -----------------------+
 | pkg/js/modules/geppetto                                             |
 | - module exports                                                     |
-| - Go-backed refs via hidden __geppetto_ref                           |
+| - current transitional JS facades around Go refs                         |
 | - JS object decode/encode codecs                                     |
 | - builder/session/runner/tool/profile/event adapters                 |
 +-----------------------------------+---------------------------------+
@@ -126,21 +126,65 @@ Evidence:
 - `runtime/runtime.go` builds a go-go-goja runtime with implicit defaults disabled and registers the Geppetto module as a runtime module.
 - `provider/provider.go` defines xgoja provider config fields: `profile`, `registry`, `allowNetwork`, and `allowTools`.
 
-### Go-backed references
+### Current wrapper/reference pattern: useful evidence, not the target model
 
-The strongest part of the current design is the hidden reference mechanism. Objects returned to JavaScript can carry non-enumerable Go references in `__geppetto_ref`, and later APIs can recover those references instead of trusting a serialized JavaScript map.
+The current module uses a hidden reference mechanism for several facade objects. Go creates a JavaScript object, attaches methods/properties, and stores an unexported Go pointer under `__geppetto_ref`. Later, when JavaScript passes that object back into a Go method, `getRef(...)` recovers the original Go reference instead of relying on `goja.Value.Export()`, which would usually produce a `map[string]any` and lose identity.
 
 ```text
-Go engineRef/toolRegistryRef/sessionRef/builderRef
+Current transitional pattern
+
+Go *engineRef / *builderRef / *sessionRef
         |
         v
-JS object with non-enumerable __geppetto_ref
+custom JS facade object + hidden __geppetto_ref
         |
         v
-later API call recovers Go pointer using getRef(...)
+later Go API calls getRef(...) to recover identity
 ```
 
-This is exactly the pattern the redesign should expand. Today it is used for objects such as engines, builders, sessions, resolved profiles, runner runtimes, prepared runs, and tool registries. The main gap is that turns, blocks, model options, embedding requests, and many nested settings are still primarily map-shaped values.
+This answers what `__geppetto_ref` is for: it preserves Go identity behind a hand-authored JavaScript facade. It is useful for the current implementation, but it should not be the conceptual API model. The ideal model is not “plain JS object plus hidden pointer”; it is “a Go object exposed into goja with an intentionally designed JavaScript method surface.”
+
+The practical difference is important:
+
+- Transitional hidden-ref facade: JavaScript sees an ordinary object that secretly points at Go state.
+- Ideal Go wrapper object: JavaScript receives an object whose methods are Go methods/adapters and whose state is explicitly Go-owned.
+
+The redesign should keep hidden refs only as an implementation fallback if goja requires them for a custom facade. It should not rely on hidden refs as the principal architecture for new domain objects.
+
+### Pros and cons: hidden refs vs direct Go wrappers
+
+| Approach | Pros | Cons | Recommendation |
+|---|---|---|---|
+| Hidden `__geppetto_ref` on JS facade | Ergonomic custom JS shape; preserves identity across calls; avoids exposing raw Go internals; can hide non-enumerable implementation detail. | Easy to lose by spreading/cloning/serializing; debugging is confusing; creates visible object vs hidden state split; every API must remember to recover the ref; still encourages facade objects that can drift from Go state. | Accept only as a low-level implementation detail where goja needs a custom JS object shape. Do not design the public model around it. |
+| Direct Go wrapper values exposed to JS | JavaScript manipulates Go-owned state; validation happens on every method call; fewer map decode paths; identity is natural; easier to reason about lifecycle. | Requires carefully designed wrapper types so Go naming/internals do not leak; needs explicit `toJSON()`/snapshot methods; async methods must respect runtime-owner threading. | Preferred default for all new public API objects. |
+| Plain JavaScript maps decoded later | Very easy to prototype; serializable; familiar to JS users. | Weak typing; delayed errors; typos become runtime surprises; no object identity; provider/tool/runtime invariants are hard to enforce. | Remove from the ideal public API except explicit `gp.unsafe.fromObject(...)` style escape hatches. |
+
+### Ideal object model
+
+The new API should expose Go-owned wrappers with JavaScript-friendly method names. The JavaScript side should mutate Go state by calling methods; it should not mutate exported maps in place.
+
+```text
+Ideal hard-cut model
+
+JavaScript call: gp.turn().system("...").user("...").build()
+        |
+        v
+Go wrapper method validates input immediately
+        |
+        v
+Go-owned *turns.Turn is mutated/cloned/finalized
+        |
+        v
+JS receives another Go wrapper or explicit immutable snapshot
+```
+
+Rules:
+
+1. **No public mutable maps for domain objects.** Turns, blocks, engines, tools, schemas, agents, sessions, embeddings, and results are wrappers.
+2. **Methods are the mutation boundary.** Every method validates its arguments before changing Go state.
+3. **Serialization is explicit.** Use `toJSON()`, `snapshot()`, `yaml()`, or `debug()` when JavaScript needs data.
+4. **Build/finalize boundaries are explicit.** Builders can be mutable; built objects should be immutable or copy-on-write.
+5. **Escape hatches are named as unsafe.** If raw object import is needed, use names such as `gp.unsafe.turnFromObject(obj)`.
 
 ### Current JS namespaces
 
@@ -218,21 +262,21 @@ Why it matters:
 - Host policy can be enforced in one place.
 - xgoja and lab hosts can share the same module options.
 
-### 2. Hidden Go references are the right bridge pattern
+### 2. The current hidden-ref mechanism proves identity preservation is needed
 
-`attachRef` and `getRef` avoid losing Go identity when JavaScript passes objects back into Go. `applyBuilderOptions` even contains a comment explaining why it reads live goja object properties instead of `Export()` for ref-carrying fields.
+`attachRef` and `getRef` show why plain JavaScript objects are insufficient: when goja exports an object, pointer identity and non-enumerable Go state can disappear. The current mechanism is good evidence that Geppetto needs Go-owned identity across calls.
 
-This pattern should become the primary object model. Builder methods should return Go-backed handles, not plain object maps, whenever the value represents a validated domain object.
+However, hidden refs should not become the primary object model. The redesign should move one level cleaner: explicit Go wrapper values should be the public objects, and hidden refs should be treated as a private compatibility/implementation trick only when a custom facade is unavoidable.
 
-### 3. There is a useful namespace taxonomy
+### 3. The current namespace taxonomy reveals useful domain boundaries
 
-The current namespaces are easy to explain:
+The current namespaces are not the final API, but they identify real domain boundaries:
 
-- construction: `turns`, `engines`, `tools`, `middlewares`;
-- orchestration: `createBuilder`, `createSession`, `runner`;
-- metadata: `profiles`, `schemas`, `events`.
+- construction: turns, engines, tools, middleware;
+- orchestration: sessions, runs, agents;
+- metadata: engine profiles, schemas, events.
 
-The redesign can keep this taxonomy for lower-level APIs while adding a higher-level `agent()` / `chat()` / `embeddings()` facade.
+The hard-cut redesign should rename and reshape these boundaries around typed constructors (`gp.turn`, `gp.engine`, `gp.tool`, `gp.agent`, `gp.embeddings`) instead of preserving the current namespace names for compatibility.
 
 ### 4. Tests exercise runtime integration
 
@@ -370,9 +414,9 @@ Unknown block kinds are parsed as `BlockKindOther`. That may be useful for compa
 
 Recommendation:
 
-- keep permissive behavior in `turns.normalize` or `turns.fromObject`;
-- make `gp.turn().blockKind(...)` and named builders strict by default;
-- provide `.unsafeBlock(object)` or `.fromLooseObject(object)` for migration.
+- remove permissive public constructors from the ideal API;
+- make `gp.turn()` and any standalone `gp.block()` builder strict by default;
+- provide only explicitly named unsafe import methods if raw object ingestion is genuinely required.
 
 ### 3. Callback-based embeddings are stale
 
@@ -420,7 +464,7 @@ The docs now say the `profiles` namespace is really an engine profiles namespace
 
 Recommendation:
 
-- Keep `profiles` as-is for compatibility.
+- Rename or alias `profiles` to `engineProfiles` if the hard cut allows it; avoid preserving confusing names solely for compatibility.
 - Add `engineProfiles` as a clearer alias.
 - In the high-level facade, use `.profile("assistant")` but document that it resolves an engine profile plus optional app runtime policy supplied by the host.
 
@@ -430,7 +474,7 @@ The word “runner” suggests execution, but `resolveRuntime` only resolves app
 
 Recommendation:
 
-- Keep `runner` for advanced use.
+- Keep low-level runner concepts as Go internals or expose them under clearer wrapper names such as `sessionBuilder` only if needed.
 - Introduce `agent().run(...)` / `chat().ask(...)` for ordinary use.
 
 ### Tools have two separate stories
@@ -441,12 +485,15 @@ Current API supports JavaScript tools and imported Go tools, which is good. Howe
 
 ### Design principles
 
-1. **Builder-first, object-literal-second.** Preferred APIs should be methods on Go-backed builders. Object literals remain for migration and advanced escapes.
-2. **Strict by default.** Builder calls should validate names, enum values, numeric ranges, required fields, and host policy immediately.
-3. **Opaque Go handles for domain objects.** Engines, agents, turns, tools, embedding models, sessions, and results should carry Go refs.
-4. **Small JavaScript surface, rich Go internals.** JavaScript should compose, not reimplement Geppetto’s internal data model.
-5. **Opinionated defaults with explicit overrides.** Default to safe tool policy, host profile resolution, standard event collection, timeouts, and cancellation.
-6. **xgoja-ready.** The API must work in generated standalone binaries with explicit host policy for secrets, network, tools, profiles, and filesystem access.
+1. **Hard cut to Go-owned wrappers.** New public objects are Go wrapper values with JavaScript-friendly methods, not object literals carrying hidden metadata.
+2. **No map-first constructors.** Do not design around `map[string]any` options. Use typed builders and explicit setters.
+3. **Strict by default.** Unknown keys, unknown block kinds, invalid enum values, out-of-range settings, missing required fields, and disallowed host capabilities fail immediately.
+4. **JavaScript mutates through methods only.** State transitions happen through Go methods so invariants are enforced at the boundary.
+5. **Explicit serialization boundaries.** `toJSON()`, `snapshot()`, `toYAML()`, or `debug()` produce plain objects for inspection and persistence; those plain objects are not the live domain objects.
+6. **Immutable built objects.** Builders may be mutable; built turns/engines/agents/results should be immutable or copy-on-write from JavaScript’s perspective.
+7. **Opinionated happy path first.** `gp.agent()` and `gp.embeddings()` should cover common scripts without requiring users to understand sessions, runner runtimes, profile internals, and event sinks.
+8. **Host policy is part of construction.** Network, credentials, tools, filesystem access, and profile registries are host-owned capabilities exposed through typed services, especially in xgoja bundles.
+9. **Unsafe APIs are explicit.** Any raw-object import/export API must live under `gp.unsafe` or similarly clear names.
 
 ### New public API layers
 
@@ -454,15 +501,46 @@ Current API supports JavaScript tools and imported Go tools, which is good. Howe
 Layer 1: Opinionated facade
   gp.agent(), gp.chat(), gp.embeddings()
 
-Layer 2: Typed builders
-  gp.turn(), gp.engine(), gp.tools.builder(), gp.schema, gp.runtime()
+Layer 2: Typed Go wrapper builders
+  gp.turn(), gp.engine(), gp.tool(), gp.schema, gp.runtime()
 
-Layer 3: Existing advanced APIs
-  gp.turns.*, gp.engines.*, gp.runner.*, gp.profiles.*, gp.tools.createRegistry()
+Layer 3: Explicit unsafe/import APIs
+  gp.unsafe.turnFromObject(), gp.unsafe.engineFromConfigObject(), gp.unsafe.debugExport()
 
 Layer 4: Host Go APIs
   Options, HostServices, provider config, xgoja runtime factory
 ```
+
+### Final public module contract after hard cut
+
+The default `require("geppetto")` export should be intentionally small:
+
+```typescript
+declare module "geppetto" {
+  export function agent(): AgentBuilder;
+  export function chat(): ChatBuilder;
+  export function turn(): TurnBuilder;
+  export function engine(): EngineBuilder;
+  export function tool(name: string): ToolBuilder;
+  export function toolRegistry(): ToolRegistryBuilder;
+  export function embeddings(): EmbeddingBuilder;
+  export const schema: SchemaNamespace;
+  export const engineProfiles: EngineProfileNamespace;
+  export const events: EventNamespace;
+  export const unsafe: UnsafeNamespace;
+}
+```
+
+Names to remove from the default public contract:
+
+- `turns.newTurn`, `turns.newUserBlock`, `turns.normalize` as first-class APIs;
+- `engines.fromConfig(map)` and other map-first constructors;
+- top-level `createBuilder`, `createSession`, and `runInference`;
+- `runner.run({ ... })` as the ordinary user entrypoint;
+- tool registration through raw `ToolSpec` maps;
+- callback-style embedding APIs.
+
+Internally, old helpers can survive temporarily to support tests or implementation plumbing, but the public `.d.ts`, tutorials, examples, and generated xgoja docs should describe only the hard-cut contract above plus explicit `unsafe` imports.
 
 ### Proposed `agent()` API
 
@@ -637,56 +715,68 @@ type runResultRef struct {
 
 ```go
 func (m *moduleRuntime) installExports(exports *goja.Object) {
-    // existing exports stay
+    // Hard-cut public surface: export the new typed wrapper constructors.
+    // Old map-first namespaces should not be exported unless deliberately
+    // placed under gp.unsafe for debugging/imports.
     m.mustSet(exports, "agent", m.newAgentBuilder)
     m.mustSet(exports, "chat", m.newChatBuilder)
     m.mustSet(exports, "turn", m.newTurnBuilder)
     m.mustSet(exports, "engine", m.newEngineBuilder)
+    m.mustSet(exports, "tool", m.newToolBuilder)
+    m.mustSet(exports, "toolRegistry", m.newToolRegistryBuilder)
     m.mustSet(exports, "embeddings", m.newEmbeddingBuilder)
     m.mustSet(exports, "schema", m.newSchemaNamespace())
+    m.mustSet(exports, "unsafe", m.newUnsafeNamespace())
 }
 ```
 
 ### Builder method pattern
 
 ```go
+type TurnBuilderJS struct {
+    api  *moduleRuntime
+    turn *turns.Turn
+}
+
+func (b *TurnBuilderJS) User(text string) *TurnBuilderJS {
+    if strings.TrimSpace(text) == "" {
+        panic(b.api.vm.NewTypeError("turn.user(text): text must not be empty"))
+    }
+    turns.AppendBlock(b.turn, turns.NewUserTextBlock(text))
+    return b
+}
+
+func (b *TurnBuilderJS) Build() *TurnJS {
+    if err := validateTurnStrict(b.turn); err != nil {
+        panic(b.api.vm.NewGoError(err))
+    }
+    return &TurnJS{api: b.api, turn: b.turn.Clone()}
+}
+
 func (m *moduleRuntime) newTurnBuilder(call goja.FunctionCall) goja.Value {
-    ref := &turnBuilderRef{api: m, turn: &turns.Turn{}, strict: true}
-    o := m.vm.NewObject()
-    m.attachRef(o, ref)
-
-    m.mustSet(o, "user", func(call goja.FunctionCall) goja.Value {
-        text, err := requiredString(call, 0, "user(text)")
-        if err != nil { panic(m.vm.NewTypeError(err.Error())) }
-        turns.AppendBlock(ref.turn, turns.NewUserTextBlock(text))
-        return o
-    })
-
-    m.mustSet(o, "build", func(goja.FunctionCall) goja.Value {
-        if err := validateTurn(ref.turn); err != nil { panic(m.vm.NewGoError(err)) }
-        return m.newTurnObject(ref.turn.Clone())
-    })
-
-    return o
+    // Prefer exposing a Go wrapper value whose methods mutate Go state.
+    // If goja requires a custom JS object, keep any hidden ref inside this
+    // helper and do not make it part of the conceptual API model.
+    return m.vm.ToValue(&TurnBuilderJS{api: m, turn: &turns.Turn{}})
 }
 ```
 
-### Strict vs loose codec
+### Strict import codec for `gp.unsafe`
 
 ```go
-type DecodeMode int
-const (
-    DecodeLoose DecodeMode = iota
-    DecodeStrict
-)
-
-func (m *moduleRuntime) decodeBlockWithMode(raw any, mode DecodeMode) (turns.Block, error) {
-    // Loose: existing parseBlockKind -> other.
-    // Strict: unknown kind returns error.
+func (m *moduleRuntime) unsafeTurnFromObject(raw goja.Value) (*TurnJS, error) {
+    // Even unsafe import validates strictly by default. A separate method name
+    // such as unsafe.looseTurnFromObject would be required for permissive
+    // coercion.
+    turn, err := decodeTurnStrict(raw.Export())
+    if err != nil {
+        return nil, err
+    }
+    return &TurnJS{api: m, turn: turn}, nil
 }
 ```
 
-Existing functions can call loose mode. New builders should call strict mode or bypass decoding entirely by constructing Go values directly.
+Normal builders should bypass decoding entirely by constructing Go values directly. Object import exists only for explicit unsafe/debug boundaries.
 
 ## Implementation Plan
 
@@ -699,9 +789,9 @@ Existing functions can call loose mode. New builders should call strict mode or 
 
 Acceptance criteria:
 
-- existing tests pass;
-- docs identify current behavior and migration plan;
-- no API changes yet.
+- existing tests pass before the hard cut;
+- docs identify current behavior and the hard-cut replacement plan;
+- an API inventory test defines the new public export set and fails if removed map-first names remain public.
 
 ### Phase 1: Add Go-backed turn and schema builders
 
@@ -739,7 +829,7 @@ Tasks:
 2. Internally emit `InferenceSettings` without passing through `map[string]any`.
 3. Add `gp.embeddings()` builder.
 4. Implement Promise-based `embed` and `embedMany` using runtime owner posting.
-5. Mark callback embedding API as legacy in docs.
+5. Remove callback embedding API from the new public contract; expose Promise-based embedding methods only.
 
 ### Phase 3: Add `agent()` facade
 
@@ -819,26 +909,47 @@ Examples to add:
 - Live provider examples must self-skip when credentials are missing.
 - TypeScript declarations must pass `dts_parity_test.go`.
 
-## Migration Strategy
+## Hard Cutover Strategy
 
-Do not remove current APIs in the first implementation pass. Instead:
+This ticket now assumes there is no legacy JavaScript API that must be preserved as a public contract. That changes the implementation strategy: remove confusing dynamic entrypoints rather than wrapping them in a preferred/legacy story.
 
-1. Add new fluent APIs next to current namespaces.
-2. Update docs to say “preferred” vs “advanced/compatibility”.
-3. Add warnings only in documentation, not runtime deprecations yet.
-4. Convert examples gradually.
-5. After adoption, consider moving permissive constructors under `gp.loose` or marking them legacy.
+### Public API removal/renaming plan
 
-Compatibility mapping:
-
-| Current API | Preferred API |
+| Current API | Hard-cut replacement |
 |---|---|
-| `gp.turns.newTurn({ blocks })` | `gp.turn().user(...).build()` |
-| `gp.turns.newUserBlock(text)` | `gp.turn().user(text)` |
+| `gp.turns.newTurn({ blocks })` | `gp.turn().user(...).system(...).build()` |
+| `gp.turns.newUserBlock(text)` | `gp.turn().user(text)` or `gp.block().user(text)` if standalone block builders are needed |
 | `gp.engines.fromConfig(map)` | `gp.engine().provider(...).model(...).build()` |
-| `gp.tools.createRegistry().register(map)` | `gp.agent().tool(name, builderFn)` or `gp.tools.builder()` |
+| `gp.createBuilder(options)` | `gp.agent()` for common flows, `gp.sessionBuilder()` for low-level flows |
+| `gp.createSession(options)` | `gp.agent().buildSession()` or `gp.session(engine).build()` |
 | `gp.runner.run({ engine, runtime, prompt })` | `gp.agent().engine(engine).runtime(runtime).ask(prompt)` |
-| global embedding object | `gp.embeddings().build()` |
+| `gp.tools.createRegistry().register(map)` | `gp.tool(name).description(...).input(schema).handler(fn).build()` and `gp.toolRegistry().add(tool)` |
+| Global embedding registration | `gp.embeddings().provider(...).model(...).build()` |
+
+### Escape hatches
+
+If implementation discovers a real need for raw object import/export, it should be intentionally marked unsafe:
+
+```javascript
+const turn = gp.unsafe.turnFromObject(obj);     // validates then wraps, no silent coercion
+const obj = turn.toJSON();                      // explicit snapshot, not live state
+const engine = gp.unsafe.engineFromConfig(obj); // only for tests/migration/debugging
+```
+
+Rules for unsafe APIs:
+
+- They are not used in tutorials except migration/debug appendices.
+- They validate strictly unless the method name says `loose`.
+- They return Go wrappers, never live mutable maps.
+- They are easy to grep and remove later.
+
+### Cutover phases
+
+1. Add the new wrapper API behind the final names.
+2. Convert examples and docs immediately to the new API.
+3. Remove or hide old map-first exports from the public `.d.ts`.
+4. Keep internal helper functions if useful, but do not expose them as endorsed JS APIs.
+5. Add tests that fail if removed map-first names reappear accidentally.
 
 ## Risks and Review-Critical Points
 
