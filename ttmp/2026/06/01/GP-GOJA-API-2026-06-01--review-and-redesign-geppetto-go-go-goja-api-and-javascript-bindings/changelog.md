@@ -45,3 +45,13 @@ Re-uploaded the updated hard-cut redesign bundle to reMarkable with --force at /
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/design-doc/01-geppetto-go-go-goja-api-review-and-builder-design-guide.md — Updated hard-cut redesign included in reMarkable bundle
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/reference/01-investigation-diary.md — Delivery note for forced re-upload
 
+
+## 2026-06-01
+
+Clarified API naming and boundaries: profiles become inferenceProfiles only, gp.inferenceSettings builds provider/model settings, Pinocchio can back the default inference profile resolver, agents own system prompt/tools/middleware, and JS-side env/API-key methods are forbidden.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/design-doc/01-geppetto-go-go-goja-api-review-and-builder-design-guide.md — Updated naming and credential policy
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/reference/01-investigation-diary.md — Diary step for naming clarification
+

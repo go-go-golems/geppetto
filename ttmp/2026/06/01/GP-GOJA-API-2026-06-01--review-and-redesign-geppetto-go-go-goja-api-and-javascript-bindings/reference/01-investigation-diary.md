@@ -536,3 +536,81 @@ Exact upload behavior:
 
 - First real upload attempt skipped with: `SKIP: GP-GOJA-API-2026-06-01 Geppetto goja API review already exists in /ai/2026/06/01/GP-GOJA-API-2026-06-01 (use --force to overwrite)`.
 - Forced upload succeeded with: `OK: uploaded GP-GOJA-API-2026-06-01 Geppetto goja API review.pdf -> /ai/2026/06/01/GP-GOJA-API-2026-06-01`.
+
+## Step 7: Clarify inference settings, profile naming, Pinocchio defaults, and credential policy
+
+The user clarified that Geppetto should keep a clean separation between inference settings and runtime/agent configuration. I updated the design to make “profile” mean inference settings only in Geppetto, to use Pinocchio profile sources as the default host-backed inference profile resolver where appropriate, and to forbid JavaScript-side API key or environment-variable handling.
+
+The resulting naming model is: `gp.inferenceProfiles` resolves named `InferenceSettings`; `gp.inferenceSettings()` builds settings directly; `gp.engine()` compiles an engine from settings; and `gp.agent()` owns system prompt, tools, middleware, events, and run behavior.
+
+### Prompt Context
+
+**User prompt (verbatim):** "we do want clear separation between inferenceSettings, and want to be able to load engine profiles from pinocchio profiles per default, we want to forbid the use of env variables for api keys. 
+
+What would this clearer naming look like, profiles should only be used for inference settings at least within the context of geppetto. middlewares and tools and system prompt should be configured from the js api with this module. If users want some more elaborate profile setup, they should build their own setup."
+
+**Assistant interpretation:** Update the naming and API proposal so Geppetto profiles are strictly inference settings profiles, Pinocchio can provide default inference profile sources, JS configures prompt/tools/middleware, and credentials are host-resolved rather than JS/env-resolved.
+
+**Inferred user intent:** Prevent Geppetto from growing a confusing full-agent profile system and keep the JS API focused on typed inference settings plus explicit runtime composition.
+
+### What I did
+
+- Changed the public contract from `engineProfiles` to `inferenceProfiles`.
+- Added `gp.inferenceSettings()` as the explicit builder for provider/model/sampling/token/base URL/model metadata/credential reference.
+- Updated examples so agents use `agent.inference(settings)` rather than `agent.profile(...)`.
+- Added a naming/responsibility table separating:
+  - `InferenceSettings`;
+  - `gp.inferenceProfiles`;
+  - `Engine`;
+  - `AgentBuilder` / `Agent`;
+  - `CredentialRef`.
+- Added credential policy forbidding public `apiKey`, `apiKeyEnv`, `fromEnv`, or equivalent JS methods.
+- Added host-side interface sketches for `InferenceProfileResolver`, `CredentialResolver`, and `GeppettoHostServices`.
+- Documented that Pinocchio hosts should project Pinocchio profile documents into Geppetto inference settings only.
+
+### Why
+
+- Generic “profiles” would invite users to put system prompts, tools, middleware, and app behavior into Geppetto profile resolution.
+- The user wants those runtime pieces configured explicitly from JS with this module.
+- API keys should not be accessible or sourced from env vars in JS; only the host should resolve credentials.
+
+### What worked
+
+- The hard-cut design made this naming cleanup straightforward because there is no legacy public contract to preserve.
+- `inferenceProfiles.resolve("assistant")` is clear: it returns inference settings, not an agent preset.
+- `agent.inference(settings).system(...).tool(...)` reads as an explicit composition boundary.
+
+### What didn't work
+
+- The previous design still contained examples with `.profile("assistant")` and `.apiKeyEnv("OPENAI_API_KEY")`; these had to be replaced.
+
+### What I learned
+
+- The cleanest naming is to avoid unqualified `profile` in the public API except as part of `inferenceProfiles` or possibly `inferenceProfile(...)` convenience methods.
+- Credential naming should be symbolic (`credentialRef("openai-main")`) and resolved by Go host services.
+
+### What was tricky to build
+
+- The tricky part was allowing Pinocchio profiles as the default source without importing Pinocchio’s broader application profile semantics into Geppetto. The design now explicitly says Pinocchio may back `InferenceProfileResolver`, but Geppetto only receives/resolves `InferenceSettings`.
+
+### What warrants a second pair of eyes
+
+- Review whether `agent.inferenceProfile("assistant")` should exist as a convenience or whether the API should require the two-step `const settings = gp.inferenceProfiles.resolve("assistant"); agent.inference(settings)` for maximal clarity.
+- Review the host credential resolver shape before implementation.
+
+### What should be done in the future
+
+- Add tests proving `apiKey`, `apiKeyEnv`, and `fromEnv` do not exist in the public JS API.
+- Add a Pinocchio-backed fake `InferenceProfileResolver` integration test.
+
+### Code review instructions
+
+- Review the design sections:
+  - `Naming and responsibility boundaries`
+  - `Credential policy: no environment variables in JS`
+  - `Proposed inferenceSettings() and engine() APIs`
+  - Phase 2 implementation tasks.
+
+### Technical details
+
+- Updated design doc: `/home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/design-doc/01-geppetto-go-go-goja-api-review-and-builder-design-guide.md`

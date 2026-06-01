@@ -307,8 +307,10 @@ Proposed happy path:
 ```javascript
 const gp = require("geppetto");
 
+const inference = gp.inferenceProfiles.resolve("assistant");
+
 const agent = gp.agent()
-  .profile("assistant")
+  .inference(inference)
   .system("Answer in one short paragraph.")
   .tools((tools) => tools
     .js("lookup", "Lookup a document")
@@ -322,7 +324,7 @@ const result = agent.ask("What changed in this repository?");
 console.log(result.text());
 ```
 
-This hides the lower-level split while still allowing access to engine, runtime, session, turns, and event streams when needed.
+This keeps the split visible: `inference` comes from inference settings/profile resolution, while system prompt, tools, middleware, and events are configured directly on the JS agent API.
 
 ### 2. Make turns and blocks Go-backed builders
 
@@ -341,24 +343,25 @@ const turn = gp.turn()
 
 Go should validate block kind, role, payload schema, metadata keys, data keys, and tool config as methods are called. The resulting JS object can expose convenience accessors but should carry a `*turns.Turn` ref.
 
-### 3. Replace raw model config maps with profile/config builders
+### 3. Replace raw model config maps with inference settings builders
 
-Current `engines.fromConfig(options)` accepts a dynamic map with keys like `apiType`, `provider`, `model`, `temperature`, `topP`, `timeoutMs`, `apiKey`, `baseURL`, and `modelInfo`. This is simple but weakly typed.
+Current `engines.fromConfig(options)` accepts a dynamic map with keys like `apiType`, `provider`, `model`, `temperature`, `topP`, `timeoutMs`, `apiKey`, `baseURL`, and `modelInfo`. This is simple but weakly typed, and it mixes credentials into JavaScript.
 
 Target shape:
 
 ```javascript
-const engine = gp.engine()
-  .openaiResponses()
+const settings = gp.inferenceSettings()
+  .provider("openai-responses")
   .model("gpt-5-mini")
-  .apiKeyEnv("OPENAI_API_KEY")
+  .credentialRef("openai-main")
   .temperature(0.2)
   .timeoutMs(30000)
   .build();
+
+const engine = gp.engine().inference(settings).build();
 ```
 
-The implementation can keep `engines.fromConfig` as an adapter, but the preferred API should be builder-first.
-
+The public API should not expose `apiKey` or `apiKeyEnv`. Credential lookup is a host Go responsibility behind symbolic credential references.
 ### 4. Make embeddings a first-class module capability
 
 `geppetto/pkg/js/embeddings-js.go` is older and separate from `require("geppetto")`. It registers a global object with sync, async, and callback-style embedding methods using an event loop. The TODO already says to move registration into a runtime engine context, pass context into wrappers for cancellation, remove callback-style embeddings, and remove stale JS conversation/runtime coupling.
@@ -367,7 +370,9 @@ Target shape:
 
 ```javascript
 const embedder = gp.embeddings()
-  .profile("text-embedding-3-small")
+  .provider("openai")
+  .model("text-embedding-3-small")
+  .credentialRef("openai-main")
   .batchSize(64)
   .build();
 
@@ -458,15 +463,17 @@ This is a review-critical integration point for standalone bundled applications.
 
 ## What Is Confusing
 
-### `profiles` means engine profiles, not full runtime profiles
+### `profiles` must mean inference settings only in Geppetto
 
-The docs now say the `profiles` namespace is really an engine profiles namespace. A new user will still expect a “profile” to describe the whole agent runtime, including prompt, middleware, tools, and provider.
+A new user will expect a generic “profile” to describe the whole agent runtime, including prompt, middleware, tools, memory, and provider. That is exactly what Geppetto should avoid. Within this module, profile resolution should be named `inferenceProfiles` and should return only `InferenceSettings`.
 
 Recommendation:
 
-- Rename or alias `profiles` to `engineProfiles` if the hard cut allows it; avoid preserving confusing names solely for compatibility.
-- Add `engineProfiles` as a clearer alias.
-- In the high-level facade, use `.profile("assistant")` but document that it resolves an engine profile plus optional app runtime policy supplied by the host.
+- Replace `profiles` / `engineProfiles` naming with `inferenceProfiles`.
+- `gp.inferenceProfiles.resolve("assistant")` returns a Go-backed `InferenceSettings` object.
+- The default host source may be Pinocchio profiles, but Geppetto only extracts/resolves the inference settings portion.
+- Do not add `agent.profile(...)`; use `agent.inference(settings)` or, if a convenience is absolutely needed, `agent.inferenceProfile("assistant")`.
+- System prompt, middlewares, tools, tool loop policy, and event handlers are configured through the JS API (`gp.agent()`), not through Geppetto inference profiles.
 
 ### `runner.resolveRuntime` does not run or resolve engines
 
@@ -502,10 +509,10 @@ Layer 1: Opinionated facade
   gp.agent(), gp.chat(), gp.embeddings()
 
 Layer 2: Typed Go wrapper builders
-  gp.turn(), gp.engine(), gp.tool(), gp.schema, gp.runtime()
+  gp.inferenceSettings(), gp.turn(), gp.engine(), gp.tool(), gp.schema, gp.runtime()
 
 Layer 3: Explicit unsafe/import APIs
-  gp.unsafe.turnFromObject(), gp.unsafe.engineFromConfigObject(), gp.unsafe.debugExport()
+  gp.unsafe.turnFromObject(), gp.unsafe.inferenceSettingsFromObject(), gp.unsafe.debugExport()
 
 Layer 4: Host Go APIs
   Options, HostServices, provider config, xgoja runtime factory
@@ -520,12 +527,13 @@ declare module "geppetto" {
   export function agent(): AgentBuilder;
   export function chat(): ChatBuilder;
   export function turn(): TurnBuilder;
+  export function inferenceSettings(): InferenceSettingsBuilder;
   export function engine(): EngineBuilder;
   export function tool(name: string): ToolBuilder;
   export function toolRegistry(): ToolRegistryBuilder;
   export function embeddings(): EmbeddingBuilder;
   export const schema: SchemaNamespace;
-  export const engineProfiles: EngineProfileNamespace;
+  export const inferenceProfiles: InferenceProfileNamespace;
   export const events: EventNamespace;
   export const unsafe: UnsafeNamespace;
 }
@@ -542,15 +550,77 @@ Names to remove from the default public contract:
 
 Internally, old helpers can survive temporarily to support tests or implementation plumbing, but the public `.d.ts`, tutorials, examples, and generated xgoja docs should describe only the hard-cut contract above plus explicit `unsafe` imports.
 
+### Naming and responsibility boundaries
+
+Use names that make the separation explicit:
+
+| Concept | Public name | Owns | Must not own |
+|---|---|---|---|
+| Inference settings | `InferenceSettings`, `gp.inferenceSettings()` | provider, API type, model, sampling, token limits, base URL, model metadata, credential reference | system prompt, tools, middleware chain, JS callbacks, app runtime policy |
+| Inference profile catalog | `gp.inferenceProfiles` | loading/resolving named `InferenceSettings` from the host default source, including Pinocchio profile sources when embedded in Pinocchio | agent configuration, tool registration, system prompts |
+| Engine | `Engine`, `gp.engine()` | compiled Geppetto inference engine built from `InferenceSettings` | app/session/tool policy |
+| Agent runtime | `AgentBuilder`, `Agent` | system prompt, JS-configured middlewares, JS/Go tools, tool loop policy, event handling, run defaults | provider/model/profile lookup except by accepting explicit `InferenceSettings` or an inference-profile selector |
+| Host credentials | `CredentialRef` / `credentialRef(name)` | names an API credential resolved by the Go host | raw API key strings, environment variable lookup from JS |
+
+In Geppetto, the unqualified word “profile” should not mean “full agent profile”. It should mean **inference profile** only: a named source of inference settings. If a user wants a full application profile containing prompt, tools, middleware, memory, UI policy, or agent presets, they should build that profile system in their own app and pass the resulting pieces into this module.
+
+The default host integration should load inference profiles from Pinocchio profile sources when Geppetto is embedded in Pinocchio. Geppetto should still expose them only as `InferenceSettings` resolution. That keeps Pinocchio's richer configuration model outside the Geppetto JS contract.
+
+### Credential policy: no environment variables in JS
+
+The public JavaScript API must not expose `apiKey`, `apiKeyEnv`, `fromEnv`, or equivalent methods. JS scripts should never fetch provider credentials directly from environment variables. Instead, scripts choose a named credential reference and the Go host resolves that reference according to host policy.
+
+Allowed:
+
+```javascript
+const settings = gp.inferenceSettings()
+  .provider("openai-responses")
+  .model("gpt-5-mini")
+  .credentialRef("openai-main")
+  .temperature(0.2)
+  .build();
+```
+
+Forbidden in the public API:
+
+```javascript
+gp.engine().apiKey("sk-...");             // forbidden
+gp.engine().apiKeyEnv("OPENAI_API_KEY"); // forbidden
+gp.credentials.fromEnv("OPENAI_API_KEY"); // forbidden
+```
+
+A host may implement `credentialRef("openai-main")` by reading a key from an environment variable, keychain, config file, vault, or OS secret store. That is a Go-side host decision, not a JavaScript API feature.
+
+Host-side shape:
+
+```go
+type InferenceProfileResolver interface {
+    ResolveInferenceSettings(ctx context.Context, name string) (*settings.InferenceSettings, error)
+    ListInferenceProfiles(ctx context.Context) ([]InferenceProfileSummary, error)
+}
+
+type CredentialResolver interface {
+    ResolveCredential(ctx context.Context, ref CredentialRef, provider string) (ResolvedCredential, error)
+}
+
+type GeppettoHostServices interface {
+    InferenceProfiles() InferenceProfileResolver // Pinocchio-backed by default in Pinocchio hosts.
+    Credentials() CredentialResolver             // JS never sees raw API keys.
+    GoTools() tools.ToolRegistry                 // Optional host-approved Go tools.
+}
+```
+
+The Pinocchio integration should implement `InferenceProfileResolver` from Pinocchio profile documents, but it should project only the inference settings into Geppetto. Pinocchio-level concepts such as agent presets, UI behavior, app mode, or persisted chat runtime should remain Pinocchio/application concerns.
+
 ### Proposed `agent()` API
 
 ```javascript
+const inference = gp.inferenceProfiles.resolve("assistant");
+
 const agent = gp.agent()
   .name("repo-reviewer")
-  .profile("assistant")
+  .inference(inference)
   .system("You are a careful code reviewer.")
-  .temperature(0.1)
-  .maxTokens(2000)
   .tool("read_file", (t) => t
     .description("Read a repository file")
     .input(gp.schema.object({ path: gp.schema.string().required() }))
@@ -567,7 +637,7 @@ console.log(result.text());
 
 Go-backed pieces:
 
-- `agentBuilderRef`: stores engine/profile config, runtime policy, tool builder, event config, default run options.
+- `agentBuilderRef`: stores a selected `InferenceSettings`/engine plus runtime policy, tool builder, event config, system prompt, and default run options.
 - `agentRef`: stores compiled engine/session factory/tool registry/event sink policy.
 - `runResultRef`: stores final `*turns.Turn`, usage, run metadata, text extraction helpers, tool call summaries.
 
@@ -593,13 +663,15 @@ Implementation notes:
 - `.data(key, value)` should validate known keys where possible.
 - `.fromObject(obj)` may call the existing codec in permissive mode.
 
-### Proposed `engine()` API
+### Proposed `inferenceSettings()` and `engine()` APIs
+
+Build or resolve inference settings first, then compile an engine from those settings. This makes the boundary explicit: inference settings describe provider/model behavior; agents describe prompt/tools/middleware/runtime behavior.
 
 ```javascript
-const engine = gp.engine()
+const settings = gp.inferenceSettings()
   .provider("openai-responses")
   .model("gpt-5-mini")
-  .apiKeyEnv("OPENAI_API_KEY")
+  .credentialRef("openai-main")
   .baseURL("https://api.openai.com/v1")
   .temperature(0.2)
   .topP(0.9)
@@ -609,6 +681,17 @@ const engine = gp.engine()
     .maxOutputTokens(8192)
     .reasoning(true))
   .build();
+
+const engine = gp.engine()
+  .inference(settings)
+  .build();
+```
+
+Default Pinocchio-backed profile resolution should look like this when the host provides Pinocchio profile sources:
+
+```javascript
+const settings = gp.inferenceProfiles.resolve("assistant");
+const engine = gp.engine().inference(settings).build();
 ```
 
 Validation examples:
@@ -617,7 +700,8 @@ Validation examples:
 - model must not be empty;
 - temperature must be in provider-supported range;
 - timeout must be positive;
-- API key literal should be discouraged in xgoja unless host policy allows it.
+- credential reference must be a non-empty symbolic name accepted by host policy;
+- raw API keys and environment variable references are rejected because the JavaScript API does not own credentials.
 
 ### Proposed `embeddings()` API
 
@@ -625,8 +709,8 @@ Validation examples:
 const embedder = gp.embeddings()
   .provider("openai")
   .model("text-embedding-3-small")
+  .credentialRef("openai-main")
   .dimensions(1536)
-  .apiKeyEnv("OPENAI_API_KEY")
   .timeoutMs(10000)
   .build();
 
@@ -680,6 +764,7 @@ This removes the need for every script to inspect block arrays manually.
 type agentBuilderRef struct {
     api *moduleRuntime
     name string
+    inference *inferenceSettingsRef
     engineBuilder *engineBuilderRef
     runtimeBuilder *runtimePolicyBuilderRef
     turnDefaults *turnBuilderRef
@@ -720,6 +805,8 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
     // placed under gp.unsafe for debugging/imports.
     m.mustSet(exports, "agent", m.newAgentBuilder)
     m.mustSet(exports, "chat", m.newChatBuilder)
+    m.mustSet(exports, "inferenceSettings", m.newInferenceSettingsBuilder)
+    m.mustSet(exports, "inferenceProfiles", m.newInferenceProfilesNamespace())
     m.mustSet(exports, "turn", m.newTurnBuilder)
     m.mustSet(exports, "engine", m.newEngineBuilder)
     m.mustSet(exports, "tool", m.newToolBuilder)
@@ -813,7 +900,7 @@ Tasks:
 5. Add tests for valid construction and early invalid failures.
 6. Update TypeScript declarations and parity tests.
 
-### Phase 2: Add engine and embedding builders
+### Phase 2: Add inference settings, engine, and embedding builders
 
 Files to start with:
 
@@ -825,11 +912,14 @@ Files to start with:
 
 Tasks:
 
-1. Add `gp.engine()` fluent builder.
-2. Internally emit `InferenceSettings` without passing through `map[string]any`.
-3. Add `gp.embeddings()` builder.
-4. Implement Promise-based `embed` and `embedMany` using runtime owner posting.
-5. Remove callback embedding API from the new public contract; expose Promise-based embedding methods only.
+1. Add `gp.inferenceSettings()` fluent builder.
+2. Add `gp.inferenceProfiles` namespace backed by host default inference profile sources, including Pinocchio sources when provided by the host.
+3. Add `gp.engine().inference(settings).build()`.
+4. Internally emit `InferenceSettings` without passing through `map[string]any`.
+5. Add `gp.embeddings()` builder.
+6. Implement Promise-based `embed` and `embedMany` using runtime owner posting.
+7. Remove callback embedding API from the new public contract; expose Promise-based embedding methods only.
+8. Add tests that `apiKey`, `apiKeyEnv`, and environment-variable credential methods do not exist or fail.
 
 ### Phase 3: Add `agent()` facade
 
@@ -844,7 +934,7 @@ Files to start with:
 Tasks:
 
 1. Add `gp.agent()` export.
-2. Let the agent builder compose engine/profile, runtime prompt/middleware, tools, events, and run defaults.
+2. Let the agent builder compose explicit inference settings/engine plus JS-owned system prompt, middleware, tools, events, and run defaults.
 3. Add `agent.ask`, `agent.run`, `agent.start`, and `agent.session` methods.
 4. Add `RunResult` helpers.
 5. Ensure streaming handles remain runtime-owner safe.
@@ -898,7 +988,7 @@ Examples to add:
 ### Runtime integration tests
 
 - `require("geppetto").turn().user("x").build()` round-trips through sessions.
-- `agent().engine(gp.engines.echo()).ask("x")` returns deterministic text.
+- `agent().inference(fakeInferenceSettings).ask("x")` or `agent().engine(echoEngine).ask("x")` returns deterministic text.
 - `agent().tool(...).ask(...)` executes a JS tool through the existing toolloop.
 - `embeddings().embed(...)` resolves a Promise on the owner thread with a fake provider.
 - xgoja runtime with host services can load `require("geppetto")`.
@@ -906,7 +996,7 @@ Examples to add:
 ### Documentation tests / examples
 
 - Every new example should run under `geppetto-js-lab` where possible.
-- Live provider examples must self-skip when credentials are missing.
+- Live provider examples must use host-provided credential references and self-skip when the host cannot resolve those references.
 - TypeScript declarations must pass `dts_parity_test.go`.
 
 ## Hard Cutover Strategy
@@ -919,10 +1009,10 @@ This ticket now assumes there is no legacy JavaScript API that must be preserved
 |---|---|
 | `gp.turns.newTurn({ blocks })` | `gp.turn().user(...).system(...).build()` |
 | `gp.turns.newUserBlock(text)` | `gp.turn().user(text)` or `gp.block().user(text)` if standalone block builders are needed |
-| `gp.engines.fromConfig(map)` | `gp.engine().provider(...).model(...).build()` |
+| `gp.engines.fromConfig(map)` | `gp.inferenceSettings().provider(...).model(...).credentialRef(...).build()` plus `gp.engine().inference(settings).build()` |
 | `gp.createBuilder(options)` | `gp.agent()` for common flows, `gp.sessionBuilder()` for low-level flows |
 | `gp.createSession(options)` | `gp.agent().buildSession()` or `gp.session(engine).build()` |
-| `gp.runner.run({ engine, runtime, prompt })` | `gp.agent().engine(engine).runtime(runtime).ask(prompt)` |
+| `gp.runner.run({ engine, runtime, prompt })` | `gp.agent().inference(settings).system(...).tool(...).ask(prompt)` |
 | `gp.tools.createRegistry().register(map)` | `gp.tool(name).description(...).input(schema).handler(fn).build()` and `gp.toolRegistry().add(tool)` |
 | Global embedding registration | `gp.embeddings().provider(...).model(...).build()` |
 
@@ -958,7 +1048,7 @@ Rules for unsafe APIs:
 3. **Validation drift.** JS builders must reuse Go domain validation, not duplicate rules manually.
 4. **Too much facade magic.** The agent facade must remain explainable and provide escape hatches to advanced APIs.
 5. **TypeScript drift.** Generated declarations and runtime exports must remain in sync.
-6. **Provider credentials.** xgoja bundles need an explicit secret policy so scripts do not normalize unsafe API-key literals.
+6. **Provider credentials.** xgoja bundles and Geppetto hosts must expose only symbolic credential references to JS; raw API keys and environment-variable lookup belong exclusively to host Go code.
 
 ## Intern Onboarding Guide: How to Work on This Safely
 
