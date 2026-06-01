@@ -55,3 +55,22 @@ Clarified API naming and boundaries: profiles become inferenceProfiles only, gp.
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/design-doc/01-geppetto-go-go-goja-api-review-and-builder-design-guide.md — Updated naming and credential policy
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/reference/01-investigation-diary.md — Diary step for naming clarification
 
+
+## 2026-06-01
+
+Added analysis/design guide for extracting Pinocchio inline inference profile registry/config-document behavior into Geppetto so goja JS can resolve inference settings without importing Pinocchio.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/design-doc/02-reusable-geppetto-inference-profile-registry-extraction-guide.md — New profile registry extraction design doc
+
+
+## 2026-06-01
+
+Uploaded updated reMarkable bundle including the new reusable Geppetto inference profile registry extraction guide.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/design-doc/02-reusable-geppetto-inference-profile-registry-extraction-guide.md — Included in updated bundle
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/reference/01-investigation-diary.md — Delivery note for updated bundle
+

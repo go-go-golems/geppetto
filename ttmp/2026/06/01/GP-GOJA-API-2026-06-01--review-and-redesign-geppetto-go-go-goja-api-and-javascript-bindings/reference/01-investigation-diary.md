@@ -614,3 +614,99 @@ What would this clearer naming look like, profiles should only be used for infer
 ### Technical details
 
 - Updated design doc: `/home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/design-doc/01-geppetto-go-go-goja-api-review-and-builder-design-guide.md`
+
+## Step 8: Analyze extracting reusable inference profile registry behavior from Pinocchio into Geppetto
+
+The user asked whether `inferenceSettings` would return a Go object and then requested a detailed extraction analysis for moving reusable profile registry behavior from Pinocchio to Geppetto. I wrote a new design document focused on this question. The answer is yes: `gp.inferenceSettings()` and `gp.inferenceProfiles.resolve(...)` should both return Go-owned inference settings wrappers, with explicit snapshot methods for serialization.
+
+The analysis found that Geppetto already owns the core registry system (`engineprofiles`), while Pinocchio owns a useful unified config-document layer for inline profiles and composition. The recommended implementation is to move the reusable inline profile document/conversion/composition pieces into a Geppetto package, then make Pinocchio consume that package rather than duplicating or owning the generic behavior.
+
+### Prompt Context
+
+**User prompt (verbatim):** "and inferenceSettings would return a go object?
+
+Create an analysis doucment analyzing how much it would take to move a consistent reusable profile registry system from pinocchio to geppetto, so that we can expose registry profile lookup to goja JS, without having to pull in pinocchio. 
+
+Create  a detailed analysis / design / implementation guide that is for a new intern, explaining all the parts of the system needed to understand what it is, with prose paragraphs and bullet point sand pseudocode and diagrams and api references and file references. It should be very clear and technical. Store in the ticket and the nupload to remarkable."
+
+**Assistant interpretation:** Confirm the Go-object model for inference settings, analyze the Pinocchio-to-Geppetto extraction needed for reusable inference profile lookup, document the implementation plan in the ticket, and upload the updated bundle to reMarkable.
+
+**Inferred user intent:** The user wants Geppetto JS profile lookup to be self-contained, typed, and independent of Pinocchio, while still allowing Pinocchio to provide default profile sources as a host/application.
+
+### What I did
+
+- Inspected Geppetto profile registry files:
+  - `pkg/engineprofiles/types.go`
+  - `pkg/engineprofiles/registry.go`
+  - `pkg/engineprofiles/service.go`
+  - `pkg/engineprofiles/source_chain.go`
+  - `pkg/engineprofiles/stack_resolver.go`
+  - `pkg/engineprofiles/codec_yaml.go`
+  - `pkg/cli/bootstrap/profile_registry.go`
+  - `pkg/cli/bootstrap/profile_selection.go`
+- Inspected Pinocchio profile/config files:
+  - `pkg/configdoc/types.go`
+  - `pkg/configdoc/load.go`
+  - `pkg/configdoc/merge.go`
+  - `pkg/configdoc/resolved.go`
+  - `pkg/configdoc/profiles.go`
+  - `pkg/cmds/profilebootstrap/profile_selection.go`
+  - relevant tests for config doc loading, merging, and inline registry composition.
+- Created new design doc:
+  - `design-doc/02-reusable-geppetto-inference-profile-registry-extraction-guide.md`
+- Related key Geppetto and Pinocchio files to the new doc.
+- Updated the changelog.
+
+### Why
+
+- Geppetto JS should not import Pinocchio just to resolve inference profiles.
+- Pinocchio currently contains reusable inline profile conversion/composition behavior that naturally belongs next to Geppetto's existing registry system.
+- The implementation needs a clear package boundary so Pinocchio remains an application/host, not a dependency of Geppetto JS.
+
+### What worked
+
+- Geppetto already has most of the hard registry behavior: typed registries, source chains, YAML/SQLite stores, stack resolution, merge, and validation.
+- Pinocchio's `configdoc/profiles.go` is a relatively small and clean extraction candidate.
+- The design can avoid a large internal rename by keeping Go `engineprofiles` while exposing JS-facing `inferenceProfiles`.
+
+### What didn't work
+
+- The first written reference path in the new doc had a typo (`gepp-js` instead of `geppetto-js`); I fixed it immediately.
+
+### What I learned
+
+- The extraction is medium-sized, not a rewrite. The smallest useful extraction is about 2-3 days; a robust intern-friendly implementation is about 4-6 days.
+- The main design hazard is accidentally moving Pinocchio app semantics, especially `app.repositories`, into Geppetto. The recommended extraction keeps Geppetto focused on inference profile documents only.
+
+### What was tricky to build
+
+- The tricky boundary is that Pinocchio's unified config document mixes reusable inference-profile fields with app-specific fields. The solution is to extract `profile.active`, `profile.registries`, and `profiles.*.inference_settings` behavior while leaving `app.repositories` as a Pinocchio wrapper concern.
+
+### What warrants a second pair of eyes
+
+- Decide whether the new Geppetto package should be `geppetto/pkg/engineprofiles/profiledoc` or `geppetto/pkg/inferenceprofiles`.
+- Review whether `ComposeRegistry` should prefer inline profiles over imported registries in all Geppetto hosts, or whether that precedence should be configurable.
+
+### What should be done in the future
+
+- Port Pinocchio `configdoc` tests into Geppetto before moving implementation code.
+- Add JS tests proving `gp.inferenceProfiles.resolve(...)` returns a Go-owned `InferenceSettings` wrapper.
+
+### Code review instructions
+
+- Start with the new design doc's `Current Architecture Map`, `What Geppetto Already Has`, `What Pinocchio Adds`, and `Implementation Plan` sections.
+- Review the file relations on the doc for the exact source files that shaped the extraction plan.
+
+### Technical details
+
+- New design doc: `/home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/design-doc/02-reusable-geppetto-inference-profile-registry-extraction-guide.md`
+
+### Delivery note for Step 8
+
+I uploaded a new reMarkable bundle that now includes both design documents and the diary:
+
+1. `01-geppetto-go-go-goja-api-review-and-builder-design-guide.md`
+2. `02-reusable-geppetto-inference-profile-registry-extraction-guide.md`
+3. `01-investigation-diary.md`
+
+The dry run succeeded, then the real upload used `--force` to replace the existing bundle at `/ai/2026/06/01/GP-GOJA-API-2026-06-01`. The remote listing still shows duplicate rows for the same bundle name, which appears to be a remote listing/overwrite artifact already observed in the previous upload step.
