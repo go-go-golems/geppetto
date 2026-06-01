@@ -863,3 +863,98 @@ The new plan exposes Geppetto's existing registry loader/resolver through `gp.in
 - Uploaded document only: `/home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/design-doc/01-geppetto-go-go-goja-api-review-and-builder-design-guide.md`
 - reMarkable v3 name: `GP-GOJA-API-2026-06-01 Geppetto goja API review v3`
 - reMarkable remote directory: `/ai/2026/06/01/GP-GOJA-API-2026-06-01`
+
+## Step 11: Remove chat/ask/system agent conveniences and upload v4
+
+The user clarified that `system()` belongs on the turn, not the agent, and that the agent should not have `ask()`. I updated the primary design document and the ticket task list so the model is fully explicit: users build a `Turn` containing system/user/assistant/multimodal content, then pass that turn to `agent.run(turn)` or `engine.run(turn)`.
+
+The updated plan removes `gp.chat()`, `agent.ask(prompt)`, and `agent.system(prompt)` from the public contract. It adds explicit turn traceability: result objects should expose input, effective, and output turns.
+
+### Prompt Context
+
+**User prompt (verbatim):** ".system() is also part of turn.
+
+update document and v4. Add detailed breakdown in phases, where each phases has detailed tasks, in the ticket as well."
+
+**Assistant interpretation:** Update the design and ticket task list to remove agent/chat convenience APIs, place system content in turns, require explicit turns for agent execution, and upload the updated primary design document as v4.
+
+**Inferred user intent:** The user wants a maximally traceable API where every run starts from an explicit turn, avoiding hidden prompt-to-turn or system-injection behavior.
+
+### What I did
+
+- Removed `gp.chat()` from the planned public API.
+- Removed `agent.ask(prompt)` from the planned public API.
+- Removed `agent.system(prompt)` from the planned public API.
+- Updated examples to use:
+  - `const turn = gp.turn().system(...).user(...).build()`
+  - `const result = await agent.run(turn)`
+- Added an `Agent execution contract: explicit turns only` section.
+- Added traceability requirements for `RunResultJS`:
+  - `inputTurn()`
+  - `effectiveTurn()`
+  - `outputTurn()`
+  - `text()`
+  - `usage()`
+  - `stopReason()`
+  - `events()`
+  - `toJSON()`
+- Added multimodal `MessageBuilder` guidance for images:
+  - `.text(...)`
+  - `.imageFile(...)`
+  - `.imageURL(...)`
+  - `.imageBytes(...)`
+- Rewrote `tasks.md` with detailed phased implementation tasks matching the design doc.
+- Uploaded only the primary design document as v4 to reMarkable.
+
+### Why
+
+- Explicit turns make runs easier to inspect, persist, replay, and diff.
+- System prompts are message content, so they belong in the turn.
+- Multimodal content such as images naturally fits into the turn builder.
+- Removing `chat()` and `ask()` keeps the API smaller and avoids hidden state construction.
+
+### What worked
+
+- Frontmatter validation passed.
+- `docmgr doctor --ticket GP-GOJA-API-2026-06-01 --stale-after 30` passed.
+- v4 dry-run upload succeeded.
+- v4 upload succeeded:
+  - `OK: uploaded GP-GOJA-API-2026-06-01 Geppetto goja API review v4.pdf -> /ai/2026/06/01/GP-GOJA-API-2026-06-01`
+- Remote listing includes:
+  - `[f]	GP-GOJA-API-2026-06-01 Geppetto goja API review v4`
+
+### What didn't work
+
+- My first frontmatter validation command had a typo in the ticket path (`go-goja` instead of `go-go-goja`) and failed with `no such file or directory`. I reran validation with the correct absolute path.
+- The remote listing still contains duplicate old non-versioned bundle rows; I did not remove them.
+
+### What I learned
+
+- The clean final model is now: `InferenceSettings -> Engine/Agent runtime -> explicit Turn -> run/stream -> RunResult`.
+- There should be no hidden prompt construction in the agent layer.
+
+### What was tricky to build
+
+- The tricky part was removing convenience without making examples verbose. The resulting one-liner remains acceptable: `agent.run(gp.turn().user("hello").build())`, while preserving full traceability.
+
+### What warrants a second pair of eyes
+
+- Review whether `effectiveTurn()` should include middleware mutations before provider execution or only agent runtime additions before session start. The design currently expects it to represent the turn after agent runtime metadata/tool config/middleware setup.
+
+### What should be done in the future
+
+- Implement Phase 0 contract tests so `gp.chat`, `agent.ask`, and `agent.system` never appear in the hard-cut public API.
+
+### Code review instructions
+
+- Review the primary design doc sections:
+  - `Agent execution contract: explicit turns only`
+  - `Proposed turn() API`
+  - `Detailed Implementation Task List`
+- Review `tasks.md` for the implementation checklist.
+
+### Technical details
+
+- Uploaded document only: `/home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/design-doc/01-geppetto-go-go-goja-api-review-and-builder-design-guide.md`
+- reMarkable v4 name: `GP-GOJA-API-2026-06-01 Geppetto goja API review v4`
+- reMarkable remote directory: `/ai/2026/06/01/GP-GOJA-API-2026-06-01`

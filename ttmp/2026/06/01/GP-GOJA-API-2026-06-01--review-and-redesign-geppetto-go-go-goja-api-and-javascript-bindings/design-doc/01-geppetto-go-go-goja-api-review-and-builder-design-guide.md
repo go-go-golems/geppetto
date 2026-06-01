@@ -200,7 +200,7 @@ The generated declarations in `geppetto/pkg/doc/types/geppetto.d.ts` document th
 - `tools`: create registries.
 - top-level `createBuilder`, `createSession`, `runInference`.
 
-This is a reasonable taxonomy, but it splits common user intent across too many namespaces. A user who wants “ask a model with a system prompt and a tool” must understand profiles, engines, runner runtimes, sessions, tools, turns, and event collectors before they can write the final script.
+This is a reasonable taxonomy, but it splits common user intent across too many namespaces. A user who wants “run a turn with system text, user content, and a tool-enabled runtime” must understand profiles, engines, runner runtimes, sessions, tools, turns, and event collectors before they can write the final script.
 
 ### Current construction flow
 
@@ -307,11 +307,11 @@ Proposed happy path:
 ```javascript
 const gp = require("geppetto");
 
-const inference = gp.inferenceProfiles.resolve("assistant");
+const registry = gp.inferenceProfiles.load("./profiles.yaml");
+const inference = registry.resolve("assistant");
 
 const agent = gp.agent()
   .inference(inference)
-  .system("Answer in one short paragraph.")
   .tools((tools) => tools
     .js("lookup", "Lookup a document")
       .input(gp.schema.object({ q: gp.schema.string().required() }))
@@ -320,11 +320,16 @@ const agent = gp.agent()
   .events((ev) => ev.onTextDelta((d) => console.log(d.text)))
   .build();
 
-const result = agent.ask("What changed in this repository?");
+const turn = gp.turn()
+  .system("Answer in one short paragraph.")
+  .user("What changed in this repository?")
+  .build();
+
+const result = await agent.run(turn);
 console.log(result.text());
 ```
 
-This keeps the split visible: `inference` comes from inference settings/profile resolution, while system prompt, tools, middleware, and events are configured directly on the JS agent API.
+This keeps the split visible: `inference` comes from inference settings/profile resolution; tools, middleware, and events are configured on the JS agent API; and all message content, including system text, lives in explicit `Turn` objects.
 
 ### 2. Make turns and blocks Go-backed builders
 
@@ -443,7 +448,7 @@ This is a review-critical integration point for standalone bundled applications.
 
 ### User-facing API gaps
 
-- No single `agent()` or `chat()` facade.
+- No single explicit `agent().run(turn)` runtime facade.
 - No Go-backed `TurnBuilder` / `BlockBuilder`.
 - No strict mode vs loose migration mode distinction.
 - No first-class `embeddings()` namespace in `require("geppetto")`.
@@ -484,7 +489,7 @@ The word “runner” suggests execution, but `resolveRuntime` only resolves app
 Recommendation:
 
 - Keep low-level runner concepts as Go internals or expose them under clearer wrapper names such as `sessionBuilder` only if needed.
-- Introduce `agent().run(...)` / `chat().ask(...)` for ordinary use.
+- Introduce `agent().run(turn)` for ordinary runtime execution and keep all message content, including system text, in explicit turns.
 
 ### Tools have two separate stories
 
@@ -508,7 +513,7 @@ Current API supports JavaScript tools and imported Go tools, which is good. Howe
 
 ```text
 Layer 1: Opinionated facade
-  gp.agent(), gp.chat(), gp.embeddings()
+  gp.agent(), gp.embeddings()
 
 Layer 2: Typed Go wrapper builders
   gp.inferenceSettings(), gp.turn(), gp.engine(), gp.tool(), gp.schema, gp.runtime()
@@ -527,7 +532,6 @@ The default `require("geppetto")` export should be intentionally small:
 ```typescript
 declare module "geppetto" {
   export function agent(): AgentBuilder;
-  export function chat(): ChatBuilder;
   export function turn(): TurnBuilder;
   export function inferenceSettings(): InferenceSettingsBuilder;
   export function engine(): EngineBuilder;
@@ -581,10 +585,10 @@ Use names that make the separation explicit:
 
 | Concept | Public name | Owns | Must not own |
 |---|---|---|---|
-| Inference settings | `InferenceSettings`, `gp.inferenceSettings()` | provider, API type, model, sampling, token limits, base URL, model metadata, credential reference | system prompt, tools, middleware chain, JS callbacks, app runtime policy |
-| Inference profile catalog | `gp.inferenceProfiles` | loading/resolving named `InferenceSettings` from Geppetto registry sources (`profiles.yaml`, SQLite, SQLite DSN, or host-provided `RegistryReader`) | agent configuration, tool registration, system prompts, Pinocchio app config documents |
+| Inference settings | `InferenceSettings`, `gp.inferenceSettings()` | provider, API type, model, sampling, token limits, base URL, model metadata, credential reference | turn content, tools, middleware chain, JS callbacks, app runtime policy |
+| Inference profile catalog | `gp.inferenceProfiles` | loading/resolving named `InferenceSettings` from Geppetto registry sources (`profiles.yaml`, SQLite, SQLite DSN, or host-provided `RegistryReader`) | agent configuration, tool registration, turn/system content, Pinocchio app config documents |
 | Engine | `Engine`, `gp.engine()` | compiled Geppetto inference engine built from `InferenceSettings` | app/session/tool policy |
-| Agent runtime | `AgentBuilder`, `Agent` | system prompt, JS-configured middlewares, JS/Go tools, tool loop policy, event handling, run defaults | provider/model/profile lookup except by accepting explicit `InferenceSettings` or an inference-profile selector |
+| Agent runtime | `AgentBuilder`, `Agent` | JS-configured middlewares, JS/Go tools, tool loop policy, event handling, run defaults, engine/inference selection | message content, system prompts, user prompts, provider/profile lookup by string |
 | Host credentials | `CredentialRef` / `credentialRef(name)` | names an API credential resolved by the Go host | raw API key strings, environment variable lookup from JS |
 
 In Geppetto, the unqualified word “profile” should not mean “full agent profile”. It should mean **inference profile** only: a named source of inference settings. If a user wants a full application profile containing prompt, tools, middleware, memory, UI policy, or agent presets, they should build that profile system in their own app and pass the resulting pieces into this module.
@@ -707,7 +711,6 @@ const inference = registry.resolve("assistant");
 const agent = gp.agent()
   .name("repo-reviewer")
   .inference(inference)
-  .system("You are a careful code reviewer.")
   .tool("read_file", (t) => t
     .description("Read a repository file")
     .input(gp.schema.object({ path: gp.schema.string().required() }))
@@ -718,15 +721,49 @@ const agent = gp.agent()
     .onTextDelta((ev) => process.stdout.write(ev.text)))
   .build();
 
-const result = await agent.ask("Summarize the JS binding architecture.");
+const turn = gp.turn()
+  .system("You are a careful code reviewer.")
+  .user("Summarize the JS binding architecture.")
+  .build();
+
+const result = await agent.run(turn);
 console.log(result.text());
 ```
 
 Go-backed pieces:
 
-- `agentBuilderRef`: stores a selected `InferenceSettings`/engine plus runtime policy, tool builder, event config, system prompt, and default run options.
+- `agentBuilderRef`: stores a selected `InferenceSettings`/engine plus runtime policy, tool builder, event config, default run options.
 - `agentRef`: stores compiled engine/session factory/tool registry/event sink policy.
-- `runResultRef`: stores final `*turns.Turn`, usage, run metadata, text extraction helpers, tool call summaries.
+- `runResultRef`: stores original/effective/output turns, usage, run metadata, text extraction helpers, and tool call summaries.
+
+### Agent execution contract: explicit turns only
+
+`Agent` should not expose `ask(prompt)` and should not own `.system(...)`. The execution API is intentionally turn-first:
+
+```typescript
+interface Agent {
+  run(turn: Turn, options?: RunOptions): Promise<RunResult>;
+  stream(turn: Turn, options?: RunOptions): RunHandle;
+}
+```
+
+Why:
+
+- Every run has an explicit input `Turn` that can be saved, inspected, replayed, and diffed.
+- Multimodal input (images, files, prior assistant messages, tool results) is naturally represented in the turn.
+- System prompts are normal turn content, not hidden agent policy.
+- `gp.engine().run(turn)` and `gp.agent().run(turn)` share the same mental model.
+
+`agent.run(turn)` must never mutate the caller's turn in place. It should return a result with traceability helpers:
+
+```javascript
+const result = await agent.run(turn);
+
+result.inputTurn();     // clone/snapshot of the original user-supplied turn
+result.effectiveTurn(); // after agent runtime metadata/tool config/middleware setup
+result.outputTurn();    // final turn after inference/tool loop
+result.text();          // convenience text extraction from outputTurn
+```
 
 ### Proposed `turn()` API
 
@@ -742,13 +779,25 @@ const turn = gp.turn()
   .build();
 ```
 
+Multimodal input should also be turn-first:
+
+```javascript
+const turn = gp.turn()
+  .system("You are a careful visual reasoning assistant.")
+  .user((m) => m
+    .text("What is in this screenshot?")
+    .imageFile("./screenshot.png"))
+  .build();
+```
+
 Implementation notes:
 
 - `TurnBuilder` should hold a `*turns.Turn` internally.
 - Named methods call existing Go constructors such as `turns.NewUserTextBlock` and `turns.NewToolCallBlock`.
 - `.metadata(key, value)` should validate canonical keys or namespaced keys.
 - `.data(key, value)` should validate known keys where possible.
-- `.fromObject(obj)` may call the existing codec in permissive mode.
+- multimodal user messages use a Go-owned `MessageBuilder` with `.text(...)`, `.imageFile(...)`, `.imageURL(...)`, and `.imageBytes(...)` methods.
+- raw object import belongs only under `gp.unsafe`, not normal `TurnBuilder`.
 
 ### Proposed `inferenceSettings()` and `engine()` APIs
 
@@ -839,7 +888,7 @@ The schema builder should return a Go-backed schema ref wrapping `jsonschema.Sch
 ### Proposed result API
 
 ```javascript
-const result = await agent.ask("hello");
+const result = await agent.run(gp.turn().user("hello").build());
 
 result.text();        // assistant text after current run
 result.turn();        // Go-backed turn object / JS view
@@ -899,7 +948,6 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
     // Old map-first namespaces should not be exported unless deliberately
     // placed under gp.unsafe for debugging/imports.
     m.mustSet(exports, "agent", m.newAgentBuilder)
-    m.mustSet(exports, "chat", m.newChatBuilder)
     m.mustSet(exports, "inferenceSettings", m.newInferenceSettingsBuilder)
     m.mustSet(exports, "inferenceProfiles", m.newInferenceProfilesNamespace())
     m.mustSet(exports, "turn", m.newTurnBuilder)
@@ -1141,7 +1189,7 @@ Acceptance criteria:
 
 ### Phase 4: Agent API integration
 
-Goal: configure runtime behavior from JS while keeping inference settings separate.
+Goal: configure runtime behavior from JS while keeping all message content in explicit turns.
 
 Tasks:
 
@@ -1150,7 +1198,6 @@ Tasks:
    - `.name(name)`
    - `.inference(settings)`
    - `.engine(engine)` for advanced prebuilt engine injection
-   - `.system(prompt)`
    - `.middleware(middleware)` / `.goMiddleware(name, optionsBuilder?)`
    - `.tool(name, builderFn)`
    - `.goTool(name)`
@@ -1158,34 +1205,47 @@ Tasks:
    - `.events(eventBuilderFn)`
    - `.runDefaults(optionsBuilder)`
    - `.build()`
-3. Ensure `.inference(...)` accepts `InferenceSettingsJS`, not profile names or JS maps.
-4. Keep optional convenience out of the first pass:
-   - do not add `agent.profile(...)`
-   - do not add `agent.inferenceProfile(...)` unless later UX evidence demands it
-5. Implement `agent.ask(prompt)`:
-   - constructs a Go-owned turn from prompt
-   - applies system prompt/middleware/tools
-   - runs session/engine
-   - returns `RunResultJS`
-6. Implement `RunResultJS` helpers:
+3. Explicitly do **not** implement:
+   - `agent.ask(prompt)`
+   - `agent.system(prompt)`
+   - `agent.profile(name)`
+   - `agent.inferenceProfile(name)` in the first pass
+4. Ensure `.inference(...)` accepts `InferenceSettingsJS`, not profile names or JS maps.
+5. Implement `agent.run(turn, options?)`:
+   - require a Go-owned `Turn` wrapper;
+   - clone the input turn;
+   - apply agent runtime metadata/tool config/middleware setup without mutating caller input;
+   - run session/engine/tool loop;
+   - return `RunResultJS`.
+6. Implement `agent.stream(turn, options?)`:
+   - same explicit turn requirement;
+   - returns `RunHandleJS` with event subscription/cancel/promise helpers.
+7. Implement `RunResultJS` helpers:
+   - `.inputTurn()`
+   - `.effectiveTurn()`
+   - `.outputTurn()`
    - `.text()`
-   - `.turn()`
    - `.usage()`
    - `.stopReason()`
    - `.events()`
    - `.toJSON()`
-7. Add tests:
-   - echo/fake engine ask path
-   - system prompt applied from JS, not profile
-   - JS tool execution
-   - Go tool import when host registry allows it
-   - middleware order
-   - result text extraction
+8. Add tests:
+   - echo/fake engine `agent.run(turn)` path;
+   - explicit system block preserved from turn;
+   - no `agent.ask` method;
+   - no `agent.system` method;
+   - JS tool execution;
+   - Go tool import when host registry allows it;
+   - middleware order;
+   - input turn is not mutated;
+   - result exposes input/effective/output turns;
+   - result text extraction.
 
 Acceptance criteria:
 
-- Users compose runtime behavior with `gp.agent()`, not profile files.
+- Users compose runtime behavior with `gp.agent()` and message content with `gp.turn()`.
 - Inference profile resolution supplies only settings.
+- There is no hidden prompt-to-turn conversion in agent APIs.
 
 ### Phase 5: Tool/schema/turn wrappers
 
@@ -1214,14 +1274,21 @@ Tasks:
    - `.call(name, args)` with args validated against schema where possible
 4. Implement `gp.turn()` builder:
    - `.system(text)`
-   - `.user(text)`
+   - `.user(text)` shorthand
+   - `.user(messageBuilderFn)` for multimodal messages
    - `.assistant(text)`
    - `.toolCall(id, name, args)`
    - `.toolResult(id, result)`
    - `.metadata(key, value)`
    - `.build()`
-5. Ensure all built objects are Go-owned wrappers with explicit snapshots.
-6. Add tests for invalid schema/tool/turn construction.
+5. Implement `MessageBuilder` for multimodal content:
+   - `.text(text)`
+   - `.imageFile(path, options?)`
+   - `.imageURL(url, options?)`
+   - `.imageBytes(bytes, mimeType, options?)`
+6. Ensure all built objects are Go-owned wrappers with explicit snapshots.
+7. Add tests for invalid schema/tool/turn/message construction.
+8. Add image/multimodal tests with deterministic fake provider or codec-level assertions.
 
 Acceptance criteria:
 
@@ -1323,8 +1390,8 @@ Acceptance criteria:
 ### Runtime integration tests
 
 - `require("geppetto").turn().user("x").build()` round-trips through sessions.
-- `agent().inference(fakeInferenceSettings).ask("x")` or `agent().engine(echoEngine).ask("x")` returns deterministic text.
-- `agent().tool(...).ask(...)` executes a JS tool through the existing toolloop.
+- `agent().inference(fakeInferenceSettings).run(gp.turn().user("x").build())` or `agent().engine(echoEngine).run(turn)` returns deterministic text.
+- `agent().tool(...).run(turn)` executes a JS tool through the existing toolloop.
 - `embeddings().embed(...)` resolves a Promise on the owner thread with a fake provider.
 - xgoja runtime with host services can load `require("geppetto")`.
 
@@ -1342,12 +1409,12 @@ This ticket now assumes there is no legacy JavaScript API that must be preserved
 
 | Current API | Hard-cut replacement |
 |---|---|
-| `gp.turns.newTurn({ blocks })` | `gp.turn().user(...).system(...).build()` |
+| `gp.turns.newTurn({ blocks })` | `gp.turn().system(...).user(...).build()` |
 | `gp.turns.newUserBlock(text)` | `gp.turn().user(text)` or `gp.block().user(text)` if standalone block builders are needed |
 | `gp.engines.fromConfig(map)` | `gp.inferenceSettings().provider(...).model(...).credentialRef(...).build()` plus `gp.engine().inference(settings).build()` |
 | `gp.createBuilder(options)` | `gp.agent()` for common flows, `gp.sessionBuilder()` for low-level flows |
 | `gp.createSession(options)` | `gp.agent().buildSession()` or `gp.session(engine).build()` |
-| `gp.runner.run({ engine, runtime, prompt })` | `gp.agent().inference(settings).system(...).tool(...).ask(prompt)` |
+| `gp.runner.run({ engine, runtime, prompt })` | `gp.agent().inference(settings).tool(...).run(gp.turn().system(...).user(...).build())` |
 | `gp.tools.createRegistry().register(map)` | `gp.tool(name).description(...).input(schema).handler(fn).build()` and `gp.toolRegistry().add(tool)` |
 | Global embedding registration | `gp.embeddings().provider(...).model(...).build()` |
 
@@ -1408,7 +1475,7 @@ Slice 1: gp.turn().user("hello").build()
 Slice 2: gp.schema.object(...)
   -> schema refs -> JSON Schema export -> tool registration test
 
-Slice 3: gp.agent().engine(echo).ask("hello")
+Slice 3: gp.agent().engine(echo).run(gp.turn().user("hello").build())
   -> agent builder -> session run -> result.text() -> test
 
 Slice 4: xgoja host-service injection
