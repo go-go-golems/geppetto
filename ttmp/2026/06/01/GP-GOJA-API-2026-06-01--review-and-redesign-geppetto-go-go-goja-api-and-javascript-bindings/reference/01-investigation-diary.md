@@ -773,3 +773,93 @@ The remote folder now contains the original repeated listing entries plus the ne
 
 - Remote directory: `/ai/2026/06/01/GP-GOJA-API-2026-06-01`
 - v2 bundle name: `GP-GOJA-API-2026-06-01 Geppetto goja API review v2`
+
+## Step 10: Revise JS API plan to use Geppetto registries directly and upload v3
+
+The user clarified that the JS API plan should stick with Geppetto registry files rather than planning around Pinocchio config-document extraction. I updated the primary JS API design document accordingly and uploaded only that updated document as a new v3 reMarkable PDF.
+
+The new plan exposes Geppetto's existing registry loader/resolver through `gp.inferenceProfiles.load(...)`, then keeps engine construction separate through `gp.engine().inference(settings).build()`. Pinocchio can still participate by providing a Geppetto registry file such as `pinocchio/profiles.yaml` when it uses the Geppetto registry format, or by passing a prebuilt `engineprofiles.RegistryReader` as host configuration.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok so let's update the JS API plan to actually stick with the geppetto registries, and use the API you proposed above. Update the document accordingly, and create a detailed task list, split in phases, with detailed tasks for each phase, to implement the whole thing. Upload to remarkable when done (just that one document, as v3)."
+
+**Assistant interpretation:** Update the main JS API design doc to use Geppetto registry YAML/SQLite sources directly, add a detailed phased implementation task list, and upload only that design document as a v3 reMarkable item.
+
+**Inferred user intent:** Avoid over-scoping the implementation into Pinocchio config extraction; implement a pragmatic Geppetto-registry-backed JS API first.
+
+### What I did
+
+- Updated the main JS API design document:
+  - `gp.inferenceProfiles.load("./profiles.yaml")` loads Geppetto registry sources.
+  - `registry.resolve("assistant")` returns a Go-owned `InferenceSettings` wrapper.
+  - `gp.inferenceProfiles.resolve("assistant")` is a host-default registry convenience.
+  - Pinocchio unified config documents are explicitly out of scope for this JS loader.
+  - Pinocchio hosts can pass Geppetto registry sources or a prebuilt `engineprofiles.RegistryReader`.
+- Added a section explaining the supported Geppetto registry YAML shape:
+  - `slug`
+  - `default_profile_slug`
+  - `profiles.<slug>.inference_settings`
+  - stack support through existing Geppetto resolution.
+- Replaced the old implementation plan with a detailed phased task list:
+  - Phase 0: contract lock and baseline inventory
+  - Phase 1: Go-owned `InferenceSettings` wrapper
+  - Phase 2: Geppetto registry loader wrapper
+  - Phase 3: engine builder integration
+  - Phase 4: agent API integration
+  - Phase 5: tool/schema/turn wrappers
+  - Phase 6: xgoja and host integration
+  - Phase 7: docs/examples/declaration generation
+  - Phase 8: cleanup/removal
+- Ran `docmgr doctor`, which passed.
+- Uploaded only the primary design document as v3 to reMarkable.
+
+### Why
+
+- Existing Geppetto `engineprofiles` already loads registry YAML/SQLite sources and resolves profile stacks.
+- The fastest clean implementation path is to expose that directly to JS.
+- Pinocchio config-document extraction can remain a separate/future topic, not a prerequisite for the JS API.
+
+### What worked
+
+- Frontmatter validation passed.
+- `docmgr doctor --ticket GP-GOJA-API-2026-06-01 --stale-after 30` passed.
+- v3 dry-run upload succeeded.
+- v3 upload succeeded:
+  - `OK: uploaded GP-GOJA-API-2026-06-01 Geppetto goja API review v3.pdf -> /ai/2026/06/01/GP-GOJA-API-2026-06-01`
+- Remote listing contains:
+  - `[f]	GP-GOJA-API-2026-06-01 Geppetto goja API review v3`
+
+### What didn't work
+
+- Existing duplicate old non-v2 rows remain in the reMarkable remote listing. I did not remove them because the user asked only for a v3 upload.
+
+### What I learned
+
+- Geppetto registry source loading is enough for the first JS API plan. The Pinocchio config-document extraction document is still useful background, but it is no longer the primary implementation path for `gp.inferenceProfiles.load(...)`.
+
+### What was tricky to build
+
+- The tricky part was reconciling the previous extraction-oriented design with the simpler Geppetto-registry-first API. The solution was to make `gp.inferenceProfiles.load(...)` support only Geppetto registry sources and explicitly label Pinocchio unified config docs as application-side setup.
+
+### What warrants a second pair of eyes
+
+- Review whether `gp.inferenceProfiles.default()` is necessary or whether `gp.inferenceProfiles.resolve(...)` is enough for host-default resolution.
+- Review source loading policy for xgoja (`allowRegistryLoad`) before implementation.
+
+### What should be done in the future
+
+- Treat `design-doc/02-reusable-geppetto-inference-profile-registry-extraction-guide.md` as optional/future background, not as a prerequisite for v3's implementation plan.
+
+### Code review instructions
+
+- Review the primary design doc sections:
+  - `Geppetto registry YAML as the supported profile file format`
+  - `Proposed inferenceSettings() and engine() APIs`
+  - `Detailed Implementation Task List`
+
+### Technical details
+
+- Uploaded document only: `/home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/design-doc/01-geppetto-go-go-goja-api-review-and-builder-design-guide.md`
+- reMarkable v3 name: `GP-GOJA-API-2026-06-01 Geppetto goja API review v3`
+- reMarkable remote directory: `/ai/2026/06/01/GP-GOJA-API-2026-06-01`

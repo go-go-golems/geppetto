@@ -83,3 +83,13 @@ Uploaded the current design+diary bundle as reMarkable v2 under /ai/2026/06/01/G
 
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/reference/01-investigation-diary.md — Recorded v2 upload details
 
+
+## 2026-06-01
+
+Updated the primary JS API plan to use Geppetto registry sources directly through gp.inferenceProfiles.load(...), added a detailed phased implementation task list, and uploaded just that document as reMarkable v3.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/design-doc/01-geppetto-go-go-goja-api-review-and-builder-design-guide.md — Updated v3 JS API plan and task list
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-API-2026-06-01--review-and-redesign-geppetto-go-go-goja-api-and-javascript-bindings/reference/01-investigation-diary.md — Recorded v3 upload and design pivot
+

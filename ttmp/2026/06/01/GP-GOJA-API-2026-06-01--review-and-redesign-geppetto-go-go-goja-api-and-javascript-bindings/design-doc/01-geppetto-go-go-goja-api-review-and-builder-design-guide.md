@@ -463,16 +463,18 @@ This is a review-critical integration point for standalone bundled applications.
 
 ## What Is Confusing
 
-### `profiles` must mean inference settings only in Geppetto
+### `profiles` must mean Geppetto inference registries only
 
-A new user will expect a generic “profile” to describe the whole agent runtime, including prompt, middleware, tools, memory, and provider. That is exactly what Geppetto should avoid. Within this module, profile resolution should be named `inferenceProfiles` and should return only `InferenceSettings`.
+A new user will expect a generic “profile” to describe the whole agent runtime, including prompt, middleware, tools, memory, and provider. That is exactly what Geppetto should avoid. Within this module, profile resolution is named `inferenceProfiles`, and it loads/resolves **Geppetto engine profile registries** only. A resolved profile returns a Go-backed `InferenceSettings` object.
 
 Recommendation:
 
-- Replace `profiles` / `engineProfiles` naming with `inferenceProfiles`.
-- `gp.inferenceProfiles.resolve("assistant")` returns a Go-backed `InferenceSettings` object.
-- The default host source may be Pinocchio profiles, but Geppetto only extracts/resolves the inference settings portion.
-- Do not add `agent.profile(...)`; use `agent.inference(settings)` or, if a convenience is absolutely needed, `agent.inferenceProfile("assistant")`.
+- Replace `profiles` / `engineProfiles` naming with `inferenceProfiles` in JavaScript.
+- `gp.inferenceProfiles.load("profiles.yaml")` loads Geppetto registry YAML/SQLite sources using `engineprofiles.RegistrySourceSpec` internally.
+- `registry.resolve("assistant")` returns a Go-backed `InferenceSettings` object.
+- `gp.inferenceProfiles.resolve("assistant")` is a convenience over the host-default Geppetto registry chain, if the host configured one.
+- Do not load Pinocchio unified config documents (`app:`, `profile:`, inline `profiles:` overlays) in this JS API. If Pinocchio wants to supply defaults, it should pass Geppetto registry sources or a ready `engineprofiles.RegistryReader` to the module host options.
+- Do not add `agent.profile(...)`; use `agent.inference(settings)`.
 - System prompt, middlewares, tools, tool loop policy, and event handlers are configured through the JS API (`gp.agent()`), not through Geppetto inference profiles.
 
 ### `runner.resolveRuntime` does not run or resolve engines
@@ -537,6 +539,29 @@ declare module "geppetto" {
   export const events: EventNamespace;
   export const unsafe: UnsafeNamespace;
 }
+
+interface InferenceProfileNamespace {
+  /** Load one or more Geppetto registry sources (YAML, SQLite file, or SQLite DSN). */
+  load(source: string | string[]): InferenceRegistry;
+
+  /** Resolve against the host-default Geppetto registry chain, if configured. */
+  resolve(input?: string | ResolveInferenceInput): InferenceSettings;
+
+  /** Return the host-default registry wrapper, if configured. */
+  default(): InferenceRegistry;
+}
+
+interface InferenceRegistry {
+  listRegistries(): RegistrySummary[];
+  listProfiles(registrySlug?: string): InferenceProfileSummary[];
+  resolve(input?: string | ResolveInferenceInput): InferenceSettings;
+  close(): void;
+}
+
+interface ResolveInferenceInput {
+  registry?: string;
+  profile?: string;
+}
 ```
 
 Names to remove from the default public contract:
@@ -557,14 +582,14 @@ Use names that make the separation explicit:
 | Concept | Public name | Owns | Must not own |
 |---|---|---|---|
 | Inference settings | `InferenceSettings`, `gp.inferenceSettings()` | provider, API type, model, sampling, token limits, base URL, model metadata, credential reference | system prompt, tools, middleware chain, JS callbacks, app runtime policy |
-| Inference profile catalog | `gp.inferenceProfiles` | loading/resolving named `InferenceSettings` from the host default source, including Pinocchio profile sources when embedded in Pinocchio | agent configuration, tool registration, system prompts |
+| Inference profile catalog | `gp.inferenceProfiles` | loading/resolving named `InferenceSettings` from Geppetto registry sources (`profiles.yaml`, SQLite, SQLite DSN, or host-provided `RegistryReader`) | agent configuration, tool registration, system prompts, Pinocchio app config documents |
 | Engine | `Engine`, `gp.engine()` | compiled Geppetto inference engine built from `InferenceSettings` | app/session/tool policy |
 | Agent runtime | `AgentBuilder`, `Agent` | system prompt, JS-configured middlewares, JS/Go tools, tool loop policy, event handling, run defaults | provider/model/profile lookup except by accepting explicit `InferenceSettings` or an inference-profile selector |
 | Host credentials | `CredentialRef` / `credentialRef(name)` | names an API credential resolved by the Go host | raw API key strings, environment variable lookup from JS |
 
 In Geppetto, the unqualified word “profile” should not mean “full agent profile”. It should mean **inference profile** only: a named source of inference settings. If a user wants a full application profile containing prompt, tools, middleware, memory, UI policy, or agent presets, they should build that profile system in their own app and pass the resulting pieces into this module.
 
-The default host integration should load inference profiles from Pinocchio profile sources when Geppetto is embedded in Pinocchio. Geppetto should still expose them only as `InferenceSettings` resolution. That keeps Pinocchio's richer configuration model outside the Geppetto JS contract.
+The default host integration should use Geppetto registry sources. In a Pinocchio host, that can mean passing Pinocchio's `profiles.yaml` file if it is a Geppetto registry file, or passing a prebuilt `engineprofiles.RegistryReader`. Geppetto JS should not parse Pinocchio unified config documents directly.
 
 ### Credential policy: no environment variables in JS
 
@@ -594,9 +619,8 @@ A host may implement `credentialRef("openai-main")` by reading a key from an env
 Host-side shape:
 
 ```go
-type InferenceProfileResolver interface {
-    ResolveInferenceSettings(ctx context.Context, name string) (*settings.InferenceSettings, error)
-    ListInferenceProfiles(ctx context.Context) ([]InferenceProfileSummary, error)
+type InferenceRegistryProvider interface {
+    DefaultInferenceRegistry(ctx context.Context) (engineprofiles.RegistryReader, func(), error)
 }
 
 type CredentialResolver interface {
@@ -604,18 +628,81 @@ type CredentialResolver interface {
 }
 
 type GeppettoHostServices interface {
-    InferenceProfiles() InferenceProfileResolver // Pinocchio-backed by default in Pinocchio hosts.
-    Credentials() CredentialResolver             // JS never sees raw API keys.
-    GoTools() tools.ToolRegistry                 // Optional host-approved Go tools.
+    InferenceRegistryProvider() InferenceRegistryProvider // Geppetto registry source/reader only.
+    Credentials() CredentialResolver                      // JS never sees raw API keys.
+    GoTools() tools.ToolRegistry                          // Optional host-approved Go tools.
 }
 ```
 
-The Pinocchio integration should implement `InferenceProfileResolver` from Pinocchio profile documents, but it should project only the inference settings into Geppetto. Pinocchio-level concepts such as agent presets, UI behavior, app mode, or persisted chat runtime should remain Pinocchio/application concerns.
+A Pinocchio host can implement `InferenceRegistryProvider` by passing Geppetto registry files (for example `pinocchio/profiles.yaml` when it uses Geppetto registry format) or by constructing a `engineprofiles.RegistryReader` itself. Pinocchio-level concepts such as `app.repositories`, agent presets, UI behavior, app mode, and persisted chat runtime remain Pinocchio/application concerns.
+
+### Geppetto registry YAML as the supported profile file format
+
+The JavaScript API should stick to Geppetto registry files. A registry file has a registry slug, an optional default profile slug, and profile entries containing `inference_settings`.
+
+```yaml
+slug: local
+default_profile_slug: assistant
+profiles:
+  assistant:
+    display_name: Assistant
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-5-mini
+  cheap:
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-4o-mini
+```
+
+Meaning:
+
+- `slug` identifies the registry when multiple registries are loaded.
+- `default_profile_slug` selects the profile used when no profile is supplied for that registry.
+- keys under `profiles:` are the resolvable inference profile names.
+- profile `stack:` entries may layer settings using existing Geppetto stack resolution.
+
+Supported JS usage:
+
+```javascript
+const registry = gp.inferenceProfiles.load("./profiles.yaml");
+const settings = registry.resolve("assistant");
+const engine = gp.engine().inference(settings).build();
+```
+
+Multiple Geppetto registry sources should use existing source-chain semantics:
+
+```javascript
+const registry = gp.inferenceProfiles.load([
+  "./base-profiles.yaml",
+  "./team-overrides.yaml",
+  "sqlite:./local-profiles.sqlite",
+]);
+
+const settings = registry.resolve({ profile: "assistant" });
+```
+
+Unsupported by this API:
+
+```yaml
+app:
+  repositories: [~/prompts]
+profile:
+  active: assistant
+profiles:
+  assistant:
+    inference_settings: ...
+```
+
+That is a Pinocchio unified config document, not a Geppetto registry file. If an application wants that richer setup, it should resolve it in application code and pass Geppetto either a registry source, a `RegistryReader`, or a final `InferenceSettings` object.
 
 ### Proposed `agent()` API
 
 ```javascript
-const inference = gp.inferenceProfiles.resolve("assistant");
+const registry = gp.inferenceProfiles.load("./pinocchio/profiles.yaml");
+const inference = registry.resolve("assistant");
 
 const agent = gp.agent()
   .name("repo-reviewer")
@@ -687,10 +774,18 @@ const engine = gp.engine()
   .build();
 ```
 
-Default Pinocchio-backed profile resolution should look like this when the host provides Pinocchio profile sources:
+Host-default profile resolution should look like this when the host provides a Geppetto registry chain:
 
 ```javascript
 const settings = gp.inferenceProfiles.resolve("assistant");
+const engine = gp.engine().inference(settings).build();
+```
+
+Explicit registry loading should look like this when the script chooses the source:
+
+```javascript
+const registry = gp.inferenceProfiles.load("./profiles.yaml");
+const settings = registry.resolve({ profile: "assistant" });
 const engine = gp.engine().inference(settings).build();
 ```
 
@@ -865,114 +960,354 @@ func (m *moduleRuntime) unsafeTurnFromObject(raw goja.Value) (*TurnJS, error) {
 
 Normal builders should bypass decoding entirely by constructing Go values directly. Object import exists only for explicit unsafe/debug boundaries.
 
-## Implementation Plan
+## Detailed Implementation Task List
 
-### Phase 0: Stabilize evidence and tests
+This plan assumes the JS API sticks to existing Geppetto registry formats and does **not** implement Pinocchio config-document parsing in Geppetto JS. Pinocchio can still be a host that supplies a Geppetto registry source or a ready `engineprofiles.RegistryReader`.
 
-1. Keep the evidence script in this ticket as a reference.
-2. Run baseline tests:
+### Phase 0: Contract lock and baseline inventory
+
+Goal: freeze the intended public API before touching implementation code.
+
+Tasks:
+
+1. Add an API contract test that describes the final top-level `require("geppetto")` keys:
+   - `agent`
+   - `chat`
+   - `inferenceSettings`
+   - `inferenceProfiles`
+   - `turn`
+   - `engine`
+   - `tool`
+   - `toolRegistry`
+   - `embeddings`
+   - `schema`
+   - `events`
+   - `unsafe`
+2. Add negative API inventory checks that old map-first names are absent from the public contract:
+   - `turns.newTurn`
+   - `engines.fromConfig`
+   - top-level `createBuilder`
+   - top-level `createSession`
+   - top-level `runInference`
+   - `runner.run` as the ordinary public entrypoint
+3. Document that `gp.inferenceProfiles.load(...)` accepts Geppetto registry sources only:
+   - YAML registry file path
+   - `yaml:PATH`
+   - `yaml://PATH`
+   - SQLite file path
+   - `sqlite:PATH`
+   - `sqlite-dsn:DSN`
+4. Run baseline tests:
    - `go test ./pkg/js/modules/geppetto ./pkg/js/runtime -count=1`
-3. Add a small API inventory test for new export names once implemented.
+5. Do not implement new behavior until the contract tests fail for the expected missing API.
 
 Acceptance criteria:
 
-- existing tests pass before the hard cut;
-- docs identify current behavior and the hard-cut replacement plan;
-- an API inventory test defines the new public export set and fails if removed map-first names remain public.
+- Contract test exists.
+- Old public API names are listed as intentionally removed.
+- Baseline package tests pass before implementation begins.
 
-### Phase 1: Add Go-backed turn and schema builders
+### Phase 1: Go-owned `InferenceSettings` wrapper
 
-Files to start with:
-
-- `geppetto/pkg/js/modules/geppetto/module.go`
-- `geppetto/pkg/js/modules/geppetto/api_turn_builders.go` (new)
-- `geppetto/pkg/js/modules/geppetto/api_schema_builders.go` (new)
-- `geppetto/pkg/js/modules/geppetto/codec.go`
-- `geppetto/pkg/js/modules/geppetto/module_test.go`
-- `geppetto/pkg/doc/types/geppetto.d.ts`
+Goal: make inference settings a real Go-owned JS object.
 
 Tasks:
 
-1. Add `gp.turn()` export.
-2. Add builder methods: `id`, `user`, `system`, `assistant`, `reasoning`, `toolCall`, `toolResult`, `metadata`, `data`, `build`, `toJSON`.
-3. Add strict validation helpers.
-4. Add `gp.schema` object/string/integer/number/boolean/array helpers.
-5. Add tests for valid construction and early invalid failures.
-6. Update TypeScript declarations and parity tests.
+1. Add `api_inference_settings.go` in `geppetto/pkg/js/modules/geppetto`.
+2. Define `InferenceSettingsBuilderJS` with Go-owned builder state:
+   - `api *moduleRuntime`
+   - `settings *settings.InferenceSettings`
+   - `credentialRef string`
+   - optional metadata/provenance fields
+3. Define immutable/copy-on-write `InferenceSettingsJS`:
+   - wraps cloned `*settings.InferenceSettings`
+   - stores symbolic credential reference
+   - exposes read-only getters and `toJSON()` snapshots
+4. Implement builder methods:
+   - `.provider(name)` / provider-specific convenience methods if desired
+   - `.model(name)`
+   - `.credentialRef(name)`
+   - `.baseURL(url)` if allowed by policy
+   - `.temperature(value)`
+   - `.topP(value)`
+   - `.maxTokens(value)`
+   - `.timeoutMs(value)`
+   - `.modelInfo(fnOrBuilder)`
+   - `.build()`
+5. Implement validation:
+   - provider/model required where necessary
+   - numeric ranges checked immediately
+   - timeout must be positive
+   - credential ref must be symbolic/non-empty
+   - raw API key fields are impossible to set
+6. Implement snapshot methods:
+   - `settings.toJSON()`
+   - `settings.clone()`
+   - optional `settings.debug()` with redacted credential reference
+7. Add tests proving JS receives a Go wrapper:
+   - methods exist on returned object
+   - `toJSON()` returns a detached snapshot
+   - mutating the snapshot does not mutate the Go object
+   - object spread/JSON stringify does not become the live state
+8. Add negative credential tests:
+   - no `.apiKey(...)`
+   - no `.apiKeyEnv(...)`
+   - no `.fromEnv(...)`
 
-### Phase 2: Add inference settings, engine, and embedding builders
+Acceptance criteria:
 
-Files to start with:
+- `gp.inferenceSettings().provider(...).model(...).credentialRef(...).build()` returns a usable Go wrapper.
+- No public JS path accepts a raw API key or env var name.
 
-- `api_engines.go`
-- `api_embeddings.go` (new)
-- `geppetto/pkg/js/embeddings-js.go` (migration reference)
-- embedding provider packages under `geppetto/pkg/embeddings`
-- runtime owner bridge helpers
+### Phase 2: Geppetto registry loader wrapper
 
-Tasks:
-
-1. Add `gp.inferenceSettings()` fluent builder.
-2. Add `gp.inferenceProfiles` namespace backed by host default inference profile sources, including Pinocchio sources when provided by the host.
-3. Add `gp.engine().inference(settings).build()`.
-4. Internally emit `InferenceSettings` without passing through `map[string]any`.
-5. Add `gp.embeddings()` builder.
-6. Implement Promise-based `embed` and `embedMany` using runtime owner posting.
-7. Remove callback embedding API from the new public contract; expose Promise-based embedding methods only.
-8. Add tests that `apiKey`, `apiKeyEnv`, and environment-variable credential methods do not exist or fail.
-
-### Phase 3: Add `agent()` facade
-
-Files to start with:
-
-- `api_agent.go` (new)
-- `api_runner.go`
-- `api_sessions.go`
-- `api_tools_registry.go`
-- `api_events.go`
-
-Tasks:
-
-1. Add `gp.agent()` export.
-2. Let the agent builder compose explicit inference settings/engine plus JS-owned system prompt, middleware, tools, events, and run defaults.
-3. Add `agent.ask`, `agent.run`, `agent.start`, and `agent.session` methods.
-4. Add `RunResult` helpers.
-5. Ensure streaming handles remain runtime-owner safe.
-
-### Phase 4: Tighten xgoja provider host services
-
-Files to start with:
-
-- `geppetto/pkg/js/modules/geppetto/provider/provider.go`
-- `go-go-goja/pkg/xgoja/providerapi/module.go`
-- `go-go-goja/pkg/xgoja/app/factory.go`
-- `go-go-goja/pkg/xgoja/app/host.go`
+Goal: expose existing `engineprofiles` registry source loading to JS without Pinocchio.
 
 Tasks:
 
-1. Decide whether `RuntimeFactory` owns host services or receives them per runtime.
-2. Pass `Host` through `ModuleContext` for provider module creation.
-3. Add a Geppetto host implementation example.
-4. Add tests that a generated runtime with a Geppetto module can require it when host services are present and fails with a clear error when absent.
+1. Add `api_inference_profiles.go` or replace the existing `api_profiles.go` public surface.
+2. Define `InferenceProfilesNamespaceJS` with methods:
+   - `load(source string | string[]): InferenceRegistryJS`
+   - `resolve(input?: string | ResolveInferenceInput): InferenceSettingsJS`
+   - `default(): InferenceRegistryJS`
+3. Define `InferenceRegistryJS` wrapper:
+   - owns `engineprofiles.RegistryReader` or `engineprofiles.Registry`
+   - owns optional closer
+   - knows whether it is host-default or script-loaded
+4. Implement `load(...)` using existing Geppetto functions:
+   - normalize JS string/array input
+   - call `engineprofiles.ParseRegistrySourceSpecs(entries)`
+   - call `engineprofiles.NewChainedRegistryFromSourceSpecs(ctx, specs)`
+   - wrap returned registry and close function
+5. Implement `registry.resolve(...)`:
+   - accept string profile slug
+   - accept object `{ registry, profile }` only as typed argument decoding, not as live domain state
+   - call `ResolveEngineProfile(ctx, ResolveInput)`
+   - wrap `ResolvedEngineProfile.InferenceSettings` as `InferenceSettingsJS`
+   - attach provenance metadata (`registry`, `profile`, `stackLineage`) to the wrapper
+6. Implement listing helpers:
+   - `registry.listRegistries()` returns snapshots
+   - `registry.listProfiles(registrySlug?)` returns snapshots
+7. Implement `registry.close()` for script-loaded chains.
+8. Implement host-default resolution:
+   - module options accept `EngineProfileRegistry` / `RegistryReader` as they do today
+   - `gp.inferenceProfiles.resolve(...)` uses host-default reader
+   - if no host default exists, throw a clear error: `no default inference profile registry configured; use gp.inferenceProfiles.load(path)`
+9. Add tests with temporary Geppetto registry YAML:
+   - single registry load
+   - `slug` disambiguation
+   - `default_profile_slug`
+   - fallback to `profiles.default`
+   - stacked profile resolution
+   - multiple source precedence
+   - invalid source error messages
+10. Add explicit non-goal tests/documentation:
+   - Pinocchio unified config docs with `app:` are rejected by the Geppetto registry YAML decoder
+   - error message says to use Geppetto registry YAML or application-side setup
 
-### Phase 5: Documentation and examples
+Acceptance criteria:
 
-Files to update:
+- `gp.inferenceProfiles.load("profiles.yaml").resolve("assistant")` returns `InferenceSettingsJS`.
+- No Pinocchio package import is introduced into Geppetto.
 
-- `geppetto/pkg/doc/topics/13-js-api-reference.md`
-- `geppetto/pkg/doc/topics/14-js-api-user-guide.md`
-- `geppetto/pkg/doc/tutorials/05-js-api-getting-started.md`
-- `geppetto/examples/js/geppetto/README.md`
-- new examples under `geppetto/examples/js/geppetto/fluent/`
+### Phase 3: Engine builder integration
 
-Examples to add:
+Goal: compile engines only from Go-owned inference settings.
 
-1. `01_turn_builder.js`
-2. `02_agent_echo.js`
-3. `03_agent_tool.js`
-4. `04_agent_streaming.js`
-5. `05_embeddings.js`
-6. `06_xgoja_bundle.md` or runnable fixture
+Tasks:
+
+1. Add or update `EngineBuilderJS`.
+2. Implement `.inference(settings)` accepting only:
+   - `InferenceSettingsJS`
+   - possibly a trusted Go `*settings.InferenceSettings` host object
+3. Remove/withhold public `.fromConfig(map)` and `.provider(...).model(...)` shortcuts on `engine()` unless they delegate through `gp.inferenceSettings()` builder internally.
+4. On `.build()`:
+   - clone settings
+   - resolve symbolic credential refs via host `CredentialResolver`
+   - inject resolved credentials into settings only on Go side
+   - call existing engine factory
+   - return Go-owned `EngineJS`
+5. Add tests:
+   - engine builds from `gp.inferenceSettings()`
+   - engine builds from `gp.inferenceProfiles.load(...).resolve(...)`
+   - engine rejects plain JS objects
+   - engine fails clearly when credential resolver is missing
+   - engine never exposes raw credential in `toJSON()`/debug output
+
+Acceptance criteria:
+
+- `gp.engine().inference(settings).build()` is the only ordinary engine construction path.
+- Credential resolution happens on Go side only.
+
+### Phase 4: Agent API integration
+
+Goal: configure runtime behavior from JS while keeping inference settings separate.
+
+Tasks:
+
+1. Add/update `api_agent.go`.
+2. Implement `gp.agent()` builder methods:
+   - `.name(name)`
+   - `.inference(settings)`
+   - `.engine(engine)` for advanced prebuilt engine injection
+   - `.system(prompt)`
+   - `.middleware(middleware)` / `.goMiddleware(name, optionsBuilder?)`
+   - `.tool(name, builderFn)`
+   - `.goTool(name)`
+   - `.toolLoop(configBuilder)`
+   - `.events(eventBuilderFn)`
+   - `.runDefaults(optionsBuilder)`
+   - `.build()`
+3. Ensure `.inference(...)` accepts `InferenceSettingsJS`, not profile names or JS maps.
+4. Keep optional convenience out of the first pass:
+   - do not add `agent.profile(...)`
+   - do not add `agent.inferenceProfile(...)` unless later UX evidence demands it
+5. Implement `agent.ask(prompt)`:
+   - constructs a Go-owned turn from prompt
+   - applies system prompt/middleware/tools
+   - runs session/engine
+   - returns `RunResultJS`
+6. Implement `RunResultJS` helpers:
+   - `.text()`
+   - `.turn()`
+   - `.usage()`
+   - `.stopReason()`
+   - `.events()`
+   - `.toJSON()`
+7. Add tests:
+   - echo/fake engine ask path
+   - system prompt applied from JS, not profile
+   - JS tool execution
+   - Go tool import when host registry allows it
+   - middleware order
+   - result text extraction
+
+Acceptance criteria:
+
+- Users compose runtime behavior with `gp.agent()`, not profile files.
+- Inference profile resolution supplies only settings.
+
+### Phase 5: Tool/schema/turn wrappers
+
+Goal: remove remaining map-first construction from everyday scripts.
+
+Tasks:
+
+1. Implement `gp.schema` builders:
+   - object
+   - string
+   - integer
+   - number
+   - boolean
+   - array
+   - enum
+   - required/default/min/max helpers
+2. Implement `gp.tool(name)` builder:
+   - `.description(...)`
+   - `.input(schema)`
+   - `.handler(fn)`
+   - `.build()`
+3. Implement `gp.toolRegistry()` wrapper:
+   - `.add(tool)`
+   - `.addGo(name)`
+   - `.list()`
+   - `.call(name, args)` with args validated against schema where possible
+4. Implement `gp.turn()` builder:
+   - `.system(text)`
+   - `.user(text)`
+   - `.assistant(text)`
+   - `.toolCall(id, name, args)`
+   - `.toolResult(id, result)`
+   - `.metadata(key, value)`
+   - `.build()`
+5. Ensure all built objects are Go-owned wrappers with explicit snapshots.
+6. Add tests for invalid schema/tool/turn construction.
+
+Acceptance criteria:
+
+- Example scripts no longer construct turn/block/tool maps directly.
+
+### Phase 6: xgoja and host integration
+
+Goal: make generated standalone binaries able to expose the same API safely.
+
+Tasks:
+
+1. Update Geppetto xgoja provider config schema to include registry source configuration:
+   - `profileRegistries?: string[]`
+   - `defaultProfile?: string`
+   - possibly `allowRegistryLoad?: boolean`
+2. Ensure `allowRegistryLoad` defaults to safe host policy.
+3. Add host service wiring for:
+   - default registry reader
+   - credential resolver
+   - approved Go tool registry
+4. Do not let JS read environment variables for credentials.
+5. Add xgoja runtime tests:
+   - generated runtime can `require("geppetto")`
+   - default registry profile resolves
+   - explicit `gp.inferenceProfiles.load(...)` obeys allow/deny policy
+   - credential refs are resolved by host only
+
+Acceptance criteria:
+
+- xgoja standalone apps can bundle Geppetto and profile registries without Pinocchio imports.
+
+### Phase 7: Documentation, examples, and declaration generation
+
+Goal: make the hard-cut API teachable and type-visible.
+
+Tasks:
+
+1. Update TypeScript declarations:
+   - `InferenceSettingsBuilder`
+   - `InferenceSettings`
+   - `InferenceProfileNamespace`
+   - `InferenceRegistry`
+   - `EngineBuilder`
+   - `AgentBuilder`
+   - `ToolBuilder`
+   - `SchemaNamespace`
+2. Update `dts_parity_test.go` for the final top-level export set.
+3. Add examples:
+   - `01_inference_settings_builder.js`
+   - `02_load_registry_resolve_profile.js`
+   - `03_engine_from_registry_profile.js`
+   - `04_agent_from_registry_profile.js`
+   - `05_tools_and_schema.js`
+   - `06_embeddings_with_credential_ref.js`
+4. Add docs explaining Geppetto registry YAML:
+   - `slug`
+   - `default_profile_slug`
+   - `profiles.<slug>`
+   - `stack`
+   - `inference_settings`
+5. Add migration docs stating that Pinocchio unified config docs are application-side and not loaded by `gp.inferenceProfiles.load(...)`.
+
+Acceptance criteria:
+
+- New examples run with deterministic/fake engines where possible.
+- Live examples self-skip unless host credential refs are available.
+
+### Phase 8: Cleanup and removal
+
+Goal: complete the hard cut.
+
+Tasks:
+
+1. Remove public exports for old map-first namespaces or move intentionally to `gp.unsafe`.
+2. Remove docs that teach old APIs as normal usage.
+3. Keep internal codecs only where needed for snapshots/import tests.
+4. Add regression tests that old public names stay absent.
+5. Run full validation:
+   - `go test ./pkg/js/modules/geppetto ./pkg/js/runtime -count=1`
+   - broader Geppetto tests if implementation touched registry/core packages
+   - xgoja tests if provider wiring changed
+
+Acceptance criteria:
+
+- Public JS API is hard-cut, Go-wrapper based, and Geppetto-registry based.
+- Pinocchio is not imported into Geppetto JS.
 
 ## Testing Strategy
 
