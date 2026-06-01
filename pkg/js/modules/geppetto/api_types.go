@@ -1,13 +1,9 @@
 package geppetto
 
 import (
-	"context"
-	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/dop251/goja"
-	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
@@ -16,7 +12,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 type engineRef struct {
@@ -73,25 +68,6 @@ type goMiddlewareRef struct {
 	Options map[string]any
 }
 
-type resolvedEngineProfileRef struct {
-	Resolved *profiles.ResolvedEngineProfile
-}
-
-type runnerResolvedRuntimeRef struct {
-	SystemPrompt    string
-	MiddlewareRefs  []any
-	ToolNames       []string
-	RuntimeMetadata map[string]any
-	Metadata        map[string]any
-}
-
-type preparedRunRef struct {
-	api     *moduleRuntime
-	session *sessionRef
-	turn    *turns.Turn
-	runtime *runnerResolvedRuntimeRef
-}
-
 type toolRegistryRef struct {
 	api *moduleRuntime
 
@@ -111,57 +87,4 @@ type jsToolHookExecutor struct {
 	*tools.BaseToolExecutor
 	api   *moduleRuntime
 	hooks *jsToolHooks
-}
-
-type echoEngine struct {
-	reply string
-}
-
-func (e *echoEngine) RunInference(_ context.Context, t *turns.Turn) (*turns.Turn, error) {
-	if t == nil {
-		t = &turns.Turn{}
-	}
-	reply := strings.TrimSpace(e.reply)
-	if reply == "" {
-		reply = "READY"
-	}
-	turns.AppendBlock(t, turns.NewAssistantTextBlock(reply))
-	return t, nil
-}
-
-type jsCallableEngine struct {
-	api *moduleRuntime
-	fn  goja.Callable
-}
-
-func (e *jsCallableEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-	ret, err := e.api.callOnOwner(ctx, "engine.fromFunction.runInference", func(context.Context) (any, error) {
-		arg, err := e.api.encodeTurnValue(t)
-		if err != nil {
-			return nil, err
-		}
-		v, err := e.fn(goja.Undefined(), arg)
-		if err != nil {
-			return nil, fmt.Errorf("js engine callback: %w", err)
-		}
-		if v == nil || goja.IsUndefined(v) || goja.IsNull(v) {
-			return nil, nil
-		}
-		decoded, err := e.api.decodeTurnValue(v)
-		if err != nil {
-			return nil, err
-		}
-		return decoded, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	if ret == nil {
-		return t, nil
-	}
-	out, ok := ret.(*turns.Turn)
-	if !ok {
-		return nil, fmt.Errorf("js engine callback returned unexpected type %T", ret)
-	}
-	return out, nil
 }

@@ -15,148 +15,286 @@ ShowPerDefault: true
 SectionType: GeneralTopic
 ---
 
-This page documents the current hard-cut JavaScript API in [pkg/js/modules/geppetto](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto).
+This page documents the hard-cut JavaScript API exposed by:
 
-## Execution Harness
+```js
+const gp = require("geppetto");
+```
 
-Run scripts with:
+The API is Go-wrapper-first: scripts receive Go-owned wrapper objects and ask for explicit snapshots with `toJSON()`. Legacy map/session/runner exports were removed from the default public surface.
+
+## Running Scripts
+
+For local examples that need profile registry flags, use:
 
 ```bash
-go run ./cmd/examples/geppetto-js-lab --script <path-to-script.js>
+go run ./cmd/examples/geppetto-js-run run \
+  --script examples/js/geppetto/30_real_provider_multiturn.js \
+  --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
+  --profile default \
+  --timeout-ms 120000
 ```
 
-## Top-Level Namespaces
+## `gp.inferenceProfiles`
 
-- `turns`
-- `engines`
-- `profiles`
-- `runner`
-- `middlewares`
-- `schemas`
-- `events`
-- `tools`
+`gp.inferenceProfiles` loads and resolves Geppetto engine profile registries. It does **not** load Pinocchio unified app config documents with `app:` blocks.
 
-## `engines`
-
-Current constructors:
-
-- `echo({ reply? })`
-- `fromFunction(fn)`
-- `fromConfig(options)`
-- `fromResolvedProfile(resolvedProfile)`
-- `fromProfile({ registrySlug?, profileSlug? })`
-
-Recommended meaning:
-
-- use `fromConfig(...)` when the script already knows the provider/model/settings
-- use `fromProfile(...)` or `fromResolvedProfile(...)` when the script wants Geppetto to resolve engine settings from an engine profile registry
-
-`fromProfile(...)` and `fromResolvedProfile(...)` build the engine only. They do not apply prompts, tool policy, or middleware policy.
-
-When the source profile has `inference_settings.model_info`, the returned engine object includes `engine.modelInfo` with the same shape exposed by `profiles.resolve(...)`. `fromConfig(...)` also accepts an optional `modelInfo` object for scripts that construct engines without profile resolution.
-
-Example:
-
-```javascript
-const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
-console.log(resolved.modelInfo?.reasoning);
-console.log(resolved.modelInfo?.contextWindow);
-console.log(resolved.modelInfo?.cost?.input);
-
-const engine = gp.engines.fromResolvedProfile(resolved);
-console.log(engine.modelInfo?.maxOutputTokens);
+```js
+const registry = gp.inferenceProfiles.load("./profiles.yaml");
+const settings = registry.resolve("assistant");
 ```
 
-## `profiles`
+Supported source forms:
 
-The `profiles` namespace is now really an **engine profiles** namespace, even though the JS name is still `profiles`.
+- YAML path
+- `yaml:PATH`
+- `yaml://PATH`
+- SQLite path (`.db`, `.sqlite`, `.sqlite3`)
+- `sqlite:PATH`
+- `sqlite-dsn:DSN`
 
-Available functions:
+Namespace methods:
+
+- `gp.inferenceProfiles.load(source: string | string[]): InferenceRegistry`
+- `gp.inferenceProfiles.resolve(input?: string | { registry?, registrySlug?, profile?, profileSlug? }): InferenceSettings`
+- `gp.inferenceProfiles.default(): InferenceRegistry`
+
+Registry methods:
 
 - `listRegistries()`
-- `getRegistry(registrySlug?)`
 - `listProfiles(registrySlug?)`
-- `getProfile(profileSlug, registrySlug?)`
-- `resolve({ registrySlug?, profileSlug? })`
-- `connectStack(sources)`
-- `disconnectStack()`
-- `getConnectedSources()`
+- `resolve(input?)`
+- `close()`
+- `sources`
 
-`resolve(...)` returns:
+## Geppetto Registry YAML
 
-- `registrySlug`
-- `profileSlug`
-- `inferenceSettings`
-- `modelInfo` when the resolved `InferenceSettings` contains `model_info`
-- `metadata`
+Current runtime YAML is one file = one registry:
 
-`modelInfo` is a convenience projection of `inferenceSettings.model_info` using JavaScript-friendly field names such as `contextWindow`, `qualityHighWatermark`, `maxOutputTokens`, and `cost.cacheRead`.
-
-It no longer returns:
-
-- `effectiveRuntime`
-- `runtimeKey`
-- `runtimeFingerprint`
-
-## `runner`
-
-`runner` is now purely app/runtime-oriented.
-
-Available functions:
-
-- `resolveRuntime(input?)`
-- `prepare(options)`
-- `run(options, runOptions?)`
-- `start(options, runOptions?)`
-
-`runner.resolveRuntime(...)` accepts only direct runtime input such as:
-
-- `systemPrompt`
-- `middlewares`
-- `toolNames`
-- `runtimeKey`
-- `runtimeFingerprint`
-- `profileVersion`
-- `metadata`
-
-It no longer accepts `profile`.
-
-If you need engine profiles, resolve them separately:
-
-```javascript
-const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
-const engine = gp.engines.fromResolvedProfile(resolved);
-const runtime = gp.runner.resolveRuntime({
-  systemPrompt: "App-owned prompt",
-  runtimeKey: "assistant",
-});
+```yaml
+slug: local
+profiles:
+  assistant:
+    display_name: Assistant
+    stack:
+      - profile_slug: openai-base
+    inference_settings:
+      chat:
+        api_type: openai
+        engine: gpt-4o-mini
 ```
 
-## `createBuilder` / `createSession`
+Important fields:
 
-Builder/session construction is now lower-level again.
+- `slug`: registry identifier.
+- `profiles.<slug>`: named inference profile.
+- `profiles.<slug>.stack`: optional list of base profiles to merge before the leaf profile.
+- `profiles.<slug>.inference_settings`: Geppetto inference settings for provider/model/client/model info.
+- `default_profile_slug`: present in Go registry structs and some design docs, but the current runtime YAML loader rejects it; use a `default` profile or resolve by explicit profile slug.
 
-Supported builder inputs:
+## `InferenceSettings`
 
-- `engine`
-- `middlewares`
-- `tools`
-- `toolLoop`
-- `toolHooks`
+`InferenceSettings` objects are Go-owned wrappers returned by registry resolution. There is no public `gp.inferenceSettings()` builder.
 
-Removed from the builder path:
+Methods:
 
-- `resolvedProfile`
-- `useResolvedProfile(...)`
+- `toJSON()` — detached redacted snapshot.
+- `clone()` — another Go-owned wrapper.
+- `debug()` — redacted diagnostic view.
 
-If you want profile-derived engine settings, build the engine first with `gp.engines.fromProfile(...)` or `gp.engines.fromResolvedProfile(...)`, then pass the engine into the builder or runner.
+Provider/model/temperature/token changes belong in registry files, not JavaScript setters.
 
-## Files
+## `gp.engine()`
 
-Relevant implementation files:
+Build engines from registry-resolved settings:
 
-- [api_profiles.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_profiles.go)
-- [api_engines.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_engines.go)
-- [api_runner.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_runner.go)
-- [api_runtime_metadata.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_runtime_metadata.go)
-- [api_builder_options.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_builder_options.go)
+```js
+const engine = gp.engine().inference(settings).build();
+```
+
+`engine().inference(...)` rejects plain JavaScript objects. It accepts Go-owned `InferenceSettings` wrappers only.
+
+## `gp.turn()`
+
+Build explicit Go-owned turns:
+
+```js
+const turn = gp.turn()
+  .system("Answer briefly.")
+  .user("Hello")
+  .build();
+```
+
+Methods:
+
+- `system(text)`
+- `user(text)`
+- `user(messageBuilderFn)`
+- `assistant(text)`
+- `metadata(key, value)`
+- `build()`
+
+The returned turn wrapper exposes:
+
+- `toJSON()`
+- `clone()`
+
+### Message Builder
+
+```js
+const turn = gp.turn()
+  .user(m => m
+    .text("What is in this image?")
+    .imageURL("https://example.invalid/screenshot.png"))
+  .build();
+```
+
+Methods:
+
+- `text(text)`
+- `imageURL(url, options?)`
+- `imageFile(path)`
+- `imageBytes(base64Content, mediaType?)`
+
+## `gp.agent()`
+
+Agents own runtime behavior, not prompt strings. Execution requires explicit turns.
+
+```js
+const agent = gp.agent()
+  .name("assistant")
+  .inference(settings)
+  .build();
+
+const result = agent.run(turn);
+console.log(result.text());
+```
+
+Builder methods:
+
+- `name(name)`
+- `inference(settings)`
+- `engine(engine)`
+- `middleware(middleware)`
+- `goMiddleware(name, options?)`
+- `tool(registry)`
+- `goTool(name)`
+- `toolLoop(options?)`
+- `events(sink)`
+- `runDefaults(options?)`
+- `build()`
+
+Agent methods:
+
+- `run(turn, options?)`
+- `stream(turn, options?)`
+
+Intentionally absent:
+
+- `agent.ask(prompt)`
+- `agent.system(prompt)`
+- `agent.profile(name)`
+- `agent.inferenceProfile(name)`
+
+## `RunResult`
+
+`agent.run(turn)` returns a Go-owned result wrapper:
+
+- `inputTurn()`
+- `effectiveTurn()`
+- `outputTurn()`
+- `text()`
+- `usage()`
+- `stopReason()`
+- `events()`
+- `toJSON()`
+
+`inputTurn` is the caller's turn snapshot. `effectiveTurn` includes runtime metadata before inference. `outputTurn` is the provider/runtime output turn.
+
+## `gp.schema`
+
+Schema builders produce Go-owned schema wrappers for tools.
+
+```js
+const input = gp.schema.object()
+  .property("value", gp.schema.string().description("Value to echo"))
+  .required("value")
+  .build();
+```
+
+Constructors:
+
+- `string()`
+- `integer()`
+- `number()`
+- `boolean()`
+- `array()`
+- `object()`
+- `enum(...values)`
+
+Builder methods:
+
+- `description(text)`
+- `property(name, schema)`
+- `items(schema)`
+- `required(...names)`
+- `build()`
+- `toJSON()`
+
+## `gp.tool()` and `gp.toolRegistry()`
+
+```js
+const echo = gp.tool("echo_value")
+  .description("Echo a value")
+  .input(input)
+  .handler((args, ctx) => ({ echoed: args.value }))
+  .build();
+
+const registry = gp.toolRegistry().add(echo);
+console.log(registry.call("echo_value", { value: "hello" }));
+```
+
+Tool builder methods:
+
+- `description(text)`
+- `input(schema)`
+- `handler(fn)`
+- `build()`
+
+Tool registry methods:
+
+- `add(tool)`
+- `addGo(...names)`
+- `list()`
+- `call(name, input?)`
+
+## xgoja Provider Configuration
+
+The Geppetto xgoja provider accepts registry configuration:
+
+```json
+{
+  "profileRegistries": ["/home/me/.config/pinocchio/profiles.yaml"],
+  "defaultProfile": "default",
+  "allowRegistryLoad": true
+}
+```
+
+`allowRegistryLoad` defaults to false. This prevents generated hosts from loading arbitrary registry paths unless explicitly allowed.
+
+## Removed Legacy Surface
+
+The following old public names are intentionally absent from the hard-cut surface:
+
+- `gp.turns`
+- `gp.engines`
+- `gp.profiles`
+- `gp.runner`
+- `gp.schemas`
+- `gp.middlewares`
+- `gp.tools`
+- `gp.createBuilder`
+- `gp.createSession`
+- `gp.runInference`
+
+Use the wrapper-first APIs in this reference instead.

@@ -12,54 +12,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func (m *moduleRuntime) middlewareFromJS(call goja.FunctionCall) goja.Value {
-	if len(call.Arguments) < 1 {
-		panic(m.vm.NewTypeError("fromJS requires callback argument"))
-	}
-	fn, ok := goja.AssertFunction(call.Arguments[0])
-	if !ok {
-		panic(m.vm.NewTypeError("fromJS expects callable callback"))
-	}
-	name := "js-middleware"
-	if len(call.Arguments) > 1 {
-		name = call.Arguments[1].String()
-	}
-	ref := &jsMiddlewareRef{Name: name, Fn: fn}
-	return m.newJSMiddlewareObject(ref)
-}
-
-func (m *moduleRuntime) middlewareFromGo(call goja.FunctionCall) goja.Value {
-	if len(call.Arguments) < 1 {
-		panic(m.vm.NewTypeError("go middleware requires name argument"))
-	}
-	name := call.Arguments[0].String()
-	var options map[string]any
-	if len(call.Arguments) > 1 && !goja.IsUndefined(call.Arguments[1]) && !goja.IsNull(call.Arguments[1]) {
-		options = decodeMap(call.Arguments[1].Export())
-	}
-	ref := &goMiddlewareRef{Name: name, Options: options}
-	return m.newGoMiddlewareObject(ref)
-}
-
-func (m *moduleRuntime) newJSMiddlewareObject(ref *jsMiddlewareRef) goja.Value {
-	o := m.vm.NewObject()
-	m.attachRef(o, ref)
-	m.mustSet(o, "type", "js")
-	m.mustSet(o, "name", ref.Name)
-	return o
-}
-
-func (m *moduleRuntime) newGoMiddlewareObject(ref *goMiddlewareRef) goja.Value {
-	o := m.vm.NewObject()
-	m.attachRef(o, ref)
-	m.mustSet(o, "type", "go")
-	m.mustSet(o, "name", ref.Name)
-	if ref.Options != nil {
-		m.mustSet(o, "options", cloneJSONMap(ref.Options))
-	}
-	return o
-}
-
 func cloneJSMiddlewareRef(in *jsMiddlewareRef) *jsMiddlewareRef {
 	if in == nil {
 		return nil
@@ -87,17 +39,6 @@ func (m *moduleRuntime) decodeMiddlewareSpecValue(v goja.Value) (any, error) {
 		return cloneGoMiddlewareRef(x), nil
 	}
 	return nil, fmt.Errorf("unsupported middleware specification")
-}
-
-func (m *moduleRuntime) middlewareObjectFromSpec(spec any) (goja.Value, error) {
-	switch x := spec.(type) {
-	case *jsMiddlewareRef:
-		return m.newJSMiddlewareObject(cloneJSMiddlewareRef(x)), nil
-	case *goMiddlewareRef:
-		return m.newGoMiddlewareObject(cloneGoMiddlewareRef(x)), nil
-	default:
-		return nil, fmt.Errorf("unsupported middleware spec type %T", spec)
-	}
 }
 
 func (m *moduleRuntime) materializeMiddlewareSpec(spec any) (middleware.Middleware, error) {

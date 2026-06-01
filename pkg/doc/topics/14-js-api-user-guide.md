@@ -1,7 +1,7 @@
 ---
 Title: Geppetto JavaScript API User Guide
 Slug: geppetto-js-api-user-guide
-Short: Practical guide to composing engines and app-owned runtime behavior from JavaScript.
+Short: Practical guide to composing registry-backed engines, agents, turns, tools, and multimodal messages from JavaScript.
 Topics:
 - geppetto
 - javascript
@@ -15,144 +15,162 @@ ShowPerDefault: true
 SectionType: Application
 ---
 
-This guide shows the intended split after the engine-profile hard cut:
+This guide shows the wrapper-first Geppetto JavaScript API. The core rule is simple:
 
-- use engine profiles to resolve `InferenceSettings`
-- use the runner to assemble app-owned runtime behavior
+1. Registry files own model/provider settings.
+2. JavaScript receives Go-owned wrappers.
+3. Agents run explicit turns only.
 
 ## Run Scripts
 
+Use the real example runner when you need profile flags:
+
 ```bash
-go run ./cmd/examples/geppetto-js-lab --script <your-script.js>
+go run ./cmd/examples/geppetto-js-run run \
+  --script examples/js/geppetto/30_real_provider_multiturn.js \
+  --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
+  --profile default
 ```
 
-## Default Path
+The runner exposes `require("geppetto")` and configures the host-default profile registry for `gp.inferenceProfiles.resolve(...)`.
 
-For most scripts:
+## Load a Registry and Resolve Settings
 
-1. resolve or construct an engine
-2. build app-owned runtime input
-3. run with `gp.runner`
-
-```javascript
+```js
 const gp = require("geppetto");
 
-const engine = gp.engines.fromConfig({
-  apiType: "openai",
-  model: "gpt-4.1-mini",
-  apiKey: "test-openai-key",
-});
+const registry = gp.inferenceProfiles.load("examples/js/geppetto/profiles/50-hardcut-phase123.yaml");
+const settings = registry.resolve("assistant");
 
-const runtime = gp.runner.resolveRuntime({
-  systemPrompt: "Answer in one short line.",
-  runtimeKey: "demo",
-});
-
-const out = gp.runner.run({
-  engine,
-  runtime,
-  prompt: "hello",
-});
+console.log(settings.toJSON().chat.engine);
+registry.close();
 ```
 
-## Using Engine Profiles
+`settings` is a Go-owned `InferenceSettings` wrapper. Use `toJSON()` for a detached redacted snapshot. Do not mutate model parameters in JavaScript; change the registry profile instead.
 
-Engine profiles now configure engine settings only.
+## Build an Engine
 
-Resolve one:
-
-```javascript
-const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
-console.log(resolved.inferenceSettings.chat.engine);
+```js
+const engine = gp.engine()
+  .inference(settings)
+  .build();
 ```
 
-Build an engine from it:
+`engine().inference(...)` accepts only registry-resolved `InferenceSettings` wrappers. Plain JavaScript objects are rejected.
 
-```javascript
-const engine = gp.engines.fromResolvedProfile(resolved);
+## Build an Agent and Explicit Turn
+
+```js
+const agent = gp.agent()
+  .name("assistant")
+  .inference(settings)
+  .build();
+
+const turn = gp.turn()
+  .system("Answer in one short sentence.")
+  .user("What changed in this repository?")
+  .build();
+
+const result = agent.run(turn);
+console.log(result.text());
 ```
 
-Or skip the explicit resolve step:
+Agents intentionally do not expose `ask(prompt)` or `system(prompt)`. System/user content belongs in the turn.
 
-```javascript
-const engine = gp.engines.fromProfile({ profileSlug: "assistant" });
+## Multi-Turn Inference
+
+The API is explicit: a second provider call receives history only if the script includes that history in the next turn.
+
+```js
+const first = gp.turn()
+  .system("Be terse.")
+  .user("Remember the token ALPHA.")
+  .build();
+const firstResult = agent.run(first);
+
+const second = gp.turn()
+  .system("Be terse.")
+  .user("Remember the token ALPHA.")
+  .assistant(firstResult.text())
+  .user("What token did you just mention?")
+  .build();
+const secondResult = agent.run(second);
 ```
 
-## App-Owned Runtime
+See `examples/js/geppetto/30_real_provider_multiturn.js` for a live provider example using `~/.config/pinocchio/profiles.yaml`.
 
-The runtime object belongs to the application side.
+## Tools and Schemas
 
-Use it for:
+```js
+const input = gp.schema.object()
+  .property("value", gp.schema.string().description("Value to echo"))
+  .required("value")
+  .build();
 
-- `systemPrompt`
-- explicit middleware refs
-- tool-name filtering
-- runtime metadata like `runtimeKey`
+const echo = gp.tool("echo_value")
+  .description("Echo a value")
+  .input(input)
+  .handler((args, ctx) => ({ echoed: args.value, toolName: ctx.toolName }))
+  .build();
 
-Example:
-
-```javascript
-const runtime = gp.runner.resolveRuntime({
-  systemPrompt: "Be terse.",
-  middlewares: [gp.middlewares.go("reorderToolResults")],
-  toolNames: ["search_docs"],
-  runtimeKey: "assistant-terse",
-});
+const registry = gp.toolRegistry().add(echo);
+console.log(registry.call("echo_value", { value: "hello" }));
 ```
 
-Do not expect `gp.runner.resolveRuntime(...)` to resolve engine profiles. That was removed intentionally.
+Pass the registry into an agent with `.tool(registry)`.
 
-## Combining Both Sides
+## Multimodal Turns
 
-This is the target shape:
-
-```javascript
-const gp = require("geppetto");
-
-const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
-const engine = gp.engines.fromResolvedProfile(resolved);
-
-const runtime = gp.runner.resolveRuntime({
-  systemPrompt: "App-owned prompt",
-  runtimeKey: resolved.profileSlug,
-  metadata: {
-    profileSlug: resolved.profileSlug,
-    profileRegistry: resolved.registrySlug,
-  },
-});
-
-const handle = gp.runner.start({
-  engine,
-  runtime,
-  prompt: "hello",
-});
+```js
+const turn = gp.turn()
+  .system("You are a careful visual reasoning assistant.")
+  .user(m => m
+    .text("What is in this screenshot?")
+    .imageFile("./screenshot.png"))
+  .build();
 ```
 
-## Registry Stacks from JS
+Message builder methods:
 
-If the host did not provide a registry, connect one from JS:
+- `text(...)`
+- `imageURL(...)`
+- `imageFile(...)`
+- `imageBytes(...)`
 
-```javascript
-const gp = require("geppetto");
+## Pinocchio Profiles vs Pinocchio Config Docs
 
-gp.profiles.connectStack([
-  "examples/js/geppetto/profiles/10-provider-openai.yaml",
-  "examples/js/geppetto/profiles/20-team-agent.yaml",
-  "examples/js/geppetto/profiles/30-user-overrides.yaml",
-]);
+`~/.config/pinocchio/profiles.yaml` is usable here because it is a Geppetto registry-shaped file with top-level `slug` and `profiles` keys.
 
-const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
-console.log(resolved.registrySlug, resolved.inferenceSettings.chat.engine);
+`gp.inferenceProfiles.load(...)` does not load Pinocchio unified app config documents with `app:`/application settings. Those remain application-side host concerns.
+
+## xgoja Provider Config
+
+Generated xgoja hosts can configure Geppetto like this:
+
+```json
+{
+  "profileRegistries": ["/home/me/.config/pinocchio/profiles.yaml"],
+  "defaultProfile": "default",
+  "allowRegistryLoad": true
+}
 ```
 
-## What Was Removed
+`allowRegistryLoad` is false by default.
 
-The older mixed model is gone:
+## Current Gaps
 
-- no `effectiveRuntime` on resolved profiles
-- no profile-derived `runtimeKey` or `runtimeFingerprint`
-- no `resolvedProfile` builder option
-- no `useResolvedProfile(...)`
-- no `runner.resolveRuntime({ profile: ... })`
+Implemented now:
 
-If you need those behaviors, implement them explicitly in the host script or application code. That is now the intended architecture.
+- registry-resolved `InferenceSettings`
+- engine builder
+- agent and explicit turns
+- schema/tool/toolRegistry wrappers
+- text/image message builder
+- xgoja provider registry loading
+
+Still deferred:
+
+- symbolic host credential resolver
+- additional schema helpers such as min/max/default
+- `turn().toolCall(...)` and `turn().toolResult(...)`
+- hard-cut `gp.embeddings()` wrapper

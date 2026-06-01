@@ -38,9 +38,9 @@ WhenToUse: Before changing geppetto/pkg/engineprofiles, pinocchio/pkg/configdoc,
 
 ## Executive Summary
 
-Yes: in the redesigned JS API, `gp.inferenceSettings()` should return a **Go-owned object**. JavaScript should receive a wrapper with methods such as `.provider(...)`, `.model(...)`, `.credentialRef(...)`, `.temperature(...)`, `.build()`, `.toJSON()`, and `.clone()`. The live settings object should be a Go wrapper around `*settings.InferenceSettings`, not a JavaScript map. When JavaScript needs data, it asks for an explicit snapshot.
+Superseding note for the first implementation pass: the redesigned JS API should **not** expose `gp.inferenceSettings()` or any model-parameter builder. JavaScript should receive Go-owned `InferenceSettings` wrappers from Geppetto registry resolution only, for example `gp.inferenceProfiles.resolve("assistant")` or `gp.inferenceProfiles.load("./profiles.yaml").resolve("assistant")`. The wrapper may expose `.toJSON()`, `.clone()`, and redacted `.debug()`, but provider/model/sampling/token/base URL/model metadata changes happen in Geppetto registry files, not through JavaScript setters.
 
-The profile registry question is related but separate. The API should expose `gp.inferenceProfiles.resolve("assistant")`, and that call should return a Go-owned `InferenceSettings` wrapper. It should not return a Pinocchio profile, a JavaScript object map, or a full agent preset. Prompt, tools, middleware, event sinks, and tool-loop behavior remain configured through `gp.agent()`.
+The profile registry question is therefore the main public entrypoint. The API should expose `gp.inferenceProfiles.resolve("assistant")`, and that call should return a Go-owned `InferenceSettings` wrapper. It should not return a Pinocchio profile, a JavaScript object map, or a full agent preset. Prompt, tools, middleware, event sinks, and tool-loop behavior remain configured through `gp.agent()` and explicit `gp.turn()` values.
 
 The surprising finding is that Geppetto already owns most of the reusable registry machinery. `geppetto/pkg/engineprofiles` has typed profile registries, YAML/SQLite stores, chained sources, stack resolution, merge logic, validation, and CLI bootstrap helpers. Pinocchio adds a **unified app config document** layer that can contain:
 
@@ -70,8 +70,8 @@ without importing `github.com/go-go-golems/pinocchio`.
 The boundaries are strict:
 
 - `inferenceProfiles` resolves only inference settings.
-- `inferenceSettings` is a Go-owned settings object.
-- `agent` owns system prompt, tools, middleware, events, and run behavior.
+- registry-resolved `InferenceSettings` is a Go-owned settings object.
+- `agent` owns tools, middleware, events, and run behavior; system content belongs in explicit turns.
 - Geppetto JS forbids raw API keys and environment-variable credential lookup.
 - Hosts may provide a default profile resolver backed by Pinocchio profile documents, but Geppetto must not depend on Pinocchio.
 
@@ -380,55 +380,49 @@ interface InferenceSettings {
 
 Important: `resolve(...)` returns a Go-owned `InferenceSettings` object, not a JS map. `toJSON()` returns a snapshot.
 
-## How `inferenceSettings()` Should Work in JS
+## How Registry-Resolved `InferenceSettings` Should Work in JS
 
 ```javascript
-const settings = gp.inferenceSettings()
-  .provider("openai-responses")
-  .model("gpt-5-mini")
-  .credentialRef("openai-main")
-  .temperature(0.2)
-  .build();
+const settings = gp.inferenceProfiles
+  .load("./profiles.yaml")
+  .resolve("assistant");
+
+const engine = gp.engine().inference(settings).build();
 ```
 
 Implementation model:
 
 ```text
-JS method call
-  -> Go wrapper validates argument
-  -> Go wrapper mutates *settings.InferenceSettings or builder state
-  -> build() returns immutable/copy-on-write InferenceSettingsJS wrapper
+JS registry source
+  -> Geppetto engineprofiles.ParseRegistrySourceSpecs / NewChainedRegistryFromSourceSpecs
+  -> registry.resolve(...) validates profile selection and stack resolution
+  -> resolve(...) returns immutable/copy-on-write InferenceSettingsJS wrapper
   -> engine().inference(settings) accepts only the wrapper/interface
 ```
 
 Pseudo-Go:
 
 ```go
-type InferenceSettingsBuilderJS struct {
+type InferenceSettingsJS struct {
     api *moduleRuntime
     settings *settings.InferenceSettings
-    credentialRef string
+    provenance InferenceSettingsProvenance
 }
 
-func (b *InferenceSettingsBuilderJS) Provider(provider string) *InferenceSettingsBuilderJS {
-    apiType, err := normalizeProvider(provider)
-    if err != nil { panic(b.api.vm.NewTypeError(err.Error())) }
-    b.settings.Chat.ApiType = &apiType
-    return b
+func (s *InferenceSettingsJS) Clone() *InferenceSettingsJS {
+    return &InferenceSettingsJS{api: s.api, settings: s.settings.Clone(), provenance: s.provenance}
 }
 
-func (b *InferenceSettingsBuilderJS) CredentialRef(ref string) *InferenceSettingsBuilderJS {
-    if strings.TrimSpace(ref) == "" { panic(b.api.vm.NewTypeError("credentialRef must not be empty")) }
-    // Store symbolic ref only. Do not resolve raw secret in JS.
-    b.credentialRef = ref
-    return b
+func (s *InferenceSettingsJS) ToJSON() map[string]any {
+    return redactedDetachedSettingsSnapshot(s.settings, s.provenance)
 }
 
-func (b *InferenceSettingsBuilderJS) Build() *InferenceSettingsJS {
-    if err := validateInferenceSettingsForJS(b.settings); err != nil { panic(b.api.vm.NewGoError(err)) }
-    return &InferenceSettingsJS{api: b.api, settings: b.settings.Clone(), credentialRef: b.credentialRef}
+func (s *InferenceSettingsJS) Debug() map[string]any {
+    return redactedSettingsDebugView(s.settings, s.provenance)
 }
 ```
+
+Do not add `InferenceSettingsBuilderJS` in the first pass. If a script needs another provider/model/temperature/token setting, it should resolve a different profile or load a different registry file.
 
 ## Effort Estimate
 
@@ -515,7 +509,7 @@ Best intern-safe approach: first make Pinocchio call the new Geppetto functions 
 In `geppetto/pkg/js/modules/geppetto`:
 
 - add `InferenceSettingsJS` wrapper;
-- add `InferenceSettingsBuilderJS` wrapper;
+- do **not** add `InferenceSettingsBuilderJS` in the first pass;
 - add `inferenceProfiles` namespace wrapper;
 - update `engine()` builder to accept only `InferenceSettingsJS` or direct Go settings interfaces;
 - remove `apiKey` / `apiKeyEnv` methods from public API.
@@ -531,8 +525,8 @@ const engine = gp.engine().inference(settings).build();
 
 Add tests:
 
-- `gp.inferenceSettings()` returns a Go wrapper, not a plain object.
-- `settings.toJSON()` returns a serializable snapshot.
+- `gp.inferenceSettings()` does not exist in the first-pass public API.
+- registry-resolved `settings.toJSON()` returns a serializable snapshot.
 - `gp.inferenceProfiles.resolve("assistant")` returns `InferenceSettings` wrapper.
 - spreading/cloning JS snapshots does not mutate the Go object.
 - `apiKey`, `apiKeyEnv`, and `fromEnv` do not exist.
@@ -589,11 +583,11 @@ Do the extraction. It is worth it because the core registry already lives in Gep
 
 The minimum valuable deliverable is:
 
-1. `geppetto/pkg/engineprofiles/profiledoc` with inline profile documents and registry composition.
+1. Existing `geppetto/pkg/engineprofiles` YAML/SQLite registry sources exposed through JS loading.
 2. `gp.inferenceProfiles.resolve(...)` returning a Go-owned `InferenceSettings` wrapper.
-3. `gp.inferenceSettings()` builder returning the same wrapper type.
+3. No first-pass `gp.inferenceSettings()` builder; model parameter tweaks happen through registry profiles.
 4. JS credential policy that forbids env/API-key methods.
-5. Pinocchio updated to use the Geppetto package for inline profile registry composition.
+5. Pinocchio remains a host/application-side source of defaults without becoming a Geppetto JS dependency.
 
 This is a medium extraction with low conceptual risk because most hard registry behavior already exists in Geppetto.
 

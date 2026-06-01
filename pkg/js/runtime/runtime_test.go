@@ -141,7 +141,7 @@ func TestNewRuntime_RegistersGeppettoAndCustomBindings(t *testing.T) {
 
 	if _, err := rt.VM.RunString(`
 		const gp = require("geppetto");
-		if (!gp || typeof gp.createSession !== "function") {
+		if (!gp || typeof gp.agent !== "function" || typeof gp.turn !== "function") {
 			throw new Error("missing geppetto binding");
 		}
 		registerSemReducer("llm.delta", function(ev) { return ev; });
