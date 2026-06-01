@@ -347,3 +347,97 @@ The tests passed, which strengthens the recommendation to evolve the current mod
 ### Technical details
 
 - Command: `cd geppetto && go test ./pkg/js/modules/geppetto ./pkg/js/runtime -count=1`
+
+## Step 5: Commit, validate, and upload the ticket bundle
+
+I committed the initial ticket artifacts, validated the docmgr frontmatter and ticket health, fixed the vocabulary/source-frontmatter issues found by `docmgr doctor`, and uploaded the final design+diary bundle to reMarkable. This step converted the investigation from a local draft into a reviewable and delivered ticket package.
+
+The first doctor run caught two issues: `goja` was not yet in the topic vocabulary, and the generated evidence markdown lacked docmgr frontmatter. I fixed both by adding the vocabulary entry and updating the evidence script to emit frontmatter before regenerating `sources/01-code-evidence.md`.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Finalize the ticket deliverables, validate them, commit them, and upload them to reMarkable.
+
+**Inferred user intent:** Make the design package durable, discoverable, and available on the user’s reMarkable device.
+
+**Commit (code):** 321fb82ba9f09a5684d92805ca294783370ec1b9 — "Docs: review Geppetto goja JS API redesign"
+
+### What I did
+
+- Ran targeted Geppetto tests before finalization:
+  - `cd geppetto && go test ./pkg/js/modules/geppetto ./pkg/js/runtime -count=1`
+- Ran frontmatter validation for the design doc and diary.
+- Ran `docmgr doctor --ticket GP-GOJA-API-2026-06-01 --stale-after 30`.
+- Fixed doctor findings:
+  - added vocabulary topic `goja`;
+  - updated and reran `scripts/01-collect-evidence.sh` so `sources/01-code-evidence.md` has frontmatter.
+- Re-ran `docmgr doctor`, which passed.
+- Committed the initial docs package:
+  - `321fb82ba9f09a5684d92805ca294783370ec1b9`
+- Verified reMarkable status and account:
+  - `remarquee status`
+  - `remarquee cloud account --non-interactive`
+- Ran reMarkable dry-run bundle upload.
+- Uploaded the real bundle.
+- Verified remote listing:
+  - `/ai/2026/06/01/GP-GOJA-API-2026-06-01`
+
+### Why
+
+- The ticket needed a clean doctor report before upload.
+- The user explicitly requested reMarkable upload.
+- Committing the docs creates a stable checkpoint before future implementation changes.
+
+### What worked
+
+- `docmgr doctor` passed after adding the vocabulary entry and source frontmatter.
+- `remarquee status` returned `remarquee: ok`.
+- `remarquee cloud account --non-interactive` returned `user=wesen@ruinwesen.com sync_version=1.5`.
+- Dry-run upload printed the expected bundle plan.
+- Real upload succeeded:
+  - `OK: uploaded GP-GOJA-API-2026-06-01 Geppetto goja API review.pdf -> /ai/2026/06/01/GP-GOJA-API-2026-06-01`
+- Remote listing showed:
+  - `[f]	GP-GOJA-API-2026-06-01 Geppetto goja API review`
+
+### What didn't work
+
+- The first frontmatter validation command passed paths prefixed with `geppetto/ttmp/...`; docmgr interpreted them relative to its docs root and failed:
+  - Error: `open /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/geppetto/ttmp/...: no such file or directory`
+  - Fix: reran validation with absolute paths.
+- The first `docmgr doctor` reported:
+  - warning: unknown topic `goja`;
+  - error: `sources/01-code-evidence.md` missing frontmatter delimiters.
+- After removing the placeholder task, task IDs shifted; `docmgr task check --id 6` failed with `task id(s) not found: [6]`. I listed tasks and checked the correct final task ID, `5`.
+
+### What I learned
+
+- Docmgr path arguments are safest as absolute paths when validating docs from outside the docs root.
+- Generated source markdown under a ticket still needs frontmatter unless ignored.
+- Removing placeholder tasks changes docmgr task IDs.
+
+### What was tricky to build
+
+- The tricky part was keeping generated evidence useful while satisfying docmgr validation. The evidence script originally emitted plain markdown, which was good for humans but invalid for doctor. The fix was to make the script emit full frontmatter before the evidence body and then regenerate the source artifact.
+
+### What warrants a second pair of eyes
+
+- The first commit predates the final diary/changelog/task updates from upload completion, so reviewers should inspect the follow-up docs commit too.
+- The uploaded bundle includes the design doc and diary, not the large generated evidence source, to keep the reMarkable PDF readable.
+
+### What should be done in the future
+
+- If the implementation begins, create a new code-focused step and commit separate from the research/design commits.
+
+### Code review instructions
+
+- Validate ticket health with:
+  - `docmgr doctor --ticket GP-GOJA-API-2026-06-01 --stale-after 30`
+- Verify upload with:
+  - `remarquee cloud ls /ai/2026/06/01/GP-GOJA-API-2026-06-01 --long --non-interactive`
+
+### Technical details
+
+- reMarkable remote directory: `/ai/2026/06/01/GP-GOJA-API-2026-06-01`
+- Bundle name: `GP-GOJA-API-2026-06-01 Geppetto goja API review`
