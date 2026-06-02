@@ -17,4 +17,4 @@
 
 - [x] Implement Pinocchio host adapter for DSN-backed turn stores.
 - [x] Add Pinocchio `pinocchio js` integration tests against a temporary SQLite turn store.
-- [ ] Run a real host-backed storage smoke once the Pinocchio adapter exists.
+- [x] Run a real host-backed storage smoke once the Pinocchio adapter exists.

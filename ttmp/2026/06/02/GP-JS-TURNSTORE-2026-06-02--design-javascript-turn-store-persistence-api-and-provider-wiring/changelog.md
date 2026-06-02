@@ -45,3 +45,13 @@ Wired Pinocchio js --turns-dsn/--turns-db into Geppetto JS gp.turnStores.default
 - /home/manuel/workspaces/2026-06-01/geppetto-js/pinocchio/cmd/pinocchio/cmds/js_turn_store.go — Host adapter implementation
 - /home/manuel/workspaces/2026-06-01/geppetto-js/pinocchio/cmd/pinocchio/cmds/js_turn_store_test.go — Adapter/runtime regression coverage
 
+
+## 2026-06-02
+
+Validated Pinocchio JS two-process --turns-db storage/resume smoke with live provider; second process resumed one stored turn and persisted a second (session pinocchio-js-storage-1780440401).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/pinocchio/cmd/pinocchio/cmds/js.go — CLI storage path exercised by smoke
+- /home/manuel/workspaces/2026-06-01/geppetto-js/pinocchio/cmd/pinocchio/cmds/js_turn_store.go — Adapter persistence/resume path exercised by smoke
+

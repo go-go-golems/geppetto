@@ -27,7 +27,7 @@ RelatedFiles:
       Note: Added enableStorage/turns provider config gating (commit cf09f49e)
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-06-02T19:10:00-04:00
+LastUpdated: 2026-06-02T19:22:00-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
@@ -299,3 +299,75 @@ This closes the host-wiring loop from the earlier Geppetto module work: Geppetto
 - `LoadLatestTurn` accepts either `convId` or `sessionId` from Geppetto JS and defaults `phase` to `final`.
 - Stored payloads use `serde.ToYAML` / `serde.FromYAML`, matching Pinocchio's existing CLI turn persistence path.
 - `pinocchio js` now registers the same store as both read-capable `DefaultTurnStore` and write-capable `DefaultPersister`.
+
+
+## Step 4: Run a live Pinocchio JS storage/resume smoke
+
+After the Pinocchio adapter commit, I ran a two-process live-provider smoke through `pinocchio js` using a temporary SQLite `--turns-db`. The first process created a session, ran a provider call, and verified `gp.turnStores.default().loadLatest(...)` could read the final turn. The second process opened the same database, built the same session id with `resumeLatest({ required: true })`, and ran a follow-up question against the restored context.
+
+The smoke proved the full path works outside unit tests: CLI flag opens SQLite, Pinocchio adapts the store into Geppetto JS, session execution persists final turns, and a later runtime can resume the previous final turn as base context.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 3)
+
+**Assistant interpretation:** Continue after implementation by validating the host-backed storage flow with the real Pinocchio command and recording the result.
+
+**Inferred user intent:** Make sure the storage feature works end-to-end in the actual CLI host, not only in tests.
+
+**Commit (code):** N/A — validation only.
+
+### What I did
+- Created two temporary JavaScript scripts under a temporary directory.
+- Ran both scripts with:
+  - `go run ./cmd/pinocchio js --script <script> --profile-registries "$HOME/.config/pinocchio/profiles.yaml" --profile default --turns-db <tmp>/turns.db`
+- First script:
+  - built `agent.session().id(sid).defaultStore().build()`
+  - ran a provider prompt asking for `PINO_JS_ALPHA`
+  - verified `store.loadLatest({ sessionId: sid, phase: "final" })` returned a turn
+- Second script:
+  - built `agent.session().id(sid).defaultStore().resumeLatest({ required: true }).build()`
+  - verified `beforeCount: 1`
+  - ran a follow-up asking for the previous token
+  - verified the store listed two persisted snapshots
+
+### Why
+- The adapter's important behavior is cross-process persistence/resume, which unit tests approximate but do not fully exercise through the CLI command.
+- Running through `pinocchio js` validates the same flags and runtime registration users will rely on.
+
+### What worked
+- First process output included:
+  - `"text": "PINO_JS_ALPHA"`
+  - `"listed": 1`
+- Second process output included:
+  - `"beforeCount": 1`
+  - `"turnCount": 2`
+  - `"text": "PINO_JS_ALPHA PINO_JS_BETA:PINO_JS_ALPHA"`
+  - `"listed": 2`
+- The second response contained the prior token, demonstrating the resumed final turn was delivered as context.
+
+### What didn't work
+- The model included the previous token before the requested `PINO_JS_BETA:<token>` form (`"PINO_JS_ALPHA PINO_JS_BETA:PINO_JS_ALPHA"`). This is acceptable for the smoke because the validation goal was non-empty contextual output and persistence/resume, not exact deterministic formatting.
+
+### What I learned
+- The `resumeLatest({ required: true })` path is usable from `pinocchio js` exactly as designed once the store is registered as both default store and default persister.
+- The store list count is a simple and robust host-level assertion for cross-process persistence.
+
+### What was tricky to build
+- The main trick was testing cross-process state while keeping the script temporary and not committing credentials or generated DB files. I used a temporary directory, exported a generated session id through `PINO_JS_STORAGE_SID`, and let `--turns-db` create the SQLite file under that directory.
+
+### What warrants a second pair of eyes
+- Review whether the smoke should become an opt-in shell script in the repo, gated by real profile availability, similar to the Geppetto real-provider examples.
+
+### What should be done in the future
+- Add a checked-in, non-default real-provider smoke wrapper if we want this validation to be repeatable without hand-written temporary scripts.
+- Consider adding a deterministic no-network CLI integration test if a host-side fake engine hook becomes available.
+
+### Code review instructions
+- Reproduce with a temporary `--turns-db` and two `pinocchio js` invocations using the same session id.
+- Validate that the first run lists one stored turn and the second run starts with `beforeCount: 1` and lists two stored turns after completion.
+
+### Technical details
+- Smoke session id used in this run: `pinocchio-js-storage-1780440401`.
+- First persisted turn id: `cb2f5f15-a23f-43fb-a9e6-dc865e75ed04`.
+- Second persisted turn id: `f9b3c56d-f265-49aa-94c9-680a6c8085c8`.
