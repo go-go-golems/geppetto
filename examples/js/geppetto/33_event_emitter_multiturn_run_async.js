@@ -1,4 +1,4 @@
-// Multi-turn EventEmitter example for `agent.runAsync(...)`.
+// Multi-turn EventEmitter example for `session.next().runAsync(...)`.
 //
 // Run from the repository root with:
 //
@@ -9,9 +9,8 @@
 //     --timeout-ms 120000
 //
 // A builder-level EventEmitter is attached once and receives events for both
-// asynchronous runs from the same agent. The second turn explicitly continues
-// from the first output turn, preserving the hard-cut explicit-turn model
-// without hidden agent state.
+// asynchronous runs from the same session. The second session.next() call
+// continues from the latest session turn without exposing public turn-run input.
 
 (async () => {
   const gp = require("geppetto");
@@ -59,22 +58,21 @@
     .runDefaults({ timeoutMs, tags: { example: "event-emitter-multiturn-run-async" } })
     .build();
 
+  const session = agent.session().id("event-emitter-multiturn-smoke").build();
   const system = "You are participating in a deterministic integration smoke test. Follow the requested output format exactly.";
 
-  const turn1 = gp.turn()
+  const result1 = await session.next()
     .system(system)
     .user("Turn 1: Reply with exactly this token and no extra words: ASYNC_ALPHA_GEPPETTO")
-    .build();
-
-  const result1 = await agent.runAsync(turn1).promise;
+    .runAsync()
+    .promise;
   const text1 = oneLine(result1.text());
   if (!text1) throw new Error("turn 1 returned empty text");
 
-  const turn2 = gp.turn(result1.outputTurn())
+  const result2 = await session.next()
     .user("Turn 2: What exact token did you return in the previous assistant message? Reply in the form ASYNC_BETA_GEPPETTO:<token> and no extra words.")
-    .build();
-
-  const result2 = await agent.runAsync(turn2).promise;
+    .runAsync()
+    .promise;
   const text2 = oneLine(result2.text());
   if (!text2) throw new Error("turn 2 returned empty text");
 
@@ -82,6 +80,8 @@
     profile,
     registry: settingsSnapshot.provenance && settingsSnapshot.provenance.registrySlug,
     model: settingsSnapshot.chat && settingsSnapshot.chat.engine,
+    sessionId: session.id(),
+    turnCount: session.turnCount(),
     turn1: text1,
     turn2: text2,
     totalEvents: allEvents.length,

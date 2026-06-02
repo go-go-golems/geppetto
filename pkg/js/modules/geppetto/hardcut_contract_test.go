@@ -37,7 +37,6 @@ func TestHardCutPublicSurfaceContract(t *testing.T) {
 			"consts",
 			"agent",
 			"inferenceProfiles",
-			"turn",
 			"turnStores",
 			"engine",
 			"tool",
@@ -51,6 +50,7 @@ func TestHardCutPublicSurfaceContract(t *testing.T) {
 		const removedTopLevel = [
 			"chat",
 			"inferenceSettings",
+			"turn",
 			"createBuilder",
 			"createSession",
 			"runInference",

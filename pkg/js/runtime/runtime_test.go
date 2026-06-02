@@ -200,8 +200,11 @@ func TestNewRuntime_RegistersGeppettoAndCustomBindings(t *testing.T) {
 
 	if _, err := rt.VM.RunString(`
 		const gp = require("geppetto");
-		if (!gp || typeof gp.agent !== "function" || typeof gp.turn !== "function") {
+		if (!gp || typeof gp.agent !== "function") {
 			throw new Error("missing geppetto binding");
+		}
+		if (Object.prototype.hasOwnProperty.call(gp, "turn")) {
+			throw new Error("gp.turn must not be public");
 		}
 		registerSemReducer("llm.delta", function(ev) { return ev; });
 	`); err != nil {

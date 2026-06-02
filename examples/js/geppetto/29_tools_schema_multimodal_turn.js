@@ -1,5 +1,10 @@
-// Phase 5 hard-cut example: schema/tool/toolRegistry wrappers plus multimodal turn construction.
+// Phase 5 hard-cut example: schema/tool/toolRegistry wrappers plus multimodal session input.
 const gp = require("geppetto");
+
+const source = globalThis.GEPPETTO_PHASE123_PROFILE ||
+  "examples/js/geppetto/profiles/50-hardcut-phase123.yaml";
+const registryFile = gp.inferenceProfiles.load(source);
+const settings = registryFile.resolve("assistant");
 
 const input = gp.schema.object()
   .property("value", gp.schema.string().description("Value to echo"))
@@ -18,20 +23,23 @@ if (called.echoed !== "phase5") {
   throw new Error("tool call failed");
 }
 
-const turn = gp.turn()
+const agent = gp.agent().inference(settings).tool(registry).build();
+const session = agent.session().id("multimodal-demo").build();
+const builder = session.next()
   .system("You can inspect images.")
   .user(m => m
     .text("What is in this image?")
-    .imageURL("https://example.invalid/screenshot.png"))
-  .build();
+    .imageURL("https://example.invalid/screenshot.png"));
 
-const snapshot = turn.toJSON();
-if (snapshot.blocks[1].payload.images[0].url !== "https://example.invalid/screenshot.png") {
-  throw new Error("multimodal image URL missing");
+if (!builder || typeof builder.run !== "function") {
+  throw new Error("session.next() did not create a runnable turn builder");
 }
 
 console.log(JSON.stringify({
   tool: registry.list()[0].name,
   result: called.echoed,
-  images: snapshot.blocks[1].payload.images.length,
+  sessionId: session.id(),
+  multimodalInput: true,
 }, null, 2));
+
+registryFile.close();

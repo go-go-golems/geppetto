@@ -54,7 +54,8 @@ func TestAgentRunWithJSToolRegistryDoesNotDeadlockOwner(t *testing.T) {
 				.tool(registry)
 				.toolLoop({ maxIterations: 3 })
 				.build();
-			const result = agent.run(gp.turn().user("please call echo").build(), { timeoutMs: 1000 });
+			const session = agent.session().id("sync-tool-test").build();
+			const result = session.next().user("please call echo").run({ timeoutMs: 1000 });
 			globalThis.finalText = result.text();
 		`)
 		return nil, runErr

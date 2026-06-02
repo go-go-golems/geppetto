@@ -152,8 +152,9 @@ func TestAgentPersistToStoreAndReadLatest(t *testing.T) {
 		_, runErr := vm.RunString(`
 			const gp = require("geppetto");
 			const store = gp.turnStores.get("durable");
-			const agent = gp.agent().engine(globalThis.fakeEngine).persistTo(store).build();
-			const result = agent.run(gp.turn().user("persist me").build());
+			const agent = gp.agent().engine(globalThis.fakeEngine).store(store).build();
+			const session = agent.session().id("persist-store-test").build();
+			const result = session.next().user("persist me").run();
 			const latest = store.loadLatest({ phase: "final" });
 			globalThis.persistReadback = JSON.stringify({
 				text: result.text(),
@@ -201,7 +202,8 @@ func TestAgentPersistToNullDisablesHostDefaultPersister(t *testing.T) {
 		_, runErr := vm.RunString(`
 			const gp = require("geppetto");
 			const agent = gp.agent().engine(globalThis.fakeEngine).persistTo(null).build();
-			agent.run(gp.turn().user("do not persist").build());
+			const session = agent.session().id("persist-null-test").build();
+			session.next().user("do not persist").run();
 		`)
 		return nil, runErr
 	})
@@ -224,8 +226,9 @@ func TestAgentRunAsyncPersistsToStore(t *testing.T) {
 			const gp = require("geppetto");
 			globalThis.asyncPersistDone = false;
 			const store = gp.turnStores.get("durable");
-			const agent = gp.agent().engine(globalThis.fakeEngine).persistTo(store).build();
-			agent.runAsync(gp.turn().user("persist async").build()).promise.then(
+			const agent = gp.agent().engine(globalThis.fakeEngine).store(store).build();
+			const session = agent.session().id("persist-async-test").build();
+			session.next().user("persist async").runAsync().promise.then(
 				result => { globalThis.asyncPersistDone = true; globalThis.asyncPersistText = result.text(); },
 				err => { globalThis.asyncPersistDone = true; globalThis.asyncPersistError = String(err); },
 			);

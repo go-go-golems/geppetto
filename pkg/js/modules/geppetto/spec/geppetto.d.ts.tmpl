@@ -131,23 +131,6 @@ declare module "geppetto" {
         clone(): TurnWrapper;
     }
 
-    export interface TurnBuilder {
-        system(text: string): TurnBuilder;
-        user(text: string | ((message: MessageBuilder) => MessageBuilder)): TurnBuilder;
-        assistant(text: string): TurnBuilder;
-        metadata(key: string, value: any): TurnBuilder;
-        build(): TurnWrapper;
-    }
-
-    /**
-     * Create a new TurnBuilder. When base is supplied, it must be a Go-owned
-     * TurnWrapper; the builder clones its blocks/metadata and clears the copied
-     * turn id so the result is a continuation turn rather than the same
-     * persisted turn. Use TurnWrapper.clone() for an exact identity-preserving
-     * copy.
-     */
-    export function turn(base?: TurnWrapper): TurnBuilder;
-
     export interface TurnStoreQuery {
         convId?: string;
         conversationId?: string;
@@ -268,10 +251,46 @@ declare module "geppetto" {
         close(): void;
     }
 
+    export interface SessionBuilder {
+        id(id: string): SessionBuilder;
+        name(name: string): SessionBuilder;
+        base(turn: TurnWrapper): SessionBuilder;
+        store(store: TurnStore): SessionBuilder;
+        defaultStore(): SessionBuilder;
+        persist(enabled?: boolean): SessionBuilder;
+        resumeLatest(query?: TurnStoreQuery & { required?: boolean }): SessionBuilder;
+        resumeNone(): SessionBuilder;
+        metadata(key: string, value: any): SessionBuilder;
+        runDefaults(options?: RunOptions): SessionBuilder;
+        build(): AgentSession;
+    }
+
+    export interface AgentSession {
+        id(): string;
+        name(): string;
+        next(): SessionTurnBuilder;
+        fork(options?: { at?: number | TurnWrapper } | TurnWrapper): SessionBuilder;
+        latestTurn(): TurnWrapper | null;
+        turns(): TurnWrapper[];
+        turn(index: number): TurnWrapper | null;
+        turnCount(): number;
+        isRunning(): boolean;
+        cancel(): void;
+        close(): void;
+    }
+
+    export interface SessionTurnBuilder {
+        system(text: string): SessionTurnBuilder;
+        user(text: string | ((message: MessageBuilder) => MessageBuilder)): SessionTurnBuilder;
+        assistant(text: string): SessionTurnBuilder;
+        metadata(key: string, value: any): SessionTurnBuilder;
+        run(options?: RunOptions): RunResult;
+        runAsync(options?: RunOptions): AgentAsyncHandle;
+    }
+
     export interface Agent {
         name: string;
-        run(turn: TurnWrapper, options?: RunOptions): RunResult;
-        runAsync(turn: TurnWrapper, options?: RunOptions): AgentAsyncHandle;
+        session(): SessionBuilder;
     }
 
     export interface AgentBuilder {
@@ -284,6 +303,9 @@ declare module "geppetto" {
         goTool(name: string): AgentBuilder;
         toolLoop(options?: Record<string, any>): AgentBuilder;
         events(sink: any | EventEmitterLike): AgentBuilder;
+        store(store: TurnStore | null): AgentBuilder;
+        defaultStore(enabled?: boolean): AgentBuilder;
+        persist(enabled?: boolean): AgentBuilder;
         persistTo(store: TurnStore | null): AgentBuilder;
         persistDefault(enabled?: boolean): AgentBuilder;
         runDefaults(options?: RunOptions): AgentBuilder;

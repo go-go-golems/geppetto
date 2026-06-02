@@ -1,4 +1,4 @@
-// Real provider multi-turn smoke example for the hard-cut Geppetto JS API.
+// Real provider multi-turn smoke example for the session-centered Geppetto JS API.
 //
 // Run from the repository root with:
 //
@@ -8,10 +8,10 @@
 //     --profile default \
 //     --timeout-ms 120000
 //
-// This performs two real provider calls. The second explicit Turn continues
-// from the first output turn, so the provider receives real multi-turn
-// conversational context through the Go-owned Turn wrapper API without hidden
-// agent state.
+// This performs two real provider calls. The second session.next() call clones
+// the latest session context before appending new user input, so the provider
+// receives real multi-turn conversational context without exposing public
+// turn-run execution.
 
 const gp = require("geppetto");
 
@@ -32,24 +32,25 @@ const agent = gp.agent()
   .runDefaults({ timeoutMs, tags: { example: "real-provider-multiturn" } })
   .build();
 
-const system = "You are participating in a deterministic integration smoke test. Follow the requested output format exactly.";
-
-const turn1 = gp.turn()
-  .system(system)
-  .user("Turn 1: Reply with exactly this token and no extra words: ALPHA_GEPPETTO")
+const session = agent.session()
+  .id("real-provider-multiturn-smoke")
+  .runDefaults({ timeoutMs })
   .build();
 
-const result1 = agent.run(turn1);
+const system = "You are participating in a deterministic integration smoke test. Follow the requested output format exactly.";
+
+const result1 = session.next()
+  .system(system)
+  .user("Turn 1: Reply with exactly this token and no extra words: ALPHA_GEPPETTO")
+  .run();
 const text1 = oneLine(result1.text());
 if (!text1) {
   throw new Error("turn 1 returned empty text");
 }
 
-const turn2 = gp.turn(result1.outputTurn())
+const result2 = session.next()
   .user("Turn 2: What exact token did you return in the previous assistant message? Reply in the form BETA_GEPPETTO:<token> and no extra words.")
-  .build();
-
-const result2 = agent.run(turn2);
+  .run();
 const text2 = oneLine(result2.text());
 if (!text2) {
   throw new Error("turn 2 returned empty text");
@@ -59,6 +60,8 @@ console.log(JSON.stringify({
   profile,
   registry: settingsSnapshot.provenance && settingsSnapshot.provenance.registrySlug,
   model: settingsSnapshot.chat && settingsSnapshot.chat.engine,
+  sessionId: session.id(),
+  turnCount: session.turnCount(),
   turn1: {
     text: text1,
     inputBlocks: result1.inputTurn().toJSON().blocks.length,

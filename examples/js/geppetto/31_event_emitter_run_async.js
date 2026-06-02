@@ -1,4 +1,4 @@
-// Real provider EventEmitter + runAsync smoke example for the hard-cut Geppetto JS API.
+// Real provider EventEmitter + session.next().runAsync() smoke example.
 //
 // Run from the repository root with:
 //
@@ -9,7 +9,7 @@
 //     --timeout-ms 120000
 //
 // The script returns a Promise. The example runner waits for returned promises,
-// so this can exercise live EventEmitter delivery through agent.runAsync(...).
+// so this can exercise live EventEmitter delivery through session.next().runAsync(...).
 
 (async () => {
   const gp = require("geppetto");
@@ -46,12 +46,12 @@
     .runDefaults({ timeoutMs, tags: { example: "event-emitter-run-async" } })
     .build();
 
-  const turn = gp.turn()
+  const session = agent.session().id("event-emitter-run-async-smoke").build();
+  const handle = session.next()
     .system("You are participating in a deterministic integration smoke test. Follow the requested output format exactly.")
     .user("Reply with exactly this token and no extra words: ASYNC_GEPPETTO")
-    .build();
+    .runAsync();
 
-  const handle = agent.runAsync(turn);
   const result = await handle.promise;
   const text = String(result.text() || "").replace(/\s+/g, " ").trim();
   if (!text) {
@@ -62,6 +62,7 @@
     profile,
     registry: settingsSnapshot.provenance && settingsSnapshot.provenance.registrySlug,
     model: settingsSnapshot.chat && settingsSnapshot.chat.engine,
+    sessionId: session.id(),
     text,
     eventCount: seen.length,
     eventTypes: Array.from(new Set(seen)),

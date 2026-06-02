@@ -69,9 +69,9 @@ func TestHardCutPublicSurface(t *testing.T) {
 		const gp = require("geppetto");
 		function assert(cond, msg) { if (!cond) throw new Error(msg); }
 		function has(obj, key) { return Object.prototype.hasOwnProperty.call(obj, key); }
-		const required = ["version", "consts", "agent", "inferenceProfiles", "turn", "turnStores", "engine", "tool", "toolRegistry", "schema"];
+		const required = ["version", "consts", "agent", "inferenceProfiles", "turnStores", "engine", "tool", "toolRegistry", "schema"];
 		for (const key of required) assert(has(gp, key), "missing export: " + key);
-		const removed = ["chat", "inferenceSettings", "createBuilder", "createSession", "runInference", "profiles", "engines", "turns", "runner", "schemas", "middlewares", "tools", "events"];
+		const removed = ["chat", "inferenceSettings", "turn", "createBuilder", "createSession", "runInference", "profiles", "engines", "turns", "runner", "schemas", "middlewares", "tools", "events"];
 		for (const key of removed) assert(!has(gp, key), "legacy export should be absent: " + key);
 	`)
 }

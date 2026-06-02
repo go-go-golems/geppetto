@@ -1,21 +1,16 @@
 package geppetto
 
 import (
-	"context"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	enginefactory "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
-	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
-	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
-	"github.com/google/uuid"
 )
 
 type persistMode int
@@ -182,9 +177,9 @@ func (m *moduleRuntime) newAgentBuilderObject(ref *agentBuilderRef) *goja.Object
 		ref.eventSinks = append(ref.eventSinks, sink)
 		return o
 	})
-	m.mustSet(o, "persistTo", func(call goja.FunctionCall) goja.Value {
+	configureStore := func(call goja.FunctionCall, method string) goja.Value {
 		if len(call.Arguments) < 1 || goja.IsUndefined(call.Arguments[0]) {
-			panic(m.vm.NewTypeError("agent().persistTo requires a TurnStore wrapper or null"))
+			panic(m.vm.NewTypeError("agent()." + method + " requires a TurnStore wrapper or null"))
 		}
 		if goja.IsNull(call.Arguments[0]) {
 			ref.persistMode = persistDisabled
@@ -198,8 +193,8 @@ func (m *moduleRuntime) newAgentBuilderObject(ref *agentBuilderRef) *goja.Object
 		ref.persistMode = persistExplicit
 		ref.persister = store
 		return o
-	})
-	m.mustSet(o, "persistDefault", func(call goja.FunctionCall) goja.Value {
+	}
+	configureDefaultStore := func(call goja.FunctionCall) goja.Value {
 		enabled := true
 		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Arguments[0]) && !goja.IsNull(call.Arguments[0]) {
 			enabled = call.Arguments[0].ToBoolean()
@@ -216,7 +211,12 @@ func (m *moduleRuntime) newAgentBuilderObject(ref *agentBuilderRef) *goja.Object
 		ref.persistMode = persistUseDefault
 		ref.persister = persister
 		return o
-	})
+	}
+	m.mustSet(o, "store", func(call goja.FunctionCall) goja.Value { return configureStore(call, "store") })
+	m.mustSet(o, "persistTo", func(call goja.FunctionCall) goja.Value { return configureStore(call, "persistTo") })
+	m.mustSet(o, "defaultStore", configureDefaultStore)
+	m.mustSet(o, "persist", configureDefaultStore)
+	m.mustSet(o, "persistDefault", configureDefaultStore)
 	m.mustSet(o, "runDefaults", func(call goja.FunctionCall) goja.Value {
 		opts, err := m.parseRunOptions(call.Arguments, 0)
 		if err != nil {
@@ -276,38 +276,6 @@ func (m *moduleRuntime) newAgentObject(ref *agentRef) *goja.Object {
 	m.mustSet(o, "session", func(goja.FunctionCall) goja.Value {
 		return m.newSessionBuilderObject(newSessionBuilderFromAgent(ref))
 	})
-	m.mustSet(o, "run", func(call goja.FunctionCall) goja.Value {
-		if len(call.Arguments) < 1 || goja.IsUndefined(call.Arguments[0]) || goja.IsNull(call.Arguments[0]) {
-			panic(m.vm.NewTypeError("agent.run requires a Go-owned Turn wrapper"))
-		}
-		turn, err := m.requireTurnRef(call.Arguments[0])
-		if err != nil {
-			panic(m.vm.NewGoError(err))
-		}
-		opts, err := m.parseAgentRunOptions(ref.runDefaults, call.Arguments, 1)
-		if err != nil {
-			panic(m.vm.NewGoError(err))
-		}
-		result, err := ref.runSync(turn.turn, opts)
-		if err != nil {
-			panic(m.vm.NewGoError(err))
-		}
-		return m.newRunResultObject(result)
-	})
-	m.mustSet(o, "runAsync", func(call goja.FunctionCall) goja.Value {
-		if len(call.Arguments) < 1 || goja.IsUndefined(call.Arguments[0]) || goja.IsNull(call.Arguments[0]) {
-			panic(m.vm.NewTypeError("agent.runAsync requires a Go-owned Turn wrapper"))
-		}
-		turn, err := m.requireTurnRef(call.Arguments[0])
-		if err != nil {
-			panic(m.vm.NewGoError(err))
-		}
-		opts, err := m.parseAgentRunOptions(ref.runDefaults, call.Arguments, 1)
-		if err != nil {
-			panic(m.vm.NewGoError(err))
-		}
-		return ref.startAsync(turn.turn, opts)
-	})
 	return o
 }
 
@@ -360,222 +328,6 @@ func (a *agentRef) newBuilderRef(runScopedEventSinks []events.EventSink, persist
 		a.api.applyToolLoopSettings(b, a.loopOptions, a.api.vm.ToValue(a.loopOptions))
 	}
 	return b
-}
-
-func (a *agentRef) buildSession(runScopedEventSinks []events.EventSink) (*sessionRef, error) {
-	return a.newBuilderRef(runScopedEventSinks, a.selectedPersister()).buildSession()
-}
-
-type startedAgentRun struct {
-	handle        *session.ExecutionHandle
-	inputSnapshot *turns.Turn
-	effectiveTurn *turns.Turn
-	cancel        context.CancelFunc
-}
-
-func (a *agentRef) startRun(input *turns.Turn, opts runOptions, runScopedEventSinks []events.EventSink) (*startedAgentRun, error) {
-	if input == nil {
-		return nil, fmt.Errorf("agent run requires turn")
-	}
-	sr, err := a.buildSession(runScopedEventSinks)
-	if err != nil {
-		return nil, err
-	}
-	inputSnapshot := input.Clone()
-	seed := input.Clone()
-	stampTurnRuntimeMetadata(seed, sr.runtimeMetadata)
-	effective := seed.Clone()
-	sr.session.Append(seed)
-	ctx, cancel, err := sr.buildRunContext(opts)
-	if err != nil {
-		return nil, err
-	}
-	handle, err := sr.session.StartInference(ctx)
-	if err != nil {
-		cancel()
-		return nil, err
-	}
-	return &startedAgentRun{handle: handle, inputSnapshot: inputSnapshot, effectiveTurn: effective, cancel: cancel}, nil
-}
-
-func (a *agentRef) runSync(input *turns.Turn, opts runOptions) (*runResultRef, error) {
-	runScopedEventSinks, closers, err := a.newRunScopedEventEmitterSinks()
-	if err != nil {
-		return nil, err
-	}
-	result, err := a.runBlockingOnOwner(input, opts, runScopedEventSinks)
-	if err != nil {
-		closeRunScopedEventEmitterSinks(a.api.runtimeContext(), closers)
-		return nil, err
-	}
-	a.closeRunScopedEventEmitterSinksAfterOwnerQueue(closers)
-	return result, nil
-}
-
-// runBlockingOnOwner implements synchronous agent.run without using
-// Session.StartInference/ExecutionHandle.Wait. agent.run is invoked from the
-// goja owner thread; if we started inference in a goroutine and then blocked the
-// owner in Wait, JS-backed tools/middleware would deadlock when they call back
-// through callOnOwner. Running the blocking runner on this owner-thread stack
-// keeps those callbacks re-entrant while preserving runAsync's goroutine-based
-// behavior for live streaming.
-func (a *agentRef) runBlockingOnOwner(input *turns.Turn, opts runOptions, runScopedEventSinks []events.EventSink) (*runResultRef, error) {
-	if input == nil {
-		return nil, fmt.Errorf("agent run requires turn")
-	}
-	sr, err := a.buildSession(runScopedEventSinks)
-	if err != nil {
-		return nil, err
-	}
-	inputSnapshot := input.Clone()
-	seed := input.Clone()
-	stampTurnRuntimeMetadata(seed, sr.runtimeMetadata)
-	effective := seed.Clone()
-	sr.session.Append(seed)
-	ctx, cancel, err := sr.buildRunContext(opts)
-	if err != nil {
-		return nil, err
-	}
-	defer cancel()
-	if a != nil && a.api != nil && a.api.runtimeOwner != nil {
-		ctx = runtimeowner.OwnerContext(a.api.runtimeOwner, ctx)
-	}
-	if seed.ID == "" {
-		seed.ID = uuid.NewString()
-	}
-	inferenceID := uuid.NewString()
-	_ = turns.KeyTurnMetaSessionID.Set(&seed.Metadata, sr.session.SessionID)
-	_ = turns.KeyTurnMetaInferenceID.Set(&seed.Metadata, inferenceID)
-	runner, err := sr.session.Builder.Build(ctx, sr.session.SessionID)
-	if err != nil {
-		return nil, err
-	}
-	runCtx := session.WithSessionMeta(ctx, sr.session.SessionID, inferenceID)
-	out, err := runner.RunInference(runCtx, seed)
-	if err != nil {
-		return nil, err
-	}
-	if out == nil {
-		out = seed
-	}
-	if out.ID == "" {
-		out.ID = seed.ID
-	}
-	_ = turns.KeyTurnMetaSessionID.Set(&out.Metadata, sr.session.SessionID)
-	_ = turns.KeyTurnMetaInferenceID.Set(&out.Metadata, inferenceID)
-	output, err := cloneRunOutput(out)
-	if err != nil {
-		return nil, err
-	}
-	return &runResultRef{api: a.api, inputTurn: inputSnapshot, effectiveTurn: effective, outputTurn: output}, nil
-}
-
-func (a *agentRef) startAsync(input *turns.Turn, opts runOptions) goja.Value {
-	if _, err := a.api.requireBridge("agent.runAsync"); err != nil {
-		panic(a.api.vm.NewTypeError(err.Error()))
-	}
-	promise, resolve, reject := a.api.vm.NewPromise()
-	handleObj := a.api.vm.NewObject()
-
-	var stateMu sync.Mutex
-	var activeHandle *session.ExecutionHandle
-	var activeCancel context.CancelFunc
-	canceled := false
-	cancelActive := func() {
-		stateMu.Lock()
-		canceled = true
-		h := activeHandle
-		cancel := activeCancel
-		stateMu.Unlock()
-		if h != nil {
-			h.Cancel()
-		}
-		if cancel != nil {
-			cancel()
-		}
-	}
-	setActive := func(started *startedAgentRun) {
-		if started == nil {
-			return
-		}
-		stateMu.Lock()
-		activeHandle = started.handle
-		activeCancel = started.cancel
-		shouldCancel := canceled
-		stateMu.Unlock()
-		if shouldCancel {
-			started.handle.Cancel()
-			started.cancel()
-		}
-	}
-	clearActive := func() {
-		stateMu.Lock()
-		activeHandle = nil
-		activeCancel = nil
-		stateMu.Unlock()
-	}
-
-	a.api.mustSet(handleObj, "promise", promise)
-	a.api.mustSet(handleObj, "cancel", func(goja.FunctionCall) goja.Value {
-		cancelActive()
-		return goja.Undefined()
-	})
-	a.api.mustSet(handleObj, "close", func(goja.FunctionCall) goja.Value {
-		cancelActive()
-		return goja.Undefined()
-	})
-
-	runScopedEventSinks, closers, err := a.newRunScopedEventEmitterSinks()
-	if err != nil {
-		a.rejectPromiseWithError(reject, err)
-		return handleObj
-	}
-	started, err := a.startRun(input, opts, runScopedEventSinks)
-	if err != nil {
-		closeRunScopedEventEmitterSinks(a.api.runtimeContext(), closers)
-		a.rejectPromiseWithError(reject, err)
-		return handleObj
-	}
-	setActive(started)
-
-	go func() {
-		defer clearActive()
-		defer started.cancel()
-		out, waitErr := started.handle.Wait()
-		postErr := a.api.postOnOwner(a.api.runtimeContext(), "agent.runAsync.settle", func(ctx context.Context) {
-			defer closeRunScopedEventEmitterSinks(ctx, closers)
-			if waitErr != nil {
-				a.rejectPromiseWithError(reject, waitErr)
-				return
-			}
-			output, err := cloneRunOutput(out)
-			if err != nil {
-				a.rejectPromiseWithError(reject, err)
-				return
-			}
-			_ = resolve(a.api.newRunResultObject(&runResultRef{
-				api:           a.api,
-				inputTurn:     started.inputSnapshot,
-				effectiveTurn: started.effectiveTurn,
-				outputTurn:    output,
-			}))
-		})
-		if postErr != nil {
-			closeRunScopedEventEmitterSinks(a.api.runtimeContext(), closers)
-			a.api.logger.Error().Err(postErr).Msg("agent.runAsync: failed to settle promise on owner thread")
-		}
-	}()
-	return handleObj
-}
-
-func (a *agentRef) rejectPromiseWithError(reject func(reason any) error, err error) {
-	if a == nil || a.api == nil || reject == nil {
-		return
-	}
-	if err == nil {
-		err = fmt.Errorf("agent run failed")
-	}
-	_ = reject(a.api.vm.NewGoError(err))
 }
 
 func cloneRunOutput(out *turns.Turn) (*turns.Turn, error) {

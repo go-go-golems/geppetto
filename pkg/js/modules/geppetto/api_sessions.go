@@ -47,16 +47,6 @@ func (b *builderRef) buildEngineBuilder() (session.EngineBuilder, error) {
 	return enginebuilder.New(opts...), nil
 }
 
-func (b *builderRef) buildSession() (*sessionRef, error) {
-	builder, err := b.buildEngineBuilder()
-	if err != nil {
-		return nil, err
-	}
-	s := session.NewSession()
-	s.Builder = builder
-	return &sessionRef{api: b.api, session: s, runtimeMetadata: cloneJSONMap(b.runtimeMetadata)}, nil
-}
-
 func (m *moduleRuntime) requireEventSink(v goja.Value) (events.EventSink, error) {
 	ref := m.getRef(v)
 	if sink, ok := ref.(events.EventSink); ok {

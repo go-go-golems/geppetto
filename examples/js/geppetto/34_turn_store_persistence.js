@@ -1,4 +1,4 @@
-// Host-backed turn-store persistence example.
+// Host-backed turn-store persistence example for the session-centered JS API.
 //
 // This script requires an xgoja/Go host that configures require("geppetto") with
 // turn storage enabled (for example, a Pinocchio-style turns DSN adapter). The
@@ -23,23 +23,28 @@ const settings = gp.inferenceProfiles.resolve(profile);
 const agent = gp.agent()
   .name("turn-store-persistence-example")
   .inference(settings)
-  .persistTo(store)
+  .store(store)
   .runDefaults({ timeoutMs, tags: { example: "turn-store-persistence", sessionId } })
   .build();
 
-const turn = gp.turn()
-  .metadata("sessionID", sessionId)
-  .system("Answer in exactly one short sentence.")
-  .user("Explain why explicit turn persistence is useful.")
+const session = agent.session()
+  .id(sessionId)
+  .store(store)
+  .metadata("example", "turn-store-persistence")
   .build();
 
-const result = agent.run(turn);
+const result = session.next()
+  .system("Answer in exactly one short sentence.")
+  .user("Explain why explicit turn persistence is useful.")
+  .run();
+
 const latest = store.loadLatest({ sessionId, phase: "final" });
 
 console.log(JSON.stringify({
   profile,
   sessionId,
   finalText: result.text(),
+  turnCount: session.turnCount(),
   latest: latest ? {
     turnId: latest.turnId,
     sessionId: latest.sessionId,

@@ -384,7 +384,7 @@ func (m *moduleRuntime) newAgentSessionObject(ref *agentSessionRef) *goja.Object
 		if turn == nil {
 			return goja.Null()
 		}
-		return m.newTurnObject(&turnRef{api: m, turn: turn})
+		return m.newTurnObject(&turnRef{api: m, turn: turn.Clone()})
 	})
 	m.mustSet(o, "turns", func(goja.FunctionCall) goja.Value {
 		snapshot := ref.sess.TurnsSnapshot()
@@ -481,12 +481,18 @@ func (s *agentSessionRef) forkBase(args []goja.Value) (*turns.Turn, error) {
 		}
 		return latest.Clone(), nil
 	}
+	if obj := args[0].ToObject(s.api.vm); obj != nil {
+		atValue := obj.Get("at")
+		if turn, err := s.api.requireTurnRef(atValue); err == nil {
+			return turn.turn.Clone(), nil
+		}
+	}
 	if idx, ok := numberAsInt(at); ok {
 		turn := s.sess.GetTurn(idx)
 		if turn == nil {
 			return nil, fmt.Errorf("session.fork at index %d is out of range", idx)
 		}
-		return turn, nil
+		return turn.Clone(), nil
 	}
 	return nil, fmt.Errorf("session.fork at must be a turn index or TurnWrapper")
 }

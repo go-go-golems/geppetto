@@ -245,7 +245,8 @@ func TestAgentRunAsyncUsesRunScopedEventEmitterRefs(t *testing.T) {
 			const emitter = new EventEmitter();
 			emitter.on("text-delta", ev => globalThis.seen.push(ev.delta));
 			const agent = gp.agent().engine(globalThis.blockingEventEngine).events(emitter).build();
-			globalThis.handle = agent.runAsync(gp.turn().user("block then return").build());
+			const session = agent.session().id("run-scoped-emitter-test").build();
+			globalThis.handle = session.next().user("block then return").runAsync();
 			globalThis.handle.promise.then(result => {
 				globalThis.resolved = true;
 				globalThis.finalText = result.text();
@@ -306,8 +307,8 @@ func TestAgentRunAsyncDeliversBuilderLevelEmitterBeforePromiseResolution(t *test
 			const emitter = new EventEmitter();
 			emitter.on("text-delta", ev => globalThis.seen.push(["delta", ev.delta, globalThis.resolved]));
 			const agent = gp.agent().engine(globalThis.fakeEngine).events(emitter).build();
-			const turn = gp.turn().user("say hello").build();
-			const handle = agent.runAsync(turn);
+			const session = agent.session().id("builder-emitter-test").build();
+			const handle = session.next().user("say hello").runAsync();
 			if (typeof handle.cancel !== "function") throw new Error("missing cancel");
 			if (typeof handle.close !== "function") throw new Error("missing close");
 			if (typeof handle.on !== "undefined") throw new Error("handle.on should not be public");
@@ -372,7 +373,8 @@ func TestAgentRunAsyncToolLoopPreparesOnOwner(t *testing.T) {
 					},
 				})
 				.build();
-			const handle = agent.runAsync(gp.turn().user("say hello").build());
+			const session = agent.session().id("tool-loop-run-async-test").build();
+			const handle = session.next().user("say hello").runAsync();
 			handle.promise.then(result => {
 				globalThis.resolved = true;
 				globalThis.finalText = result.text();
@@ -428,8 +430,9 @@ func TestAgentRunAsyncRejectsWithErrorObject(t *testing.T) {
 		_, runErr := vm.RunString(`
 			const gp = require("geppetto");
 			const agent = gp.agent().engine(globalThis.failingEngine).build();
+			const session = agent.session().id("error-object-test").build();
 			globalThis.rejected = false;
-			agent.runAsync(gp.turn().user("fail").build()).promise.then(
+			session.next().user("fail").runAsync().promise.then(
 				() => { globalThis.rejected = true; globalThis.asyncResolved = true; },
 				err => {
 					globalThis.rejected = true;
@@ -469,7 +472,8 @@ func TestRuntimeCloseCancelsRunAsyncExecutionContext(t *testing.T) {
 		_, runErr := vm.RunString(`
 			const gp = require("geppetto");
 			const agent = gp.agent().engine(globalThis.blockingEngine).build();
-			globalThis.handle = agent.runAsync(gp.turn().user("block until runtime close").build());
+			const session = agent.session().id("runtime-close-test").build();
+			globalThis.handle = session.next().user("block until runtime close").runAsync();
 		`)
 		return nil, runErr
 	})
@@ -501,7 +505,8 @@ func TestAgentRunAsyncCancelCancelsExecutionHandle(t *testing.T) {
 		_, runErr := vm.RunString(`
 			const gp = require("geppetto");
 			const agent = gp.agent().engine(globalThis.blockingEngine).build();
-			const handle = agent.runAsync(gp.turn().user("block").build());
+			const session = agent.session().id("cancel-run-async-test").build();
+			const handle = session.next().user("block").runAsync();
 			globalThis.rejected = false;
 			handle.promise.catch(err => { globalThis.rejected = String(err).length > 0; });
 			globalThis.handle = handle;

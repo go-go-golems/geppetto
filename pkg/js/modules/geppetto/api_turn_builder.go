@@ -16,103 +16,10 @@ type turnRef struct {
 	turn *turns.Turn
 }
 
-type turnBuilderRef struct {
-	api  *moduleRuntime
-	turn *turns.Turn
-}
-
-func (m *moduleRuntime) turnBuilder(call goja.FunctionCall) goja.Value {
-	if len(call.Arguments) == 0 || goja.IsUndefined(call.Arguments[0]) || goja.IsNull(call.Arguments[0]) {
-		return m.newTurnBuilderObject(&turnBuilderRef{api: m, turn: &turns.Turn{}})
-	}
-	base, err := m.requireTurnRef(call.Arguments[0])
-	if err != nil {
-		panic(m.vm.NewGoError(err))
-	}
-	turn := base.turn.Clone()
-	// A builder created from an existing turn represents a continuation value,
-	// not an exact clone. Clear the copied ID so persistence/hydration keyed by
-	// Turn.ID cannot overwrite the previous turn. Use turn.clone() when exact
-	// identity preservation is desired.
-	turn.ID = ""
-	return m.newTurnBuilderObject(&turnBuilderRef{api: m, turn: turn})
-}
-
 type messageBuilderRef struct {
 	api    *moduleRuntime
 	text   string
 	images []map[string]any
-}
-
-func (m *moduleRuntime) newTurnBuilderObject(ref *turnBuilderRef) *goja.Object {
-	if ref == nil {
-		ref = &turnBuilderRef{api: m, turn: &turns.Turn{}}
-	}
-	ref.api = m
-	if ref.turn == nil {
-		ref.turn = &turns.Turn{}
-	}
-	o := m.vm.NewObject()
-	m.attachRef(o, ref.cloneFor(m))
-	m.mustSet(o, "system", func(call goja.FunctionCall) goja.Value {
-		text := ""
-		if len(call.Arguments) > 0 {
-			text = call.Arguments[0].String()
-		}
-		next := ref.cloneFor(m)
-		turns.AppendBlock(next.turn, turns.NewSystemTextBlock(text))
-		return m.newTurnBuilderObject(next)
-	})
-	m.mustSet(o, "user", func(call goja.FunctionCall) goja.Value {
-		next := ref.cloneFor(m)
-		if len(call.Arguments) > 0 {
-			if fn, ok := goja.AssertFunction(call.Arguments[0]); ok {
-				msg := &messageBuilderRef{api: m}
-				_, err := fn(goja.Undefined(), m.newMessageBuilderObject(msg))
-				if err != nil {
-					panic(err)
-				}
-				turns.AppendBlock(next.turn, turns.NewUserMultimodalBlock(msg.text, msg.images))
-				return m.newTurnBuilderObject(next)
-			}
-			turns.AppendBlock(next.turn, turns.NewUserTextBlock(call.Arguments[0].String()))
-			return m.newTurnBuilderObject(next)
-		}
-		turns.AppendBlock(next.turn, turns.NewUserTextBlock(""))
-		return m.newTurnBuilderObject(next)
-	})
-	m.mustSet(o, "assistant", func(call goja.FunctionCall) goja.Value {
-		text := ""
-		if len(call.Arguments) > 0 {
-			text = call.Arguments[0].String()
-		}
-		next := ref.cloneFor(m)
-		turns.AppendBlock(next.turn, turns.NewAssistantTextBlock(text))
-		return m.newTurnBuilderObject(next)
-	})
-	m.mustSet(o, "metadata", func(call goja.FunctionCall) goja.Value {
-		if len(call.Arguments) < 2 {
-			panic(m.vm.NewTypeError("turn().metadata requires key and value"))
-		}
-		key := strings.TrimSpace(call.Arguments[0].String())
-		if key == "" {
-			panic(m.vm.NewTypeError("turn metadata key must not be empty"))
-		}
-		next := ref.cloneFor(m)
-		_ = turns.TurnMetaKeyFromID[any](canonicalTurnMetaKey(key)).Set(&next.turn.Metadata, cloneJSONValue(call.Arguments[1].Export()))
-		return m.newTurnBuilderObject(next)
-	})
-	m.mustSet(o, "build", func(goja.FunctionCall) goja.Value {
-		return m.newTurnObject(&turnRef{api: m, turn: ref.turn.Clone()})
-	})
-	return o
-}
-
-func (r *turnBuilderRef) cloneFor(api *moduleRuntime) *turnBuilderRef {
-	if r == nil {
-		return &turnBuilderRef{api: api, turn: &turns.Turn{}}
-	}
-	return &turnBuilderRef{api: api, turn: r.turn.Clone()}
 }
 
 func (m *moduleRuntime) newTurnObject(ref *turnRef) *goja.Object {

@@ -1,4 +1,4 @@
-// EventEmitter progress summary example for `agent.runAsync(...)`.
+// EventEmitter progress summary example for `session.next().runAsync(...)`.
 //
 // Run from the repository root with:
 //
@@ -61,18 +61,18 @@
     .runDefaults({ timeoutMs, tags: { example: "event-emitter-progress-summary" } })
     .build();
 
-  const turn = gp.turn()
+  const session = agent.session().id("event-emitter-progress-summary-smoke").build();
+  const result = await session.next()
     .system("Answer with one short sentence.")
     .user("Write a six-word sentence about reliable JavaScript event streams.")
-    .build();
-
-  const handle = agent.runAsync(turn);
-  const result = await handle.promise;
+    .runAsync()
+    .promise;
 
   console.log(JSON.stringify({
     profile,
     registry: settingsSnapshot.provenance && settingsSnapshot.provenance.registrySlug,
     model: settingsSnapshot.chat && settingsSnapshot.chat.engine,
+    sessionId: session.id(),
     finalText: result.text(),
     eventCounts: counts,
     lifecycle,

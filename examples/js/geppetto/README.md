@@ -6,12 +6,13 @@ This directory contains runnable scripts for the hard-cut wrapper-first API expo
 const gp = require("geppetto");
 ```
 
-Legacy map/session/runner examples were removed during the clean cutover. New scripts should use:
+Legacy map/session/runner examples and public turn-run execution were removed during the clean cutover. New scripts should use:
 
 - `gp.inferenceProfiles`
 - `gp.engine()`
-- `gp.agent()`
-- `gp.turn()` / `gp.turn(existingTurn)` for continuation turns
+- `gp.agent().session()`
+- `session.next().run()` / `session.next().runAsync()` for execution
+- `session.fork()` and `resumeLatest()` for explicit lifecycle flows
 - `gp.turnStores` for host-configured durable turn storage
 - `gp.schema`
 - `gp.tool()`
@@ -73,7 +74,7 @@ go run ./cmd/examples/geppetto-js-run run \
   --timeout-ms 120000
 ```
 
-Run all EventEmitter + `runAsync` examples with the smoke wrapper:
+Run all EventEmitter + session `runAsync` examples with the smoke wrapper:
 
 ```bash
 GEPPETTO_PROFILE_REGISTRIES="$HOME/.config/pinocchio/profiles.yaml" \
@@ -83,9 +84,9 @@ GEPPETTO_PROFILE=default \
 
 The wrapper checks for final JSON output rather than requiring `text-delta`, because provider streaming behavior varies.
 
-`34_turn_store_persistence.js` demonstrates the JS API for `gp.turnStores.default()` and `.persistTo(store)`. It requires a host that enables storage and provides a TurnStore implementation; the plain `geppetto-js-run` helper does not open a store itself.
+`34_turn_store_persistence.js` demonstrates the JS API for `gp.turnStores.default()`, `agent.store(store)`, and `agent.session().store(store)`. It requires a host that enables storage and provides a TurnStore implementation; the plain `geppetto-js-run` helper does not open a store itself.
 
-Or run individual EventEmitter + `runAsync` examples with:
+Or run individual EventEmitter + session `runAsync` examples with:
 
 ```bash
 go run ./cmd/examples/geppetto-js-run run \

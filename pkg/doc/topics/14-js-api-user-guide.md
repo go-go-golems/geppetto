@@ -1,182 +1,142 @@
 ---
 Title: Geppetto JavaScript API User Guide
 Slug: geppetto-js-api-user-guide
-Short: Practical guide to composing registry-backed engines, agents, turns, tools, and multimodal messages from JavaScript.
+Short: Practical guide for writing scripts against the hard-cut Geppetto JavaScript API.
 Topics:
 - geppetto
 - javascript
 - goja
-- user-guide
 Commands: []
 Flags: []
 IsTopLevel: true
 IsTemplate: false
 ShowPerDefault: true
-SectionType: Application
+SectionType: GeneralTopic
 ---
 
-This guide shows the wrapper-first Geppetto JavaScript API. The core rule is simple:
-
-1. Registry files own model/provider settings.
-2. JavaScript receives Go-owned wrappers.
-3. Agents run explicit turns only.
-
-## Run Scripts
-
-Use the real example runner when you need profile flags:
-
-```bash
-go run ./cmd/examples/geppetto-js-run run \
-  --script examples/js/geppetto/30_real_provider_multiturn.js \
-  --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
-  --profile default
-```
-
-The runner exposes `require("geppetto")` and configures the host-default profile registry for `gp.inferenceProfiles.resolve(...)`.
-
-## Load a Registry and Resolve Settings
+Use `require("geppetto")` from goja/xgoja hosts to access Geppetto's wrapper-first JavaScript API:
 
 ```js
 const gp = require("geppetto");
-
-const registry = gp.inferenceProfiles.load("examples/js/geppetto/profiles/50-hardcut-phase123.yaml");
-const settings = registry.resolve("assistant");
-
-console.log(settings.toJSON().chat.engine);
-registry.close();
 ```
 
-`settings` is a Go-owned `InferenceSettings` wrapper. Use `toJSON()` for a detached redacted snapshot. Do not mutate model parameters in JavaScript; change the registry profile instead.
+The public execution model is session-centered. Scripts build an agent, create a session, then run explicit `session.next()` steps. Public `gp.turn(...)`, `agent.run(turn)`, and `agent.runAsync(turn)` are intentionally absent.
 
-## Build an Engine
-
-```js
-const engine = gp.engine()
-  .inference(settings)
-  .build();
-```
-
-`engine().inference(...)` accepts only registry-resolved `InferenceSettings` wrappers. Plain JavaScript objects are rejected.
-
-## Build an Agent and Explicit Turn
+## 1. Resolve settings and build an agent
 
 ```js
+const settings = gp.inferenceProfiles.resolve("default");
+
 const agent = gp.agent()
   .name("assistant")
   .inference(settings)
+  .runDefaults({ timeoutMs: 120000 })
+  .build();
+```
+
+Use registry-resolved `InferenceSettings` wrappers. Plain JavaScript settings maps are rejected.
+
+## 2. Create a session and run the first step
+
+```js
+const session = agent.session()
+  .id("chat-123")
+  .name("Demo chat")
   .build();
 
-const turn = gp.turn()
-  .system("Answer in one short sentence.")
-  .user("What changed in this repository?")
-  .build();
+const result = session.next()
+  .system("Answer in one concise paragraph.")
+  .user("What is Geppetto?")
+  .run();
 
-const result = agent.run(turn);
 console.log(result.text());
 ```
 
-Agents intentionally do not expose `ask(prompt)` or `system(prompt)`. System/user content belongs in the turn.
+`session.next()` defines the run boundary. It starts from the latest session context, appends the blocks supplied by the builder, and records the final turn back into the session.
 
-## Live Events with `runAsync` and EventEmitter
+## 3. Continue a conversation
 
-Use `agent.run(turn)` when you only need a blocking final result. Use `agent.runAsync(turn)` when JavaScript should receive provider/tool-loop events while inference is still running.
+```js
+const first = session.next()
+  .user("Reply with exactly: ALPHA_GEPPETTO")
+  .run();
 
-The first-pass event API is builder-level: create an EventEmitter, register listeners, pass it to `.events(emitter)`, and then call `runAsync`.
+const second = session.next()
+  .user("What exact token did you just return?")
+  .run();
+```
+
+The second call sees the first call's final turn as context. You do not pass output turns back into `agent.run(...)`; the session owns the progression.
+
+## 4. Run asynchronously with EventEmitter events
+
+Attach an EventEmitter at agent-builder time, then call `runAsync()` on a session turn builder:
 
 ```js
 const EventEmitter = require("events");
-
 const events = new EventEmitter();
-const counts = Object.create(null);
-const deltas = [];
-
-events.on("event", ev => {
-  counts[ev.type] = (counts[ev.type] || 0) + 1;
-});
 
 events.on("text-delta", ev => {
-  if (ev.delta) deltas.push(ev.delta);
+  if (ev.delta) console.log(ev.delta);
 });
 
-events.on("inference-error", ev => {
-  console.error(ev.message || ev.error);
-});
-
-const agent = gp.agent()
-  .name("assistant")
+const asyncAgent = gp.agent()
   .inference(settings)
   .events(events)
   .build();
 
-const handle = agent.runAsync(turn, { timeoutMs: 120000 });
-const result = await handle.promise;
+const asyncSession = asyncAgent.session().id("streaming-chat").build();
+const handle = asyncSession.next()
+  .user("Write a short streaming answer.")
+  .runAsync({ timeoutMs: 120000 });
 
-console.log(result.text());
-console.log(counts, deltas.join(""));
+const asyncResult = await handle.promise;
 ```
 
-Important constraints:
+`runAsync()` returns `{ promise, cancel, close }`. There is no public `handle.on(...)`; register listeners on the EventEmitter before starting the run.
 
-- Register listeners before `.events(emitter).build()` or at least before `runAsync(...)` starts.
-- `runAsync` returns `{ promise, cancel, close }`.
-- `cancel()` and `close()` cancel the active run.
-- `handle.on(...)` is intentionally not part of the API.
-- `agent.runAsync(turn, { events })` is intentionally deferred; use builder-level `.events(emitter)` for now.
-- Canonical Geppetto `error` events emit as `inference-error`, not Node's special `error` event.
-- Each single Geppetto event attempts generic `event` delivery first and the type-specific channel second; no global ordering is guaranteed across concurrent publishers.
-- `runAsync` lifecycle uses `handle.promise`, `cancel()`, and `close()`; there are intentionally no JS-only `runasync-*` lifecycle events.
-- `gp.events.collector()` was removed; use `require("events")` EventEmitter values instead.
+## 5. Use durable turn stores
 
-See:
-
-- `examples/js/geppetto/31_event_emitter_run_async.js`
-- `examples/js/geppetto/32_event_emitter_progress_summary.js`
-- `examples/js/geppetto/33_event_emitter_multiturn_run_async.js`
-
-## Multi-Turn Inference
-
-The API is explicit: a second provider call receives history only if the script includes that history in the next turn.
-
-```js
-const first = gp.turn()
-  .system("Be terse.")
-  .user("Remember the token ALPHA.")
-  .build();
-const firstResult = agent.run(first);
-
-const second = gp.turn(firstResult.outputTurn())
-  .user("What token did you just mention?")
-  .build();
-const secondResult = agent.run(second);
-```
-
-`gp.turn(existingTurn)` is still explicit: the script chooses the prior `TurnWrapper` to continue from. The builder clones the prior blocks/metadata and clears the copied turn id so the result is a new continuation turn rather than the same persisted turn. Use `existingTurn.clone()` only when you need an exact copy that preserves identity.
-
-See `examples/js/geppetto/30_real_provider_multiturn.js` for a live provider example using `~/.config/pinocchio/profiles.yaml`.
-
-## Durable Turn Storage
-
-Turn storage is host-configured. JavaScript receives Go-owned `TurnStore` wrappers from `gp.turnStores`, then opts agents into explicit persistence:
+Turn storage is host-configured. JavaScript receives Go-owned `TurnStore` wrappers from `gp.turnStores`, then opts agents or sessions into explicit persistence:
 
 ```js
 const store = gp.turnStores.default();
-const agent = gp.agent()
+
+const durableAgent = gp.agent()
   .inference(settings)
-  .persistTo(store)
+  .store(store)
   .build();
 
-const result = agent.run(gp.turn()
-  .metadata("sessionID", "demo-session")
-  .user("Answer in one sentence.")
-  .build());
+const durableSession = durableAgent.session()
+  .id("chat-123")
+  .store(store)
+  .resumeLatest()
+  .build();
 
-const latest = store.loadLatest({ sessionId: "demo-session", phase: "final" });
-console.log(latest.turn.toJSON());
+const result = durableSession.next()
+  .user("Continue from the stored conversation.")
+  .run();
 ```
 
-Use `.persistTo(null)` to disable inherited host-default persistence for a specific agent. `gp.turnStores.default()` throws if the host did not configure storage; Geppetto deliberately does not expose a direct SQLite opener from JS.
+`resumeLatest()` is non-strict by default: if no stored final turn exists, the session starts empty. Use `resumeLatest({ required: true })` to fail instead. Use `.persist(false)` or agent `.persistTo(null)` to disable inherited host-default persistence.
 
-## Tools and Schemas
+## 6. Fork a session
+
+Forking creates a new `SessionBuilder` pre-seeded from an existing session turn:
+
+```js
+const fork = session.fork()
+  .id("chat-123-branch")
+  .build();
+
+const forkResult = fork.next()
+  .user("Answer from a different angle.")
+  .run();
+```
+
+The imported base turn remains historical evidence. The first derived `next()` clears the copied turn id before executing a new run.
+
+## 7. Build tools and schemas
 
 ```js
 const input = gp.schema.object()
@@ -191,78 +151,32 @@ const echo = gp.tool("echo_value")
   .build();
 
 const registry = gp.toolRegistry().add(echo);
-console.log(registry.call("echo_value", { value: "hello" }));
-```
-
-Pass the registry into an agent with `.tool(registry)`.
-
-## Multimodal Turns
-
-```js
-const turn = gp.turn()
-  .system("You are a careful visual reasoning assistant.")
-  .user(m => m
-    .text("What is in this screenshot?")
-    .imageFile("./screenshot.png"))
+const agentWithTools = gp.agent()
+  .inference(settings)
+  .tool(registry)
+  .toolLoop({ maxIterations: 3 })
   .build();
 ```
 
-Message builder methods:
+## 8. Multimodal user input
 
-- `text(...)`
-- `imageURL(...)`
-- `imageFile(...)`
-- `imageBytes(...)`
+Use the session turn builder's message callback:
 
-## Pinocchio Profiles vs Pinocchio Config Docs
-
-`~/.config/pinocchio/profiles.yaml` is usable here because it is a Geppetto registry-shaped file with top-level `slug` and `profiles` keys.
-
-`gp.inferenceProfiles.load(...)` does not load Pinocchio unified app config documents with `app:`/application settings. Those remain application-side host concerns.
-
-## xgoja Provider Config
-
-Generated xgoja hosts can configure Geppetto like this:
-
-```json
-{
-  "profileRegistries": ["/home/me/.config/pinocchio/profiles.yaml"],
-  "defaultProfile": "default",
-  "allowRegistryLoad": true
-}
+```js
+const result = session.next()
+  .user(m => m
+    .text("Describe this image.")
+    .imageURL("https://example.invalid/screenshot.png"))
+  .run();
 ```
 
-`allowRegistryLoad` is false by default.
+## Migration notes
 
-Storage config is gated by `enableStorage` and resolved by host services:
+Use the following replacements when updating older scripts:
 
-```json
-{
-  "enableStorage": true,
-  "turns": {
-    "dsn": "file:/tmp/geppetto-turns.sqlite?_journal_mode=WAL",
-    "default": true,
-    "phase": "final"
-  }
-}
-```
+- `gp.turn().user(...).build()` + `agent.run(turn)` → `agent.session().build().next().user(...).run()`
+- `gp.turn(previousTurn)` → `session.next()` or `session.fork().base(previousTurn)` depending on lifecycle intent
+- `agent.runAsync(turn)` → `session.next().user(...).runAsync()`
+- `agent.persistTo(store)` → `agent.store(store)` or `session.store(store)`; `persistTo` remains as an alias for host persistence selection
 
-If `turns.default` is true, the host-provided default store also becomes the inherited default persister for agents.
-
-## Current Gaps
-
-Implemented now:
-
-- registry-resolved `InferenceSettings`
-- engine builder
-- agent and explicit turns
-- schema/tool/toolRegistry wrappers
-- text/image message builder
-- xgoja provider registry loading
-
-Still deferred:
-
-- symbolic host credential resolver
-- additional schema helpers such as min/max/default
-- `turn().toolCall(...)` and `turn().toolResult(...)`
-- hard-cut `gp.embeddings()` wrapper
+Removed legacy APIs include `gp.turn`, `gp.turns`, `gp.events`, `gp.chat`, `gp.inferenceSettings`, `createBuilder`, `createSession`, `runInference`, and public `agent.run` / `agent.runAsync`.

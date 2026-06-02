@@ -1,251 +1,158 @@
 ---
 Title: Getting Started with the Geppetto JavaScript API
 Slug: geppetto-js-api-getting-started
-Short: Step-by-step tutorial for registry-backed settings, agents, explicit turns, tools, and multimodal messages from JavaScript.
+Short: Build and run a session-centered Geppetto JavaScript script.
 Topics:
 - geppetto
 - javascript
 - goja
-- tutorial
 Commands: []
 Flags: []
-IsTopLevel: true
+IsTopLevel: false
 IsTemplate: false
 ShowPerDefault: true
 SectionType: Tutorial
 ---
 
-This tutorial introduces the wrapper-first Geppetto JavaScript API.
-
-Reference docs:
-
-- [JS API Reference](../topics/13-js-api-reference.md)
-- [JS API User Guide](../topics/14-js-api-user-guide.md)
-
-## Prerequisites
-
-Run commands from the Geppetto repository root.
-
-## Step 1: Resolve a Profile
-
-Create or use an existing Geppetto registry file. A minimal registry looks like:
-
-```yaml
-slug: local
-profiles:
-  assistant:
-    inference_settings:
-      api:
-        api_keys:
-          openai-api-key: test-key
-      chat:
-        api_type: openai
-        engine: gpt-4o-mini
-```
-
-Resolve it from JavaScript:
+This tutorial shows the hard-cut wrapper-first Geppetto JavaScript API:
 
 ```js
 const gp = require("geppetto");
-
-const registry = gp.inferenceProfiles.load("examples/js/geppetto/profiles/50-hardcut-phase123.yaml");
-const settings = registry.resolve("assistant");
-
-console.log(settings.toJSON().chat.engine);
-registry.close();
 ```
 
-Run the checked-in example:
+The current public execution path is session-centered:
 
-```bash
-go test ./pkg/js/modules/geppetto -run TestPhase123ExampleScripts -count=1 -v
-```
+1. Resolve registry settings.
+2. Build an agent.
+3. Build a session.
+4. Execute `session.next().run()` or `session.next().runAsync()`.
 
-## Step 2: Build an Engine
+## Resolve a profile
 
 ```js
-const engine = gp.engine()
-  .inference(settings)
-  .build();
+const settings = gp.inferenceProfiles.resolve("default");
+console.log(settings.toJSON().chat.engine);
 ```
 
-See:
+Hosts can configure the default registry. The example runner also accepts registry flags:
 
-- `examples/js/geppetto/26_engine_builder_from_registry_profile.js`
+```bash
+go run ./cmd/examples/geppetto-js-run run \
+  --script examples/js/geppetto/30_real_provider_multiturn.js \
+  --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
+  --profile default \
+  --timeout-ms 120000
+```
 
-## Step 3: Build an Agent and Turn
+## Build an agent and session
 
 ```js
 const agent = gp.agent()
-  .name("assistant")
+  .name("getting-started")
   .inference(settings)
+  .runDefaults({ timeoutMs: 120000 })
   .build();
 
-const turn = gp.turn()
-  .system("Answer briefly.")
-  .user("Hello")
+const session = agent.session()
+  .id("getting-started-chat")
   .build();
+```
 
-const result = agent.run(turn);
+Agents own provider/tool/event configuration. Sessions own conversational progression.
+
+## Run a first step
+
+```js
+const result = session.next()
+  .system("Answer in one sentence.")
+  .user("What is a session-centered API?")
+  .run();
+
 console.log(result.text());
 ```
 
-For a deterministic local example, see:
-
-- `examples/js/geppetto/28_agent_from_registry_profile.js`
-
-## Step 4: Multi-Turn Context
-
-Geppetto does not hide conversation state in `agent.ask(...)`. To do multi-turn inference, construct the next explicit turn from the prior output turn and append the new blocks you want the provider to see:
+## Continue the same session
 
 ```js
-const result1 = agent.run(gp.turn()
-  .system("Be concise.")
-  .user("Return ALPHA.")
-  .build());
+const second = session.next()
+  .user("Summarize your previous answer in five words.")
+  .run();
 
-const result2 = agent.run(gp.turn(result1.outputTurn())
-  .user("What did you return previously?")
-  .build());
+console.log(second.text());
 ```
 
-`gp.turn(existingTurn)` clones the existing Go-owned turn wrapper and clears the copied turn id before appending. Use `existingTurn.clone()` when you need an exact identity-preserving copy rather than a continuation turn.
+No public turn builder is required. `session.next()` uses the latest final turn as context and produces a new final turn.
 
-Run the real provider example:
-
-```bash
-./examples/js/geppetto/run_real_provider_multiturn.sh
-```
-
-Override profile settings with environment variables:
-
-```bash
-GEPPETTO_PROFILE_REGISTRIES="$HOME/.config/pinocchio/profiles.yaml" \
-GEPPETTO_PROFILE=default \
-GEPPETTO_TIMEOUT_MS=120000 \
-./examples/js/geppetto/run_real_provider_multiturn.sh
-```
-
-## Optional: Persist Turns with a Host Store
-
-If the host configured turn storage, scripts can opt an agent into durable final-turn persistence and read the latest stored turn back:
-
-```js
-const store = gp.turnStores.default();
-const durableAgent = gp.agent()
-  .inference(settings)
-  .persistTo(store)
-  .build();
-
-const result = durableAgent.run(gp.turn()
-  .metadata("sessionID", "getting-started")
-  .user("Give me a short durable answer.")
-  .build());
-
-const latest = store.loadLatest({ sessionId: "getting-started", phase: "final" });
-console.log(latest.turn.toJSON());
-```
-
-Storage is host-owned. If no default store exists, `gp.turnStores.default()` throws instead of silently creating a database.
-
-## Step 5: Stream Live Events with `runAsync`
-
-`agent.run(...)` is synchronous. For live JavaScript callbacks, attach a builder-level EventEmitter and use `agent.runAsync(...)`:
+## Use async execution
 
 ```js
 const EventEmitter = require("events");
-
 const events = new EventEmitter();
-events.on("event", ev => console.log("event", ev.type));
-events.on("text-delta", ev => console.log("delta", ev.delta));
-events.on("inference-error", ev => console.error(ev.message || ev.error));
+events.on("text-delta", ev => { if (ev.delta) process.stdout.write(ev.delta); });
 
 const asyncAgent = gp.agent()
   .inference(settings)
   .events(events)
   .build();
 
-const handle = asyncAgent.runAsync(gp.turn().user("Hello").build(), {
-  timeoutMs: 120000,
-});
+const asyncSession = asyncAgent.session().id("async-chat").build();
+const handle = asyncSession.next()
+  .user("Write a short answer.")
+  .runAsync();
 
-const result = await handle.promise;
-console.log(result.text());
+const asyncResult = await handle.promise;
 ```
 
-Run the checked-in real-provider examples:
+`handle.cancel()` cancels the in-flight run. `handle.close()` releases the handle. Event listeners belong on the builder-level EventEmitter.
 
-```bash
-go run ./cmd/examples/geppetto-js-run run \
-  --script examples/js/geppetto/31_event_emitter_run_async.js \
-  --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
-  --profile default \
-  --timeout-ms 120000
+## Persist and resume
 
-go run ./cmd/examples/geppetto-js-run run \
-  --script examples/js/geppetto/32_event_emitter_progress_summary.js \
-  --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
-  --profile default \
-  --timeout-ms 120000
-```
-
-## Step 6: Add Tools and Schemas
+If the host provides storage, use `gp.turnStores`:
 
 ```js
-const input = gp.schema.object()
-  .property("value", gp.schema.string())
-  .required("value")
+const store = gp.turnStores.default();
+
+const durableAgent = gp.agent()
+  .inference(settings)
+  .store(store)
   .build();
 
-const echo = gp.tool("echo_value")
-  .description("Echo a value")
-  .input(input)
-  .handler((args) => ({ echoed: args.value }))
+const durableSession = durableAgent.session()
+  .id("durable-chat")
+  .store(store)
+  .resumeLatest()
   .build();
 
-const registry = gp.toolRegistry().add(echo);
-console.log(registry.call("echo_value", { value: "hi" }));
+const durableResult = durableSession.next()
+  .user("Continue this durable conversation.")
+  .run();
 ```
 
-See:
+`resumeLatest()` starts empty when there is no previous stored final turn. Use `resumeLatest({ required: true })` for strict resume.
 
-- `examples/js/geppetto/29_tools_schema_multimodal_turn.js`
-
-## Step 7: Add Images to a Turn
+## Fork a conversation
 
 ```js
-const turn = gp.turn()
-  .system("You are a visual reasoning assistant.")
-  .user(m => m
-    .text("What is in this screenshot?")
-    .imageFile("./screenshot.png"))
+const fork = session.fork()
+  .id("getting-started-chat-fork")
   .build();
+
+const forkResult = fork.next()
+  .user("Give an alternative answer.")
+  .run();
 ```
 
-`imageURL`, `imageFile`, and `imageBytes` all produce image payloads on the Go-owned turn wrapper.
+Forks preserve imported history as base context and create new turn identities for derived runs.
 
-## Step 8: Use xgoja Provider Registry Config
+## What is intentionally not public
 
-Generated xgoja hosts can configure registry loading with:
+Older scripts may refer to APIs that are no longer public:
 
-```json
-{
-  "profileRegistries": ["/home/me/.config/pinocchio/profiles.yaml"],
-  "defaultProfile": "default",
-  "allowRegistryLoad": true
-}
-```
-
-Registry loading is denied unless `allowRegistryLoad` is true.
-
-## Removed Legacy APIs
-
-The clean cutover removed the old map/session/runner public names from the default JavaScript surface:
-
-- `gp.engines.fromConfig(...)`
-- `gp.profiles.resolve(...)`
+- `gp.turn(...)`
+- `agent.run(turn)`
+- `agent.runAsync(turn)`
 - `gp.turns.newTurn(...)`
-- `gp.createSession(...)`
-- `gp.runner.run(...)`
+- `gp.events.collector()`
+- legacy `createBuilder`, `createSession`, and `runInference`
 
-Use `gp.inferenceProfiles`, `gp.engine()`, `gp.agent()`, `gp.turn()`, `gp.schema`, `gp.tool`, and `gp.toolRegistry()` instead.
+Use `agent.session()`, `session.next()`, `session.fork()`, and storage-backed `resumeLatest()` instead.

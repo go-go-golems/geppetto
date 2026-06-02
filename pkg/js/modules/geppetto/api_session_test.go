@@ -106,6 +106,39 @@ func TestAgentSessionBaseAndFork(t *testing.T) {
 	}
 }
 
+func TestAgentSessionForkAtTurnWrapper(t *testing.T) {
+	rt := newJSRuntime(t, Options{})
+	_, err := rt.runtimeOwner.Call(context.Background(), "test.sessionForkAtTurn", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		if setErr := vm.Set("fakeEngine", &sessionEchoEngine{}); setErr != nil {
+			return nil, setErr
+		}
+		_, runErr := vm.RunString(`
+			const gp = require("geppetto");
+			const agent = gp.agent().engine(globalThis.fakeEngine).build();
+			const main = agent.session().id("main-at").build();
+			main.next().user("first").run();
+			main.next().user("second").run();
+			const firstTurn = main.turn(0);
+			const fork = main.fork({ at: firstTurn }).id("fork-at").build();
+			const result = fork.next().user("branch").run();
+			globalThis.forkAtResult = JSON.stringify({
+				forkTurns: fork.turnCount(),
+				importedBaseIdPreserved: fork.turn(0).toJSON().id === firstTurn.toJSON().id,
+				latestText: result.text(),
+			});
+		`)
+		return nil, runErr
+	})
+	if err != nil {
+		t.Fatalf("session fork at wrapper script failed: %v", err)
+	}
+	got := mustEvalExprExport(t, rt, `globalThis.forkAtResult`)
+	want := `{"forkTurns":2,"importedBaseIdPreserved":true,"latestText":"users=first assistants=\nusers=first,branch assistants=users=first assistants="}`
+	if got != want {
+		t.Fatalf("fork-at result = %v, want %s", got, want)
+	}
+}
+
 func TestAgentSessionResumeLatestFromStore(t *testing.T) {
 	store := &recordingTurnStore{name: "default"}
 	rt := newJSRuntime(t, Options{DefaultTurnStore: store})

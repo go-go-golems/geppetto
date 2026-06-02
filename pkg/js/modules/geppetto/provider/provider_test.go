@@ -293,7 +293,8 @@ func TestProviderRuntimeSupportsEventEmitterRunAsync(t *testing.T) {
 			const emitter = new EventEmitter();
 			emitter.on("text-delta", ev => globalThis.seen.push(ev.delta));
 			const agent = gp.agent().engine(globalThis.providerEventEngine).events(emitter).build();
-			agent.runAsync(gp.turn().user("provider path").build()).promise.then(result => {
+			const session = agent.session().id("provider-path-test").build();
+			session.next().user("provider path").runAsync().promise.then(result => {
 				globalThis.resolved = true;
 				globalThis.finalText = result.text();
 			}, err => {
@@ -357,7 +358,7 @@ func TestModuleLoaderInstallsGeppettoExports(t *testing.T) {
 	if got := exports.Get("version").String(); got != "0.1.0" {
 		t.Fatalf("version = %q, want 0.1.0", got)
 	}
-	for _, name := range []string{"agent", "turn", "engine", "tool", "toolRegistry"} {
+	for _, name := range []string{"agent", "engine", "tool", "toolRegistry"} {
 		if _, ok := goja.AssertFunction(exports.Get(name)); !ok {
 			t.Fatalf("%s export is not a function", name)
 		}
@@ -367,7 +368,7 @@ func TestModuleLoaderInstallsGeppettoExports(t *testing.T) {
 			t.Fatalf("%s export is not an object", name)
 		}
 	}
-	for _, name := range []string{"createBuilder", "createSession", "runInference", "turns", "engines", "profiles", "runner", "schemas", "middlewares", "tools"} {
+	for _, name := range []string{"turn", "createBuilder", "createSession", "runInference", "turns", "engines", "profiles", "runner", "schemas", "middlewares", "tools"} {
 		if v := exports.Get(name); v != nil && !goja.IsUndefined(v) {
 			t.Fatalf("legacy export %s should be absent", name)
 		}
