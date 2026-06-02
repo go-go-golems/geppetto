@@ -13,6 +13,8 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
+	"github.com/google/uuid"
 )
 
 type agentBuilderRef struct {
@@ -327,22 +329,71 @@ func (a *agentRef) runSync(input *turns.Turn, opts runOptions) (*runResultRef, e
 	if err != nil {
 		return nil, err
 	}
-	started, err := a.startRun(input, opts, runScopedEventSinks)
+	result, err := a.runBlockingOnOwner(input, opts, runScopedEventSinks)
 	if err != nil {
 		closeRunScopedEventEmitterSinks(a.api.runtimeContext(), closers)
 		return nil, err
 	}
-	defer started.cancel()
-	out, err := started.handle.Wait()
 	a.closeRunScopedEventEmitterSinksAfterOwnerQueue(closers)
+	return result, nil
+}
+
+// runBlockingOnOwner implements synchronous agent.run without using
+// Session.StartInference/ExecutionHandle.Wait. agent.run is invoked from the
+// goja owner thread; if we started inference in a goroutine and then blocked the
+// owner in Wait, JS-backed tools/middleware would deadlock when they call back
+// through callOnOwner. Running the blocking runner on this owner-thread stack
+// keeps those callbacks re-entrant while preserving runAsync's goroutine-based
+// behavior for live streaming.
+func (a *agentRef) runBlockingOnOwner(input *turns.Turn, opts runOptions, runScopedEventSinks []events.EventSink) (*runResultRef, error) {
+	if input == nil {
+		return nil, fmt.Errorf("agent run requires turn")
+	}
+	sr, err := a.buildSession(runScopedEventSinks)
 	if err != nil {
 		return nil, err
 	}
+	inputSnapshot := input.Clone()
+	seed := input.Clone()
+	stampTurnRuntimeMetadata(seed, sr.runtimeMetadata)
+	effective := seed.Clone()
+	sr.session.Append(seed)
+	ctx, cancel, err := sr.buildRunContext(opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	if a != nil && a.api != nil && a.api.runtimeOwner != nil {
+		ctx = runtimeowner.OwnerContext(a.api.runtimeOwner, ctx)
+	}
+	if seed.ID == "" {
+		seed.ID = uuid.NewString()
+	}
+	inferenceID := uuid.NewString()
+	_ = turns.KeyTurnMetaSessionID.Set(&seed.Metadata, sr.session.SessionID)
+	_ = turns.KeyTurnMetaInferenceID.Set(&seed.Metadata, inferenceID)
+	runner, err := sr.session.Builder.Build(ctx, sr.session.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	runCtx := session.WithSessionMeta(ctx, sr.session.SessionID, inferenceID)
+	out, err := runner.RunInference(runCtx, seed)
+	if err != nil {
+		return nil, err
+	}
+	if out == nil {
+		out = seed
+	}
+	if out.ID == "" {
+		out.ID = seed.ID
+	}
+	_ = turns.KeyTurnMetaSessionID.Set(&out.Metadata, sr.session.SessionID)
+	_ = turns.KeyTurnMetaInferenceID.Set(&out.Metadata, inferenceID)
 	output, err := cloneRunOutput(out)
 	if err != nil {
 		return nil, err
 	}
-	return &runResultRef{api: a.api, inputTurn: started.inputSnapshot, effectiveTurn: started.effectiveTurn, outputTurn: output}, nil
+	return &runResultRef{api: a.api, inputTurn: inputSnapshot, effectiveTurn: effective, outputTurn: output}, nil
 }
 
 func (a *agentRef) startAsync(input *turns.Turn, opts runOptions) goja.Value {
