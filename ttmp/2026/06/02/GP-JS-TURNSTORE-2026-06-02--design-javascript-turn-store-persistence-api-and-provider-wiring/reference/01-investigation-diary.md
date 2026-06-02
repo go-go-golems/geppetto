@@ -17,6 +17,8 @@ RelatedFiles:
       Note: Pinocchio module dependency on Geppetto pseudo-version with session/storage JS API (commit 16e7f7b)
     - Path: examples/js/geppetto/34_turn_store_persistence.js
       Note: Host-backed storage API example (commit cf09f49e)
+    - Path: go.mod
+      Note: Toolchain bumped to go1.26.4 after pre-push govulncheck reported Go 1.26.3 standard-library vulnerabilities
     - Path: pkg/js/modules/geppetto/api_agent.go
       Note: Added agent persistence selection methods (commit cf09f49e)
     - Path: pkg/js/modules/geppetto/api_turn_store.go
@@ -27,10 +29,11 @@ RelatedFiles:
       Note: Added enableStorage/turns provider config gating (commit cf09f49e)
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-06-02T19:22:00-04:00
+LastUpdated: 2026-06-02T19:30:00-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -371,3 +374,69 @@ The smoke proved the full path works outside unit tests: CLI flag opens SQLite, 
 - Smoke session id used in this run: `pinocchio-js-storage-1780440401`.
 - First persisted turn id: `cb2f5f15-a23f-43fb-a9e6-dc865e75ed04`.
 - Second persisted turn id: `f9b3c56d-f265-49aa-94c9-680a6c8085c8`.
+
+
+## Step 5: Resolve push-time toolchain validation and prepare publication
+
+When I tried to push the Geppetto diary commits, the pre-push hook exposed a local validation problem unrelated to the JS storage code: `govulncheck` was running under Go 1.26.3 and reported two standard-library vulnerabilities. I switched the hook run to Go 1.26.4, verified `govulncheck` was clean, and committed a focused Geppetto `go.mod` toolchain bump so future hook runs use the fixed standard library.
+
+This step is intentionally recorded because it changed the publish path for the ticket work. The code and storage smoke were already validated; this was about making the repository's normal security gate pass without skipping hooks.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 3)
+
+**Assistant interpretation:** Continue through the publication/validation phase after the Pinocchio storage implementation and smoke.
+
+**Inferred user intent:** Finish the work cleanly, including push readiness and an accurate record of any validation failures.
+
+**Commit (code):** 426bdff6 — "Bump Go toolchain for govulncheck"
+
+### What I did
+- Checked both worktrees and found Geppetto had two unpushed diary commits while Pinocchio had the storage implementation commit locally.
+- Attempted to push Geppetto to `origin` / `wesen`; pre-push ran tests, lint, gosec, and govulncheck.
+- Re-ran validation under Go 1.26.4 and updated Geppetto's `toolchain` directive from `go1.26.3` to `go1.26.4`.
+- Ran `GOTOOLCHAIN=go1.26.4 GOWORK=off govulncheck ./...` successfully.
+- Amended the accidental local `:art: Bump go.mod` commit into the focused commit message `Bump Go toolchain for govulncheck` before publication.
+
+### Why
+- The pre-push hook is the repository's normal security gate; skipping it would hide a real local-toolchain vulnerability report.
+- Pinocchio depends on Geppetto commits from this branch, so the Geppetto branch needs to be publishable before downstream module-mode validation is useful.
+
+### What worked
+- `GOTOOLCHAIN=go1.26.4 GOWORK=off govulncheck ./...` reported:
+  - `No vulnerabilities found.`
+  - `Your code is affected by 0 vulnerabilities.`
+- `GOTOOLCHAIN=go1.26.4 ./.bin/golangci-lint run -v --max-same-issues=100 --timeout=5m ./cmd/... ./pkg/...` completed with `0 issues` when rerun directly.
+
+### What didn't work
+- The first push attempt failed at `govulncheck` under Go 1.26.3:
+  - `Vulnerability #1: GO-2026-5039 ... net/textproto ... Fixed in: net/textproto@go1.26.4`
+  - `Vulnerability #2: GO-2026-5037 ... crypto/x509 ... Fixed in: crypto/x509@go1.26.4`
+  - `Your code is affected by 2 vulnerabilities from the Go standard library.`
+  - `make: *** [Makefile:120: govulncheck] Error 3`
+- The next push attempt with `GOTOOLCHAIN=go1.26.4` reached lint but failed once with:
+  - `Running error: context loading failed: no go files to analyze: running \`go mod tidy\` may solve the problem`
+- A direct rerun of the exact golangci-lint command succeeded, so I treated that lint error as a transient hook/toolchain interaction and continued validating the underlying commands explicitly.
+
+### What I learned
+- `govulncheck` reports standard-library findings against the active Go toolchain, not only module dependencies.
+- The repository's pre-push security result can change without code changes when a fixed Go point release is available.
+
+### What was tricky to build
+- The tricky part was separating a genuine security-gate failure from the implementation itself. The storage code had already passed tests and smoke validation, but the push gate correctly refused the branch because the active local standard library was vulnerable. The safe fix was not to skip hooks; it was to use and record the patched Go 1.26.4 toolchain.
+
+### What warrants a second pair of eyes
+- Review whether Geppetto should also update the `go` directive or only the `toolchain` directive; this step intentionally only bumps `toolchain` to keep the module language version stable.
+- Review whether CI and developer machines are expected to allow Go toolchain auto-download for `go1.26.4`.
+
+### What should be done in the future
+- If pre-push hooks continue to show transient golangci-lint package-loading errors under auto-downloaded toolchains, consider pinning or installing the patched Go toolchain outside the module cache.
+
+### Code review instructions
+- Review `/home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/go.mod` and confirm only the `toolchain` directive changed.
+- Validate with `cd /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto && GOTOOLCHAIN=go1.26.4 GOWORK=off govulncheck ./...`.
+
+### Technical details
+- Final Geppetto toolchain directive: `toolchain go1.26.4`.
+- The storage implementation commits remain separate from the toolchain-security commit.

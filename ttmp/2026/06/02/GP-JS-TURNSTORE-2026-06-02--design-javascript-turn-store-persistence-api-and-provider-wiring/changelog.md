@@ -55,3 +55,13 @@ Validated Pinocchio JS two-process --turns-db storage/resume smoke with live pro
 - /home/manuel/workspaces/2026-06-01/geppetto-js/pinocchio/cmd/pinocchio/cmds/js.go — CLI storage path exercised by smoke
 - /home/manuel/workspaces/2026-06-01/geppetto-js/pinocchio/cmd/pinocchio/cmds/js_turn_store.go — Adapter persistence/resume path exercised by smoke
 
+
+## 2026-06-02
+
+Recorded push-time Go 1.26.3 govulncheck failure and bumped Geppetto toolchain to Go 1.26.4 for clean security validation (commit 426bdff6).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/go.mod — Go toolchain directive bumped to go1.26.4 for govulncheck
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/02/GP-JS-TURNSTORE-2026-06-02--design-javascript-turn-store-persistence-api-and-provider-wiring/reference/01-investigation-diary.md — Step 5 records push-time validation and failures
+
