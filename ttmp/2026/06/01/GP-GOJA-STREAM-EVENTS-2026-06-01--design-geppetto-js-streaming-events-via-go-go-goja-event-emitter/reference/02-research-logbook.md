@@ -96,6 +96,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** The intended architecture for JavaScript-visible streaming events in Geppetto.
 - **What we were looking for:** The proposed public API, event naming, payload mapping, runtime wiring, phases, and the relationship between `agent.stream`, `agent.runAsync`, builder-level `.events(...)`, and per-run emitters.
 - **Why we chose it / what led us to it:** This was the primary design deliverable for the ticket and the first place to reconcile implementation direction with user feedback.
+- **How we found the resource itself:** It is the primary `design-doc/` file created inside this docmgr ticket workspace during the initial research/design phase.
 - **What was useful:**
   - Captured the core architecture: Geppetto events should flow through `events.EventSink` into go-go-goja EventEmitters.
   - Documented why `handle.on(...)` is racy if the run starts before listener registration.
@@ -118,6 +119,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** The correctness and maintainability of the implemented EventEmitter + `runAsync` work.
 - **What we were looking for:** Deprecated code, messy code, missing cleanup, owner-thread problems, host integration gaps, incomplete payload contracts, and untested behavior.
 - **Why we chose it / what led us to it:** It was created after implementation to give a new intern a technical map and to identify what remains risky.
+- **How we found the resource itself:** It was created as the ticket review deliverable after implementation and listed in the ticket workspace under `analysis/`.
 - **What was useful:**
   - Clear explanation of the current event flow from JS EventEmitter to Geppetto `EventSink` to provider events and back to JS callbacks.
   - Identifies high-risk issues:
@@ -139,6 +141,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** Line-numbered evidence for the streaming design and implementation review.
 - **What we were looking for:** Anchors for claims about current code: event sinks, session execution, `agent.stream`/`runAsync`, go-go-goja EventEmitter adoption, and runtime module setup.
 - **Why we chose it / what led us to it:** The ticket workflow required evidence-first analysis before writing conclusions.
+- **How we found the resource itself:** It was generated during evidence collection for the ticket and stored under the ticket `sources/` directory.
 - **What was useful:**
   - Consolidated line-numbered excerpts into one source file.
   - Good for writing the initial design guide without repeatedly opening many source files.
@@ -155,6 +158,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** Chronological implementation history, reasoning, failures, and validation steps.
 - **What we were looking for:** Why design decisions changed, what broke, and which commands validated the work.
 - **Why we chose it / what led us to it:** The diary is the authoritative continuation record for this ticket.
+- **How we found the resource itself:** It is the ticket continuation diary maintained under `reference/` per the docmgr/diary workflow.
 - **What was useful:**
   - Records the shift from `stream`/per-run emitter thinking to builder-level `.events(emitter)` + `runAsync`.
   - Records the `RuntimeValues` concern and the move to typed manager/resolver plumbing.
@@ -172,6 +176,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** Public documentation for the final hard-cut JS API and the new `runAsync` EventEmitter API.
 - **What we were looking for:** Whether users can discover `runAsync`, event names, payload fields, handle shape, absent APIs, and example commands.
 - **Why we chose it / what led us to it:** The user explicitly requested a JS API reference at minimum.
+- **How we found the resource itself:** Repository documentation search for the hard-cut JavaScript API led to `pkg/doc/topics/13-js-api-reference.md`.
 - **What was useful:**
   - Now documents `RunOptions`, `AgentAsyncHandle`, `runAsync`, builder-level `.events(emitter)`, event names, common payload fields, and deferred APIs.
   - Explicitly states `agent.stream`, per-run `{ events }`, and `handle.on` are absent.
@@ -192,6 +197,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** Practical user-level explanation of composing settings, agents, turns, tools, multimodal messages, and live events.
 - **What we were looking for:** Where to place a narrative `runAsync` section and constraints.
 - **Why we chose it / what led us to it:** Users need a recipe, not only a reference table.
+- **How we found the resource itself:** Repository documentation search for user-facing JS API guidance led to `pkg/doc/topics/14-js-api-user-guide.md`.
 - **What was useful:**
   - Now includes a live-events usage section with EventEmitter setup and constraints.
   - Reinforces listener registration before `runAsync`.
@@ -207,6 +213,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** A step-by-step tutorial path that includes live EventEmitter events.
 - **What we were looking for:** Where a beginner should learn `runAsync` relative to sync `run`, tools, and multimodal turns.
 - **Why we chose it / what led us to it:** The new API should not be hidden in reference docs only.
+- **How we found the resource itself:** Repository documentation search for JS API tutorials led to `pkg/doc/tutorials/05-js-api-getting-started.md`.
 - **What was useful:**
   - Now has a dedicated step for EventEmitter + `runAsync`.
   - Includes commands for real-provider examples.
@@ -222,6 +229,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** Discoverability of runnable JS examples.
 - **What we were looking for:** Whether a user can find commands to run EventEmitter examples against a real provider.
 - **Why we chose it / what led us to it:** User asked how to run the examples and then reported zero output.
+- **How we found the resource itself:** Example discovery started from `examples/js/geppetto/README.md`, the index for runnable JS examples.
 - **What was useful:**
   - Lists `31`, `32`, and `33` EventEmitter examples.
   - Includes full `go run ./cmd/examples/geppetto-js-run run ...` commands.
@@ -240,6 +248,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** How users should consume EventEmitter events in real JavaScript.
 - **What we were looking for:** Minimal, progress-summary, and multi-turn examples that exercise the final API shape.
 - **Why we chose it / what led us to it:** The user asked for examples showcasing streaming events.
+- **How we found the resource itself:** They were found from the example README and numbered `31`-`33` after the EventEmitter examples were added.
 - **What was useful:**
   - `31` demonstrates the smallest real-provider smoke.
   - `32` records generic and type-specific event counts.
@@ -258,6 +267,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** How go-go-goja expects Go code to connect to JavaScript-created EventEmitters.
 - **What we were looking for:** Correct adoption API, owner-thread restrictions, `EmitterRef` lifecycle, and emission patterns.
 - **Why we chose it / what led us to it:** The ticket explicitly proposed using go-go-goja connected EventEmitters instead of direct callback invocation.
+- **How we found the resource itself:** The EventEmitter design pointed to go-go-goja connected emitters; repository/doc search located `pkg/doc/17-connected-eventemitters-developer-guide.md`.
 - **What was useful:**
   - Established the correct mental model: adopt JS EventEmitter on the owner thread, then emit through a Go ref that schedules work back to the owner.
   - Supported the design decision to avoid calling JS callbacks directly from provider goroutines.
@@ -273,6 +283,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** Owner-thread scheduling and asynchronous JavaScript execution patterns.
 - **What we were looking for:** Why sync `run()` cannot deliver live JS callbacks and why `runAsync` needs to return control to the owner.
 - **Why we chose it / what led us to it:** The user asked whether `stream()`/`runAsync` was needed if `run()` exists.
+- **How we found the resource itself:** Owner-thread questions led to go-go-goja documentation search for async/runtime patterns, which located `pkg/doc/03-async-patterns.md`.
 - **What was useful:**
   - Reinforced owner-thread constraints and asynchronous scheduling patterns.
   - Helped explain why synchronous `run()` cannot be a live callback API.
@@ -288,6 +299,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** The actual connected EventEmitter implementation.
 - **What we were looking for:** `AdoptEmitterOnOwner`, `EmitWithBuilder`, lifecycle close semantics, and runtime manager lookup.
 - **Why we chose it / what led us to it:** Needed to implement `jsEventEmitterSink` correctly.
+- **How we found the resource itself:** Code search for `jsevents.Manager`, `AdoptEmitterOnOwner`, and `EmitWithBuilder` located the implementation file.
 - **What was useful:**
   - `AdoptEmitterOnOwner` proves adoption validates go-go-goja EventEmitter values.
   - `EmitWithBuilder` schedules delivery through `owner.Post`.
@@ -304,6 +316,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** What JavaScript receives from `require("events")` and how EventEmitter values are represented internally.
 - **What we were looking for:** Constructor behavior, `FromValue`, supported methods, and event semantics.
 - **Why we chose it / what led us to it:** Needed to know what `.events(emitter)` can safely accept.
+- **How we found the resource itself:** Code search for `require("events")`, `EventEmitter`, and `FromValue` located the native events module.
 - **What was useful:**
   - Confirmed the EventEmitter is Go-backed and can be unwrapped by `eventsmodule.FromValue`.
   - Listed supported JS methods: `on`, `once`, `off`, `removeAllListeners`, `emit`, etc.
@@ -319,6 +332,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** Existing examples of adopting EventEmitters and connecting Go resources to JS EventEmitter callbacks.
 - **What we were looking for:** Test patterns for adoption, async emit, close, and helper modules.
 - **Why we chose it / what led us to it:** Needed implementation and testing patterns for `api_event_emitters_test.go`.
+- **How we found the resource itself:** After finding `pkg/jsevents/manager.go`, adjacent tests/examples and repository search for `AdoptEmitterOnOwner` exposed the test/example corpus.
 - **What was useful:**
   - `manager_test.go` shows owner-thread adoption and `EmitSync` assertions.
   - `fswatch.go` and `watermill.go` show real resource-to-EventEmitter connection patterns.
@@ -334,6 +348,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** Canonical Geppetto event types, metadata, and sink publication.
 - **What we were looking for:** Event type names, struct fields, correlation metadata, and where sinks are attached/retrieved.
 - **Why we chose it / what led us to it:** JavaScript payload mapping must be based on canonical Go events.
+- **How we found the resource itself:** Repository search for canonical event types and `PublishEventToContext` led to `pkg/events/*` source files.
 - **What was useful:**
   - `context.go` gave the sink injection point.
   - `chat-events.go` lists canonical event names such as `text-delta`, `provider-call-started`, and `error`.
@@ -352,6 +367,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** How an agent run starts, waits, cancels, and receives event sinks.
 - **What we were looking for:** `ExecutionHandle`, `Cancel`, `Wait`, `WithEventSinks`, and the run context path.
 - **Why we chose it / what led us to it:** `runAsync` needed a promise/cancel handle backed by the actual inference execution handle.
+- **How we found the resource itself:** Tracing `agent.runAsync` execution into session start/wait/cancel and event sink injection led to `pkg/inference/session` and `toolloop/enginebuilder` files.
 - **What was useful:**
   - `ExecutionHandle.Cancel()` is the right cancellation target.
   - `enginebuilder.WithEventSinks(...)` already injects sinks into the run context.
@@ -368,6 +384,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** The agent builder/object implementation and the new `runAsync` control flow.
 - **What we were looking for:** Public methods, event sink storage, cancellation, run setup, and Promise settlement.
 - **Why we chose it / what led us to it:** This is the main implementation file for the public API.
+- **How we found the resource itself:** This is the implementation file for `gp.agent()`, found by searching for `agentBuilder`, `runAsync`, and `.events` in `pkg/js/modules/geppetto`.
 - **What was useful:**
   - Clear path for `.events(...)` to append sinks.
   - `runAsync` returns the intended minimal handle.
@@ -389,6 +406,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** EventEmitter-backed EventSink adapter.
 - **What we were looking for:** Manager lookup, adoption, publish behavior, and close behavior.
 - **Why we chose it / what led us to it:** This is the bridge between Geppetto events and JS EventEmitter listeners.
+- **How we found the resource itself:** This file was added for the EventEmitter adapter and found by source-tree inspection under `pkg/js/modules/geppetto`.
 - **What was useful:**
   - Small implementation; easy to reason about.
   - Uses `jsevents.Manager.AdoptEmitterOnOwner` and `EmitterRef.EmitWithBuilder`, which is the right upstream API.
@@ -409,6 +427,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** JavaScript payload encoding for Geppetto events.
 - **What we were looking for:** Which event types are mapped and how fields are named.
 - **Why we chose it / what led us to it:** The API reference and examples depend on this payload contract.
+- **How we found the resource itself:** Payload drift concerns led to searching for `encodeGeppettoEventPayload`, which located this shared encoder.
 - **What was useful:**
   - Centralizes payload encoding shared by EventEmitter sinks and the old collector.
   - Maps text, reasoning, tool, error, and interrupt events.
@@ -427,6 +446,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** How owned JavaScript runtimes install Geppetto and go-go-goja modules.
 - **What we were looking for:** Where to install `jsevents.Install()` and how to pass the manager to the Geppetto module.
 - **Why we chose it / what led us to it:** EventEmitter adoption needs a per-runtime `jsevents.Manager`.
+- **How we found the resource itself:** Runtime integration questions led to `pkg/js/runtime/runtime.go`, found by tracing example runner/runtime construction and `jsevents.Install()`.
 - **What was useful:**
   - Correct place for the example runner and owned runtime path.
   - Installs `jsevents.Install()` by default unless already provided.
@@ -444,6 +464,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** Whether generated xgoja hosts can use the new EventEmitter support.
 - **What we were looking for:** Host service boundaries and module-loader construction.
 - **Why we chose it / what led us to it:** The JS module is exposed both through owned runtime and provider integration.
+- **How we found the resource itself:** Provider integration concerns led to `pkg/js/modules/geppetto/provider`, found by searching for xgoja/provider registration code.
 - **What was useful:**
   - Shows profile registry config and host-provided options path.
   - Shows the provider returns `geppettomodule.NewLoader(opts)` without direct runtime context access.
@@ -461,6 +482,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** Why EventEmitter examples produced zero output.
 - **What we were looking for:** Whether returned JS Promises were detected and waited on.
 - **Why we chose it / what led us to it:** User reported running examples produced no output.
+- **How we found the resource itself:** The zero-output example symptom led to the runner entrypoint `cmd/examples/geppetto-js-run/main.go` from the documented example command.
 - **What was useful:**
   - Exposes profile registry flags and default profile to examples.
   - After the fix, detects a returned JS Promise by exporting the `goja.Value` on the owner thread and waits for it.
@@ -479,6 +501,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** Public TypeScript shape for `runAsync` and EventEmitter sinks.
 - **What we were looking for:** Whether declaration files match runtime exports.
 - **Why we chose it / what led us to it:** The hard-cut JS API has DTS parity tests; stale declarations previously caused confusion.
+- **How we found the resource itself:** DTS parity tests and docs generation pointed to `pkg/doc/types/geppetto.d.ts` and the template under `pkg/js/modules/geppetto/spec/`.
 - **What was useful:**
   - Now exposes `AgentAsyncHandle`, `EventEmitterLike`, and `runAsync`.
   - Removes public `stream`/`handle.on` from declarations.
@@ -494,6 +517,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** Background context for the hard-cut wrapper-first API.
 - **What we were looking for:** The principles that should constrain the EventEmitter work: Go-owned wrappers, explicit turns, registry-backed settings, and no legacy map/session/runner API.
 - **Why we chose it / what led us to it:** The EventEmitter API needed to fit the existing hard-cut architecture.
+- **How we found the resource itself:** It was part of the earlier hard-cut documentation work and referenced in the session context as the wrapper-first architecture note.
 - **What was useful:**
   - Reinforced that JS APIs should be explicit and wrapper-first.
   - Helped reject adding broad legacy-ish shims.
@@ -509,6 +533,7 @@ This logbook intentionally includes resources that were useful and resources tha
 - **What we were researching:** How to upload ticket documents as a PDF bundle to reMarkable.
 - **What we were looking for:** The correct `remarquee upload bundle` command and remote path conventions.
 - **Why we chose it / what led us to it:** The user requested upload to reMarkable.
+- **How we found the resource itself:** The user explicitly requested reMarkable upload, so the local `remarkable-upload` skill/reference was loaded for the operational command pattern.
 - **What was useful:**
   - Current command guidance says to upload directly with `--non-interactive` and avoid unnecessary status/list calls.
   - Avoided extra auth/status tool calls.

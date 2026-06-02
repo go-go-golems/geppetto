@@ -978,3 +978,71 @@ No JS-only adapter lifecycle events were added. The documentation now states tha
   - `agent.runAsync(turn).promise`
 - JS-only adapter lifecycle events remain intentionally absent.
 - Real-provider smoke wrapper: `examples/js/geppetto/run_event_emitter_examples.sh`.
+
+## Step 15: Update research logbook with resource-discovery provenance
+
+This step updated the ticket research logbook to add the missing per-resource field requested by the user: how each document or source resource was found. The logbook now records not only why a resource was chosen, but also the concrete discovery path, such as docmgr ticket structure, repository search, code tracing, example commands, or skill loading.
+
+The updated logbook was validated with `docmgr doctor` and uploaded to reMarkable using `--force` because the original PDF name already existed in the target folder.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Create a research logbook document in the ticket that allows us to keep track of which resources    
+ are useful / out of date / need updating .                                                          
+                                                                                                     
+ For all the documents and external resources you read, list:                                        
+                                                                                                     
+ - what you were researching                                                                         
+ - what you were looking for in this document in particular                                          
+ - why you chose it
+ - how you found the resource itself
+ - what you found useful in the document                                                              
+ - what you didn't find useful                                                                        
+ - what is out of date / what was wrong                                                              
+ - what would need updating.                                                                         
+                                                                                                     
+ Store in ticket and upload to remarkable."
+
+**Assistant interpretation:** Update or create the ticket research logbook so every resource entry includes resource-discovery provenance, then upload the resulting document to reMarkable.
+
+**Inferred user intent:** Make the research logbook useful not just as an evaluation of resources, but as a reproducible map for how future maintainers can rediscover them.
+
+### What I did
+- Updated `reference/02-research-logbook.md`.
+- Added `How we found the resource itself` to all 25 resource entries.
+- Ran `docmgr doctor --ticket GP-GOJA-STREAM-EVENTS-2026-06-01 --stale-after 30` successfully.
+- Uploaded the updated logbook to reMarkable at `/ai/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01`.
+- First upload skipped because the PDF already existed; reran with `--force` and upload succeeded.
+
+### Why
+- The previous logbook covered the usefulness/staleness/update-needed fields but did not explicitly record how each resource was found.
+- Discovery provenance matters for future research continuation and for auditing whether the resource set was complete.
+
+### What worked
+- The scripted update added the new field consistently across all 25 entries.
+- `docmgr doctor` passed after the update.
+- `remarquee upload bundle --force` replaced the existing research logbook PDF successfully.
+
+### What didn't work
+- Initial upload without `--force` returned:
+  `SKIP: GP-GOJA-STREAM-EVENTS Research logbook already exists in /ai/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01 (use --force to overwrite)`
+
+### What I learned
+- The original uploaded filename is stable, so subsequent logbook revisions need `--force` or a versioned bundle name.
+
+### What was tricky to build
+- The logbook already had 25 long entries. The safe approach was to insert the new field after the existing `Why we chose it / what led us to it` field for each entry rather than rewrite the whole document.
+
+### What warrants a second pair of eyes
+- Review whether the discovery descriptions are specific enough for each resource, especially external/upstream resources from go-go-goja.
+
+### What should be done in the future
+- If more resources are added later, require `How we found the resource itself` at creation time.
+
+### Code review instructions
+- Review `reference/02-research-logbook.md` and search for `How we found the resource itself`; there should be one per resource entry.
+- Validate with `docmgr doctor --ticket GP-GOJA-STREAM-EVENTS-2026-06-01 --stale-after 30`.
+
+### Technical details
+- Updated doc: `ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/02-research-logbook.md`.
+- reMarkable path: `/ai/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01/GP-GOJA-STREAM-EVENTS Research logbook.pdf`.
