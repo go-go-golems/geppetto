@@ -8,6 +8,8 @@ import (
 	gp "github.com/go-go-golems/geppetto/pkg/js/modules/geppetto"
 	gojengine "github.com/go-go-golems/go-go-goja/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsevents"
+	"github.com/rs/zerolog"
+	zlog "github.com/rs/zerolog/log"
 )
 
 // Options configure a geppetto JavaScript runtime bootstrapped on top of the
@@ -70,7 +72,7 @@ func NewRuntime(ctx context.Context, opts Options) (*gojengine.Runtime, error) {
 	}
 	runtimeInitializers := nonNilRuntimeInitializers(opts.RuntimeInitializers)
 	if !hasRuntimeInitializer(runtimeInitializers, "jsevents.manager") {
-		runtimeInitializers = append([]gojengine.RuntimeInitializer{jsevents.Install()}, runtimeInitializers...)
+		runtimeInitializers = append([]gojengine.RuntimeInitializer{defaultJSEventsInitializer(opts.ModuleOptions.Logger)}, runtimeInitializers...)
 	}
 	builder = builder.WithRuntimeInitializers(runtimeInitializers...)
 	factory, err := builder.Build()
@@ -83,6 +85,15 @@ func NewRuntime(ctx context.Context, opts Options) (*gojengine.Runtime, error) {
 		return nil, fmt.Errorf("create runtime: %w", err)
 	}
 	return rt, nil
+}
+
+func defaultJSEventsInitializer(logger zerolog.Logger) gojengine.RuntimeInitializer {
+	if logger.GetLevel() == zerolog.NoLevel {
+		logger = zlog.Logger
+	}
+	return jsevents.Install(jsevents.WithErrorHandler(func(err error) {
+		logger.Warn().Err(err).Msg("geppetto js runtime: EventEmitter listener dispatch failed")
+	}))
 }
 
 func hasRuntimeInitializer(inits []gojengine.RuntimeInitializer, id string) bool {

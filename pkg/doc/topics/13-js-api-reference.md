@@ -292,6 +292,13 @@ Type-specific payload fields:
 
 Provider support varies. Some providers emit many `text-delta` events; others may emit only lifecycle/final events. Always use `result.text()` as the final answer source.
 
+Troubleshooting:
+
+- `geppetto events: jsevents manager is not installed`: the host registered `require("geppetto")` without installing go-go-goja `jsevents.Install()` or without passing an `EventEmitterManagerResolver` to the Geppetto module options.
+- Listener throws: Geppetto-owned runtimes log asynchronous EventEmitter listener dispatch failures; provider/xgoja hosts should install `jsevents.Install(jsevents.WithErrorHandler(...))` or equivalent host diagnostics.
+- Missing profile: registry-backed examples reject with `GoError: profile not found`; check `--profile-registries`, `--profile`, and default profile configuration.
+- No `text-delta`: some providers or adapters do not stream token deltas. Listen to the generic `event` channel to inspect observed event types and use `result.text()` for final output.
+
 Examples:
 
 - `examples/js/geppetto/31_event_emitter_run_async.js`

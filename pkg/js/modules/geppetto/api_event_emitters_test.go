@@ -401,6 +401,64 @@ func TestAgentRunAsyncToolLoopPreparesOnOwner(t *testing.T) {
 	}
 }
 
+type failingEngine struct{}
+
+var _ inferenceengine.Engine = (*failingEngine)(nil)
+
+func (e *failingEngine) RunInference(context.Context, *turns.Turn) (*turns.Turn, error) {
+	return nil, errors.New("engine boom")
+}
+
+func TestCloneRunOutputRejectsNilOutputTurn(t *testing.T) {
+	out, err := cloneRunOutput(nil)
+	if err == nil {
+		t.Fatalf("expected nil output error, got output %#v", out)
+	}
+	if err.Error() != "agent run returned nil output turn" {
+		t.Fatalf("nil output error = %q", err.Error())
+	}
+}
+
+func TestAgentRunAsyncRejectsWithErrorObject(t *testing.T) {
+	rt := newGeppettoEventRuntime(t)
+	_, err := rt.Owner.Call(context.Background(), "test.errorObjectRunAsync", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		if setErr := vm.Set("failingEngine", &failingEngine{}); setErr != nil {
+			return nil, setErr
+		}
+		_, runErr := vm.RunString(`
+			const gp = require("geppetto");
+			const agent = gp.agent().engine(globalThis.failingEngine).build();
+			globalThis.rejected = false;
+			agent.runAsync(gp.turn().user("fail").build()).promise.then(
+				() => { globalThis.rejected = true; globalThis.asyncResolved = true; },
+				err => {
+					globalThis.rejected = true;
+					globalThis.asyncErrorString = String(err);
+					globalThis.asyncErrorMessage = err && err.message;
+					globalThis.asyncErrorIsError = err instanceof Error;
+				}
+			);
+		`)
+		return nil, runErr
+	})
+	if err != nil {
+		t.Fatalf("error object async script failed: %v", err)
+	}
+	if err := waitForOwnerCondition(rt, time.Second, `globalThis.rejected === true`); err != nil {
+		t.Fatalf("promise did not reject: %v", err)
+	}
+	got, err := rt.Owner.Call(context.Background(), "test.readErrorObjectRunAsync", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		return vm.RunString(`JSON.stringify({resolved: globalThis.asyncResolved, isError: globalThis.asyncErrorIsError, message: globalThis.asyncErrorMessage, string: globalThis.asyncErrorString})`)
+	})
+	if err != nil {
+		t.Fatalf("read async error failed: %v", err)
+	}
+	want := `{"isError":true,"message":"engine boom","string":"GoError: engine boom"}`
+	if got.(goja.Value).String() != want {
+		t.Fatalf("async error state = %s, want %s", got.(goja.Value).String(), want)
+	}
+}
+
 func TestAgentRunAsyncCancelCancelsExecutionHandle(t *testing.T) {
 	rt := newGeppettoEventRuntime(t)
 	eng := &blockingEngine{started: make(chan struct{}), canceled: make(chan struct{})}

@@ -107,12 +107,16 @@ func (s *jsEventEmitterSink) PublishEvent(ev events.Event) error {
 		return fmt.Errorf("geppetto events: nil EventEmitter reference")
 	}
 	payload := encodeGeppettoEventPayload(ev)
+	eventType, _ := payload["type"].(string)
 	for _, name := range eventEmitterNamesForPayload(payload) {
 		name := name
 		payloadCopy := cloneJSONMap(payload)
 		if err := s.ref.EmitWithBuilder(context.Background(), name, func(vm *goja.Runtime) ([]goja.Value, error) {
 			return []goja.Value{toJSValueOn(vm, payloadCopy)}, nil
 		}); err != nil {
+			if s.api != nil {
+				s.api.logger.Warn().Err(err).Str("event_type", eventType).Str("event_name", name).Msg("geppetto events: failed to schedule EventEmitter publish")
+			}
 			return err
 		}
 	}

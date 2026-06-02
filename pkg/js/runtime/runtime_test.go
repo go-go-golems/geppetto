@@ -1,12 +1,18 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
+	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/dop251/goja"
+	gp "github.com/go-go-golems/geppetto/pkg/js/modules/geppetto"
 	gojengine "github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/jsevents"
+	"github.com/rs/zerolog"
 )
 
 type runtimeInitFunc struct {
@@ -114,6 +120,59 @@ func TestNewRuntime_SkipsNilRuntimeInitializers(t *testing.T) {
 	if initCalls.Load() != 1 {
 		t.Fatalf("init calls = %d, want 1", initCalls.Load())
 	}
+}
+
+func TestNewRuntime_DefaultJSEventsInitializerLogsListenerErrors(t *testing.T) {
+	var logs bytes.Buffer
+	logger := zerolog.New(&logs)
+	rt, err := NewRuntime(context.Background(), Options{
+		IncludeDefaultModules: true,
+		ModuleOptions:         gp.Options{Logger: logger},
+	})
+	if err != nil {
+		t.Fatalf("NewRuntime failed: %v", err)
+	}
+	defer func() {
+		_ = rt.Close(context.Background())
+	}()
+	manager, ok := jsevents.FromRuntime(rt)
+	if !ok {
+		t.Fatalf("jsevents manager was not installed")
+	}
+	ret, err := rt.Owner.Call(context.Background(), "test.setupThrowingEmitter", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		_, runErr := vm.RunString(`
+			const EventEmitter = require("events");
+			globalThis.throwingEmitter = new EventEmitter();
+			globalThis.throwingEmitter.on("boom", () => { throw new Error("listener exploded"); });
+		`)
+		if runErr != nil {
+			return nil, runErr
+		}
+		return manager.AdoptEmitterOnOwner(vm.Get("throwingEmitter"))
+	})
+	if err != nil {
+		t.Fatalf("setup throwing emitter failed: %v", err)
+	}
+	ref, ok := ret.(*jsevents.EmitterRef)
+	if !ok || ref == nil {
+		t.Fatalf("setup returned %T, want *jsevents.EmitterRef", ret)
+	}
+	if err := ref.EmitWithBuilder(context.Background(), "boom", func(vm *goja.Runtime) ([]goja.Value, error) {
+		return nil, nil
+	}); err != nil {
+		t.Fatalf("emit failed: %v", err)
+	}
+	for i := 0; i < 100; i++ {
+		if err := rt.Owner.WaitIdle(context.Background()); err != nil {
+			t.Fatalf("WaitIdle failed: %v", err)
+		}
+		logText := logs.String()
+		if strings.Contains(logText, "EventEmitter listener dispatch failed") && strings.Contains(logText, "listener exploded") {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("logs did not include listener failure: %s", logs.String())
 }
 
 func TestNewRuntime_RegistersGeppettoAndCustomBindings(t *testing.T) {

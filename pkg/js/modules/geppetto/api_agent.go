@@ -338,7 +338,11 @@ func (a *agentRef) runSync(input *turns.Turn, opts runOptions) (*runResultRef, e
 	if err != nil {
 		return nil, err
 	}
-	return &runResultRef{api: a.api, inputTurn: started.inputSnapshot, effectiveTurn: started.effectiveTurn, outputTurn: out.Clone()}, nil
+	output, err := cloneRunOutput(out)
+	if err != nil {
+		return nil, err
+	}
+	return &runResultRef{api: a.api, inputTurn: started.inputSnapshot, effectiveTurn: started.effectiveTurn, outputTurn: output}, nil
 }
 
 func (a *agentRef) startAsync(input *turns.Turn, opts runOptions) goja.Value {
@@ -398,13 +402,13 @@ func (a *agentRef) startAsync(input *turns.Turn, opts runOptions) goja.Value {
 
 	runScopedEventSinks, closers, err := a.newRunScopedEventEmitterSinks()
 	if err != nil {
-		_ = reject(a.api.vm.ToValue(err.Error()))
+		a.rejectPromiseWithError(reject, err)
 		return handleObj
 	}
 	started, err := a.startRun(input, opts, runScopedEventSinks)
 	if err != nil {
 		closeRunScopedEventEmitterSinks(context.Background(), closers)
-		_ = reject(a.api.vm.ToValue(err.Error()))
+		a.rejectPromiseWithError(reject, err)
 		return handleObj
 	}
 	setActive(started)
@@ -416,14 +420,19 @@ func (a *agentRef) startAsync(input *turns.Turn, opts runOptions) goja.Value {
 		postErr := a.api.postOnOwner(context.Background(), "agent.runAsync.settle", func(context.Context) {
 			defer closeRunScopedEventEmitterSinks(context.Background(), closers)
 			if waitErr != nil {
-				_ = reject(a.api.vm.ToValue(waitErr.Error()))
+				a.rejectPromiseWithError(reject, waitErr)
+				return
+			}
+			output, err := cloneRunOutput(out)
+			if err != nil {
+				a.rejectPromiseWithError(reject, err)
 				return
 			}
 			_ = resolve(a.api.newRunResultObject(&runResultRef{
 				api:           a.api,
 				inputTurn:     started.inputSnapshot,
 				effectiveTurn: started.effectiveTurn,
-				outputTurn:    out.Clone(),
+				outputTurn:    output,
 			}))
 		})
 		if postErr != nil {
@@ -432,6 +441,23 @@ func (a *agentRef) startAsync(input *turns.Turn, opts runOptions) goja.Value {
 		}
 	}()
 	return handleObj
+}
+
+func (a *agentRef) rejectPromiseWithError(reject func(reason any) error, err error) {
+	if a == nil || a.api == nil || reject == nil {
+		return
+	}
+	if err == nil {
+		err = fmt.Errorf("agent run failed")
+	}
+	_ = reject(a.api.vm.NewGoError(err))
+}
+
+func cloneRunOutput(out *turns.Turn) (*turns.Turn, error) {
+	if out == nil {
+		return nil, fmt.Errorf("agent run returned nil output turn")
+	}
+	return out.Clone(), nil
 }
 
 func (m *moduleRuntime) newRunResultObject(ref *runResultRef) *goja.Object {

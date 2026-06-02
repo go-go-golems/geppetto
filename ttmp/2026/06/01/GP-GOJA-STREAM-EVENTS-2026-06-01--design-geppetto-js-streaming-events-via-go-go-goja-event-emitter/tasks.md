@@ -86,10 +86,10 @@ updated: 2026-06-01
 
 ## Review hardening — P1 diagnostics and guardrails
 
-- [ ] Log EventEmitter publish scheduling failures with event type and emitted channel name
-- [ ] Install a default `jsevents.Manager` async listener-error handler in Geppetto-owned runtimes
-- [ ] Reject `runAsync` promises with JS `Error`/`GoError` values instead of plain strings
-- [ ] Guard `run` and `runAsync` against nil output turns and return/reject a clear error
-- [ ] Add regression tests for listener-error diagnostics, JS `Error` rejections, and nil-output handling
-- [ ] Document troubleshooting symptoms for missing manager, listener throws, missing profiles, and providers with no `text-delta`
-- [ ] Run focused tests, docs tests, and full pre-commit validation
+- [x] Log EventEmitter publish scheduling failures with event type and emitted channel name
+- [x] Install a default `jsevents.Manager` async listener-error handler in Geppetto-owned runtimes
+- [x] Reject `runAsync` promises with JS `Error`/`GoError` values instead of plain strings
+- [x] Guard `run` and `runAsync` against nil output turns and return/reject a clear error
+- [x] Add regression tests for listener-error diagnostics, JS `Error` rejections, and nil-output handling
+- [x] Document troubleshooting symptoms for missing manager, listener throws, missing profiles, and providers with no `text-delta`
+- [x] Run focused tests, docs tests, and full pre-commit validation
