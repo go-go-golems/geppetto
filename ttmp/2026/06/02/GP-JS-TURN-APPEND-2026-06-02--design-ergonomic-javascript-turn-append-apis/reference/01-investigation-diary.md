@@ -1,19 +1,27 @@
 ---
-title: Investigation diary
-doc_type: reference
-status: active
-intent: long-term
-topics:
-  - geppetto
-  - goja
-  - js-bindings
-  - turns
-  - architecture
-owners:
-  - manuel
-created: 2026-06-02
-updated: 2026-06-02
+Title: ""
+Ticket: ""
+Status: ""
+Topics: []
+DocType: ""
+Intent: ""
+Owners: []
+RelatedFiles:
+    - Path: examples/js/geppetto/30_real_provider_multiturn.js
+      Note: Updated real-provider example to use continuation builder
+    - Path: pkg/doc/topics/13-js-api-reference.md
+      Note: Documents gp.turn(base?) semantics
+    - Path: pkg/js/modules/geppetto/api_turn_builder.go
+      Note: Implemented gp.turn(existingTurn) continuation builder (commit c294f17f)
+    - Path: pkg/js/modules/geppetto/api_turn_builder_test.go
+      Note: Continuation builder regression coverage (commit c294f17f)
+ExternalSources: []
+Summary: ""
+LastUpdated: 0001-01-01T00:00:00Z
+WhatFor: ""
+WhenToUse: ""
 ---
+
 
 # Diary
 
@@ -84,3 +92,91 @@ The design preserves the hard-cut rules. It does not add hidden chat state, does
 - Preferred API: `gp.turn(previousTurn).assistant(...).user(...).build()`.
 - Explicit non-goal: no `agent.ask()`, no hidden agent transcript, no plain JS object import.
 - Related ticket that remains part of the intended pair: `GP-JS-TURNSTORE-2026-06-02`.
+
+## Step 2: Implement `gp.turn(existingTurn)` continuation builders
+
+I implemented the missing continuation builder API. `gp.turn()` still starts an empty turn, while `gp.turn(existingTurn)` now requires a Go-owned `TurnWrapper`, clones it, clears the copied turn ID, and returns the existing fluent builder so scripts can append more system/user/assistant/metadata blocks.
+
+The implementation keeps built turns immutable from JavaScript's point of view. `turn.clone()` remains the exact identity-preserving copy operation, while `gp.turn(turn).user(...).build()` creates a new continuation turn suitable for follow-up inference and persistence.
+
+### Prompt Context
+
+**User prompt (verbatim):** "implement, keep a detailed diary as you work."
+
+**User prompt (verbatim):** "commit at approrpiate intervals."
+
+**Assistant interpretation:** Implement the corrected turn append API, update tests/docs/examples, keep the ticket diary current, and commit in focused increments.
+
+**Inferred user intent:** Move the turn-append ticket from design to working code while preserving traceability and reviewability.
+
+**Commit (code):** c294f17f — "Add JS turn continuation builder"
+
+### What I did
+- Updated `pkg/js/modules/geppetto/api_turn_builder.go` so `gp.turn(base?)` accepts an optional base turn.
+- Added wrapper validation through `requireTurnRef`; plain JavaScript objects are rejected.
+- Cleared `Turn.ID` when creating a continuation builder from an existing turn.
+- Added `pkg/js/modules/geppetto/api_turn_builder_test.go` covering:
+  - continuation from an existing turn,
+  - base turn immutability,
+  - continuation ID clearing,
+  - `turn.clone()` ID preservation,
+  - plain-object rejection,
+  - multimodal continuation.
+- Updated TypeScript declarations in:
+  - `pkg/doc/types/geppetto.d.ts`
+  - `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`
+- Updated docs in:
+  - `pkg/doc/topics/13-js-api-reference.md`
+  - `pkg/doc/topics/14-js-api-user-guide.md`
+  - `pkg/doc/tutorials/05-js-api-getting-started.md`
+- Updated examples:
+  - `examples/js/geppetto/30_real_provider_multiturn.js`
+  - `examples/js/geppetto/33_event_emitter_multiturn_run_async.js`
+  - `examples/js/geppetto/README.md`
+
+### Why
+- Multi-turn scripts should not have to manually reconstruct prior system/user/assistant blocks.
+- The API should improve ergonomics without reintroducing hidden agent state.
+- Clearing copied IDs follows the existing Go session continuation rule and avoids overwriting prior persisted turns.
+
+### What worked
+- The existing `turnBuilderRef.cloneFor(...)` machinery already supported immutable append behavior.
+- The implementation was small because all append methods already existed on the builder.
+- The tests confirmed the intended distinction between `turn.clone()` and `gp.turn(turn).build()`.
+- Validation passed:
+  - `go test ./pkg/js/modules/geppetto -run 'TestTurnBuilder' -count=1`
+  - `go test ./pkg/js/... ./cmd/examples/geppetto-js-run -count=1`
+  - `go test -tags geppetto_js_hardcut_contract ./pkg/js/modules/geppetto -run TestHardCutPublicSurfaceContract -count=1`
+  - `go test ./pkg/doc -count=1`
+  - pre-commit `go test ./...` and lint hooks.
+
+### What didn't work
+- N/A. The implementation path was direct after the ticket correction.
+
+### What I learned
+- The existing builder had already been designed in an immutable style, so `gp.turn(existingTurn)` could reuse the same method vocabulary.
+- The most important semantic distinction is identity: clone preserves `Turn.ID`; continuation clears it.
+
+### What was tricky to build
+- The tricky part was not appending blocks; it was choosing and documenting ID semantics. If continuation preserved the previous turn ID, future turn-store persistence could overwrite the earlier turn. If `clone()` cleared the ID, it would violate user expectations for an exact copy.
+- I kept both operations separate: `turn.clone()` preserves identity, and `gp.turn(turn)` creates a continuation builder with a blank ID.
+
+### What warrants a second pair of eyes
+- Review whether clearing ID immediately in `gp.turn(existingTurn)` is preferred over clearing only after the first append.
+- Review whether future convenience methods like `turn.appendUser(...)` should be added or whether the builder API is enough.
+
+### What should be done in the future
+- If callers ask for plain-object import, design `gp.turn.fromJSON(...)` separately instead of weakening wrapper validation.
+- Optionally run the real-provider multi-turn examples after CI if profile credentials are available.
+
+### Code review instructions
+- Start with `pkg/js/modules/geppetto/api_turn_builder.go:turnBuilder`.
+- Then read `pkg/js/modules/geppetto/api_turn_builder_test.go` to see the expected continuation semantics.
+- Check docs/examples for the intended public usage shape.
+- Validate with `go test ./pkg/js/modules/geppetto -run TestTurnBuilder -count=1`.
+
+### Technical details
+- Public API: `gp.turn(base?: TurnWrapper): TurnBuilder`.
+- Exact copy API: `turn.clone()`.
+- Continuation API: `gp.turn(result.outputTurn()).user(nextPrompt).build()`.
+- Continuation builder rejects plain JS objects by calling `requireTurnRef`.
