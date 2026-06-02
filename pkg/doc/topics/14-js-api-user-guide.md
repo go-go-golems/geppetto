@@ -77,6 +77,59 @@ console.log(result.text());
 
 Agents intentionally do not expose `ask(prompt)` or `system(prompt)`. System/user content belongs in the turn.
 
+## Live Events with `runAsync` and EventEmitter
+
+Use `agent.run(turn)` when you only need a blocking final result. Use `agent.runAsync(turn)` when JavaScript should receive provider/tool-loop events while inference is still running.
+
+The first-pass event API is builder-level: create an EventEmitter, register listeners, pass it to `.events(emitter)`, and then call `runAsync`.
+
+```js
+const EventEmitter = require("events");
+
+const events = new EventEmitter();
+const counts = Object.create(null);
+const deltas = [];
+
+events.on("event", ev => {
+  counts[ev.type] = (counts[ev.type] || 0) + 1;
+});
+
+events.on("text-delta", ev => {
+  if (ev.delta) deltas.push(ev.delta);
+});
+
+events.on("inference-error", ev => {
+  console.error(ev.message || ev.error);
+});
+
+const agent = gp.agent()
+  .name("assistant")
+  .inference(settings)
+  .events(events)
+  .build();
+
+const handle = agent.runAsync(turn, { timeoutMs: 120000 });
+const result = await handle.promise;
+
+console.log(result.text());
+console.log(counts, deltas.join(""));
+```
+
+Important constraints:
+
+- Register listeners before `.events(emitter).build()` or at least before `runAsync(...)` starts.
+- `runAsync` returns `{ promise, cancel, close }`.
+- `cancel()` and `close()` cancel the active run.
+- `handle.on(...)` is intentionally not part of the API.
+- `agent.runAsync(turn, { events })` is intentionally deferred; use builder-level `.events(emitter)` for now.
+- Canonical Geppetto `error` events emit as `inference-error`, not Node's special `error` event.
+
+See:
+
+- `examples/js/geppetto/31_event_emitter_run_async.js`
+- `examples/js/geppetto/32_event_emitter_progress_summary.js`
+- `examples/js/geppetto/33_event_emitter_multiturn_run_async.js`
+
 ## Multi-Turn Inference
 
 The API is explicit: a second provider call receives history only if the script includes that history in the next turn.

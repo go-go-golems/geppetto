@@ -127,7 +127,48 @@ GEPPETTO_TIMEOUT_MS=120000 \
 ./examples/js/geppetto/run_real_provider_multiturn.sh
 ```
 
-## Step 5: Add Tools and Schemas
+## Step 5: Stream Live Events with `runAsync`
+
+`agent.run(...)` is synchronous. For live JavaScript callbacks, attach a builder-level EventEmitter and use `agent.runAsync(...)`:
+
+```js
+const EventEmitter = require("events");
+
+const events = new EventEmitter();
+events.on("event", ev => console.log("event", ev.type));
+events.on("text-delta", ev => console.log("delta", ev.delta));
+events.on("inference-error", ev => console.error(ev.message || ev.error));
+
+const asyncAgent = gp.agent()
+  .inference(settings)
+  .events(events)
+  .build();
+
+const handle = asyncAgent.runAsync(gp.turn().user("Hello").build(), {
+  timeoutMs: 120000,
+});
+
+const result = await handle.promise;
+console.log(result.text());
+```
+
+Run the checked-in real-provider examples:
+
+```bash
+go run ./cmd/examples/geppetto-js-run run \
+  --script examples/js/geppetto/31_event_emitter_run_async.js \
+  --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
+  --profile default \
+  --timeout-ms 120000
+
+go run ./cmd/examples/geppetto-js-run run \
+  --script examples/js/geppetto/32_event_emitter_progress_summary.js \
+  --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
+  --profile default \
+  --timeout-ms 120000
+```
+
+## Step 6: Add Tools and Schemas
 
 ```js
 const input = gp.schema.object()
@@ -149,7 +190,7 @@ See:
 
 - `examples/js/geppetto/29_tools_schema_multimodal_turn.js`
 
-## Step 6: Add Images to a Turn
+## Step 7: Add Images to a Turn
 
 ```js
 const turn = gp.turn()
@@ -162,7 +203,7 @@ const turn = gp.turn()
 
 `imageURL`, `imageFile`, and `imageBytes` all produce image payloads on the Go-owned turn wrapper.
 
-## Step 7: Use xgoja Provider Registry Config
+## Step 8: Use xgoja Provider Registry Config
 
 Generated xgoja hosts can configure registry loading with:
 

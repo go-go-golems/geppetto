@@ -206,6 +206,97 @@ Intentionally absent:
 - `agent.system(prompt)`
 - `agent.profile(name)`
 - `agent.inferenceProfile(name)`
+- `agent.stream(...)`
+- `agent.runAsync(turn, { events })`
+- `handle.on(...)`
+
+## `RunOptions`
+
+Both `run` and `runAsync` accept the same run options:
+
+```ts
+interface RunOptions {
+  timeoutMs?: number;
+  tags?: Record<string, any>;
+}
+```
+
+`timeoutMs` cancels the Go run context after the requested number of milliseconds. `tags` are attached to runtime metadata and are useful for tracing examples, tests, and host integrations.
+
+## `runAsync` and EventEmitter Events
+
+`runAsync` is the live-event execution path. It starts inference in Go and immediately returns control to JavaScript so go-go-goja can deliver EventEmitter callbacks on the runtime owner thread.
+
+The first-pass event API is builder-level only:
+
+```js
+const EventEmitter = require("events");
+const events = new EventEmitter();
+
+const seen = [];
+events.on("event", ev => seen.push(ev.type));
+events.on("text-delta", ev => process.stdout.write(ev.delta));
+events.on("inference-error", ev => console.error(ev.message || ev.error));
+
+const agent = gp.agent()
+  .inference(settings)
+  .events(events)
+  .build();
+
+const handle = agent.runAsync(turn, { timeoutMs: 120000 });
+const result = await handle.promise;
+```
+
+Handle shape:
+
+```ts
+interface AgentAsyncHandle {
+  promise: Promise<RunResult>;
+  cancel(): void;
+  close(): void;
+}
+```
+
+`cancel()` and `close()` both cancel the active inference run. `runAsync` does not expose `handle.on(...)`; register listeners on the EventEmitter before passing it to `.events(...)`.
+
+Every Geppetto event is emitted twice:
+
+1. as `"event"`, for generic logging and counting;
+2. as its type-specific event name, such as `"text-delta"`, `"provider-call-started"`, or `"tool-result-ready"`.
+
+Canonical Geppetto `error` events are emitted as `"inference-error"` for the type-specific channel, not Node's special `"error"` event. They still appear on the generic `"event"` channel with `ev.type === "error"`.
+
+Common payload fields:
+
+- `type`: canonical Geppetto event type.
+- `timestampMs`: JavaScript-facing emission timestamp.
+- `sessionId`, `inferenceId`, `turnId`: correlation identifiers when available.
+- `correlation`: structured run/provider/segment/tool correlation when available.
+- `metaExtra`: provider or runtime metadata when available.
+- `rawPayload`: raw provider payload string when the event carries one.
+
+Type-specific payload fields:
+
+- `text-delta`: `delta`, `text`, `sequence`.
+- `text-segment-finished`: `text`, `finishReason`.
+- `reasoning-delta`: `delta`, `text`, `sequence`, `source?`.
+- `reasoning-segment-finished`: `text`, `finishReason`, `source?`.
+- `tool-call-started`: `toolCall.id`, `toolCall.name`.
+- `tool-call-arguments-delta`: `toolCall.id`, `toolCall.delta`, `toolCall.arguments`, `toolCall.sequence`.
+- `tool-call-requested`: `toolCall.id`, `toolCall.name`, `toolCall.input`.
+- `tool-execution-started`: `toolCall.id`, `toolCall.name`, `toolCall.input`.
+- `tool-result-ready`: `toolResult.id`, `toolResult.name`, `toolResult.result`, `toolResult.status`.
+- `tool-call-finished`: `toolCall.id`, `toolCall.name`, `toolCall.status`.
+- `inference-error`: `error`, `message`.
+- `interrupt`: `text`.
+
+Provider support varies. Some providers emit many `text-delta` events; others may emit only lifecycle/final events. Always use `result.text()` as the final answer source.
+
+Examples:
+
+- `examples/js/geppetto/31_event_emitter_run_async.js`
+- `examples/js/geppetto/32_event_emitter_progress_summary.js`
+- `examples/js/geppetto/33_event_emitter_multiturn_run_async.js`
 
 ## `RunResult`
 

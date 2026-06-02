@@ -471,3 +471,68 @@ The implementation also corrected the first typed-manager plumbing attempt. A ge
   - `agent.stream(...)`
   - `agent.runAsync(turn, { events })`
   - `handle.on(...)`
+
+## Step 8: Add JavaScript streaming examples and expand API docs
+
+This step made the new EventEmitter streaming approach easier to discover from JavaScript. The implementation already had a minimal real-provider smoke script, but the docs needed a proper API-reference treatment and more examples showing how to consume generic and type-specific event channels.
+
+I added two more example scripts: one that summarizes event progress for a single `runAsync` call, and one that reuses a builder-level EventEmitter across two explicit multi-turn `runAsync` calls. I also expanded the API reference, user guide, tutorial, and examples README so the first-pass constraints are clear: builder-level `.events(emitter)`, `agent.runAsync(...)`, no `agent.stream(...)`, no per-run `{ events }`, and no `handle.on(...)`.
+
+### Prompt Context
+
+**User prompt (verbatim):** "write a couple of examples that showcase the streaming event approach in js, as examples. Also, any documentation to update or to write? we definitely need a js api reference at the very least"
+
+**Assistant interpretation:** Add runnable JavaScript examples for the EventEmitter + `runAsync` streaming model and update the public documentation, especially the JS API reference.
+
+**Inferred user intent:** Ensure the new API is understandable to future users and reviewers, not only tested internally.
+
+### What I did
+- Added `examples/js/geppetto/32_event_emitter_progress_summary.js`.
+- Added `examples/js/geppetto/33_event_emitter_multiturn_run_async.js`.
+- Updated `examples/js/geppetto/README.md` with the new examples and commands.
+- Expanded `pkg/doc/topics/13-js-api-reference.md` with `RunOptions`, `runAsync`, EventEmitter event names, handle shape, payload fields, and absent/deferred APIs.
+- Expanded `pkg/doc/topics/14-js-api-user-guide.md` with a live-events usage section.
+- Added a getting-started tutorial step for `runAsync` and EventEmitter streaming.
+
+### Why
+- The API reference needs to document event names and payloads explicitly because users cannot infer them from the wrapper surface.
+- Multiple examples show different usage patterns: a simple smoke script, event progress aggregation, and multi-turn reuse of a builder-level emitter.
+
+### What worked
+- Focused JS tests still pass: `go test ./pkg/js/... ./cmd/examples/geppetto-js-run -count=1`.
+- Hard-cut contract test still passes.
+- Documentation package test passes: `go test ./pkg/doc -count=1`.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Provider streaming behavior varies, so examples should treat `text-delta` as useful when present but still use `result.text()` as the authoritative final output.
+
+### What was tricky to build
+- The examples need to be runnable with the Go example runner and profile flags, so they return promises and rely on the runner's promise-waiting support added in the previous step.
+
+### What warrants a second pair of eyes
+- Review the event payload field list in the API reference against future canonical Geppetto event additions.
+- Review whether the examples should be included in automated real-provider smoke workflows or kept manual.
+
+### What should be done in the future
+- Optionally run the new examples against a live provider profile and record observed event types.
+- Re-upload the updated ticket bundle to reMarkable after this documentation pass.
+
+### Code review instructions
+- Start with `pkg/doc/topics/13-js-api-reference.md` for the public contract.
+- Then inspect the examples in `examples/js/geppetto/32_event_emitter_progress_summary.js` and `examples/js/geppetto/33_event_emitter_multiturn_run_async.js`.
+- Validate with:
+  - `go test ./pkg/js/... ./cmd/examples/geppetto-js-run -count=1`
+  - `go test -tags geppetto_js_hardcut_contract ./pkg/js/modules/geppetto -run TestHardCutPublicSurfaceContract -count=1`
+  - `go test ./pkg/doc -count=1`
+
+### Technical details
+- EventEmitter listeners shown in examples:
+  - `event`
+  - `provider-call-started`
+  - `provider-call-finished`
+  - `text-delta`
+  - `reasoning-delta`
+  - `inference-error`

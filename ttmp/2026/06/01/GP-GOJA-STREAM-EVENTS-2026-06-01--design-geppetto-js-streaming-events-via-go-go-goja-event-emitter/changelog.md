@@ -78,3 +78,16 @@ Committed EventEmitter runAsync implementation (commit 35c994e570bfb7caaecf4aba7
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_event_emitters.go — EventEmitter sink implementation commit
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/tasks.md — Marked implementation phase commits
 
+
+## 2026-06-01
+
+Added JavaScript EventEmitter runAsync examples and expanded JS API/user/tutorial docs
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/examples/js/geppetto/32_event_emitter_progress_summary.js — Single-run EventEmitter progress summary example
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/examples/js/geppetto/33_event_emitter_multiturn_run_async.js — Multi-turn runAsync EventEmitter example
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/doc/topics/13-js-api-reference.md — Expanded public JS API reference for runAsync events
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/doc/topics/14-js-api-user-guide.md — Added live-events usage section
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/doc/tutorials/05-js-api-getting-started.md — Added runAsync tutorial step
+

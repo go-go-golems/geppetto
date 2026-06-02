@@ -24,6 +24,8 @@ Legacy map/session/runner examples were removed during the clean cutover. New sc
 - `29_tools_schema_multimodal_turn.js`
 - `30_real_provider_multiturn.js`
 - `31_event_emitter_run_async.js`
+- `32_event_emitter_progress_summary.js`
+- `33_event_emitter_multiturn_run_async.js`
 
 ## Numbered Tutorial Examples
 
@@ -69,11 +71,23 @@ go run ./cmd/examples/geppetto-js-run run \
   --timeout-ms 120000
 ```
 
-Run the EventEmitter + `runAsync` example with:
+Run EventEmitter + `runAsync` examples with:
 
 ```bash
 go run ./cmd/examples/geppetto-js-run run \
   --script examples/js/geppetto/31_event_emitter_run_async.js \
+  --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
+  --profile default \
+  --timeout-ms 120000
+
+go run ./cmd/examples/geppetto-js-run run \
+  --script examples/js/geppetto/32_event_emitter_progress_summary.js \
+  --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
+  --profile default \
+  --timeout-ms 120000
+
+go run ./cmd/examples/geppetto-js-run run \
+  --script examples/js/geppetto/33_event_emitter_multiturn_run_async.js \
   --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
   --profile default \
   --timeout-ms 120000

@@ -11,6 +11,16 @@ RelatedFiles:
       Note: Go-native EventEmitter implementation and API contract
     - Path: ../../../../../../../../../../go/pkg/mod/github.com/go-go-golems/go-go-goja@v0.7.0/pkg/jsevents/manager.go
       Note: Connected EventEmitter manager for owner-thread-safe emission
+    - Path: examples/js/geppetto/32_event_emitter_progress_summary.js
+      Note: Single-run EventEmitter progress example
+    - Path: examples/js/geppetto/33_event_emitter_multiturn_run_async.js
+      Note: Multi-turn EventEmitter runAsync example
+    - Path: pkg/doc/topics/13-js-api-reference.md
+      Note: Public JS API reference for runAsync events
+    - Path: pkg/doc/topics/14-js-api-user-guide.md
+      Note: Live-events guide section
+    - Path: pkg/doc/tutorials/05-js-api-getting-started.md
+      Note: runAsync tutorial step
     - Path: pkg/events/chat-events.go
       Note: Canonical event type names exposed to JavaScript
     - Path: pkg/events/context.go
@@ -39,6 +49,7 @@ LastUpdated: 0001-01-01T00:00:00Z
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
