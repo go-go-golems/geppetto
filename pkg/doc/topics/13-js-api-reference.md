@@ -114,7 +114,7 @@ const engine = gp.engine().inference(settings).build();
 
 `engine().inference(...)` rejects plain JavaScript objects. It accepts Go-owned `InferenceSettings` wrappers only.
 
-## `gp.turn()`
+## `gp.turn(base?)`
 
 Build explicit Go-owned turns:
 
@@ -124,6 +124,18 @@ const turn = gp.turn()
   .user("Hello")
   .build();
 ```
+
+`base` is optional. When supplied, it must be a Go-owned `TurnWrapper`; plain JavaScript objects are rejected. `gp.turn(base)` clones the base blocks and metadata, clears the copied turn id, and returns a builder for a continuation turn:
+
+```js
+const firstResult = agent.run(firstTurn);
+
+const followUp = gp.turn(firstResult.outputTurn())
+  .user("Now answer the follow-up.")
+  .build();
+```
+
+Use `turn.clone()` when you need an exact identity-preserving copy. Use `gp.turn(turn).user(...).build()` when you are creating a new turn that preserves prior context and appends new blocks.
 
 Methods:
 

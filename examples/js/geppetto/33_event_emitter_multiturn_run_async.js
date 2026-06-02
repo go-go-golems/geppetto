@@ -9,8 +9,9 @@
 //     --timeout-ms 120000
 //
 // A builder-level EventEmitter is attached once and receives events for both
-// asynchronous runs from the same agent. The second turn explicitly includes
-// the first assistant response, preserving the hard-cut explicit-turn model.
+// asynchronous runs from the same agent. The second turn explicitly continues
+// from the first output turn, preserving the hard-cut explicit-turn model
+// without hidden agent state.
 
 (async () => {
   const gp = require("geppetto");
@@ -69,10 +70,7 @@
   const text1 = oneLine(result1.text());
   if (!text1) throw new Error("turn 1 returned empty text");
 
-  const turn2 = gp.turn()
-    .system(system)
-    .user("Turn 1: Reply with exactly this token and no extra words: ASYNC_ALPHA_GEPPETTO")
-    .assistant(text1)
+  const turn2 = gp.turn(result1.outputTurn())
     .user("Turn 2: What exact token did you return in the previous assistant message? Reply in the form ASYNC_BETA_GEPPETTO:<token> and no extra words.")
     .build();
 

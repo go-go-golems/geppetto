@@ -22,7 +22,20 @@ type turnBuilderRef struct {
 }
 
 func (m *moduleRuntime) turnBuilder(call goja.FunctionCall) goja.Value {
-	return m.newTurnBuilderObject(&turnBuilderRef{api: m, turn: &turns.Turn{}})
+	if len(call.Arguments) == 0 || goja.IsUndefined(call.Arguments[0]) || goja.IsNull(call.Arguments[0]) {
+		return m.newTurnBuilderObject(&turnBuilderRef{api: m, turn: &turns.Turn{}})
+	}
+	base, err := m.requireTurnRef(call.Arguments[0])
+	if err != nil {
+		panic(m.vm.NewGoError(err))
+	}
+	turn := base.turn.Clone()
+	// A builder created from an existing turn represents a continuation value,
+	// not an exact clone. Clear the copied ID so persistence/hydration keyed by
+	// Turn.ID cannot overwrite the previous turn. Use turn.clone() when exact
+	// identity preservation is desired.
+	turn.ID = ""
+	return m.newTurnBuilderObject(&turnBuilderRef{api: m, turn: turn})
 }
 
 type messageBuilderRef struct {

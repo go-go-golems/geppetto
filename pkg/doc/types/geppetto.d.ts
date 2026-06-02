@@ -139,7 +139,14 @@ declare module "geppetto" {
         build(): TurnWrapper;
     }
 
-    export function turn(): TurnBuilder;
+    /**
+     * Create a new TurnBuilder. When base is supplied, it must be a Go-owned
+     * TurnWrapper; the builder clones its blocks/metadata and clears the copied
+     * turn id so the result is a continuation turn rather than the same
+     * persisted turn. Use TurnWrapper.clone() for an exact identity-preserving
+     * copy.
+     */
+    export function turn(base?: TurnWrapper): TurnBuilder;
 
     export interface RunOptions {
         timeoutMs?: number;

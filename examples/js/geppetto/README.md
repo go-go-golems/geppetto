@@ -11,7 +11,7 @@ Legacy map/session/runner examples were removed during the clean cutover. New sc
 - `gp.inferenceProfiles`
 - `gp.engine()`
 - `gp.agent()`
-- `gp.turn()`
+- `gp.turn()` / `gp.turn(existingTurn)` for continuation turns
 - `gp.schema`
 - `gp.tool()`
 - `gp.toolRegistry()`

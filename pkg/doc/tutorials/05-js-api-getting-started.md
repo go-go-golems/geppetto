@@ -96,7 +96,7 @@ For a deterministic local example, see:
 
 ## Step 4: Multi-Turn Context
 
-Geppetto does not hide conversation state in `agent.ask(...)`. To do multi-turn inference, construct the next explicit turn with the history you want the provider to see:
+Geppetto does not hide conversation state in `agent.ask(...)`. To do multi-turn inference, construct the next explicit turn from the prior output turn and append the new blocks you want the provider to see:
 
 ```js
 const result1 = agent.run(gp.turn()
@@ -104,13 +104,12 @@ const result1 = agent.run(gp.turn()
   .user("Return ALPHA.")
   .build());
 
-const result2 = agent.run(gp.turn()
-  .system("Be concise.")
-  .user("Return ALPHA.")
-  .assistant(result1.text())
+const result2 = agent.run(gp.turn(result1.outputTurn())
   .user("What did you return previously?")
   .build());
 ```
+
+`gp.turn(existingTurn)` clones the existing Go-owned turn wrapper and clears the copied turn id before appending. Use `existingTurn.clone()` when you need an exact identity-preserving copy rather than a continuation turn.
 
 Run the real provider example:
 

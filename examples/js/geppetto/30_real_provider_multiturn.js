@@ -8,9 +8,10 @@
 //     --profile default \
 //     --timeout-ms 120000
 //
-// This performs two real provider calls. The second explicit Turn includes the
-// first user message and first assistant reply, so the provider receives real
-// multi-turn conversational context through the new Go-owned Turn wrapper API.
+// This performs two real provider calls. The second explicit Turn continues
+// from the first output turn, so the provider receives real multi-turn
+// conversational context through the Go-owned Turn wrapper API without hidden
+// agent state.
 
 const gp = require("geppetto");
 
@@ -44,10 +45,7 @@ if (!text1) {
   throw new Error("turn 1 returned empty text");
 }
 
-const turn2 = gp.turn()
-  .system(system)
-  .user("Turn 1: Reply with exactly this token and no extra words: ALPHA_GEPPETTO")
-  .assistant(text1)
+const turn2 = gp.turn(result1.outputTurn())
   .user("Turn 2: What exact token did you return in the previous assistant message? Reply in the form BETA_GEPPETTO:<token> and no extra words.")
   .build();
 

@@ -144,14 +144,13 @@ const first = gp.turn()
   .build();
 const firstResult = agent.run(first);
 
-const second = gp.turn()
-  .system("Be terse.")
-  .user("Remember the token ALPHA.")
-  .assistant(firstResult.text())
+const second = gp.turn(firstResult.outputTurn())
   .user("What token did you just mention?")
   .build();
 const secondResult = agent.run(second);
 ```
+
+`gp.turn(existingTurn)` is still explicit: the script chooses the prior `TurnWrapper` to continue from. The builder clones the prior blocks/metadata and clears the copied turn id so the result is a new continuation turn rather than the same persisted turn. Use `existingTurn.clone()` only when you need an exact copy that preserves identity.
 
 See `examples/js/geppetto/30_real_provider_multiturn.js` for a live provider example using `~/.config/pinocchio/profiles.yaml`.
 
