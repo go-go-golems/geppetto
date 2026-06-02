@@ -7,6 +7,14 @@ DocType: ""
 Intent: ""
 Owners: []
 RelatedFiles:
+    - Path: pkg/js/modules/geppetto/api_agent.go
+      Note: P0 owner-thread runAsync preparation and run-scoped sink integration (commit e3a01a6b)
+    - Path: pkg/js/modules/geppetto/api_event_emitters.go
+      Note: P0 EventEmitter adoption/close lifecycle helpers (commit e3a01a6b)
+    - Path: pkg/js/modules/geppetto/api_event_emitters_test.go
+      Note: P0 lifecycle and owner-thread regression tests (commit e3a01a6b)
+    - Path: pkg/js/modules/geppetto/provider/provider_test.go
+      Note: P0 provider path EventEmitter regression test (commit e3a01a6b)
     - Path: ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/design-doc/01-geppetto-js-streaming-events-design-and-implementation-guide.md
       Note: Final design deliverable
     - Path: ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/scripts/01-collect-evidence.sh
@@ -19,6 +27,7 @@ LastUpdated: 0001-01-01T00:00:00Z
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Diary
@@ -708,3 +717,86 @@ The logbook covers ticket documents, Geppetto docs, examples, go-go-goja EventEm
 
 ### Technical details
 - New doc path: `ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/02-research-logbook.md`.
+
+## Step 12: Harden P0 EventEmitter runAsync lifecycle and owner-thread safety
+
+This step addressed the P0 findings from the EventEmitter review: builder-level EventEmitter references are no longer adopted once and kept forever, and `runAsync` no longer prepares sessions on a background goroutine. The builder now stores JavaScript EventEmitter values as descriptors, each run adopts fresh Go-side `EmitterRef`s, and those refs are closed deterministically after the run settles.
+
+The implementation also adds regression coverage for the previously risky paths: live event delivery still happens before `runAsync().promise` resolves, run-scoped refs are unregistered after completion, `.toolLoop(...).runAsync(...)` prepares safely on the owner thread, cancellation still reaches the engine context, and the xgoja provider-loaded module path can use EventEmitter `runAsync` when host options supply the runtime owner and EventEmitter manager resolver.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, work on P0, test well, keep a diary as you work, and commit at appropriate intervals."
+
+**Assistant interpretation:** Implement the highest-priority cleanup from the review, validate it thoroughly, keep ticket docs updated, and make focused commits.
+
+**Inferred user intent:** Stabilize the EventEmitter `runAsync` API before moving on to lower-priority diagnostics, payload, and documentation cleanup.
+
+**Commit (code):** e3a01a6b388dfcf57e533ab9a2ba716bf17c74da — "Harden runAsync EventEmitter lifecycle"
+
+### What I did
+- Changed `gp.agent().events(emitter)` so EventEmitter arguments are stored as JS values on the builder/agent instead of immediately creating persistent `jsEventEmitterSink` refs.
+- Added run-scoped EventEmitter sink creation and deterministic close helpers in `api_event_emitters.go`.
+- Changed `runAsync` so it creates run-scoped sinks and calls `startRun(...)` synchronously on the owner thread before launching only the background wait goroutine.
+- Kept `run()` functional by using run-scoped sinks and scheduling close after the owner queue can drain earlier event posts.
+- Updated `requireEventSink` so generic sink resolution no longer opportunistically adopts EventEmitter values.
+- Added tests for:
+  - run-scoped EventEmitter manager ref count: `0 -> 1 -> 0` across one `runAsync`;
+  - EventEmitter callbacks before promise resolution;
+  - `.toolLoop(...).runAsync(...)` owner-thread preparation;
+  - cancellation propagation;
+  - provider-loaded Geppetto module EventEmitter `runAsync` support when host options provide runtime owner and manager resolver.
+- Ran focused and broad validation:
+  - `go test ./pkg/js/modules/geppetto -run 'TestEventEmitter|TestAgentRunAsync' -count=1`
+  - `go test ./pkg/js/modules/geppetto ./pkg/js/modules/geppetto/provider -count=1`
+  - `go test ./pkg/js/... ./cmd/examples/geppetto-js-run -count=1`
+  - pre-commit `go test ./...`
+  - pre-commit `golangci-lint`, `go vet`, and glazed lint hooks.
+
+### Why
+- Persistent builder-level `EmitterRef`s leaked manager refs and made the lifetime of JS EventEmitter connections unclear.
+- Preparing `runAsync` sessions on a goroutine was risky because `buildSession()` can touch goja through tool-loop hook parsing.
+- Provider integration needed explicit coverage so generated/xgoja-style module loading does not silently regress EventEmitter support.
+
+### What worked
+- The run-scoped manager-ref test proves refs are created only during a run and are removed afterward.
+- Existing live-event and cancellation behavior stayed intact.
+- Moving `startRun(...)` to the owner thread did not require changing the public JS API.
+- Full pre-commit validation passed.
+
+### What didn't work
+- N/A. The focused tests and pre-commit suite passed on the first complete run after implementation.
+
+### What I learned
+- The safest split is: owner thread does JS-sensitive preparation and starts the Geppetto session; a background goroutine only waits on the already-created `ExecutionHandle`; promise settlement and EventEmitter ref close are posted back to the owner.
+- For provider-loaded modules, the Geppetto provider cannot infer a `jsevents.Manager` from `providerapi.ModuleContext` by itself. The host-provided `geppettomodule.Options` remains the integration seam for `RuntimeOwner` and `EventEmitterManagerResolver`.
+
+### What was tricky to build
+- The main lifecycle edge was avoiding premature close. `EmitterRef.EmitWithBuilder` queues event delivery onto the owner; if a run closes the ref before already-queued event posts execute, those posts observe the closed flag and drop callbacks. For `runAsync`, settlement is posted after the inference wait completes, so earlier event posts run before the settle callback closes refs. For synchronous `run()`, close is scheduled from a goroutine via owner posting so earlier queued event posts have a chance to drain first.
+- Another subtlety was preserving support for non-EventEmitter `events.EventSink` references. The builder now separates Go sink refs from JS EventEmitter values so only EventEmitters get run-scoped adoption while existing sink refs continue to be passed directly to sessions.
+
+### What warrants a second pair of eyes
+- Review the synchronous `run()` close scheduling path. It is best-effort and exists to avoid leaks without pretending synchronous `run()` is the preferred live-event API.
+- Review the provider integration boundary: the test proves host-supplied `RuntimeOwner` + `EventEmitterManagerResolver` works, but generated host wiring may still need documentation or helper APIs outside this package.
+- Review whether immediate rejection on start/preparation errors should become a JS `Error` object in the P1 cleanup.
+
+### What should be done in the future
+- Add P1 diagnostics for EventEmitter publish failures.
+- Convert promise rejections from strings to JS `Error`/`GoError` values.
+- Harden nil output handling in both `run` and `runAsync`.
+- Expand payload coverage tests for provider/run lifecycle events.
+
+### Code review instructions
+- Start with `pkg/js/modules/geppetto/api_agent.go` and inspect `startAsync`, `runSync`, and `startRun`.
+- Then review `pkg/js/modules/geppetto/api_event_emitters.go` for run-scoped adoption and close semantics.
+- Review `pkg/js/modules/geppetto/api_event_emitters_test.go`, especially `TestAgentRunAsyncUsesRunScopedEventEmitterRefs` and `TestAgentRunAsyncToolLoopPreparesOnOwner`.
+- Review `pkg/js/modules/geppetto/provider/provider_test.go` for provider-path EventEmitter coverage.
+- Validate with `go test ./pkg/js/... ./cmd/examples/geppetto-js-run -count=1` and, for full assurance, `go test ./...`.
+
+### Technical details
+- Public JS API remains unchanged:
+  - `gp.agent().events(emitter).build()`
+  - `agent.runAsync(turn, options?)`
+  - handle shape `{ promise, cancel, close }`
+- EventEmitter refs are now adopted per run instead of during builder `.events(...)`.
+- The P0 code commit is `e3a01a6b388dfcf57e533ab9a2ba716bf17c74da`.

@@ -150,3 +150,17 @@ Uploaded research logbook to reMarkable at /ai/2026/06/01/GP-GOJA-STREAM-EVENTS-
 
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/02-research-logbook.md — Uploaded research logbook
 
+
+## 2026-06-02
+
+P0 review cleanup: run-scoped EventEmitter refs, owner-thread runAsync preparation, and provider-path EventEmitter coverage (commit e3a01a6b388dfcf57e533ab9a2ba716bf17c74da)
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_agent.go — runAsync now prepares on owner and uses run-scoped EventEmitter sinks
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_event_emitters.go — run-scoped EventEmitter adoption/close helpers
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_event_emitters_test.go — P0 lifecycle and owner-thread regression tests
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/provider/provider_test.go — provider-loaded EventEmitter runAsync coverage
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/01-investigation-diary.md — Recorded P0 cleanup
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/tasks.md — Marked P0 cleanup tasks complete
+

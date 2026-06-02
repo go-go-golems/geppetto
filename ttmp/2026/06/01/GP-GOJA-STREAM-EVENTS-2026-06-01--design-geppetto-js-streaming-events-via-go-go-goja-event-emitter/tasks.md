@@ -74,3 +74,12 @@ updated: 2026-06-01
 - [x] Update changelog with commits and related files
 - [x] Upload final updated bundle to reMarkable and verify remote listing
 - [x] Commit final ticket documentation updates
+
+## Review hardening — P0 cleanup
+
+- [x] Replace persistent builder-level EventEmitter refs with run-scoped adoption and deterministic close after `runAsync` settles
+- [x] Move `runAsync` session preparation back onto the owner thread before the wait goroutine starts
+- [x] Add regression coverage for run-scoped EventEmitter ref cleanup
+- [x] Add regression coverage for `.toolLoop(...).runAsync(...)` owner-thread preparation
+- [x] Add provider-path coverage proving a provider-loaded Geppetto module can use EventEmitter `runAsync` when host options supply runtime owner and EventEmitter manager resolver
+- [x] Run focused JS/provider tests and full pre-commit validation
