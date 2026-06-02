@@ -299,7 +299,7 @@ Kill the legacy registry thing entirely to address the ProfileRegistries thing, 
 
 **Inferred user intent:** Make the PR easier to reason about by deleting ambiguous compatibility behavior and ensuring the new Go tool selection API works with host registries.
 
-**Commit (code):** 62c83fe7 — "Address JS API review feedback"
+**Commit (code):** 7db41813 — "Address JS API review feedback"
 
 ### What I did
 - Queried PR #367 review threads with `gh api graphql`.
