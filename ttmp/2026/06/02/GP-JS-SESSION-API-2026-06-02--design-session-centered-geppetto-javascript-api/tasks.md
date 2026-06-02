@@ -12,11 +12,11 @@
 
 ## Follow-up implementation tasks
 
-- [ ] Implement `agent.session()` and session wrappers in `pkg/js/modules/geppetto/api_session.go`.
-- [ ] Implement `session.next().run()` / `runAsync()` using existing session execution machinery.
-- [ ] Implement session builder storage/resume/base semantics.
-- [ ] Implement `session.fork()`.
-- [ ] Hard-cut public `gp.turn`, `agent.run`, and `agent.runAsync`.
-- [ ] Update TypeScript declarations, docs, examples, and hard-cut public surface tests.
-- [ ] Add real-provider session multi-turn and EventEmitter smoke examples.
+- [x] Implement `agent.session()` and session wrappers in `pkg/js/modules/geppetto/api_session.go`.
+- [x] Implement `session.next().run()` / `runAsync()` using existing session execution machinery.
+- [x] Implement session builder storage/resume/base semantics.
+- [x] Implement `session.fork()`.
+- [x] Hard-cut public `gp.turn`, `agent.run`, and `agent.runAsync`.
+- [x] Update TypeScript declarations, docs, examples, and hard-cut public surface tests.
+- [x] Add real-provider session multi-turn and EventEmitter smoke examples.
 - [ ] Add storage-enabled resume/fork integration tests after the Pinocchio adapter exists.

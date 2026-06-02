@@ -23,3 +23,14 @@ Uploaded session-centered JS API design guide bundle to reMarkable at /ai/2026/0
 
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/02/GP-JS-SESSION-API-2026-06-02--design-session-centered-geppetto-javascript-api/design-doc/01-session-centered-javascript-api-design-and-implementation-guide.md — Uploaded design guide
 
+
+## 2026-06-02
+
+Implemented JS session wrappers and hard-cut public execution to agent.session()/session.next() (commits 40fe7ec7, c4525da7).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/doc/topics/13-js-api-reference.md — Updated API reference for session-centered execution
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_session.go — Session builder/session/turn-builder wrappers
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/module.go — Removed top-level gp.turn export
+
