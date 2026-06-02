@@ -111,3 +111,23 @@ Aligned go-go-goja dependency to v0.7.2 for HostServices AssetResolver compatibi
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/go.mod — go-go-goja v0.7.2 dependency alignment
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/provider/provider_test.go — fake host implements AssetResolver
 
+
+## 2026-06-02
+
+Added intern-focused EventEmitter runAsync code review with findings and cleanup plan
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_agent.go — Reviewed runAsync owner-thread and cancellation issues
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_event_emitters.go — Reviewed EventEmitter sink lifecycle issues
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/analysis/01-eventemitter-runasync-code-review-and-intern-guide.md — Detailed EventEmitter runAsync review
+
+
+## 2026-06-02
+
+Uploaded EventEmitter runAsync code review to reMarkable at /ai/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/analysis/01-eventemitter-runasync-code-review-and-intern-guide.md — Uploaded review source
+

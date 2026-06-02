@@ -29,7 +29,7 @@ updated: 2026-06-01
 - [x] Validate docmgr ticket
 - [x] Upload initial design bundle to reMarkable and verify remote listing
 - [x] Update design to final first-pass API: builder-level EventEmitter plus `agent.runAsync(turn)`
-- [ ] Re-upload updated bundle to reMarkable after implementation notes are current
+- [x] Re-upload updated bundle to reMarkable after implementation notes are current
 
 ## Implementation phase 1 — EventEmitter runtime plumbing and payload adapter
 
@@ -72,5 +72,5 @@ updated: 2026-06-01
 - [x] Run `docmgr doctor --ticket GP-GOJA-STREAM-EVENTS-2026-06-01 --stale-after 30`
 - [x] Update diary with implementation outcomes, failures, and review instructions
 - [x] Update changelog with commits and related files
-- [ ] Upload final updated bundle to reMarkable and verify remote listing
+- [x] Upload final updated bundle to reMarkable and verify remote listing
 - [x] Commit final ticket documentation updates

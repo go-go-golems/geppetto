@@ -591,3 +591,58 @@ This step investigated why the EventEmitter examples produced no output when run
 ### Technical details
 - Before: `ret, err := vm.RunScript(...); if promise, ok := ret.(*goja.Promise) { ... }`
 - After: `value, err := vm.RunScript(...); if promise, ok := value.Export().(*goja.Promise) { return promise, nil }`
+
+## Step 10: Write EventEmitter runAsync code review for an intern
+
+This step produced a detailed follow-up review of the EventEmitter `runAsync` work. The goal was not to re-explain only the happy path, but to make the system understandable to a new intern and identify the unstable parts: lifecycle leaks, owner-thread risks, host integration gaps, incomplete payload contracts, and missing tests.
+
+The resulting analysis document is intentionally technical. It maps the runtime owner model, Geppetto event sink injection, go-go-goja connected EventEmitter adoption, `runAsync` promise/cancellation flow, examples, and documentation. It also separates good design decisions from cleanup items so a future engineer can turn the review into concrete implementation tasks.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go over the work our little brother did with the event emitter stuff, in detail. 
+
+Create  a detailed analysis / design / code review that is for a new intern, explaining all the parts of the system needed to understand what it is, with prose paragraphs and bullet point sand pseudocode and diagrams and api references and file references. It should be very clear and technical. Store in the ticket and the nupload to remarkable.
+
+Focus on deprecated code, messy code, missing functionality, confused understanding of the APIs, untested stuff, and of course just plan issues."
+
+**Assistant interpretation:** Audit the recently implemented EventEmitter + `runAsync` work, write a long-form intern-friendly review in the ticket, and upload it to reMarkable.
+
+**Inferred user intent:** Get an independent quality review that highlights not just what was implemented, but what remains risky, confusing, under-tested, or poorly planned.
+
+### What I did
+- Created `analysis/01-eventemitter-runasync-code-review-and-intern-guide.md` in ticket `GP-GOJA-STREAM-EVENTS-2026-06-01`.
+- Reviewed the implementation files and examples, including `api_agent.go`, `api_event_emitters.go`, `api_event_payloads.go`, `runtime.go`, provider integration, and the example runner.
+- Wrote architecture diagrams, pseudocode, API references, file references, findings, and a cleanup plan.
+- Related the review document to the key implementation files.
+
+### Why
+- The EventEmitter implementation is directionally correct but still has lifecycle, owner-thread, host integration, payload-contract, and test-coverage gaps.
+- A new intern needs a map of the system before safely modifying it.
+
+### What worked
+- The review identifies specific evidence-backed findings with file/line references.
+- The document now gives a phased cleanup plan for turning the prototype into a stable API.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The most serious issue is not the public API shape; it is the implementation hardening around cleanup, goja owner-thread boundaries, and provider-host parity.
+
+### What was tricky to build
+- The review had to distinguish between intentional first-pass omissions (`handle.on`, per-run emitters, `agent.stream`) and accidental missing functionality (agent close/lifecycle, xgoja provider manager wiring, richer payload coverage).
+
+### What warrants a second pair of eyes
+- The high-severity findings in the review: builder-level emitter refs are never closed, `runAsync` builds sessions on a background goroutine where some paths touch goja, and xgoja provider integration likely lacks EventEmitter manager wiring.
+
+### What should be done in the future
+- Convert the review's cleanup checklist into ticket tasks if implementation continues.
+- Re-run a real-provider smoke and record observed event types after lifecycle/host cleanup.
+
+### Code review instructions
+- Start with the new analysis doc's `Findings` section.
+- Review the highest-risk code paths in `pkg/js/modules/geppetto/api_agent.go`, `api_event_emitters.go`, and `pkg/js/runtime/runtime.go`.
+
+### Technical details
+- New doc path: `ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/analysis/01-eventemitter-runasync-code-review-and-intern-guide.md`.
