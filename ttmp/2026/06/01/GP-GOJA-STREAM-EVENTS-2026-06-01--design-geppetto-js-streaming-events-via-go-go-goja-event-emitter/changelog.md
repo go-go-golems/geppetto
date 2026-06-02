@@ -207,3 +207,13 @@ Updated research logbook with per-resource discovery provenance and re-uploaded 
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/01-investigation-diary.md — Recorded logbook update and upload
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/02-research-logbook.md — Added how each resource was found
 
+
+## 2026-06-02
+
+Fixed and ran the real-provider EventEmitter smoke wrapper for examples 31/32/33
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/examples/js/geppetto/run_event_emitter_examples.sh — Accepts current final-output field shapes and passed real-provider smoke
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/01-investigation-diary.md — Recorded real-provider smoke results
+

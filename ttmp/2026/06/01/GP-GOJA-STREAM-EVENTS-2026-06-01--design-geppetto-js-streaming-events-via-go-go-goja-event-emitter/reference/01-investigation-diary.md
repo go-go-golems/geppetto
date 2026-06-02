@@ -1046,3 +1046,64 @@ The updated logbook was validated with `docmgr doctor` and uploaded to reMarkabl
 ### Technical details
 - Updated doc: `ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/02-research-logbook.md`.
 - reMarkable path: `/ai/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01/GP-GOJA-STREAM-EVENTS Research logbook.pdf`.
+
+## Step 16: Fix and run real-provider EventEmitter smoke wrapper
+
+This step fixed the real-provider smoke wrapper added for the EventEmitter examples and then ran it successfully against the configured default profile. The first attempt failed even though example 31 completed inference, because the wrapper only accepted a `finalText` JSON field while example 31 intentionally reports its final answer under `text`.
+
+After the fix, the wrapper accepts `finalText`, `text`, or `turn1` as evidence of final JSON output, which matches the three current example shapes. The smoke run succeeded for examples 31, 32, and 33 against `gpt-5-nano`, and observed provider lifecycle, reasoning segment boundary, text segment boundary, and `text-delta` events.
+
+### Prompt Context
+
+**User prompt (verbatim):** "fix smoke"
+
+**Assistant interpretation:** Fix the EventEmitter real-provider smoke wrapper failure and rerun it.
+
+**Inferred user intent:** Verify the real-provider EventEmitter examples work end-to-end and make the smoke script reliable across the current example output shapes.
+
+### What I did
+- Updated `examples/js/geppetto/run_event_emitter_examples.sh` so it accepts any of these final-result fields:
+  - `finalText`
+  - `text`
+  - `turn1`
+- Ran:
+  `GEPPETTO_PROFILE_REGISTRIES="$HOME/.config/pinocchio/profiles.yaml" GEPPETTO_PROFILE=default ./examples/js/geppetto/run_event_emitter_examples.sh`
+
+### Why
+- Example 31 outputs `{ "text": "ASYNC_GEPPETTO", ... }`.
+- Example 32 outputs `{ "finalText": ..., ... }`.
+- Example 33 outputs `{ "turn1": ..., "turn2": ..., ... }`.
+- The smoke wrapper should validate final JSON output without requiring all examples to use the same field name.
+
+### What worked
+- All three real-provider EventEmitter examples completed successfully.
+- Example 31 produced `text: "ASYNC_GEPPETTO"` and 18 events.
+- Example 32 produced `finalText: "Reliable JavaScript event streams ensure robustness."` and 8 text deltas.
+- Example 33 produced two async turns with 35 total events and text deltas for both runs.
+
+### What didn't work
+- The previous wrapper failed with:
+  `missing finalText in output for examples/js/geppetto/31_event_emitter_run_async.js`
+- The failure was a wrapper assertion bug, not an inference/EventEmitter failure.
+
+### What I learned
+- The smoke wrapper should validate the contract it owns: scripts produce final JSON output. It should not enforce identical field names across examples unless the examples are intentionally standardized.
+
+### What was tricky to build
+- The runner output includes timestamp/log prefixes before JSON, so the wrapper continues to use grep-based field detection instead of assuming the file is pure JSON.
+
+### What warrants a second pair of eyes
+- Example 33's `turn2` output included both the previous token and the requested `ASYNC_BETA_GEPPETTO:<token>` form. This is acceptable for smoke because final JSON and events are present, but the prompt could be tightened if exact deterministic text matters.
+
+### What should be done in the future
+- Consider normalizing example output field names to `finalText` in all real-provider examples.
+- Optionally make the wrapper parse the last JSON object instead of using grep.
+
+### Code review instructions
+- Review `examples/js/geppetto/run_event_emitter_examples.sh` and confirm the accepted final-result fields match examples 31/32/33.
+- Rerun the smoke command with a configured profile registry.
+
+### Technical details
+- Successful smoke command:
+  `GEPPETTO_PROFILE_REGISTRIES="$HOME/.config/pinocchio/profiles.yaml" GEPPETTO_PROFILE=default ./examples/js/geppetto/run_event_emitter_examples.sh`
+- Observed event types included `provider-call-started`, `reasoning-segment-started`, `reasoning-segment-finished`, `text-segment-started`, `text-delta`, `text-segment-finished`, and `provider-call-finished`.

@@ -29,8 +29,8 @@ for script in "${scripts[@]}"; do
     exit 1
   fi
   cat "$out_file"
-  if ! grep -q '"finalText"' "$out_file"; then
-    echo "missing finalText in output for $script" >&2
+  if ! grep -Eq '"(finalText|text|turn1)"[[:space:]]*:' "$out_file"; then
+    echo "missing final result field (finalText/text/turn1) in output for $script" >&2
     rm -f "$out_file"
     exit 1
   fi
