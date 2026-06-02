@@ -41,7 +41,7 @@ updated: 2026-06-01
 - [x] Emit both the general `event` notification and type-specific event names, mapping canonical Geppetto `error` to `inference-error`
 - [x] Extend `requireEventSink` so `gp.agent().events(emitter)` accepts a go-go-goja EventEmitter while still accepting existing Go `events.EventSink` refs
 - [x] Add synthetic EventEmitter sink tests for `text-delta`, `tool-result-ready`, and `error` event-name mapping
-- [ ] Commit phase 1
+- [x] Commit phase 1
 
 ## Implementation phase 2 — `agent.runAsync(turn)` execution path
 
@@ -53,7 +53,7 @@ updated: 2026-06-01
 - [x] Ensure builder-level event sinks are attached before inference starts
 - [x] Add tests proving EventEmitter listeners fire before `runAsync().promise` resolves
 - [x] Add tests proving `cancel()` reaches a blocking engine's context
-- [ ] Commit phase 2
+- [x] Commit phase 2
 
 ## Implementation phase 3 — Type declarations, docs, and examples
 
@@ -63,7 +63,7 @@ updated: 2026-06-01
 - [x] Add or update JS examples showing `new EventEmitter()`, `.events(emitter)`, and `await agent.runAsync(turn).promise`
 - [x] Update hard-cut tests and DTS parity tests as needed
 - [x] Run focused JS tests and hard-cut contract tests
-- [ ] Commit phase 3
+- [x] Commit phase 3
 
 ## Implementation phase 4 — Validation, diary, and delivery
 
@@ -73,4 +73,4 @@ updated: 2026-06-01
 - [x] Update diary with implementation outcomes, failures, and review instructions
 - [x] Update changelog with commits and related files
 - [ ] Upload final updated bundle to reMarkable and verify remote listing
-- [ ] Commit final ticket documentation updates
+- [x] Commit final ticket documentation updates

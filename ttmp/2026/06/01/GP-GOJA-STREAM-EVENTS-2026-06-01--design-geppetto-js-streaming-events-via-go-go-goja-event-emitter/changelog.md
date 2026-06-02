@@ -67,3 +67,14 @@ Implemented builder-level EventEmitter sinks and agent.runAsync with typed jseve
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/runtime/runtime.go — Installs jsevents manager and passes typed resolver
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/01-investigation-diary.md — Recorded implementation diary
 
+
+## 2026-06-01
+
+Committed EventEmitter runAsync implementation (commit 35c994e570bfb7caaecf4aba7fbc7bac7aae8f3c)
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_agent.go — runAsync implementation commit
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_event_emitters.go — EventEmitter sink implementation commit
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/tasks.md — Marked implementation phase commits
+

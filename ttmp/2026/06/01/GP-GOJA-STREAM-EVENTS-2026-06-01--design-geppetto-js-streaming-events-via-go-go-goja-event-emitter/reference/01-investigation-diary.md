@@ -401,6 +401,8 @@ The implementation also corrected the first typed-manager plumbing attempt. A ge
 
 **Additional prompt context:** The later prompts challenged the generic runtime-values plumbing as hacky and approved replacing it before continuing: "what are these runtimevalues for?", "this seems a bit hackish, is this something that could be implemented differently?", and "go ahead. then continue."
 
+**Commit (code):** 35c994e570bfb7caaecf4aba7fbc7bac7aae8f3c — "Add Geppetto JS EventEmitter runAsync"
+
 ### What I did
 - Updated the design document to make `gp.agent().events(emitter).build()` plus `agent.runAsync(turn)` the only first-pass contract.
 - Rewrote `tasks.md` with implementation phases and checked completed implementation/test tasks.
