@@ -10,6 +10,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	enginefactory "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
+	"github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -230,9 +231,9 @@ func (m *moduleRuntime) newAgentObject(ref *agentRef) *goja.Object {
 		}
 		return m.newRunResultObject(result)
 	})
-	m.mustSet(o, "stream", func(call goja.FunctionCall) goja.Value {
+	m.mustSet(o, "runAsync", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 || goja.IsUndefined(call.Arguments[0]) || goja.IsNull(call.Arguments[0]) {
-			panic(m.vm.NewTypeError("agent.stream requires a Go-owned Turn wrapper"))
+			panic(m.vm.NewTypeError("agent.runAsync requires a Go-owned Turn wrapper"))
 		}
 		turn, err := m.requireTurnRef(call.Arguments[0])
 		if err != nil {
@@ -242,7 +243,7 @@ func (m *moduleRuntime) newAgentObject(ref *agentRef) *goja.Object {
 		if err != nil {
 			panic(m.vm.NewGoError(err))
 		}
-		return ref.start(turn.turn, opts)
+		return ref.startAsync(turn.turn, opts)
 	})
 	return o
 }
@@ -280,9 +281,16 @@ func (a *agentRef) buildSession() (*sessionRef, error) {
 	return b.buildSession()
 }
 
-func (a *agentRef) runSync(input *turns.Turn, opts runOptions) (*runResultRef, error) {
+type startedAgentRun struct {
+	handle        *session.ExecutionHandle
+	inputSnapshot *turns.Turn
+	effectiveTurn *turns.Turn
+	cancel        context.CancelFunc
+}
+
+func (a *agentRef) startRun(input *turns.Turn, opts runOptions) (*startedAgentRun, error) {
 	if input == nil {
-		return nil, fmt.Errorf("agent.run requires turn")
+		return nil, fmt.Errorf("agent run requires turn")
 	}
 	sr, err := a.buildSession()
 	if err != nil {
@@ -297,67 +305,115 @@ func (a *agentRef) runSync(input *turns.Turn, opts runOptions) (*runResultRef, e
 	if err != nil {
 		return nil, err
 	}
-	defer cancel()
 	handle, err := sr.session.StartInference(ctx)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
-	out, err := handle.Wait()
+	return &startedAgentRun{handle: handle, inputSnapshot: inputSnapshot, effectiveTurn: effective, cancel: cancel}, nil
+}
+
+func (a *agentRef) runSync(input *turns.Turn, opts runOptions) (*runResultRef, error) {
+	started, err := a.startRun(input, opts)
 	if err != nil {
 		return nil, err
 	}
-	return &runResultRef{api: a.api, inputTurn: inputSnapshot, effectiveTurn: effective, outputTurn: out.Clone()}, nil
+	defer started.cancel()
+	out, err := started.handle.Wait()
+	if err != nil {
+		return nil, err
+	}
+	return &runResultRef{api: a.api, inputTurn: started.inputSnapshot, effectiveTurn: started.effectiveTurn, outputTurn: out.Clone()}, nil
 }
 
-func (a *agentRef) start(input *turns.Turn, opts runOptions) goja.Value {
-	if _, err := a.api.requireBridge("agent.stream"); err != nil {
+func (a *agentRef) startAsync(input *turns.Turn, opts runOptions) goja.Value {
+	if _, err := a.api.requireBridge("agent.runAsync"); err != nil {
 		panic(a.api.vm.NewTypeError(err.Error()))
 	}
 	promise, resolve, reject := a.api.vm.NewPromise()
-	collector := newJSEventCollector(a.api)
 	handleObj := a.api.vm.NewObject()
 
-	var cancelMu sync.RWMutex
-	var cancelFn context.CancelFunc
-	setCancel := func(fn context.CancelFunc) { cancelMu.Lock(); cancelFn = fn; cancelMu.Unlock() }
-	getCancel := func() context.CancelFunc { cancelMu.RLock(); defer cancelMu.RUnlock(); return cancelFn }
+	var stateMu sync.Mutex
+	var activeHandle *session.ExecutionHandle
+	var activeCancel context.CancelFunc
+	canceled := false
+	cancelActive := func() {
+		stateMu.Lock()
+		canceled = true
+		h := activeHandle
+		cancel := activeCancel
+		stateMu.Unlock()
+		if h != nil {
+			h.Cancel()
+		}
+		if cancel != nil {
+			cancel()
+		}
+	}
+	setActive := func(started *startedAgentRun) {
+		if started == nil {
+			return
+		}
+		stateMu.Lock()
+		activeHandle = started.handle
+		activeCancel = started.cancel
+		shouldCancel := canceled
+		stateMu.Unlock()
+		if shouldCancel {
+			started.handle.Cancel()
+			started.cancel()
+		}
+	}
+	clearActive := func() {
+		stateMu.Lock()
+		activeHandle = nil
+		activeCancel = nil
+		stateMu.Unlock()
+	}
 
 	a.api.mustSet(handleObj, "promise", promise)
 	a.api.mustSet(handleObj, "cancel", func(goja.FunctionCall) goja.Value {
-		if fn := getCancel(); fn != nil {
-			fn()
-		}
+		cancelActive()
 		return goja.Undefined()
 	})
-	a.api.mustSet(handleObj, "on", func(call goja.FunctionCall) goja.Value {
-		if len(call.Arguments) < 2 {
-			panic(a.api.vm.NewTypeError("on(eventType, callback) requires 2 arguments"))
-		}
-		eventType := call.Arguments[0].String()
-		cb, ok := goja.AssertFunction(call.Arguments[1])
-		if !ok {
-			panic(a.api.vm.NewTypeError("on() callback must be a function"))
-		}
-		collector.subscribe(eventType, cb)
-		return handleObj
+	a.api.mustSet(handleObj, "close", func(goja.FunctionCall) goja.Value {
+		cancelActive()
+		return goja.Undefined()
 	})
 
 	go func() {
-		result, err := a.runSync(input, opts)
-		postErr := a.api.postOnOwner(context.Background(), "agent.stream.settle", func(context.Context) {
-			defer collector.close()
-			if err != nil {
+		started, err := a.startRun(input, opts)
+		if err == nil {
+			setActive(started)
+		}
+		if err != nil {
+			postErr := a.api.postOnOwner(context.Background(), "agent.runAsync.rejectStart", func(context.Context) {
 				_ = reject(a.api.vm.ToValue(err.Error()))
+			})
+			if postErr != nil {
+				a.api.logger.Error().Err(postErr).Msg("agent.runAsync: failed to reject promise on owner thread")
+			}
+			return
+		}
+		defer clearActive()
+		defer started.cancel()
+		out, waitErr := started.handle.Wait()
+		postErr := a.api.postOnOwner(context.Background(), "agent.runAsync.settle", func(context.Context) {
+			if waitErr != nil {
+				_ = reject(a.api.vm.ToValue(waitErr.Error()))
 				return
 			}
-			_ = resolve(a.api.newRunResultObject(result))
+			_ = resolve(a.api.newRunResultObject(&runResultRef{
+				api:           a.api,
+				inputTurn:     started.inputSnapshot,
+				effectiveTurn: started.effectiveTurn,
+				outputTurn:    out.Clone(),
+			}))
 		})
 		if postErr != nil {
-			collector.close()
-			a.api.logger.Error().Err(postErr).Msg("agent.stream: failed to settle promise on owner thread")
+			a.api.logger.Error().Err(postErr).Msg("agent.runAsync: failed to settle promise on owner thread")
 		}
 	}()
-	setCancel(func() {})
 	return handleObj
 }
 

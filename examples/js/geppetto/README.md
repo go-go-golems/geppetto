@@ -23,6 +23,7 @@ Legacy map/session/runner examples were removed during the clean cutover. New sc
 - `28_agent_from_registry_profile.js`
 - `29_tools_schema_multimodal_turn.js`
 - `30_real_provider_multiturn.js`
+- `31_event_emitter_run_async.js`
 
 ## Numbered Tutorial Examples
 
@@ -43,7 +44,7 @@ Legacy map/session/runner examples were removed during the clean cutover. New sc
 
 Older fixture files may still exist for lower-level Go tests, but the JavaScript examples above use the hard-cut fixture.
 
-## Run the Real Provider Multi-Turn Example
+## Run the Real Provider Examples
 
 ```bash
 ./examples/js/geppetto/run_real_provider_multiturn.sh
@@ -63,6 +64,16 @@ The wrapper calls:
 ```bash
 go run ./cmd/examples/geppetto-js-run run \
   --script examples/js/geppetto/30_real_provider_multiturn.js \
+  --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
+  --profile default \
+  --timeout-ms 120000
+```
+
+Run the EventEmitter + `runAsync` example with:
+
+```bash
+go run ./cmd/examples/geppetto-js-run run \
+  --script examples/js/geppetto/31_event_emitter_run_async.js \
   --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
   --profile default \
   --timeout-ms 120000

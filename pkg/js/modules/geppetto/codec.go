@@ -397,6 +397,10 @@ func (m *moduleRuntime) encodeTurnValue(t *turns.Turn) (goja.Value, error) {
 }
 
 func (m *moduleRuntime) toJSValue(v any) goja.Value {
+	return toJSValueOn(m.vm, v)
+}
+
+func toJSValueOn(vm *goja.Runtime, v any) goja.Value {
 	if v == nil {
 		return goja.Null()
 	}
@@ -404,19 +408,19 @@ func (m *moduleRuntime) toJSValue(v any) goja.Value {
 	case goja.Value:
 		return x
 	case map[string]any:
-		obj := m.vm.NewObject()
+		obj := vm.NewObject()
 		for k, vv := range x {
-			_ = obj.Set(k, m.toJSValue(vv))
+			_ = obj.Set(k, toJSValueOn(vm, vv))
 		}
 		return obj
 	case []any:
-		arr := m.vm.NewArray()
+		arr := vm.NewArray()
 		for i, vv := range x {
-			_ = arr.Set(strconv.Itoa(i), m.toJSValue(vv))
+			_ = arr.Set(strconv.Itoa(i), toJSValueOn(vm, vv))
 		}
 		return arr
 	case []string:
-		arr := m.vm.NewArray()
+		arr := vm.NewArray()
 		for i, vv := range x {
 			_ = arr.Set(strconv.Itoa(i), vv)
 		}
@@ -424,21 +428,21 @@ func (m *moduleRuntime) toJSValue(v any) goja.Value {
 	default:
 		rv := reflect.ValueOf(v)
 		if rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array {
-			arr := m.vm.NewArray()
+			arr := vm.NewArray()
 			for i := 0; i < rv.Len(); i++ {
-				_ = arr.Set(strconv.Itoa(i), m.toJSValue(rv.Index(i).Interface()))
+				_ = arr.Set(strconv.Itoa(i), toJSValueOn(vm, rv.Index(i).Interface()))
 			}
 			return arr
 		}
 		if rv.Kind() == reflect.Map && rv.Type().Key().Kind() == reflect.String {
-			obj := m.vm.NewObject()
+			obj := vm.NewObject()
 			iter := rv.MapRange()
 			for iter.Next() {
 				k := iter.Key().String()
-				_ = obj.Set(k, m.toJSValue(iter.Value().Interface()))
+				_ = obj.Set(k, toJSValueOn(vm, iter.Value().Interface()))
 			}
 			return obj
 		}
-		return m.vm.ToValue(v)
+		return vm.ToValue(v)
 	}
 }

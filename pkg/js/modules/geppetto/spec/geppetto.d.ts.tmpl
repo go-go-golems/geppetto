@@ -157,16 +157,23 @@ declare module "geppetto" {
         toJSON(): Record<string, any>;
     }
 
-    export interface AgentStreamHandle {
+    export interface EventEmitterLike {
+        on(name: string | symbol, listener: (...args: any[]) => void): this;
+        once(name: string | symbol, listener: (...args: any[]) => void): this;
+        off(name: string | symbol, listener: (...args: any[]) => void): this;
+        emit(name: string | symbol, ...args: any[]): boolean;
+    }
+
+    export interface AgentAsyncHandle {
         promise: Promise<RunResult>;
         cancel(): void;
-        on(eventType: string, callback: (event: any) => void): AgentStreamHandle;
+        close(): void;
     }
 
     export interface Agent {
         name: string;
         run(turn: TurnWrapper, options?: RunOptions): RunResult;
-        stream(turn: TurnWrapper, options?: RunOptions): AgentStreamHandle;
+        runAsync(turn: TurnWrapper, options?: RunOptions): AgentAsyncHandle;
     }
 
     export interface AgentBuilder {
@@ -178,7 +185,7 @@ declare module "geppetto" {
         tool(registry: ToolRegistryBuilder): AgentBuilder;
         goTool(name: string): AgentBuilder;
         toolLoop(options?: Record<string, any>): AgentBuilder;
-        events(sink: any): AgentBuilder;
+        events(sink: any | EventEmitterLike): AgentBuilder;
         runDefaults(options?: RunOptions): AgentBuilder;
         build(): Agent;
     }

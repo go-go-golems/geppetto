@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/dop251/goja"
 	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplecmd"
 	profiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	gp "github.com/go-go-golems/geppetto/pkg/js/modules/geppetto"
@@ -15,6 +17,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	gojengine "github.com/go-go-golems/go-go-goja/engine"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -115,21 +118,73 @@ func runScript(ctx context.Context, s *runSettings) error {
 	if err != nil {
 		return err
 	}
-	if err := rt.VM.Set("GEPPETTO_EXAMPLE", map[string]any{
-		"profileRegistries": entries,
-		"profile":           s.Profile,
-		"timeoutMs":         s.TimeoutMs,
-		"script":            absScript,
-	}); err != nil {
-		return fmt.Errorf("set GEPPETTO_EXAMPLE: %w", err)
-	}
-
 	b, err := os.ReadFile(absScript)
 	if err != nil {
 		return err
 	}
-	_, err = rt.VM.RunScript(absScript, string(b))
-	return err
+	ret, err := rt.Owner.Call(ctx, "geppetto-js-run.runScript", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		if setErr := vm.Set("GEPPETTO_EXAMPLE", map[string]any{
+			"profileRegistries": entries,
+			"profile":           s.Profile,
+			"timeoutMs":         s.TimeoutMs,
+			"script":            absScript,
+		}); setErr != nil {
+			return nil, fmt.Errorf("set GEPPETTO_EXAMPLE: %w", setErr)
+		}
+		return vm.RunScript(absScript, string(b))
+	})
+	if err != nil {
+		return err
+	}
+	if promise, ok := ret.(*goja.Promise); ok {
+		return waitForScriptPromise(ctx, rt, promise, s.TimeoutMs)
+	}
+	return nil
+}
+
+func waitForScriptPromise(ctx context.Context, rt *gojengine.Runtime, promise *goja.Promise, timeoutMs int) error {
+	if promise == nil {
+		return nil
+	}
+	waitCtx := ctx
+	var cancel context.CancelFunc
+	if timeoutMs > 0 {
+		waitCtx, cancel = context.WithTimeout(ctx, time.Duration(timeoutMs+5000)*time.Millisecond)
+		defer cancel()
+	}
+	for {
+		ret, err := rt.Owner.Call(waitCtx, "geppetto-js-run.promiseState", func(_ context.Context, _ *goja.Runtime) (any, error) {
+			return promise.State(), nil
+		})
+		if err != nil {
+			return err
+		}
+		switch state := ret.(type) {
+		case goja.PromiseState:
+			switch state {
+			case goja.PromiseStateFulfilled:
+				return nil
+			case goja.PromiseStateRejected:
+				result, resultErr := rt.Owner.Call(waitCtx, "geppetto-js-run.promiseResult", func(_ context.Context, _ *goja.Runtime) (any, error) {
+					if promise.Result() == nil {
+						return "", nil
+					}
+					return promise.Result().String(), nil
+				})
+				if resultErr != nil {
+					return resultErr
+				}
+				return fmt.Errorf("script promise rejected: %s", result)
+			case goja.PromiseStatePending:
+				// Keep polling while owner-thread posts and promise callbacks settle.
+			}
+		}
+		select {
+		case <-waitCtx.Done():
+			return fmt.Errorf("wait for script promise: %w", waitCtx.Err())
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
 }
 
 func defaultPinocchioProfilesPath() string {

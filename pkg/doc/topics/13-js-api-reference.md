@@ -168,6 +168,17 @@ const agent = gp.agent()
 
 const result = agent.run(turn);
 console.log(result.text());
+
+const EventEmitter = require("events");
+const events = new EventEmitter();
+events.on("text-delta", ev => process.stdout.write(ev.delta));
+
+const asyncAgent = gp.agent()
+  .inference(settings)
+  .events(events)
+  .build();
+const handle = asyncAgent.runAsync(turn);
+const asyncResult = await handle.promise;
 ```
 
 Builder methods:
@@ -180,14 +191,14 @@ Builder methods:
 - `tool(registry)`
 - `goTool(name)`
 - `toolLoop(options?)`
-- `events(sink)`
+- `events(sink)` accepts a Go `EventSink` wrapper or a go-go-goja `EventEmitter` from `require("events")`.
 - `runDefaults(options?)`
 - `build()`
 
 Agent methods:
 
-- `run(turn, options?)`
-- `stream(turn, options?)`
+- `run(turn, options?)` — synchronous final-result execution.
+- `runAsync(turn, options?)` — non-blocking execution returning `{ promise, cancel, close }`; use builder-level `.events(emitter)` for live events.
 
 Intentionally absent:
 

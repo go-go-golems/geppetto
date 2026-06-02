@@ -15,6 +15,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/js/runtimebridge"
 	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/go-go-golems/go-go-goja/pkg/jsevents"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
@@ -32,21 +33,23 @@ type MiddlewareFactory func(options map[string]any) (middleware.Middleware, erro
 
 // Options configures module behavior for a specific runtime.
 type Options struct {
-	RuntimeOwner              runtimeowner.RuntimeOwner
-	GoToolRegistry            tools.ToolRegistry
-	GoMiddlewareFactories     map[string]MiddlewareFactory
-	EngineProfileRegistry     profiles.RegistryReader
-	EngineProfileRegistrySpec []string
-	DefaultInferenceSettings  *aistepssettings.InferenceSettings
-	UseDefaultProfileResolve  bool
-	DefaultProfileResolve     profiles.ResolveInput
-	MiddlewareSchemas         middlewarecfg.DefinitionRegistry
-	ExtensionCodecs           profiles.ExtensionCodecRegistry
-	ExtensionSchemas          map[string]map[string]any
-	DefaultEventSinks         []events.EventSink
-	DefaultSnapshotHook       toolloop.SnapshotHook
-	DefaultPersister          enginebuilder.TurnPersister
-	Logger                    zerolog.Logger
+	RuntimeOwner                runtimeowner.RuntimeOwner
+	GoToolRegistry              tools.ToolRegistry
+	GoMiddlewareFactories       map[string]MiddlewareFactory
+	EngineProfileRegistry       profiles.RegistryReader
+	EngineProfileRegistrySpec   []string
+	DefaultInferenceSettings    *aistepssettings.InferenceSettings
+	UseDefaultProfileResolve    bool
+	DefaultProfileResolve       profiles.ResolveInput
+	MiddlewareSchemas           middlewarecfg.DefinitionRegistry
+	ExtensionCodecs             profiles.ExtensionCodecRegistry
+	ExtensionSchemas            map[string]map[string]any
+	DefaultEventSinks           []events.EventSink
+	EventEmitterManager         *jsevents.Manager
+	EventEmitterManagerResolver func() (*jsevents.Manager, bool)
+	DefaultSnapshotHook         toolloop.SnapshotHook
+	DefaultPersister            enginebuilder.TurnPersister
+	Logger                      zerolog.Logger
 }
 
 // NewLoader returns the native geppetto module loader for use with a require
@@ -90,6 +93,8 @@ type moduleRuntime struct {
 	extensionCodecs                 profiles.ExtensionCodecRegistry
 	extensionSchemas                map[string]map[string]any
 	defaultEventSinks               []events.EventSink
+	eventEmitterManager             *jsevents.Manager
+	eventEmitterManagerResolver     func() (*jsevents.Manager, bool)
 	defaultSnapshotHook             toolloop.SnapshotHook
 	defaultPersister                enginebuilder.TurnPersister
 }
@@ -115,6 +120,8 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		extensionCodecs:               opts.ExtensionCodecs,
 		extensionSchemas:              cloneNestedStringAnyMap(opts.ExtensionSchemas),
 		defaultEventSinks:             append([]events.EventSink(nil), opts.DefaultEventSinks...),
+		eventEmitterManager:           opts.EventEmitterManager,
+		eventEmitterManagerResolver:   opts.EventEmitterManagerResolver,
 		defaultSnapshotHook:           opts.DefaultSnapshotHook,
 		defaultPersister:              opts.DefaultPersister,
 	}
