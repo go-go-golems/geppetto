@@ -91,3 +91,23 @@ Added JavaScript EventEmitter runAsync examples and expanded JS API/user/tutoria
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/doc/topics/14-js-api-user-guide.md — Added live-events usage section
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/doc/tutorials/05-js-api-getting-started.md — Added runAsync tutorial step
 
+
+## 2026-06-02
+
+Fixed geppetto-js-run promise detection so async EventEmitter examples wait for completion and surface missing profile errors
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/cmd/examples/geppetto-js-run/main.go — Exports returned JS Promise values on the owner thread before waiting
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/01-investigation-diary.md — Recorded no-output diagnosis
+
+
+## 2026-06-02
+
+Aligned go-go-goja dependency to v0.7.2 for HostServices AssetResolver compatibility while fixing promise waiting
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/go.mod — go-go-goja v0.7.2 dependency alignment
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/provider/provider_test.go — fake host implements AssetResolver
+

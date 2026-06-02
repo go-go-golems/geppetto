@@ -131,7 +131,16 @@ func runScript(ctx context.Context, s *runSettings) error {
 		}); setErr != nil {
 			return nil, fmt.Errorf("set GEPPETTO_EXAMPLE: %w", setErr)
 		}
-		return vm.RunScript(absScript, string(b))
+		value, runErr := vm.RunScript(absScript, string(b))
+		if runErr != nil {
+			return nil, runErr
+		}
+		if value != nil {
+			if promise, ok := value.Export().(*goja.Promise); ok {
+				return promise, nil
+			}
+		}
+		return value, nil
 	})
 	if err != nil {
 		return err

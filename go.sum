@@ -116,8 +116,8 @@ github.com/go-go-golems/glazed v1.3.5 h1:nMduPxFCocHRI8i2KhyimFuqCovy3CtEktdar0R
 github.com/go-go-golems/glazed v1.3.5/go.mod h1:Q+GuLpSK6OHfDJBbrA4RFOkpYPw++2jj5FAquem8w8g=
 github.com/go-go-golems/go-emrichen v0.0.10 h1:y6RzGopArsUSuHfWHh3dqPnOJwIlftPkdfyJxRZboGU=
 github.com/go-go-golems/go-emrichen v0.0.10/go.mod h1:XjfFqbY7l9cYqMX9jrlbgVdjRtMHdXGIBf92F3hezVM=
-github.com/go-go-golems/go-go-goja v0.7.0 h1:mN92Wq920J0gLL7KvGcSGlcw9mQs6e5cFXh0qPPb4IY=
-github.com/go-go-golems/go-go-goja v0.7.0/go.mod h1:p8zrYdfGjbBNqi3WHfKxjMzQaXIw+QSyJihn0Abs7TM=
+github.com/go-go-golems/go-go-goja v0.7.2 h1:dFeQlklqt82MmxJhHJ4MugvIPq7LkVBNRY0xd29L4Bs=
+github.com/go-go-golems/go-go-goja v0.7.2/go.mod h1:p8zrYdfGjbBNqi3WHfKxjMzQaXIw+QSyJihn0Abs7TM=
 github.com/go-go-golems/logcopter v0.1.0 h1:CGBxAGudhoQOncJ6GEWDJ6c1g5LrU59/ewGlPFKBmdk=
 github.com/go-go-golems/logcopter v0.1.0/go.mod h1:HNCeqsUqxu+Jm5h05YlbN5+KFtK84D5ZnOimvVLyWH4=
 github.com/go-go-golems/sanitize v0.0.1 h1:Kdi7QC5pNtc7H9BsskQQiuhXnly9lMei+LhXf1AtUiQ=

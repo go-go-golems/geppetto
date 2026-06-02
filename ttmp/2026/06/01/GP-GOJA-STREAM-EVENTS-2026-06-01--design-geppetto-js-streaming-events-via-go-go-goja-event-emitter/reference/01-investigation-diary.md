@@ -536,3 +536,58 @@ I added two more example scripts: one that summarizes event progress for a singl
   - `text-delta`
   - `reasoning-delta`
   - `inference-error`
+
+## Step 9: Fix example runner promise detection for async IIFE scripts
+
+This step investigated why the EventEmitter examples produced no output when run from the example runner. The examples return a Promise from an async IIFE and print only after `await handle.promise`. The runner intended to wait for returned promises, but it only detected values whose Go dynamic type was `*goja.Promise`.
+
+`vm.RunScript(...)` returns a `goja.Value`; for a JavaScript Promise that value must be exported on the owner thread to obtain the underlying `*goja.Promise`. Without that conversion, the runner saw a regular value, skipped `waitForScriptPromise`, closed the runtime, and exited before the async inference completed or rejected.
+
+### Prompt Context
+
+**User prompt (verbatim):** "when i run them, there is zero output. Is it the provider ? Does build fail if it cannot find the profile?"
+
+**Assistant interpretation:** Diagnose whether no output comes from provider behavior, profile lookup behavior, or the runner/examples.
+
+**Inferred user intent:** Understand how the EventEmitter examples fail and ensure missing profile/provider problems produce visible errors.
+
+### What I did
+- Updated `cmd/examples/geppetto-js-run/main.go` so the owner-thread script execution exports returned Promise values to `*goja.Promise` before returning to Go.
+- Updated the provider test fake host for the newer go-go-goja `HostServices.AssetResolver()` interface and bumped `go-go-goja` to `v0.7.2` so workspace and `GOWORK=off` validation agree.
+- Verified focused tests still pass.
+- Verified a missing profile now exits non-zero with a visible error:
+  - `go run ./cmd/examples/geppetto-js-run run --script examples/js/geppetto/31_event_emitter_run_async.js --profile-registries examples/js/geppetto/profiles/50-hardcut-phase123.yaml --profile definitely-missing --timeout-ms 1000`
+  - Result: `Error: script promise rejected: GoError: profile not found`
+
+### Why
+- Async examples should not silently exit before `await handle.promise` settles.
+- Missing profiles should be visible as script failures, not swallowed Promise rejections.
+
+### What worked
+- `go test ./cmd/examples/geppetto-js-run ./pkg/js/runtime ./pkg/js/modules/geppetto -count=1` passed.
+- Pre-commit initially failed because workspace `go-go-goja` expected `HostServices.AssetResolver()` while `GOWORK=off` still used `go-go-goja v0.7.0`; aligning `go.mod` to `v0.7.2` resolved that mismatch.
+- The missing-profile command now fails loudly and returns exit code 1.
+
+### What didn't work
+- The previous runner implementation checked `ret.(*goja.Promise)` after `Owner.Call`, but `RunScript` returns `goja.Value`; that type assertion does not catch JavaScript Promise objects.
+
+### What I learned
+- Promise detection must happen while still on the goja owner thread by calling `value.Export()` and checking for `*goja.Promise`.
+
+### What was tricky to build
+- The Promise itself is not goroutine-safe, but reading its state is already done through `rt.Owner.Call` in `waitForScriptPromise`. The fix only changes how the pointer is discovered.
+
+### What warrants a second pair of eyes
+- Review whether the runner should also detect generic thenables, or whether native `Promise` support is sufficient for example scripts.
+- Review the `go-go-goja v0.7.2` module bump and provider fake-host compatibility change.
+
+### What should be done in the future
+- Add a small command-level regression test if the examples runner grows a test harness.
+
+### Code review instructions
+- Review `cmd/examples/geppetto-js-run/main.go` around `runScript` and `waitForScriptPromise`.
+- Validate with the missing-profile command above and a real profile command.
+
+### Technical details
+- Before: `ret, err := vm.RunScript(...); if promise, ok := ret.(*goja.Promise) { ... }`
+- After: `value, err := vm.RunScript(...); if promise, ok := value.Export().(*goja.Promise) { return promise, nil }`

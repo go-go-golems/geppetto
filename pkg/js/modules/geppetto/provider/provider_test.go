@@ -22,6 +22,10 @@ func (h *fakeHost) GeppettoOptions(_ context.Context, cfg Config) (geppettomodul
 	return geppettomodule.Options{}, nil
 }
 
+func (h *fakeHost) AssetResolver() providerapi.AssetResolver {
+	return nil
+}
+
 func TestRegisterProvider(t *testing.T) {
 	registry := providerapi.NewRegistry()
 	if err := Register(registry); err != nil {
