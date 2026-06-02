@@ -11,10 +11,20 @@ import (
 	enginefactory "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/inference/middleware"
 	"github.com/go-go-golems/geppetto/pkg/inference/session"
+	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 	"github.com/google/uuid"
+)
+
+type persistMode int
+
+const (
+	persistInherit persistMode = iota
+	persistDisabled
+	persistExplicit
+	persistUseDefault
 )
 
 type agentBuilderRef struct {
@@ -31,6 +41,8 @@ type agentBuilderRef struct {
 	eventSinks         []events.EventSink
 	eventEmitterValues []goja.Value
 	runDefaults        runOptions
+	persistMode        persistMode
+	persister          enginebuilder.TurnPersister
 }
 
 type agentRef struct {
@@ -45,6 +57,8 @@ type agentRef struct {
 	eventSinks         []events.EventSink
 	eventEmitterValues []goja.Value
 	runDefaults        runOptions
+	persistMode        persistMode
+	persister          enginebuilder.TurnPersister
 	runtimeMetadata    map[string]any
 }
 
@@ -168,6 +182,41 @@ func (m *moduleRuntime) newAgentBuilderObject(ref *agentBuilderRef) *goja.Object
 		ref.eventSinks = append(ref.eventSinks, sink)
 		return o
 	})
+	m.mustSet(o, "persistTo", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 1 || goja.IsUndefined(call.Arguments[0]) {
+			panic(m.vm.NewTypeError("agent().persistTo requires a TurnStore wrapper or null"))
+		}
+		if goja.IsNull(call.Arguments[0]) {
+			ref.persistMode = persistDisabled
+			ref.persister = nil
+			return o
+		}
+		store, err := m.requireTurnStoreRef(call.Arguments[0])
+		if err != nil {
+			panic(m.vm.NewGoError(err))
+		}
+		ref.persistMode = persistExplicit
+		ref.persister = store
+		return o
+	})
+	m.mustSet(o, "persistDefault", func(call goja.FunctionCall) goja.Value {
+		enabled := true
+		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Arguments[0]) && !goja.IsNull(call.Arguments[0]) {
+			enabled = call.Arguments[0].ToBoolean()
+		}
+		if !enabled {
+			ref.persistMode = persistDisabled
+			ref.persister = nil
+			return o
+		}
+		persister, err := m.defaultTurnPersister()
+		if err != nil {
+			panic(m.vm.NewGoError(err))
+		}
+		ref.persistMode = persistUseDefault
+		ref.persister = persister
+		return o
+	})
 	m.mustSet(o, "runDefaults", func(call goja.FunctionCall) goja.Value {
 		opts, err := m.parseRunOptions(call.Arguments, 0)
 		if err != nil {
@@ -214,6 +263,8 @@ func (b *agentBuilderRef) build() (*agentRef, error) {
 		eventSinks:         append([]events.EventSink(nil), b.eventSinks...),
 		eventEmitterValues: append([]goja.Value(nil), b.eventEmitterValues...),
 		runDefaults:        b.runDefaults,
+		persistMode:        b.persistMode,
+		persister:          b.persister,
 		runtimeMetadata:    map[string]any{"agentName": b.name},
 	}, nil
 }
@@ -272,6 +323,22 @@ func (m *moduleRuntime) parseAgentRunOptions(defaults runOptions, args []goja.Va
 	return out, nil
 }
 
+func (a *agentRef) selectedPersister() enginebuilder.TurnPersister {
+	if a == nil || a.api == nil {
+		return nil
+	}
+	switch a.persistMode {
+	case persistInherit:
+		return a.api.defaultPersister
+	case persistDisabled:
+		return nil
+	case persistExplicit, persistUseDefault:
+		return a.persister
+	default:
+		return a.api.defaultPersister
+	}
+}
+
 func (a *agentRef) buildSession(runScopedEventSinks []events.EventSink) (*sessionRef, error) {
 	eventSinks := append([]events.EventSink(nil), a.eventSinks...)
 	eventSinks = append(eventSinks, runScopedEventSinks...)
@@ -284,7 +351,7 @@ func (a *agentRef) buildSession(runScopedEventSinks []events.EventSink) (*sessio
 		runtimeMetadata:  cloneJSONMap(a.runtimeMetadata),
 		eventSinks:       eventSinks,
 		snapshotHook:     a.api.defaultSnapshotHook,
-		persister:        a.api.defaultPersister,
+		persister:        a.selectedPersister(),
 	}
 	if len(a.loopOptions) > 0 {
 		a.api.applyToolLoopSettings(b, a.loopOptions, a.api.vm.ToValue(a.loopOptions))

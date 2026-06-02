@@ -148,6 +148,40 @@ declare module "geppetto" {
      */
     export function turn(base?: TurnWrapper): TurnBuilder;
 
+    export interface TurnStoreQuery {
+        convId?: string;
+        conversationId?: string;
+        sessionId?: string;
+        sessionID?: string;
+        phase?: string;
+        sinceMs?: number;
+        limit?: number;
+    }
+
+    export interface TurnStoreSnapshot {
+        convId: string;
+        sessionId: string;
+        turnId: string;
+        phase: string;
+        runtimeKey: string;
+        inferenceId: string;
+        createdAtMs: number;
+        turn: TurnWrapper | null;
+        toJSON(): Record<string, any>;
+    }
+
+    export interface TurnStore {
+        name(): string;
+        list(query?: TurnStoreQuery): TurnStoreSnapshot[];
+        loadLatest(query?: TurnStoreQuery): TurnStoreSnapshot | null;
+        close(): void;
+    }
+
+    export const turnStores: {
+        default(): TurnStore;
+        get(name: string): TurnStore;
+    };
+
     export interface RunOptions {
         timeoutMs?: number;
         tags?: Record<string, any>;
@@ -250,6 +284,8 @@ declare module "geppetto" {
         goTool(name: string): AgentBuilder;
         toolLoop(options?: Record<string, any>): AgentBuilder;
         events(sink: any | EventEmitterLike): AgentBuilder;
+        persistTo(store: TurnStore | null): AgentBuilder;
+        persistDefault(enabled?: boolean): AgentBuilder;
         runDefaults(options?: RunOptions): AgentBuilder;
         build(): Agent;
     }

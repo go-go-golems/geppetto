@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
@@ -51,6 +52,9 @@ type Options struct {
 	EventEmitterManagerResolver func() (*jsevents.Manager, bool)
 	DefaultSnapshotHook         toolloop.SnapshotHook
 	DefaultPersister            enginebuilder.TurnPersister
+	EnableStorage               bool
+	DefaultTurnStore            TurnStore
+	TurnStores                  map[string]TurnStore
 	Logger                      zerolog.Logger
 }
 
@@ -100,6 +104,9 @@ type moduleRuntime struct {
 	runtimeLifetimeContext          context.Context
 	defaultSnapshotHook             toolloop.SnapshotHook
 	defaultPersister                enginebuilder.TurnPersister
+	enableStorage                   bool
+	defaultTurnStore                TurnStore
+	turnStores                      map[string]TurnStore
 }
 
 func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
@@ -128,6 +135,15 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		runtimeLifetimeContext:        context.Background(),
 		defaultSnapshotHook:           opts.DefaultSnapshotHook,
 		defaultPersister:              opts.DefaultPersister,
+		enableStorage:                 opts.EnableStorage,
+		defaultTurnStore:              opts.DefaultTurnStore,
+		turnStores:                    map[string]TurnStore{},
+	}
+	for name, store := range opts.TurnStores {
+		if strings.TrimSpace(name) == "" || store == nil {
+			continue
+		}
+		m.turnStores[strings.TrimSpace(name)] = store
 	}
 	if closer, ok := opts.EngineProfileRegistry.(io.Closer); ok && closer != nil {
 		m.profileRegistryCloser = closer
@@ -168,6 +184,7 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
 	m.mustSet(exports, "engine", m.engineBuilder)
 	m.mustSet(exports, "agent", m.agentBuilder)
 	m.mustSet(exports, "turn", m.turnBuilder)
+	m.installTurnStoresNamespace(exports)
 	m.mustSet(exports, "tool", m.toolBuilder)
 	m.mustSet(exports, "toolRegistry", m.toolRegistryBuilder)
 	m.installSchemaNamespace(exports)

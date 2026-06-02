@@ -22,8 +22,10 @@ import (
 )
 
 type fakeHost struct {
-	seen Config
-	opts geppettomodule.Options
+	seen        Config
+	opts        geppettomodule.Options
+	storage     geppettomodule.StorageOptions
+	storageSeen bool
 }
 
 func (h *fakeHost) GeppettoOptions(_ context.Context, cfg Config) (geppettomodule.Options, error) {
@@ -31,9 +33,36 @@ func (h *fakeHost) GeppettoOptions(_ context.Context, cfg Config) (geppettomodul
 	return h.opts, nil
 }
 
+func (h *fakeHost) GeppettoTurnStores(_ context.Context, cfg Config) (geppettomodule.StorageOptions, error) {
+	h.seen = cfg
+	h.storageSeen = true
+	return h.storage, nil
+}
+
 func (h *fakeHost) AssetResolver() providerapi.AssetResolver {
 	return nil
 }
+
+type fakeOptionsOnlyHost struct{}
+
+func (fakeOptionsOnlyHost) GeppettoOptions(context.Context, Config) (geppettomodule.Options, error) {
+	return geppettomodule.Options{}, nil
+}
+
+func (fakeOptionsOnlyHost) AssetResolver() providerapi.AssetResolver { return nil }
+
+type providerRecordingStore struct{}
+
+var _ geppettomodule.TurnStore = (*providerRecordingStore)(nil)
+
+func (s *providerRecordingStore) PersistTurn(context.Context, *turns.Turn) error { return nil }
+func (s *providerRecordingStore) ListTurns(context.Context, geppettomodule.TurnStoreQuery) ([]geppettomodule.TurnStoreSnapshot, error) {
+	return nil, nil
+}
+func (s *providerRecordingStore) LoadLatestTurn(context.Context, geppettomodule.TurnStoreQuery) (*geppettomodule.TurnStoreSnapshot, error) {
+	return nil, nil
+}
+func (s *providerRecordingStore) Close() error { return nil }
 
 func TestRegisterProvider(t *testing.T) {
 	registry := providerapi.NewRegistry()
@@ -129,6 +158,59 @@ func TestProviderRejectsProfileRegistriesUnlessAllowed(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatalf("expected allowRegistryLoad error")
+	}
+}
+
+func TestProviderTurnsConfigRequiresEnableStorage(t *testing.T) {
+	mod := resolveModule(t)
+	_, err := mod.New(providerapi.ModuleContext{
+		Context: context.Background(),
+		Name:    geppettomodule.ModuleName,
+		As:      geppettomodule.ModuleName,
+		Host:    &fakeHost{},
+		Config:  json.RawMessage(`{"turns":{"dsn":"file:test.sqlite"}}`),
+	})
+	if err == nil {
+		t.Fatalf("expected enableStorage error")
+	}
+}
+
+func TestProviderEnableStorageRequiresStorageHost(t *testing.T) {
+	mod := resolveModule(t)
+	_, err := mod.New(providerapi.ModuleContext{
+		Context: context.Background(),
+		Name:    geppettomodule.ModuleName,
+		As:      geppettomodule.ModuleName,
+		Host:    fakeOptionsOnlyHost{},
+		Config:  json.RawMessage(`{"enableStorage":true}`),
+	})
+	if err == nil {
+		t.Fatalf("expected storage host capability error")
+	}
+}
+
+func TestProviderEnableStorageInstallsDefaultTurnStore(t *testing.T) {
+	mod := resolveModule(t)
+	store := &providerRecordingStore{}
+	host := &fakeHost{storage: geppettomodule.StorageOptions{Default: store}}
+	loader, err := mod.New(providerapi.ModuleContext{
+		Context: context.Background(),
+		Name:    geppettomodule.ModuleName,
+		As:      geppettomodule.ModuleName,
+		Host:    host,
+		Config:  json.RawMessage(`{"enableStorage":true,"turns":{"default":true,"phase":"final"}}`),
+	})
+	if err != nil {
+		t.Fatalf("create loader with storage: %v", err)
+	}
+	if loader == nil {
+		t.Fatalf("loader is nil")
+	}
+	if !host.storageSeen {
+		t.Fatalf("storage host was not invoked")
+	}
+	if host.seen.Turns == nil || !host.seen.Turns.Default || host.seen.Turns.Phase != "final" {
+		t.Fatalf("host saw storage config %+v", host.seen)
 	}
 }
 
@@ -280,7 +362,7 @@ func TestModuleLoaderInstallsGeppettoExports(t *testing.T) {
 			t.Fatalf("%s export is not a function", name)
 		}
 	}
-	for _, name := range []string{"consts", "inferenceProfiles", "schema"} {
+	for _, name := range []string{"consts", "inferenceProfiles", "schema", "turnStores"} {
 		if obj := exports.Get(name).ToObject(vm); obj == nil {
 			t.Fatalf("%s export is not an object", name)
 		}

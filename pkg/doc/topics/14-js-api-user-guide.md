@@ -154,6 +154,28 @@ const secondResult = agent.run(second);
 
 See `examples/js/geppetto/30_real_provider_multiturn.js` for a live provider example using `~/.config/pinocchio/profiles.yaml`.
 
+## Durable Turn Storage
+
+Turn storage is host-configured. JavaScript receives Go-owned `TurnStore` wrappers from `gp.turnStores`, then opts agents into explicit persistence:
+
+```js
+const store = gp.turnStores.default();
+const agent = gp.agent()
+  .inference(settings)
+  .persistTo(store)
+  .build();
+
+const result = agent.run(gp.turn()
+  .metadata("sessionID", "demo-session")
+  .user("Answer in one sentence.")
+  .build());
+
+const latest = store.loadLatest({ sessionId: "demo-session", phase: "final" });
+console.log(latest.turn.toJSON());
+```
+
+Use `.persistTo(null)` to disable inherited host-default persistence for a specific agent. `gp.turnStores.default()` throws if the host did not configure storage; Geppetto deliberately does not expose a direct SQLite opener from JS.
+
 ## Tools and Schemas
 
 ```js
@@ -211,6 +233,21 @@ Generated xgoja hosts can configure Geppetto like this:
 ```
 
 `allowRegistryLoad` is false by default.
+
+Storage config is gated by `enableStorage` and resolved by host services:
+
+```json
+{
+  "enableStorage": true,
+  "turns": {
+    "dsn": "file:/tmp/geppetto-turns.sqlite?_journal_mode=WAL",
+    "default": true,
+    "phase": "final"
+  }
+}
+```
+
+If `turns.default` is true, the host-provided default store also becomes the inherited default persister for agents.
 
 ## Current Gaps
 

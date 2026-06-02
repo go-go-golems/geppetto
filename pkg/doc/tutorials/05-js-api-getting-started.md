@@ -126,6 +126,28 @@ GEPPETTO_TIMEOUT_MS=120000 \
 ./examples/js/geppetto/run_real_provider_multiturn.sh
 ```
 
+## Optional: Persist Turns with a Host Store
+
+If the host configured turn storage, scripts can opt an agent into durable final-turn persistence and read the latest stored turn back:
+
+```js
+const store = gp.turnStores.default();
+const durableAgent = gp.agent()
+  .inference(settings)
+  .persistTo(store)
+  .build();
+
+const result = durableAgent.run(gp.turn()
+  .metadata("sessionID", "getting-started")
+  .user("Give me a short durable answer.")
+  .build());
+
+const latest = store.loadLatest({ sessionId: "getting-started", phase: "final" });
+console.log(latest.turn.toJSON());
+```
+
+Storage is host-owned. If no default store exists, `gp.turnStores.default()` throws instead of silently creating a database.
+
 ## Step 5: Stream Live Events with `runAsync`
 
 `agent.run(...)` is synchronous. For live JavaScript callbacks, attach a builder-level EventEmitter and use `agent.runAsync(...)`:

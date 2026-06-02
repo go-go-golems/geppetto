@@ -151,6 +151,32 @@ The returned turn wrapper exposes:
 - `toJSON()`
 - `clone()`
 
+## `gp.turnStores`
+
+`gp.turnStores` exposes host-configured durable turn stores as Go-owned wrappers. Geppetto does not open SQLite files directly from JavaScript; xgoja hosts such as Pinocchio provide stores through module/provider configuration.
+
+```js
+const store = gp.turnStores.default();
+const latest = store.loadLatest({ sessionId: "demo", phase: "final" });
+if (latest) {
+  console.log(latest.turn.toJSON());
+}
+```
+
+Namespace methods:
+
+- `default()` — returns the host-configured default `TurnStore`; throws if none is configured.
+- `get(name)` — returns a named host-configured `TurnStore`; throws if the name is unknown.
+
+Turn store methods:
+
+- `name()`
+- `list(query?)`
+- `loadLatest(query?)`
+- `close()`
+
+Queries accept `{ convId?, conversationId?, sessionId?, sessionID?, phase?, sinceMs?, limit? }`. Snapshots expose `{ convId, sessionId, turnId, phase, runtimeKey, inferenceId, createdAtMs, turn }`, where `turn` is a `TurnWrapper | null`.
+
 ### Message Builder
 
 ```js
@@ -204,6 +230,9 @@ Builder methods:
 - `goTool(name)`
 - `toolLoop(options?)`
 - `events(sink)` accepts a Go `EventSink` wrapper or a go-go-goja `EventEmitter` from `require("events")`.
+- `persistTo(store)` persists successful final turns to a Go-owned `TurnStore` wrapper.
+- `persistTo(null)` disables inherited host-default persistence for this agent.
+- `persistDefault(enabled?)` enables or disables the host-configured default turn persister.
 - `runDefaults(options?)`
 - `build()`
 
@@ -410,6 +439,21 @@ The Geppetto xgoja provider accepts registry configuration:
 ```
 
 `allowRegistryLoad` defaults to false. This prevents generated hosts from loading arbitrary registry paths unless explicitly allowed.
+
+Turn storage is host-mediated and gated:
+
+```json
+{
+  "enableStorage": true,
+  "turns": {
+    "dsn": "file:/tmp/geppetto-turns.sqlite?_journal_mode=WAL",
+    "default": true,
+    "phase": "final"
+  }
+}
+```
+
+If `turns` is present without `enableStorage: true`, provider setup fails. If storage is enabled, the xgoja host must implement the optional Geppetto storage host capability and return Go-owned `TurnStore` implementations. With `turns.default: true`, the host-provided default store is installed as the inherited agent persister.
 
 For EventEmitter support, generated/xgoja hosts must provide the same runtime integration that `pkg/js/runtime.NewRuntime` installs automatically:
 

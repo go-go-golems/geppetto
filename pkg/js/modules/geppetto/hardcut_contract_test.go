@@ -38,6 +38,7 @@ func TestHardCutPublicSurfaceContract(t *testing.T) {
 			"agent",
 			"inferenceProfiles",
 			"turn",
+			"turnStores",
 			"engine",
 			"tool",
 			"toolRegistry",

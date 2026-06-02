@@ -12,6 +12,7 @@ Legacy map/session/runner examples were removed during the clean cutover. New sc
 - `gp.engine()`
 - `gp.agent()`
 - `gp.turn()` / `gp.turn(existingTurn)` for continuation turns
+- `gp.turnStores` for host-configured durable turn storage
 - `gp.schema`
 - `gp.tool()`
 - `gp.toolRegistry()`
@@ -26,6 +27,7 @@ Legacy map/session/runner examples were removed during the clean cutover. New sc
 - `31_event_emitter_run_async.js`
 - `32_event_emitter_progress_summary.js`
 - `33_event_emitter_multiturn_run_async.js`
+- `34_turn_store_persistence.js` (requires host-configured turn storage)
 
 ## Numbered Tutorial Examples
 
@@ -80,6 +82,8 @@ GEPPETTO_PROFILE=default \
 ```
 
 The wrapper checks for final JSON output rather than requiring `text-delta`, because provider streaming behavior varies.
+
+`34_turn_store_persistence.js` demonstrates the JS API for `gp.turnStores.default()` and `.persistTo(store)`. It requires a host that enables storage and provides a TurnStore implementation; the plain `geppetto-js-run` helper does not open a store itself.
 
 Or run individual EventEmitter + `runAsync` examples with:
 
