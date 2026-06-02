@@ -1,26 +1,26 @@
 ---
-Title: Clarify Pinocchio timeline storage ownership and Geppetto boundaries
-Ticket: GP-PINOCCHIO-TIMELINE-STORAGE-2026-06-02
-Status: archived
+Title: Design ergonomic JavaScript Turn append APIs
+Ticket: GP-JS-TURN-APPEND-2026-06-02
+Status: active
 Topics:
-    - pinocchio
     - geppetto
-    - persistence
-    - timeline
+    - goja
+    - js-bindings
     - turns
+    - architecture
 DocType: index
 Intent: long-term
 Owners:
     - manuel
 RelatedFiles: []
 ExternalSources: []
-Summary: "Supplementary boundary note. This was not the intended second ticket in the storage pair; GP-JS-TURN-APPEND-2026-06-02 is the corrected turn continuation API ticket."
-LastUpdated: 2026-06-02T16:15:25.286495746-04:00
+Summary: ""
+LastUpdated: 2026-06-02T16:55:00.687833793-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
 
-# Clarify Pinocchio timeline storage ownership and Geppetto boundaries
+# Design ergonomic JavaScript Turn append APIs
 
 ## Overview
 
@@ -33,17 +33,15 @@ WhenToUse: ""
 
 ## Status
 
-Current status: **archived**
-
-This ticket is retained as supplementary boundary documentation about Pinocchio timeline ownership, but it is not one of the intended two implementation tickets. The corrected second ticket is `GP-JS-TURN-APPEND-2026-06-02`; the other intended ticket remains `GP-JS-TURNSTORE-2026-06-02`.
+Current status: **active**
 
 ## Topics
 
-- pinocchio
 - geppetto
-- persistence
-- timeline
+- goja
+- js-bindings
 - turns
+- architecture
 
 ## Tasks
 
