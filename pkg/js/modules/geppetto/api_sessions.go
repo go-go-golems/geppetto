@@ -50,9 +50,6 @@ func (b *builderRef) buildSession() (*sessionRef, error) {
 }
 
 func (m *moduleRuntime) requireEventSink(v goja.Value) (events.EventSink, error) {
-	if sink, err := m.newEventEmitterSinkFromValue(v); err == nil {
-		return sink, nil
-	}
 	ref := m.getRef(v)
 	if sink, ok := ref.(events.EventSink); ok {
 		return sink, nil

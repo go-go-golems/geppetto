@@ -3,6 +3,7 @@ package geppetto
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -193,6 +194,104 @@ func (e *eventPublishingEngine) RunInference(ctx context.Context, t *turns.Turn)
 	return out, nil
 }
 
+type eventThenBlockEngine struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+var _ inferenceengine.Engine = (*eventThenBlockEngine)(nil)
+
+func (e *eventThenBlockEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+	meta := events.EventMetadata{SessionID: "session-lifecycle", InferenceID: "inference-lifecycle", TurnID: "turn-lifecycle"}
+	corr := events.Correlation{SessionID: "session-lifecycle", RunID: "run-lifecycle", TurnID: "turn-lifecycle"}
+	events.PublishEventToContext(ctx, events.NewTextDeltaEvent(meta, corr, "tick", "tick", 1))
+	close(e.started)
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-e.release:
+	}
+	out := t.Clone()
+	out.Blocks = append(out.Blocks, turns.NewAssistantTextBlock("tick"))
+	return out, nil
+}
+
+func managerRefCount(manager *jsevents.Manager) int {
+	if manager == nil {
+		return 0
+	}
+	return reflect.ValueOf(manager).Elem().FieldByName("refs").Len()
+}
+
+func TestAgentRunAsyncUsesRunScopedEventEmitterRefs(t *testing.T) {
+	rt := newGeppettoEventRuntime(t)
+	manager, ok := jsevents.FromRuntime(rt)
+	if !ok {
+		t.Fatalf("jsevents manager not installed")
+	}
+	if got := managerRefCount(manager); got != 0 {
+		t.Fatalf("manager refs before run = %d, want 0", got)
+	}
+	eng := &eventThenBlockEngine{started: make(chan struct{}), release: make(chan struct{})}
+	_, err := rt.Owner.Call(context.Background(), "test.startRunScopedEmitter", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		if setErr := vm.Set("blockingEventEngine", eng); setErr != nil {
+			return nil, setErr
+		}
+		_, runErr := vm.RunString(`
+			const gp = require("geppetto");
+			const EventEmitter = require("events");
+			globalThis.seen = [];
+			globalThis.resolved = false;
+			const emitter = new EventEmitter();
+			emitter.on("text-delta", ev => globalThis.seen.push(ev.delta));
+			const agent = gp.agent().engine(globalThis.blockingEventEngine).events(emitter).build();
+			globalThis.handle = agent.runAsync(gp.turn().user("block then return").build());
+			globalThis.handle.promise.then(result => {
+				globalThis.resolved = true;
+				globalThis.finalText = result.text();
+			}, err => {
+				globalThis.resolved = true;
+				globalThis.finalError = String(err);
+			});
+		`)
+		return nil, runErr
+	})
+	if err != nil {
+		t.Fatalf("start script failed: %v", err)
+	}
+	select {
+	case <-eng.started:
+	case <-time.After(time.Second):
+		t.Fatalf("engine did not publish/start")
+	}
+	if err := rt.Owner.WaitIdle(context.Background()); err != nil {
+		t.Fatalf("WaitIdle failed: %v", err)
+	}
+	if got := managerRefCount(manager); got != 1 {
+		t.Fatalf("manager refs during run = %d, want 1", got)
+	}
+	close(eng.release)
+	if err := waitForOwnerCondition(rt, time.Second, `globalThis.resolved === true`); err != nil {
+		t.Fatalf("promise did not resolve: %v", err)
+	}
+	if err := rt.Owner.WaitIdle(context.Background()); err != nil {
+		t.Fatalf("WaitIdle after resolve failed: %v", err)
+	}
+	if got := managerRefCount(manager); got != 0 {
+		t.Fatalf("manager refs after run = %d, want 0", got)
+	}
+	got, err := rt.Owner.Call(context.Background(), "test.readRunScopedEmitter", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		return vm.RunString(`JSON.stringify({seen: globalThis.seen, resolved: globalThis.resolved, finalText: globalThis.finalText, finalError: globalThis.finalError})`)
+	})
+	if err != nil {
+		t.Fatalf("read result failed: %v", err)
+	}
+	want := `{"seen":["tick"],"resolved":true,"finalText":"tick"}`
+	if got.(goja.Value).String() != want {
+		t.Fatalf("state = %s, want %s", got.(goja.Value).String(), want)
+	}
+}
+
 func TestAgentRunAsyncDeliversBuilderLevelEmitterBeforePromiseResolution(t *testing.T) {
 	rt := newGeppettoEventRuntime(t)
 	_, err := rt.Owner.Call(context.Background(), "test.runAsyncLiveEvents", func(_ context.Context, vm *goja.Runtime) (any, error) {
@@ -252,6 +351,54 @@ func (e *blockingEngine) RunInference(ctx context.Context, t *turns.Turn) (*turn
 	<-ctx.Done()
 	close(e.canceled)
 	return nil, ctx.Err()
+}
+
+func TestAgentRunAsyncToolLoopPreparesOnOwner(t *testing.T) {
+	rt := newGeppettoEventRuntime(t)
+	_, err := rt.Owner.Call(context.Background(), "test.runAsyncToolLoop", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		if setErr := vm.Set("fakeEngine", &eventPublishingEngine{}); setErr != nil {
+			return nil, setErr
+		}
+		_, runErr := vm.RunString(`
+			const gp = require("geppetto");
+			globalThis.resolved = false;
+			const agent = gp.agent()
+				.engine(globalThis.fakeEngine)
+				.toolLoop({
+					maxIterations: 1,
+					toolChoice: "none",
+					hooks: {
+						beforeToolCall: () => {},
+					},
+				})
+				.build();
+			const handle = agent.runAsync(gp.turn().user("say hello").build());
+			handle.promise.then(result => {
+				globalThis.resolved = true;
+				globalThis.finalText = result.text();
+			}, err => {
+				globalThis.resolved = true;
+				globalThis.finalError = String(err);
+			});
+		`)
+		return nil, runErr
+	})
+	if err != nil {
+		t.Fatalf("toolLoop runAsync script failed: %v", err)
+	}
+	if err := waitForOwnerCondition(rt, time.Second, `globalThis.resolved === true`); err != nil {
+		t.Fatalf("promise did not resolve: %v", err)
+	}
+	got, err := rt.Owner.Call(context.Background(), "test.readToolLoopRunAsync", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		return vm.RunString(`JSON.stringify({finalText: globalThis.finalText, finalError: globalThis.finalError})`)
+	})
+	if err != nil {
+		t.Fatalf("read result failed: %v", err)
+	}
+	want := `{"finalText":"hello"}`
+	if got.(goja.Value).String() != want {
+		t.Fatalf("state = %s, want %s", got.(goja.Value).String(), want)
+	}
 }
 
 func TestAgentRunAsyncCancelCancelsExecutionHandle(t *testing.T) {

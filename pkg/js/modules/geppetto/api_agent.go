@@ -23,25 +23,27 @@ type agentBuilderRef struct {
 	settings    *inferenceSettingsRef
 	middlewares []middleware.Middleware
 
-	registry         tools.ToolRegistry
-	runtimeToolNames []string
-	loopOptions      map[string]any
-	eventSinks       []events.EventSink
-	runDefaults      runOptions
+	registry           tools.ToolRegistry
+	runtimeToolNames   []string
+	loopOptions        map[string]any
+	eventSinks         []events.EventSink
+	eventEmitterValues []goja.Value
+	runDefaults        runOptions
 }
 
 type agentRef struct {
 	api *moduleRuntime
 
-	name             string
-	base             *engineRef
-	middlewares      []middleware.Middleware
-	registry         tools.ToolRegistry
-	runtimeToolNames []string
-	loopOptions      map[string]any
-	eventSinks       []events.EventSink
-	runDefaults      runOptions
-	runtimeMetadata  map[string]any
+	name               string
+	base               *engineRef
+	middlewares        []middleware.Middleware
+	registry           tools.ToolRegistry
+	runtimeToolNames   []string
+	loopOptions        map[string]any
+	eventSinks         []events.EventSink
+	eventEmitterValues []goja.Value
+	runDefaults        runOptions
+	runtimeMetadata    map[string]any
 }
 
 type runResultRef struct {
@@ -153,6 +155,10 @@ func (m *moduleRuntime) newAgentBuilderObject(ref *agentBuilderRef) *goja.Object
 		if len(call.Arguments) < 1 {
 			panic(m.vm.NewTypeError("agent().events requires event sink argument"))
 		}
+		if m.isEventEmitterValue(call.Arguments[0]) {
+			ref.eventEmitterValues = append(ref.eventEmitterValues, call.Arguments[0])
+			return o
+		}
 		sink, err := m.requireEventSink(call.Arguments[0])
 		if err != nil {
 			panic(m.vm.NewGoError(err))
@@ -196,16 +202,17 @@ func (b *agentBuilderRef) build() (*agentRef, error) {
 		return nil, fmt.Errorf("agent build requires engine(...) or inference(settings)")
 	}
 	return &agentRef{
-		api:              b.api,
-		name:             b.name,
-		base:             base,
-		middlewares:      append([]middleware.Middleware(nil), b.middlewares...),
-		registry:         b.registry,
-		runtimeToolNames: append([]string(nil), b.runtimeToolNames...),
-		loopOptions:      cloneJSONMap(b.loopOptions),
-		eventSinks:       append([]events.EventSink(nil), b.eventSinks...),
-		runDefaults:      b.runDefaults,
-		runtimeMetadata:  map[string]any{"agentName": b.name},
+		api:                b.api,
+		name:               b.name,
+		base:               base,
+		middlewares:        append([]middleware.Middleware(nil), b.middlewares...),
+		registry:           b.registry,
+		runtimeToolNames:   append([]string(nil), b.runtimeToolNames...),
+		loopOptions:        cloneJSONMap(b.loopOptions),
+		eventSinks:         append([]events.EventSink(nil), b.eventSinks...),
+		eventEmitterValues: append([]goja.Value(nil), b.eventEmitterValues...),
+		runDefaults:        b.runDefaults,
+		runtimeMetadata:    map[string]any{"agentName": b.name},
 	}, nil
 }
 
@@ -263,7 +270,9 @@ func (m *moduleRuntime) parseAgentRunOptions(defaults runOptions, args []goja.Va
 	return out, nil
 }
 
-func (a *agentRef) buildSession() (*sessionRef, error) {
+func (a *agentRef) buildSession(runScopedEventSinks []events.EventSink) (*sessionRef, error) {
+	eventSinks := append([]events.EventSink(nil), a.eventSinks...)
+	eventSinks = append(eventSinks, runScopedEventSinks...)
 	b := &builderRef{
 		api:              a.api,
 		base:             a.base.Engine,
@@ -271,7 +280,7 @@ func (a *agentRef) buildSession() (*sessionRef, error) {
 		registry:         a.registry,
 		runtimeToolNames: append([]string(nil), a.runtimeToolNames...),
 		runtimeMetadata:  cloneJSONMap(a.runtimeMetadata),
-		eventSinks:       append([]events.EventSink(nil), a.eventSinks...),
+		eventSinks:       eventSinks,
 		snapshotHook:     a.api.defaultSnapshotHook,
 		persister:        a.api.defaultPersister,
 	}
@@ -288,11 +297,11 @@ type startedAgentRun struct {
 	cancel        context.CancelFunc
 }
 
-func (a *agentRef) startRun(input *turns.Turn, opts runOptions) (*startedAgentRun, error) {
+func (a *agentRef) startRun(input *turns.Turn, opts runOptions, runScopedEventSinks []events.EventSink) (*startedAgentRun, error) {
 	if input == nil {
 		return nil, fmt.Errorf("agent run requires turn")
 	}
-	sr, err := a.buildSession()
+	sr, err := a.buildSession(runScopedEventSinks)
 	if err != nil {
 		return nil, err
 	}
@@ -314,12 +323,18 @@ func (a *agentRef) startRun(input *turns.Turn, opts runOptions) (*startedAgentRu
 }
 
 func (a *agentRef) runSync(input *turns.Turn, opts runOptions) (*runResultRef, error) {
-	started, err := a.startRun(input, opts)
+	runScopedEventSinks, closers, err := a.newRunScopedEventEmitterSinks()
 	if err != nil {
+		return nil, err
+	}
+	started, err := a.startRun(input, opts, runScopedEventSinks)
+	if err != nil {
+		closeRunScopedEventEmitterSinks(context.Background(), closers)
 		return nil, err
 	}
 	defer started.cancel()
 	out, err := started.handle.Wait()
+	a.closeRunScopedEventEmitterSinksAfterOwnerQueue(closers)
 	if err != nil {
 		return nil, err
 	}
@@ -381,24 +396,25 @@ func (a *agentRef) startAsync(input *turns.Turn, opts runOptions) goja.Value {
 		return goja.Undefined()
 	})
 
+	runScopedEventSinks, closers, err := a.newRunScopedEventEmitterSinks()
+	if err != nil {
+		_ = reject(a.api.vm.ToValue(err.Error()))
+		return handleObj
+	}
+	started, err := a.startRun(input, opts, runScopedEventSinks)
+	if err != nil {
+		closeRunScopedEventEmitterSinks(context.Background(), closers)
+		_ = reject(a.api.vm.ToValue(err.Error()))
+		return handleObj
+	}
+	setActive(started)
+
 	go func() {
-		started, err := a.startRun(input, opts)
-		if err == nil {
-			setActive(started)
-		}
-		if err != nil {
-			postErr := a.api.postOnOwner(context.Background(), "agent.runAsync.rejectStart", func(context.Context) {
-				_ = reject(a.api.vm.ToValue(err.Error()))
-			})
-			if postErr != nil {
-				a.api.logger.Error().Err(postErr).Msg("agent.runAsync: failed to reject promise on owner thread")
-			}
-			return
-		}
 		defer clearActive()
 		defer started.cancel()
 		out, waitErr := started.handle.Wait()
 		postErr := a.api.postOnOwner(context.Background(), "agent.runAsync.settle", func(context.Context) {
+			defer closeRunScopedEventEmitterSinks(context.Background(), closers)
 			if waitErr != nil {
 				_ = reject(a.api.vm.ToValue(waitErr.Error()))
 				return
@@ -411,6 +427,7 @@ func (a *agentRef) startAsync(input *turns.Turn, opts runOptions) goja.Value {
 			}))
 		})
 		if postErr != nil {
+			closeRunScopedEventEmitterSinks(context.Background(), closers)
 			a.api.logger.Error().Err(postErr).Msg("agent.runAsync: failed to settle promise on owner thread")
 		}
 	}()

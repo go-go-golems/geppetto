@@ -7,6 +7,7 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/geppetto/pkg/events"
+	eventsmodule "github.com/go-go-golems/go-go-goja/modules/events"
 	"github.com/go-go-golems/go-go-goja/pkg/jsevents"
 )
 
@@ -18,6 +19,55 @@ type jsEventEmitterSink struct {
 }
 
 var _ events.EventSink = (*jsEventEmitterSink)(nil)
+
+func (m *moduleRuntime) isEventEmitterValue(v goja.Value) bool {
+	_, _, ok := eventsmodule.FromValue(v)
+	return ok
+}
+
+func (a *agentRef) newRunScopedEventEmitterSinks() ([]events.EventSink, []*jsEventEmitterSink, error) {
+	if a == nil || len(a.eventEmitterValues) == 0 {
+		return nil, nil, nil
+	}
+	sinks := make([]events.EventSink, 0, len(a.eventEmitterValues))
+	closers := make([]*jsEventEmitterSink, 0, len(a.eventEmitterValues))
+	for _, value := range a.eventEmitterValues {
+		sink, err := a.api.newEventEmitterSinkFromValue(value)
+		if err != nil {
+			closeRunScopedEventEmitterSinks(context.Background(), closers)
+			return nil, nil, err
+		}
+		sinks = append(sinks, sink)
+		closers = append(closers, sink)
+	}
+	return sinks, closers, nil
+}
+
+func closeRunScopedEventEmitterSinks(ctx context.Context, sinks []*jsEventEmitterSink) {
+	for _, sink := range sinks {
+		if err := sink.Close(ctx); err != nil && sink != nil && sink.api != nil {
+			sink.api.logger.Warn().Err(err).Msg("geppetto events: failed to close run-scoped EventEmitter sink")
+		}
+	}
+}
+
+func (a *agentRef) closeRunScopedEventEmitterSinksAfterOwnerQueue(sinks []*jsEventEmitterSink) {
+	if len(sinks) == 0 {
+		return
+	}
+	go func() {
+		if a == nil || a.api == nil {
+			closeRunScopedEventEmitterSinks(context.Background(), sinks)
+			return
+		}
+		if err := a.api.postOnOwner(context.Background(), "agent.eventEmitters.closeRunScoped", func(context.Context) {
+			closeRunScopedEventEmitterSinks(context.Background(), sinks)
+		}); err != nil {
+			a.api.logger.Warn().Err(err).Msg("geppetto events: failed to schedule run-scoped EventEmitter close")
+			closeRunScopedEventEmitterSinks(context.Background(), sinks)
+		}
+	}()
+}
 
 func (m *moduleRuntime) newEventEmitterSinkFromValue(v goja.Value) (*jsEventEmitterSink, error) {
 	if m == nil {

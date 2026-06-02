@@ -3,23 +3,32 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/dop251/goja"
+	"github.com/dop251/goja_nodejs/require"
+	"github.com/go-go-golems/geppetto/pkg/events"
+	inferenceengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	geppettomodule "github.com/go-go-golems/geppetto/pkg/js/modules/geppetto"
+	"github.com/go-go-golems/geppetto/pkg/turns"
+	gojengine "github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/jsevents"
 	"github.com/go-go-golems/go-go-goja/pkg/xgoja/providerapi"
 )
 
 type fakeHost struct {
 	seen Config
+	opts geppettomodule.Options
 }
 
 func (h *fakeHost) GeppettoOptions(_ context.Context, cfg Config) (geppettomodule.Options, error) {
 	h.seen = cfg
-	return geppettomodule.Options{}, nil
+	return h.opts, nil
 }
 
 func (h *fakeHost) AssetResolver() providerapi.AssetResolver {
@@ -120,6 +129,123 @@ func TestProviderRejectsProfileRegistriesUnlessAllowed(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatalf("expected allowRegistryLoad error")
+	}
+}
+
+type providerRuntimeModuleSpec struct{}
+
+func (providerRuntimeModuleSpec) ID() string { return "geppetto-provider-test" }
+
+func (providerRuntimeModuleSpec) RegisterRuntimeModule(ctx *gojengine.RuntimeModuleContext, reg *require.Registry) error {
+	registry := providerapi.NewRegistry()
+	if err := Register(registry); err != nil {
+		return err
+	}
+	mod, ok := registry.ResolveModule(PackageID, geppettomodule.ModuleName)
+	if !ok {
+		return fmt.Errorf("missing provider module")
+	}
+	host := &fakeHost{opts: geppettomodule.Options{
+		RuntimeOwner: ctx.Owner,
+		EventEmitterManagerResolver: func() (*jsevents.Manager, bool) {
+			value, ok := ctx.Value(jsevents.RuntimeValueKey)
+			if !ok {
+				return nil, false
+			}
+			manager, ok := value.(*jsevents.Manager)
+			return manager, ok && manager != nil
+		},
+	}}
+	loader, err := mod.New(providerapi.ModuleContext{
+		Context: context.Background(),
+		Name:    geppettomodule.ModuleName,
+		As:      geppettomodule.ModuleName,
+		Host:    host,
+	})
+	if err != nil {
+		return err
+	}
+	reg.RegisterNativeModule(geppettomodule.ModuleName, loader)
+	return nil
+}
+
+type providerEventEngine struct{}
+
+var _ inferenceengine.Engine = (*providerEventEngine)(nil)
+
+func (e *providerEventEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+	meta := events.EventMetadata{SessionID: "provider-session", InferenceID: "provider-inference", TurnID: "provider-turn"}
+	corr := events.Correlation{SessionID: "provider-session", RunID: "provider-run", TurnID: "provider-turn"}
+	events.PublishEventToContext(ctx, events.NewTextDeltaEvent(meta, corr, "provider", "provider", 1))
+	out := t.Clone()
+	out.Blocks = append(out.Blocks, turns.NewAssistantTextBlock("provider"))
+	return out, nil
+}
+
+func TestProviderRuntimeSupportsEventEmitterRunAsync(t *testing.T) {
+	factory, err := gojengine.NewBuilder(
+		gojengine.WithDataOnlyDefaultRegistryModules(true),
+	).
+		UseModuleMiddleware(gojengine.Pipeline()).
+		WithRuntimeInitializers(jsevents.Install()).
+		WithModules(providerRuntimeModuleSpec{}).
+		Build()
+	if err != nil {
+		t.Fatalf("failed creating runtime factory: %v", err)
+	}
+	rt, err := factory.NewRuntime(gojengine.WithStartupContext(context.Background()), gojengine.WithLifetimeContext(context.Background()))
+	if err != nil {
+		t.Fatalf("failed creating runtime: %v", err)
+	}
+	t.Cleanup(func() { _ = rt.Close(context.Background()) })
+
+	_, err = rt.Owner.Call(context.Background(), "test.providerRunAsyncEvents", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		if setErr := vm.Set("providerEventEngine", &providerEventEngine{}); setErr != nil {
+			return nil, setErr
+		}
+		_, runErr := vm.RunString(`
+			const gp = require("geppetto");
+			const EventEmitter = require("events");
+			globalThis.seen = [];
+			globalThis.resolved = false;
+			const emitter = new EventEmitter();
+			emitter.on("text-delta", ev => globalThis.seen.push(ev.delta));
+			const agent = gp.agent().engine(globalThis.providerEventEngine).events(emitter).build();
+			agent.runAsync(gp.turn().user("provider path").build()).promise.then(result => {
+				globalThis.resolved = true;
+				globalThis.finalText = result.text();
+			}, err => {
+				globalThis.resolved = true;
+				globalThis.finalError = String(err);
+			});
+		`)
+		return nil, runErr
+	})
+	if err != nil {
+		t.Fatalf("provider script failed: %v", err)
+	}
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		ret, waitErr := rt.Owner.Call(context.Background(), "test.providerWait", func(_ context.Context, vm *goja.Runtime) (any, error) {
+			return vm.RunString(`globalThis.resolved === true`)
+		})
+		if waitErr != nil {
+			t.Fatalf("wait failed: %v", waitErr)
+		}
+		if value, ok := ret.(goja.Value); ok && value.ToBoolean() {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	got, err := rt.Owner.Call(context.Background(), "test.providerRead", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		return vm.RunString(`JSON.stringify({seen: globalThis.seen, resolved: globalThis.resolved, finalText: globalThis.finalText, finalError: globalThis.finalError})`)
+	})
+	if err != nil {
+		t.Fatalf("read failed: %v", err)
+	}
+	want := `{"seen":["provider"],"resolved":true,"finalText":"provider"}`
+	if got.(goja.Value).String() != want {
+		t.Fatalf("state = %s, want %s", got.(goja.Value).String(), want)
 	}
 }
 
