@@ -15,6 +15,6 @@
 
 ## Follow-up implementation tasks
 
-- [ ] Implement Pinocchio host adapter for DSN-backed turn stores.
-- [ ] Add Pinocchio/xgoja integration tests against a temporary SQLite turn store.
+- [x] Implement Pinocchio host adapter for DSN-backed turn stores.
+- [x] Add Pinocchio `pinocchio js` integration tests against a temporary SQLite turn store.
 - [ ] Run a real host-backed storage smoke once the Pinocchio adapter exists.

@@ -7,6 +7,14 @@ DocType: ""
 Intent: ""
 Owners: []
 RelatedFiles:
+    - Path: ../../../../../../../pinocchio/cmd/pinocchio/cmds/js.go
+      Note: pinocchio js --turns-dsn/--turns-db flags and gp.Options storage registration (commit 16e7f7b)
+    - Path: ../../../../../../../pinocchio/cmd/pinocchio/cmds/js_turn_store.go
+      Note: Pinocchio adapter from chatstore.TurnStore to Geppetto JS TurnStore (commit 16e7f7b)
+    - Path: ../../../../../../../pinocchio/cmd/pinocchio/cmds/js_turn_store_test.go
+      Note: SQLite-backed JS turn-store adapter and runtime installation tests (commit 16e7f7b)
+    - Path: ../../../../../../../pinocchio/go.mod
+      Note: Pinocchio module dependency on Geppetto pseudo-version with session/storage JS API (commit 16e7f7b)
     - Path: examples/js/geppetto/34_turn_store_persistence.js
       Note: Host-backed storage API example (commit cf09f49e)
     - Path: pkg/js/modules/geppetto/api_agent.go
@@ -19,10 +27,11 @@ RelatedFiles:
       Note: Added enableStorage/turns provider config gating (commit cf09f49e)
 ExternalSources: []
 Summary: ""
-LastUpdated: 0001-01-01T00:00:00Z
+LastUpdated: 2026-06-02T19:10:00-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Diary
@@ -193,3 +202,100 @@ This keeps storage backend ownership outside Geppetto. JavaScript receives only 
 - Public agent builder additions: `.persistTo(store)`, `.persistTo(null)`, `.persistDefault(enabled?)`.
 - Provider config additions: `enableStorage` and `turns.{dsn,db,default,phase,readonly}`.
 - Host-facing interface: `geppettomodule.TurnStore` with `PersistTurn`, `ListTurns`, `LoadLatestTurn`, and `Close`.
+
+
+## Step 3: Wire Pinocchio `js` to DSN-backed Geppetto turn storage
+
+I implemented the Pinocchio-side adapter that makes `pinocchio js --turns-dsn ...` / `--turns-db ...` install a host-backed Geppetto `TurnStore`. The command now opens Pinocchio's existing SQLite turn store, wraps it in the Geppetto JS storage interface, registers it as `gp.turnStores.default()`, and also installs it as the default persister for session runs.
+
+This closes the host-wiring loop from the earlier Geppetto module work: Geppetto still owns only the wrapper/interface, while Pinocchio owns the concrete SQLite store and CLI flags. I also updated the Pinocchio JS examples and docs from the removed `gp.runner` / `gp.profiles` API to the current `gp.inferenceProfiles` + `agent.session().next()` API.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go ahead"
+
+**Additional user instruction (verbatim):** "keep a detailed diary as you work, and commit at appropriate intervals."
+
+**Assistant interpretation:** Proceed with the next queued task: implement Pinocchio DSN-backed turn-store wiring for the Geppetto JS API, keep a detailed diary, validate, and commit the implementation.
+
+**Inferred user intent:** Finish the storage integration so host-backed `gp.turnStores.default()` works in the real Pinocchio JavaScript runner, not only in Geppetto unit tests.
+
+**Commit (code):** 16e7f7b — "Wire turn storage into pinocchio js"
+
+### What I did
+- Added `cmd/pinocchio/cmds/js_turn_store.go` in Pinocchio.
+  - Wraps `pkg/persistence/chatstore.TurnStore` as `geppetto/pkg/js/modules/geppetto.TurnStore`.
+  - Persists Geppetto turns as YAML through the existing SQLite normalized turn store.
+  - Maps Geppetto JS queries to Pinocchio `TurnQuery` / `LoadLatestTurn` semantics.
+  - Decodes stored YAML payloads back into Go-owned `TurnWrapper` snapshots for JS readback.
+- Added `--turns-dsn` and `--turns-db` flags to `pinocchio js`.
+- Registered the opened store into `gp.Options` as:
+  - `EnableStorage: true`
+  - `DefaultTurnStore`
+  - `DefaultPersister`
+  - named `TurnStores["default"]`
+- Added tests in `cmd/pinocchio/cmds/js_turn_store_test.go` for adapter persistence/readback and JS runtime installation.
+- Updated `cmd/pinocchio/cmds/js_test.go` to assert the new flags are exposed.
+- Rewrote Pinocchio JS examples/docs to use `gp.inferenceProfiles.resolve()` and session-centered execution.
+- Updated Pinocchio's `go.mod` to depend on Geppetto commit `7409ecc7` so `GOWORK=off` lint/pre-commit can see the new Geppetto storage/session API.
+
+### Why
+- Geppetto should not import Pinocchio's concrete SQLite turn store, but Pinocchio can adapt that store into Geppetto's host-facing JS interface.
+- `pinocchio js` is the real host command users run, so it needs first-class storage flags and default store registration.
+- Pinocchio's pre-commit hook runs `GOWORK=off` vet/lint, so the module dependency had to point at a Geppetto revision containing the new exported `TurnStore` API.
+
+### What worked
+- Focused tests passed:
+  - `go test ./cmd/pinocchio/cmds -run 'TestNewJSCommand|TestPinocchioJSTurnStore|TestPinocchioJSRuntime' -count=1`
+  - `go test ./cmd/pinocchio/cmds ./pkg/persistence/chatstore -count=1`
+- Full Pinocchio tests passed:
+  - `go test ./...`
+- Smoke commands passed:
+  - `go run ./cmd/pinocchio js --script examples/js/runner-profile-smoke.js --profile-registries examples/js/profiles/basic.yaml --profile default`
+  - a temporary `gp.turnStores.default().name()` script with `--turns-db`, which printed `"default"` and created the SQLite DB file.
+- Final pre-commit passed full lint and tests after the module dependency was updated.
+
+### What didn't work
+- The first Pinocchio commit attempt failed during lint because the hook runs `GOWORK=off`; without an updated `go.mod`, it compiled against released `github.com/go-go-golems/geppetto v0.12.2`, which does not contain the new storage API:
+  - `cmd/pinocchio/cmds/js.go:300:30: undefined: gp.TurnStore`
+  - `cmd/pinocchio/cmds/js.go:337:13: gpOptions.EnableStorage undefined`
+  - `cmd/pinocchio/cmds/js.go:338:13: gpOptions.DefaultTurnStore undefined`
+  - `cmd/pinocchio/cmds/js.go:340:13: gpOptions.TurnStores undefined`
+  - `cmd/pinocchio/cmds/js_turn_store.go:21:10: undefined: gp.TurnStore`
+  - `cmd/pinocchio/cmds/js_turn_store.go:52:68: undefined: gp.TurnStoreQuery`
+  - `cmd/pinocchio/cmds/js_turn_store.go:52:90: undefined: gp.TurnStoreSnapshot`
+- I fixed this by pushing Geppetto commit `7409ecc7` to `origin/task/geppetto-js` and running:
+  - `GOWORK=off go get github.com/go-go-golems/geppetto@7409ecc72a5536c90f416f839d6fb4747e213728`
+  - `GOWORK=off go mod tidy`
+
+### What I learned
+- Pinocchio's lint path intentionally verifies module-mode compatibility, not only workspace compatibility. Any cross-repo API change must therefore update `go.mod` to a reachable Geppetto revision before Pinocchio can commit cleanly.
+- Pinocchio's existing normalized SQLite turn store already provides most of the readback functionality needed by Geppetto JS; the adapter is mainly metadata mapping and YAML encode/decode.
+
+### What was tricky to build
+- The key mapping decision is that JS session persistence stores `convID == sessionID` by default. This matches existing CLI resume behavior and lets `resumeLatest()` default its query to `{ sessionId: session.id(), phase: "final" }` while the Pinocchio adapter translates missing `convId` to `sessionId` for `LoadLatestTurn`.
+- Another sharp edge was dependency mode. Workspace tests passed before commit because `go.work` saw local Geppetto, but pre-commit lint failed in module mode. The fix was not code-level; it was making the Pinocchio module depend on the Geppetto pseudo-version containing the new exported API.
+
+### What warrants a second pair of eyes
+- Review whether `pinocchio js --turns-dsn/--turns-db` should always install the store as `DefaultPersister`, or whether a future flag should make read-only/default-persist behavior configurable.
+- Review `cmd/pinocchio/cmds/js_turn_store.go` for conv/session mapping, especially if future Pinocchio conversations want distinct conversation and runtime/session ids.
+- Review whether the adapter should support read-only DSNs explicitly instead of assuming the provided DSN encodes that policy.
+
+### What should be done in the future
+- Run a live provider storage smoke using `pinocchio js --turns-db ...` and a real session script that calls `session.next().run()` and then `resumeLatest()` in a second process.
+- Consider exposing a provider-style `GeppettoTurnStores(...)` host capability in Pinocchio if/when Pinocchio adopts the xgoja provider registry path instead of direct `gp.Register(...)`.
+- Update any downstream scripts that still use removed `gp.runner`, `gp.profiles`, `gp.engines`, or `gp.turns` names.
+
+### Code review instructions
+- Start with `/home/manuel/workspaces/2026-06-01/geppetto-js/pinocchio/cmd/pinocchio/cmds/js_turn_store.go`.
+- Then review `/home/manuel/workspaces/2026-06-01/geppetto-js/pinocchio/cmd/pinocchio/cmds/js.go` around flag decoding and `gp.Options` registration.
+- Validate with:
+  - `cd /home/manuel/workspaces/2026-06-01/geppetto-js/pinocchio && go test ./cmd/pinocchio/cmds -count=1`
+  - `cd /home/manuel/workspaces/2026-06-01/geppetto-js/pinocchio && GOWORK=off go test ./cmd/pinocchio/cmds -count=1`
+  - `cd /home/manuel/workspaces/2026-06-01/geppetto-js/pinocchio && go test ./...`
+
+### Technical details
+- `PersistTurn` reads `turns.KeyTurnMetaSessionID` and saves both `conv_id` and `session_id` as that value.
+- `LoadLatestTurn` accepts either `convId` or `sessionId` from Geppetto JS and defaults `phase` to `final`.
+- Stored payloads use `serde.ToYAML` / `serde.FromYAML`, matching Pinocchio's existing CLI turn persistence path.
+- `pinocchio js` now registers the same store as both read-capable `DefaultTurnStore` and write-capable `DefaultPersister`.
