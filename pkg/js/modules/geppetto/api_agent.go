@@ -273,6 +273,9 @@ func (m *moduleRuntime) newAgentObject(ref *agentRef) *goja.Object {
 	o := m.vm.NewObject()
 	m.attachRef(o, ref)
 	m.mustSet(o, "name", ref.name)
+	m.mustSet(o, "session", func(goja.FunctionCall) goja.Value {
+		return m.newSessionBuilderObject(newSessionBuilderFromAgent(ref))
+	})
 	m.mustSet(o, "run", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 || goja.IsUndefined(call.Arguments[0]) || goja.IsNull(call.Arguments[0]) {
 			panic(m.vm.NewTypeError("agent.run requires a Go-owned Turn wrapper"))
@@ -339,7 +342,7 @@ func (a *agentRef) selectedPersister() enginebuilder.TurnPersister {
 	}
 }
 
-func (a *agentRef) buildSession(runScopedEventSinks []events.EventSink) (*sessionRef, error) {
+func (a *agentRef) newBuilderRef(runScopedEventSinks []events.EventSink, persister enginebuilder.TurnPersister) *builderRef {
 	eventSinks := append([]events.EventSink(nil), a.eventSinks...)
 	eventSinks = append(eventSinks, runScopedEventSinks...)
 	b := &builderRef{
@@ -351,12 +354,16 @@ func (a *agentRef) buildSession(runScopedEventSinks []events.EventSink) (*sessio
 		runtimeMetadata:  cloneJSONMap(a.runtimeMetadata),
 		eventSinks:       eventSinks,
 		snapshotHook:     a.api.defaultSnapshotHook,
-		persister:        a.selectedPersister(),
+		persister:        persister,
 	}
 	if len(a.loopOptions) > 0 {
 		a.api.applyToolLoopSettings(b, a.loopOptions, a.api.vm.ToValue(a.loopOptions))
 	}
-	return b.buildSession()
+	return b
+}
+
+func (a *agentRef) buildSession(runScopedEventSinks []events.EventSink) (*sessionRef, error) {
+	return a.newBuilderRef(runScopedEventSinks, a.selectedPersister()).buildSession()
 }
 
 type startedAgentRun struct {

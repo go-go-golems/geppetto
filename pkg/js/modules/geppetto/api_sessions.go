@@ -11,7 +11,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 )
 
-func (b *builderRef) buildSession() (*sessionRef, error) {
+func (b *builderRef) buildEngineBuilder() (session.EngineBuilder, error) {
 	if b.base == nil {
 		return nil, fmt.Errorf("builder has no engine configured")
 	}
@@ -44,8 +44,16 @@ func (b *builderRef) buildSession() (*sessionRef, error) {
 	if b.persister != nil {
 		opts = append(opts, enginebuilder.WithPersister(b.persister))
 	}
+	return enginebuilder.New(opts...), nil
+}
+
+func (b *builderRef) buildSession() (*sessionRef, error) {
+	builder, err := b.buildEngineBuilder()
+	if err != nil {
+		return nil, err
+	}
 	s := session.NewSession()
-	s.Builder = enginebuilder.New(opts...)
+	s.Builder = builder
 	return &sessionRef{api: b.api, session: s, runtimeMetadata: cloneJSONMap(b.runtimeMetadata)}, nil
 }
 
