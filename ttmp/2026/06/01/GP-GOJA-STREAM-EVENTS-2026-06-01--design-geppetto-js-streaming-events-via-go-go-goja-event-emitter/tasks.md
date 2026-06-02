@@ -93,3 +93,16 @@ updated: 2026-06-01
 - [x] Add regression tests for listener-error diagnostics, JS `Error` rejections, and nil-output handling
 - [x] Document troubleshooting symptoms for missing manager, listener throws, missing profiles, and providers with no `text-delta`
 - [x] Run focused tests, docs tests, and full pre-commit validation
+
+## Review hardening — P2 API polish and coverage
+
+- [x] Remove public `gp.events.collector()` and the `gp.events` namespace from the hard-cut JS surface
+- [x] Add JavaScript payload coverage tests for run/provider/segment/log/info/agent-mode events
+- [x] Add structured TypeScript `GeppettoEvent` payload types and typed generic EventEmitter listener overloads
+- [x] Use runtime lifetime context for run contexts and EventEmitter owner-thread posts/closes where available
+- [x] Add runtime-close cancellation coverage for in-flight `runAsync`
+- [x] Document provider/xgoja EventEmitter manager wiring requirements
+- [x] Add real-provider EventEmitter smoke wrapper script that checks final JSON output without requiring `text-delta`
+- [x] Document event ordering semantics and explicitly defer JS-only `runasync-*` adapter lifecycle events
+- [x] Attempt both generic and type-specific EventEmitter channel scheduling and aggregate/log scheduling failures
+- [x] Run focused tests, hard-cut contract test, docs tests, and full pre-commit validation

@@ -180,3 +180,20 @@ P1 diagnostics cleanup: EventEmitter publish logging, default listener-error han
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/01-investigation-diary.md — Recorded P1 diagnostics work
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/tasks.md — P1 tasks completed
 
+
+## 2026-06-02
+
+Removed gp.events.collector and completed lower-priority EventEmitter hardening: payload coverage, typed event DTS, runtime lifetime contexts, provider docs, smoke wrapper, ordering docs, and aggregate publish scheduling (commit 3b93f868)
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/examples/js/geppetto/run_event_emitter_examples.sh — Real-provider EventEmitter smoke wrapper
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/doc/topics/13-js-api-reference.md — Ordering
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/doc/types/geppetto.d.ts — Structured GeppettoEvent TypeScript payload types
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_event_emitters.go — Aggregate/log EventEmitter channel scheduling failures
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_event_payloads.go — Expanded JS event payload mapping
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_event_payloads_test.go — Payload coverage tests
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/module.go — Removed gp.events export and adopted runtime lifetime context
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/01-investigation-diary.md — Recorded lower-priority cleanup
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/tasks.md — P2 tasks completed
+

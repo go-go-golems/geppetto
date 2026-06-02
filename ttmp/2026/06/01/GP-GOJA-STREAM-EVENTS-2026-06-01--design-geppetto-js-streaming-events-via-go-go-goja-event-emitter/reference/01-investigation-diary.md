@@ -7,14 +7,22 @@ DocType: ""
 Intent: ""
 Owners: []
 RelatedFiles:
+    - Path: examples/js/geppetto/run_event_emitter_examples.sh
+      Note: P2 real-provider smoke wrapper (commit 3b93f868)
     - Path: pkg/doc/topics/13-js-api-reference.md
       Note: P1 troubleshooting documentation (commit f63caade)
+    - Path: pkg/doc/types/geppetto.d.ts
+      Note: P2 structured event TypeScript declarations (commit 3b93f868)
     - Path: pkg/js/modules/geppetto/api_agent.go
       Note: P0 owner-thread runAsync preparation and run-scoped sink integration (commit e3a01a6b)
     - Path: pkg/js/modules/geppetto/api_event_emitters.go
       Note: P0 EventEmitter adoption/close lifecycle helpers (commit e3a01a6b)
     - Path: pkg/js/modules/geppetto/api_event_emitters_test.go
       Note: P0 lifecycle and owner-thread regression tests (commit e3a01a6b)
+    - Path: pkg/js/modules/geppetto/api_event_payloads.go
+      Note: P2 payload mapping changes (commit 3b93f868)
+    - Path: pkg/js/modules/geppetto/api_event_payloads_test.go
+      Note: P2 payload regression tests (commit 3b93f868)
     - Path: pkg/js/modules/geppetto/provider/provider_test.go
       Note: P0 provider path EventEmitter regression test (commit e3a01a6b)
     - Path: pkg/js/runtime/runtime.go
@@ -33,6 +41,7 @@ LastUpdated: 0001-01-01T00:00:00Z
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -883,3 +892,89 @@ The changes also added regression tests for listener-error logging, JS Error-sha
 - `runAsync` now rejects with `GoError` objects rather than plain strings.
 - Geppetto-owned runtimes only install the default `jsevents` error handler when the caller did not provide a custom initializer with ID `jsevents.manager`.
 - Troubleshooting notes live in `pkg/doc/topics/13-js-api-reference.md` under the `runAsync` EventEmitter section.
+
+## Step 14: Remove collector and finish lower-priority EventEmitter hardening
+
+This step removed the public `gp.events.collector()` API and completed the remaining non-adapter-lifecycle cleanup from the review. The JavaScript event path is now EventEmitter-only: scripts use `require("events")`, register listeners, pass the emitter to `gp.agent().events(emitter)`, and observe Geppetto/provider/tool events through `runAsync`.
+
+No JS-only adapter lifecycle events were added. The documentation now states that `handle.promise`, `cancel()`, and `close()` are the lifecycle API, while EventEmitter carries Geppetto/provider/tool events only. The implementation also improved payload coverage, TypeScript event typing, runtime-lifetime context use, provider/xgoja wiring docs, event ordering semantics, and real-provider smoke ergonomics.
+
+### Prompt Context
+
+**User prompt (verbatim):** "delete gp.events.collector. do allt he other things, do not add adapater lifecycle events."
+
+**Assistant interpretation:** Remove the collector API, complete the remaining lower-priority cleanup items, and explicitly avoid adding JS-only `runasync-*` lifecycle events.
+
+**Inferred user intent:** Keep the public event API small and EventEmitter-focused while still hardening payload contracts, docs, smoke testing, and runtime semantics.
+
+**Commit (code/docs):** 3b93f868 — "Remove JS event collector and harden event contracts"
+
+### What I did
+- Removed `api_events.go`, the `jsEventCollector` type, and the top-level `gp.events` export.
+- Updated hard-cut public-surface tests and DTS parity tests so `events` is now absent.
+- Added `api_runtime_context.go` and plumbed runtime lifetime context into session run contexts and EventEmitter owner-thread posts/closes when available.
+- Extended EventEmitter payload encoding for run lifecycle, provider metadata/finish, segment-started, log/info, and agent-mode events.
+- Added payload tests for lifecycle/provider/segment/log/info/agent-mode fields and event-name ordering/error mapping.
+- Changed EventEmitter publish scheduling to attempt both generic `event` and type-specific channels and aggregate/log scheduling failures.
+- Added runtime-close cancellation coverage for an in-flight `runAsync` engine.
+- Added structured TypeScript `GeppettoEvent` payload types and typed generic `event` listener overloads.
+- Added `examples/js/geppetto/run_event_emitter_examples.sh` to smoke examples 31/32/33 against a real provider while requiring final JSON output but not requiring `text-delta`.
+- Updated docs to cover:
+  - removal of `gp.events.collector()`;
+  - event ordering semantics;
+  - no JS-only `runasync-*` adapter lifecycle events;
+  - provider/xgoja EventEmitter manager resolver wiring;
+  - real-provider smoke wrapper.
+- Ran validation:
+  - `go test ./pkg/js/modules/geppetto -count=1`
+  - `go test ./pkg/js/... ./cmd/examples/geppetto-js-run ./pkg/doc -count=1`
+  - `go test -tags geppetto_js_hardcut_contract ./pkg/js/modules/geppetto -run TestHardCutPublicSurfaceContract -count=1`
+  - pre-commit `go test ./...`
+  - pre-commit lint/vet hooks.
+
+### Why
+- The collector created a second JavaScript event-consumption API with different semantics and callback ownership. Removing it keeps the hard-cut API focused on the connected EventEmitter model.
+- Payload and TypeScript coverage make the EventEmitter contract easier to consume and harder to accidentally drift.
+- Runtime lifetime context use ensures long-lived runs and event posts are tied to runtime shutdown rather than unbounded background contexts.
+
+### What worked
+- Removing `gp.events` required only surface-test/DTS/doc updates because examples and docs already favor builder-level EventEmitter usage.
+- Existing EventEmitter `runAsync` tests continued to pass after switching run contexts to runtime lifetime context.
+- Full pre-commit validation passed after the cleanup.
+
+### What didn't work
+- N/A in the final pass. The implementation and tests passed after the lower-priority cleanup was applied.
+
+### What I learned
+- The top-level `gp.events` namespace had become collector-only. Removing it is cleaner than leaving an empty namespace.
+- `engine.Runtime` already exposes runtime lifetime through `go-go-goja/pkg/runtimebridge`; module loading can use that to avoid inventing a new Geppetto-only lifetime channel.
+
+### What was tricky to build
+- The runtime-close test is intentionally about context cancellation, not promise settlement. Runtime shutdown cancels the run context and may reject/skip owner-thread posts because the lifetime context is canceled, so asserting engine cancellation is the stable correctness property.
+- TypeScript payloads need to balance precision with extensibility. The union captures known canonical fields but keeps an open fallback for custom/future event types.
+
+### What warrants a second pair of eyes
+- Review whether removing the `gp.events` namespace should be called out as a hard-cut breaking change in any release notes beyond the JS API reference.
+- Review the TypeScript `GeppettoEvent` union for naming consistency, especially snake_case fields inside `correlation`/`usage` versus camelCase top-level JS convenience fields.
+- Review whether publish scheduling should expose aggregated errors to a future diagnostics hook instead of only logging/returning through `EventSink`.
+
+### What should be done in the future
+- Run the real-provider smoke script manually with configured credentials/profile and record observed event types in the diary.
+- If a concrete UI consumer requests run lifecycle events, revisit the decision explicitly rather than adding adapter lifecycle events opportunistically.
+
+### Code review instructions
+- Start with `pkg/js/modules/geppetto/module.go` to confirm `gp.events` is no longer exported.
+- Review `pkg/js/modules/geppetto/api_event_payloads.go` and `api_event_payloads_test.go` for payload contract changes.
+- Review `pkg/js/modules/geppetto/api_event_emitters.go` for aggregate publish scheduling behavior.
+- Review `pkg/js/modules/geppetto/api_sessions.go` and `api_runtime_context.go` for runtime lifetime context use.
+- Review `pkg/doc/types/geppetto.d.ts` and `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl` for TypeScript surface changes.
+- Validate with `go test ./pkg/js/... ./cmd/examples/geppetto-js-run ./pkg/doc -count=1` and the hard-cut contract tag test.
+
+### Technical details
+- Public JS event API is now only builder-level EventEmitter:
+  - `const EventEmitter = require("events")`
+  - `const emitter = new EventEmitter()`
+  - `gp.agent().events(emitter).build()`
+  - `agent.runAsync(turn).promise`
+- JS-only adapter lifecycle events remain intentionally absent.
+- Real-provider smoke wrapper: `examples/js/geppetto/run_event_emitter_examples.sh`.
