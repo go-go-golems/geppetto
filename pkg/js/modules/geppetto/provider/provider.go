@@ -16,7 +16,6 @@ const PackageID = "geppetto"
 
 type Config struct {
 	Profile           string       `json:"profile,omitempty"`
-	Registry          string       `json:"registry,omitempty"`
 	ProfileRegistries []string     `json:"profileRegistries,omitempty"`
 	DefaultProfile    string       `json:"defaultProfile,omitempty"`
 	AllowRegistryLoad bool         `json:"allowRegistryLoad,omitempty"`
@@ -46,7 +45,6 @@ var configSchema = json.RawMessage(`{
   "type": "object",
   "properties": {
     "profile": {"type": "string", "description": "Legacy optional default engine profile selector interpreted by host services."},
-    "registry": {"type": "string", "description": "Legacy optional profile registry selector/source interpreted by host services."},
     "profileRegistries": {
       "description": "Geppetto engine profile registry sources to load (YAML path, yaml:PATH, yaml://PATH, SQLite path, sqlite:PATH, sqlite-dsn:DSN).",
       "oneOf": [
@@ -128,9 +126,6 @@ func decodeConfig(data json.RawMessage) (Config, error) {
 	if cfg.DefaultProfile == "" {
 		cfg.DefaultProfile = cfg.Profile
 	}
-	if len(cfg.ProfileRegistries) == 0 && strings.TrimSpace(cfg.Registry) != "" {
-		cfg.ProfileRegistries = []string{strings.TrimSpace(cfg.Registry)}
-	}
 	return cfg, nil
 }
 
@@ -182,13 +177,6 @@ func applyConfigRegistryOptions(ctx context.Context, cfg Config, opts *geppettom
 		}
 		opts.UseDefaultProfileResolve = true
 		opts.DefaultProfileResolve.EngineProfileSlug = profileSlug
-	}
-	if strings.TrimSpace(cfg.Registry) != "" && len(cfg.ProfileRegistries) == 0 {
-		registrySlug, err := profiles.ParseRegistrySlug(cfg.Registry)
-		if err == nil {
-			opts.UseDefaultProfileResolve = true
-			opts.DefaultProfileResolve.RegistrySlug = registrySlug
-		}
 	}
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/dop251/goja"
 	inferenceengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
@@ -28,6 +29,52 @@ func (e *synchronousToolCallingEngine) RunInference(ctx context.Context, t *turn
 	}
 	turns.AppendBlock(out, turns.NewAssistantTextBlock("done"))
 	return out, nil
+}
+
+func TestAgentGoToolUsesModuleRegistry(t *testing.T) {
+	registry := tools.NewInMemoryToolRegistry()
+	def, err := tools.NewToolFromFunc("echo", "Echo input text", func(input struct {
+		Text string `json:"text"`
+	}) map[string]string {
+		return map[string]string{"echoed": input.Text}
+	})
+	if err != nil {
+		t.Fatalf("NewToolFromFunc: %v", err)
+	}
+	if err := registry.RegisterTool("echo", *def); err != nil {
+		t.Fatalf("RegisterTool: %v", err)
+	}
+
+	rt := newJSRuntime(t, Options{GoToolRegistry: registry})
+	_, err = rt.runtimeOwner.Call(context.Background(), "test.goToolRun", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		if setErr := vm.Set("fakeEngine", &synchronousToolCallingEngine{}); setErr != nil {
+			return nil, setErr
+		}
+		_, runErr := vm.RunString(`
+			const gp = require("geppetto");
+			const agent = gp.agent()
+				.engine(globalThis.fakeEngine)
+				.goTool("echo")
+				.toolLoop({ maxIterations: 3 })
+				.build();
+			const session = agent.session().id("go-tool-test").build();
+			const result = session.next().user("please call echo").run({ timeoutMs: 1000 });
+			globalThis.finalText = result.text();
+		`)
+		return nil, runErr
+	})
+	if err != nil {
+		t.Fatalf("goTool run failed: %v", err)
+	}
+	got, err := rt.runtimeOwner.Call(context.Background(), "test.readGoToolRun", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		return vm.RunString(`globalThis.finalText`)
+	})
+	if err != nil {
+		t.Fatalf("read goTool run result failed: %v", err)
+	}
+	if got.(goja.Value).String() != "done" {
+		t.Fatalf("goTool final text = %s, want done", got.(goja.Value).String())
+	}
 }
 
 func TestAgentRunWithJSToolRegistryDoesNotDeadlockOwner(t *testing.T) {

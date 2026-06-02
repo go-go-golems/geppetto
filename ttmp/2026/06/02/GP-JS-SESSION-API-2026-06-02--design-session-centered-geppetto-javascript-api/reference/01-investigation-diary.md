@@ -22,18 +22,27 @@ RelatedFiles:
       Note: |-
         Current direct turn-run JS surface
         Agent public surface and builder persistence aliases (commits 40fe7ec7
+    - Path: pkg/js/modules/geppetto/api_agent_sync_test.go
+      Note: Regression test for agent().goTool using host Go registry
     - Path: pkg/js/modules/geppetto/api_session.go
       Note: Session wrapper implementation and lifecycle semantics (commits 40fe7ec7
+    - Path: pkg/js/modules/geppetto/api_sessions.go
+      Note: Go tool runtime names now fall back to module GoToolRegistry
     - Path: pkg/js/modules/geppetto/api_turn_store.go
       Note: Current storage wrapper baseline
     - Path: pkg/js/modules/geppetto/module.go
       Note: Top-level gp.turn removal (commit c4525da7)
+    - Path: pkg/js/modules/geppetto/provider/provider.go
+      Note: Legacy provider registry field removed from config handling
+    - Path: pkg/js/modules/geppetto/provider/provider_test.go
+      Note: Regression test for removed legacy registry behavior
 ExternalSources: []
 Summary: Chronological notes for the session-centered Geppetto JavaScript API redesign ticket.
 LastUpdated: 2026-06-02T18:35:00-04:00
 WhatFor: Use when resuming implementation of the session-centered JavaScript API redesign.
 WhenToUse: Read before changing session/agent/turn-store JS bindings for GP-JS-SESSION-API-2026-06-02.
 ---
+
 
 
 
@@ -273,3 +282,68 @@ I then updated the runnable examples, TypeScript declarations, docs, and hard-cu
 - Async execution is now `session.next().user(...).runAsync()`.
 - Public turn construction is absent; `TurnWrapper` remains visible through results, snapshots, session history, and turn-store APIs.
 - Agent-level `store/defaultStore/persist` aliases complement the older `persistTo/persistDefault` names while sessions can select their own store/persistence behavior.
+
+## Step 4: Address PR review comments for Go tools and registry config
+
+I addressed the open review comments on PR #367 that were still relevant after the session hard cut. The key code change is that `agent().goTool("name")` now resolves against the module-level Go tool registry when the agent did not also install an explicit JS registry. I also removed the legacy provider `registry` field path entirely, so it no longer aliases into `profileRegistries` or participates in default profile resolution.
+
+This keeps the public API behavior explicit: `profileRegistries` is the only provider config key that asks Geppetto to load registry sources, and `goTool` means “select this named tool from the host-provided Go registry” without forcing callers to manually create a wrapper registry first.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Address code review comments here: https://github.com/go-go-golems/geppetto/pull/367
+
+Kill the legacy registry thing entirely to address the ProfileRegistries thing, i don't understand how it works anyway."
+
+**Assistant interpretation:** Inspect PR #367 review comments, fix the remaining actionable comments, and remove the confusing legacy provider `registry` behavior rather than preserving it.
+
+**Inferred user intent:** Make the PR easier to reason about by deleting ambiguous compatibility behavior and ensuring the new Go tool selection API works with host registries.
+
+**Commit (code):** 62c83fe7 — "Address JS API review feedback"
+
+### What I did
+- Queried PR #367 review threads with `gh api graphql`.
+- Fixed the open `agent().goTool("name")` review comment by making session engine-builder construction fall back to `moduleRuntime.goToolRegistry` when runtime tool names are present and the agent has no explicit registry.
+- Added `TestAgentGoToolUsesModuleRegistry` to cover the host registry fallback.
+- Removed `Config.Registry` from the provider config struct and JSON schema.
+- Removed the `registry -> ProfileRegistries` alias from `decodeConfig`.
+- Removed the registry-slug branch from `applyConfigRegistryOptions`.
+- Added `TestProviderIgnoresRemovedLegacyRegistryField` so direct provider construction proves the removed field no longer populates `ProfileRegistries` or requires `allowRegistryLoad`.
+
+### Why
+- The review correctly found that `agent().goTool("name")` recorded names but failed later if the agent did not also have an explicit base registry.
+- The legacy provider `registry` field was confusing because it sometimes meant “host selector” and sometimes became a registry source list. The requested behavior is to hard-cut that path and keep only `profileRegistries` for source loading.
+
+### What worked
+- Focused tests passed:
+  - `go test ./pkg/js/modules/geppetto -run 'TestAgentGoToolUsesModuleRegistry|TestAgentRunWithJSToolRegistryDoesNotDeadlockOwner' -count=1`
+  - `go test ./pkg/js/modules/geppetto/provider -run 'TestProvider.*Registry|TestProviderLoadsProfileRegistriesWhenAllowed|TestProviderRejectsProfileRegistriesUnlessAllowed' -count=1`
+- Broader JS/provider validation passed:
+  - `go test ./pkg/js/modules/geppetto ./pkg/js/modules/geppetto/provider -count=1`
+  - `go test ./pkg/js/... ./cmd/examples/geppetto-js-run -count=1`
+
+### What didn't work
+- N/A. The review-follow-up implementation and focused validation passed on the first attempt.
+
+### What I learned
+- The Go tool registry fallback belongs at engine-builder construction time, because that is where runtime tool names are materialized into a filtered registry for the specific run/session.
+- Keeping both `registry` and `profileRegistries` in provider config makes the security gate (`allowRegistryLoad`) harder to explain; deleting the legacy field simplifies the contract.
+
+### What was tricky to build
+- The main sharp edge was preserving explicit JS registries while adding the host fallback. The fix only substitutes `api.goToolRegistry` when the agent registry is nil and `runtimeToolNames` is non-empty, so `.tool(registry).goTool(...)` continues to resolve against the explicit registry.
+
+### What warrants a second pair of eyes
+- Review whether ignoring the removed `registry` key in direct `mod.New(...)` tests is strict enough, or whether the xgoja provider schema validation path should reject it before construction.
+- Review whether docs outside the provider schema mention the legacy `registry` provider config key and should be removed in a follow-up.
+
+### What should be done in the future
+- Consider adding an xgoja-level provider schema validation test if the provider framework exposes one conveniently.
+
+### Code review instructions
+- Start with `pkg/js/modules/geppetto/api_sessions.go:buildEngineBuilder` for the Go tool registry fallback.
+- Review `pkg/js/modules/geppetto/provider/provider.go` to confirm the legacy `registry` field and branches are gone.
+- Validate with `go test ./pkg/js/... ./cmd/examples/geppetto-js-run -count=1`.
+
+### Technical details
+- `agent().goTool("echo")` now works when `Options.GoToolRegistry` contains `echo` even if no explicit `agent().tool(...)` registry was provided.
+- `profileRegistries` remains gated by `allowRegistryLoad=true`; `registry` no longer aliases into it.

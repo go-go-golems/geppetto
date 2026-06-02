@@ -148,6 +148,23 @@ profiles:
 	}
 }
 
+func TestProviderIgnoresRemovedLegacyRegistryField(t *testing.T) {
+	mod := resolveModule(t)
+	host := &fakeHost{}
+	_, err := mod.New(providerapi.ModuleContext{
+		Name:   geppettomodule.ModuleName,
+		As:     geppettomodule.ModuleName,
+		Host:   host,
+		Config: json.RawMessage(`{"registry": "legacy-host-selector"}`),
+	})
+	if err != nil {
+		t.Fatalf("legacy registry field should be ignored by provider decode: %v", err)
+	}
+	if len(host.seen.ProfileRegistries) != 0 {
+		t.Fatalf("legacy registry populated profileRegistries: %#v", host.seen.ProfileRegistries)
+	}
+}
+
 func TestProviderRejectsProfileRegistriesUnlessAllowed(t *testing.T) {
 	mod := resolveModule(t)
 	_, err := mod.New(providerapi.ModuleContext{

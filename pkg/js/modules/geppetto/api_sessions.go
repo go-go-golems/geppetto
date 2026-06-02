@@ -15,7 +15,11 @@ func (b *builderRef) buildEngineBuilder() (session.EngineBuilder, error) {
 	if b.base == nil {
 		return nil, fmt.Errorf("builder has no engine configured")
 	}
-	registry, err := materializeToolRegistry(b.registry, b.runtimeToolNames)
+	baseRegistry := b.registry
+	if baseRegistry == nil && len(b.runtimeToolNames) > 0 && b.api != nil {
+		baseRegistry = b.api.goToolRegistry
+	}
+	registry, err := materializeToolRegistry(baseRegistry, b.runtimeToolNames)
 	if err != nil {
 		return nil, err
 	}
