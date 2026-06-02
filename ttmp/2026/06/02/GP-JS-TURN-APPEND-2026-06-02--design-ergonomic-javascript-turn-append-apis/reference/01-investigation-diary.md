@@ -180,3 +180,55 @@ The implementation keeps built turns immutable from JavaScript's point of view. 
 - Exact copy API: `turn.clone()`.
 - Continuation API: `gp.turn(result.outputTurn()).user(nextPrompt).build()`.
 - Continuation builder rejects plain JS objects by calling `requireTurnRef`.
+
+## Step 3: Validate continuation turns with real providers
+
+I ran the real-provider multi-turn scripts after the continuation builder landed. This verified that the ergonomic `gp.turn(result.outputTurn()).user(...).build()` path works not only in synthetic unit tests, but also through the profile-backed example runner with the configured `gpt-5-nano` profile.
+
+The EventEmitter multi-turn example also passed, which confirms the continuation API composes with `agent.runAsync(...)` and builder-level EventEmitter sinks.
+
+### Prompt Context
+
+**User prompt (verbatim):** "run some real-provider examples with multiturn stuff. then move on to the turn-store ticket."
+
+**Assistant interpretation:** Run live multi-turn validation for the completed turn-continuation ticket before starting the turn-store implementation.
+
+**Inferred user intent:** Confirm the API works in production-like provider execution, not only unit tests.
+
+**Commit (code):** N/A — validation-only step after commit c294f17f.
+
+### What I did
+- Ran `GEPPETTO_PROFILE_REGISTRIES="$HOME/.config/pinocchio/profiles.yaml" GEPPETTO_PROFILE=default ./examples/js/geppetto/run_real_provider_multiturn.sh`.
+- Ran `GEPPETTO_PROFILE_REGISTRIES="$HOME/.config/pinocchio/profiles.yaml" GEPPETTO_PROFILE=default ./examples/js/geppetto/run_event_emitter_examples.sh`.
+
+### Why
+- The ticket changed the recommended multi-turn construction path, so the real provider examples needed confirmation after the docs/examples update.
+
+### What worked
+- `30_real_provider_multiturn.js` returned non-empty turn 1 and turn 2 text with the expected previous-token recall.
+- `33_event_emitter_multiturn_run_async.js` returned non-empty async turn 1 and turn 2 text and observed provider/text event types.
+- The smoke wrapper accepted provider-specific streaming variation and checked final JSON output.
+
+### What didn't work
+- N/A. Both real-provider wrappers completed successfully.
+
+### What I learned
+- The provider returned extra echoed context in the final text, but the examples intentionally validate non-empty structured JSON rather than exact text.
+- Continuation via `outputTurn()` preserved enough history for the second prompt to answer about the prior assistant message.
+
+### What was tricky to build
+- This was validation rather than implementation. The only subtlety is that provider output is not deterministic, so the examples should avoid overly strict text assertions.
+
+### What warrants a second pair of eyes
+- Review whether the real-provider examples should normalize or assert exact final text more strictly for stable CI environments.
+
+### What should be done in the future
+- Keep real-provider examples smoke-oriented and reserve exact behavior assertions for synthetic engines.
+
+### Code review instructions
+- Review `examples/js/geppetto/30_real_provider_multiturn.js` and `examples/js/geppetto/33_event_emitter_multiturn_run_async.js`.
+- Validate with the two wrapper commands listed above when profile credentials are available.
+
+### Technical details
+- Real-provider profile: `default` from `$HOME/.config/pinocchio/profiles.yaml`.
+- Observed model: `gpt-5-nano`.

@@ -1,19 +1,29 @@
 ---
-title: Investigation diary
-doc_type: reference
-status: active
-intent: long-term
-topics:
-  - geppetto
-  - goja
-  - js-bindings
-  - persistence
-  - turns
-owners:
-  - manuel
-created: 2026-06-02
-updated: 2026-06-02
+Title: ""
+Ticket: ""
+Status: ""
+Topics: []
+DocType: ""
+Intent: ""
+Owners: []
+RelatedFiles:
+    - Path: examples/js/geppetto/34_turn_store_persistence.js
+      Note: Host-backed storage API example (commit cf09f49e)
+    - Path: pkg/js/modules/geppetto/api_agent.go
+      Note: Added agent persistence selection methods (commit cf09f49e)
+    - Path: pkg/js/modules/geppetto/api_turn_store.go
+      Note: Implemented Go-owned JS TurnStore wrappers (commit cf09f49e)
+    - Path: pkg/js/modules/geppetto/api_turn_store_test.go
+      Note: Turn-store wrapper and persistence regression coverage (commit cf09f49e)
+    - Path: pkg/js/modules/geppetto/provider/provider.go
+      Note: Added enableStorage/turns provider config gating (commit cf09f49e)
+ExternalSources: []
+Summary: ""
+LastUpdated: 0001-01-01T00:00:00Z
+WhatFor: ""
+WhenToUse: ""
 ---
+
 
 # Diary
 
@@ -86,3 +96,100 @@ I then wrote an intern-oriented design guide that keeps concrete storage host-ow
 - Existing Geppetto seam: `enginebuilder.TurnPersister` and `Options.DefaultPersister`.
 - Existing Pinocchio store: `pinocchio/pkg/persistence/chatstore/turn_store.go` and `turn_store_sqlite.go`.
 - Existing CLI flags: `--turns-dsn` and `--turns-db` in `pinocchio/pkg/cmds/cmdlayers/helpers.go`.
+
+## Step 2: Implement Geppetto JS turn-store wrappers
+
+I moved the turn-store ticket from design into the first Geppetto-side implementation phase. The new API exposes host-configured stores through `gp.turnStores`, lets agents opt into persistence with `.persistTo(store)`, and lets agents disable or select the host default with `.persistTo(null)` / `.persistDefault(...)`.
+
+This keeps storage backend ownership outside Geppetto. JavaScript receives only Go-owned store wrappers, provider config is gated by `enableStorage`, and the existing `enginebuilder.TurnPersister` path remains the single write path for successful final turns.
+
+### Prompt Context
+
+**User prompt (verbatim):** "run some real-provider examples with multiturn stuff. then move on to the turn-store ticket."
+
+**Assistant interpretation:** First validate the newly finished multi-turn continuation examples against a real provider, then begin implementing the turn-store ticket.
+
+**Inferred user intent:** Confirm the previous ticket in production-like conditions and then continue with the next persistence feature without losing momentum.
+
+**Commit (code):** cf09f49ee9b87ca2b4cd35bab3a2965fad2d289d — "Add JS turn store wrappers"
+
+### What I did
+- Ran real-provider multi-turn validation before switching tickets:
+  - `GEPPETTO_PROFILE_REGISTRIES="$HOME/.config/pinocchio/profiles.yaml" GEPPETTO_PROFILE=default ./examples/js/geppetto/run_real_provider_multiturn.sh`
+  - `GEPPETTO_PROFILE_REGISTRIES="$HOME/.config/pinocchio/profiles.yaml" GEPPETTO_PROFILE=default ./examples/js/geppetto/run_event_emitter_examples.sh`
+- Added `pkg/js/modules/geppetto/api_turn_store.go` with:
+  - `TurnStore`, `StorageOptions`, `TurnStoreQuery`, and `TurnStoreSnapshot` host-facing types.
+  - `gp.turnStores.default()` and `gp.turnStores.get(name)`.
+  - Go-owned `TurnStore` wrappers with `name()`, `list(...)`, `loadLatest(...)`, and `close()`.
+- Updated `pkg/js/modules/geppetto/api_agent.go` with:
+  - `.persistTo(store)`.
+  - `.persistTo(null)` to disable inherited host default persistence.
+  - `.persistDefault(enabled?)`.
+  - persistence precedence in `selectedPersister()`.
+- Updated module options in `pkg/js/modules/geppetto/module.go` with `EnableStorage`, `DefaultTurnStore`, and named `TurnStores`.
+- Extended provider config in `pkg/js/modules/geppetto/provider/provider.go` with `enableStorage` and `turns` settings plus optional `StorageHostServices`.
+- Added tests in:
+  - `pkg/js/modules/geppetto/api_turn_store_test.go`
+  - `pkg/js/modules/geppetto/provider/provider_test.go`
+  - public-surface/DTS parity tests.
+- Updated JS docs/types/examples:
+  - `pkg/doc/types/geppetto.d.ts`
+  - `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`
+  - `pkg/doc/topics/13-js-api-reference.md`
+  - `pkg/doc/topics/14-js-api-user-guide.md`
+  - `pkg/doc/tutorials/05-js-api-getting-started.md`
+  - `examples/js/geppetto/34_turn_store_persistence.js`
+  - `examples/js/geppetto/README.md`
+
+### Why
+- Geppetto already had a final-turn persister seam, but JS could not discover or explicitly select durable stores.
+- Hosts need a clean way to expose Pinocchio-style `--turns-dsn` storage without forcing Geppetto to import Pinocchio or open SQLite directly.
+- The wrapper-first hard-cut API requires store selection to reject plain JavaScript objects.
+
+### What worked
+- The existing `enginebuilder.TurnPersister` path made writes easy to wire: `turnStoreRef` implements `PersistTurn(...)` and can be passed into the existing session builder.
+- The same persistence path covers both `agent.run(...)` and `agent.runAsync(...)`.
+- Provider gating tests now catch `turns` without `enableStorage` and `enableStorage` without a storage host capability.
+- Validation passed:
+  - `go test ./pkg/js/modules/geppetto -run 'TestTurnStores|TestAgentPersist|TestGeneratedDTS|TestHardCutPublicSurface' -count=1`
+  - `go test ./pkg/js/modules/geppetto/provider -count=1`
+  - `go test ./pkg/js/... ./cmd/examples/geppetto-js-run -count=1`
+  - `go test -tags geppetto_js_hardcut_contract ./pkg/js/modules/geppetto -run TestHardCutPublicSurfaceContract -count=1`
+  - `go test ./pkg/doc -count=1`
+  - pre-commit `go test ./...` and lint hooks.
+
+### What didn't work
+- The first commit attempt failed during the pre-commit lint phase with:
+  - `pkg/js/modules/geppetto/api_agent.go:330:2: missing cases in switch of type geppetto.persistMode: geppetto.persistInherit (exhaustive)`
+- I fixed it by adding an explicit `persistInherit` case in `selectedPersister()` and reran the commit hooks successfully.
+
+### What I learned
+- Adding a new top-level export requires updating both hard-cut public surface tests and DTS parity expectations.
+- The provider config layer is a good place to enforce storage security gates because it sees both JSON config and host capabilities.
+- A persister-only fallback can support `.persistDefault(true)` for hosts that only supplied `DefaultPersister`, while read APIs remain available only on real `TurnStore` wrappers.
+
+### What was tricky to build
+- The main sharp edge was persistence precedence. The existing module always inherited `DefaultPersister`; the new API needed to preserve that behavior while allowing explicit store selection and per-agent opt-out. I modeled this as an internal `persistMode` enum so inherited, disabled, explicit, and default-selected modes remain separate.
+- Another tricky point was keeping read APIs on real host stores without pretending every `DefaultPersister` can list or load turns. The solution was to expose `gp.turnStores` only from configured `TurnStore` values and keep `DefaultPersister` as write-only fallback for `.persistDefault(true)`.
+
+### What warrants a second pair of eyes
+- Review the `TurnStore` interface shape before implementing the Pinocchio adapter, especially `convId` vs `sessionId` query naming.
+- Review whether `.persistDefault(true)` should error when only a write-only default persister exists, or whether the current write-only fallback is useful.
+- Review store lifetime expectations: JS can call `store.close()`, but hosts may also own runtime/module teardown.
+
+### What should be done in the future
+- Implement the Pinocchio host adapter for DSN-backed stores.
+- Add an integration test that runs through xgoja provider config, opens a temporary SQLite store, persists a real turn, and reads it back through JS.
+- Run `examples/js/geppetto/34_turn_store_persistence.js` against a storage-enabled host once that adapter exists.
+
+### Code review instructions
+- Start with `pkg/js/modules/geppetto/api_turn_store.go` for the public wrapper and host interface.
+- Then read `pkg/js/modules/geppetto/api_agent.go:selectedPersister` and the `.persistTo(...)` / `.persistDefault(...)` builder methods.
+- Check provider gating in `pkg/js/modules/geppetto/provider/provider.go`.
+- Validate behavior with `go test ./pkg/js/modules/geppetto -run 'TestTurnStores|TestAgentPersist' -count=1` and `go test ./pkg/js/modules/geppetto/provider -count=1`.
+
+### Technical details
+- Public JS namespace: `gp.turnStores.default()` / `gp.turnStores.get(name)`.
+- Public agent builder additions: `.persistTo(store)`, `.persistTo(null)`, `.persistDefault(enabled?)`.
+- Provider config additions: `enableStorage` and `turns.{dsn,db,default,phase,readonly}`.
+- Host-facing interface: `geppettomodule.TurnStore` with `PersistTurn`, `ListTurns`, `LoadLatestTurn`, and `Close`.

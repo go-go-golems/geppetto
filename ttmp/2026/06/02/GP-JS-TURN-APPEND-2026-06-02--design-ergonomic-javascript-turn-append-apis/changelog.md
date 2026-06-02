@@ -34,3 +34,13 @@ Implemented gp.turn(existingTurn) continuation builders and updated tests/docs/e
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_turn_builder.go — Runtime implementation
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_turn_builder_test.go — Regression tests
 
+
+## 2026-06-02
+
+Validated continuation turns with real-provider multi-turn and EventEmitter examples.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/examples/js/geppetto/30_real_provider_multiturn.js — Real-provider continuation smoke
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/examples/js/geppetto/33_event_emitter_multiturn_run_async.js — runAsync continuation smoke
+
