@@ -14,6 +14,10 @@ Intent: long-term
 Owners:
     - manuel
 RelatedFiles:
+    - Path: pkg/doc/topics/13-js-api-reference.md
+      Note: Documents goTool host registry fallback after review fix
+    - Path: pkg/doc/topics/14-js-api-user-guide.md
+      Note: User guide now distinguishes JS tool registries from host Go tools
     - Path: pkg/doc/types/geppetto.d.ts
       Note: Session-centered TypeScript public API (commit c4525da7)
     - Path: pkg/inference/session/session.go
@@ -42,6 +46,7 @@ LastUpdated: 2026-06-02T18:35:00-04:00
 WhatFor: Use when resuming implementation of the session-centered JavaScript API redesign.
 WhenToUse: Read before changing session/agent/turn-store JS bindings for GP-JS-SESSION-API-2026-06-02.
 ---
+
 
 
 
@@ -309,6 +314,7 @@ Kill the legacy registry thing entirely to address the ProfileRegistries thing, 
 - Removed the `registry -> ProfileRegistries` alias from `decodeConfig`.
 - Removed the registry-slug branch from `applyConfigRegistryOptions`.
 - Added `TestProviderIgnoresRemovedLegacyRegistryField` so direct provider construction proves the removed field no longer populates `ProfileRegistries` or requires `allowRegistryLoad`.
+- Followed up by updating `pkg/doc/topics/13-js-api-reference.md` and `pkg/doc/topics/14-js-api-user-guide.md` to document `agent().goTool(name)` and its host Go registry fallback.
 
 ### Why
 - The review correctly found that `agent().goTool("name")` recorded names but failed later if the agent did not also have an explicit base registry.
@@ -321,6 +327,7 @@ Kill the legacy registry thing entirely to address the ProfileRegistries thing, 
 - Broader JS/provider validation passed:
   - `go test ./pkg/js/modules/geppetto ./pkg/js/modules/geppetto/provider -count=1`
   - `go test ./pkg/js/... ./cmd/examples/geppetto-js-run -count=1`
+  - `go test ./pkg/doc -count=1`
 
 ### What didn't work
 - N/A. The review-follow-up implementation and focused validation passed on the first attempt.

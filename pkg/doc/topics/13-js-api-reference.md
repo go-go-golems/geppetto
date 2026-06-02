@@ -94,7 +94,7 @@ Agent builder methods include:
 - `inference(settings)`
 - `engine(engine)`
 - `events(emitter)` for builder-level EventEmitter delivery
-- `tool(toolOrRegistry)` and `toolLoop(options)`
+- `tool(toolOrRegistry)` / `goTool(name)` and `toolLoop(options)`
 - `store(turnStore)` / `persistTo(turnStore)`
 - `defaultStore(enabled?)` / `persistDefault(enabled?)` / `persist(enabled?)`
 - `runDefaults(options)`
@@ -239,6 +239,18 @@ const echo = gp.tool("echo_value")
 
 const registry = gp.toolRegistry().add(echo);
 ```
+
+Host applications can also expose a Go-owned tool registry. Use `agent.goTool(name)` to select one of those host tools by name without constructing a JavaScript tool registry:
+
+```js
+const agent = gp.agent()
+  .inference(settings)
+  .goTool("search")
+  .toolLoop({ maxIterations: 4 })
+  .build();
+```
+
+`goTool(name)` resolves against an explicit `agent.tool(registry)` registry when one is set; otherwise it resolves against the module's host-provided Go tool registry.
 
 ## Removed public exports
 

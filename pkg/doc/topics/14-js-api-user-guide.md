@@ -158,6 +158,18 @@ const agentWithTools = gp.agent()
   .build();
 ```
 
+If the host configured a Go tool registry, select host tools directly with `goTool(name)`:
+
+```js
+const agentWithHostTool = gp.agent()
+  .inference(settings)
+  .goTool("search")
+  .toolLoop({ maxIterations: 3 })
+  .build();
+```
+
+Use `tool(registry)` for JavaScript-defined tools or explicit wrapper registries. Use `goTool(name)` for tools supplied by the embedding Go application.
+
 ## 8. Multimodal user input
 
 Use the session turn builder's message callback:

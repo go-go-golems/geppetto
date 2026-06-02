@@ -44,3 +44,13 @@ Addressed PR #367 review comments: agent().goTool now falls back to host GoToolR
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_sessions.go — Go tool registry fallback
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/provider/provider.go — Legacy registry config removal
 
+
+## 2026-06-02
+
+Updated JS API docs after PR review follow-up to document agent().goTool(name) host-registry behavior; examples did not require changes because they do not use removed provider registry config.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/doc/topics/13-js-api-reference.md — Documents goTool host registry fallback
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/doc/topics/14-js-api-user-guide.md — Adds host Go tool selection guidance
+
