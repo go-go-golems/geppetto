@@ -121,6 +121,8 @@ topics:
       description: Goja JavaScript runtime integration and bindings
     - slug: timeline
       description: Timeline/sessionstream UI hydration storage and event history.
+    - slug: sessions
+      description: Session lifecycle abstractions for multi-turn interactions
 docTypes:
     - slug: index
       description: Ticket index
