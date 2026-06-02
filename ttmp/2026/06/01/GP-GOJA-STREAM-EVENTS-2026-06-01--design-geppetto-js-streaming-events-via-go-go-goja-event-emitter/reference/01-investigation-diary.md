@@ -7,6 +7,8 @@ DocType: ""
 Intent: ""
 Owners: []
 RelatedFiles:
+    - Path: pkg/doc/topics/13-js-api-reference.md
+      Note: P1 troubleshooting documentation (commit f63caade)
     - Path: pkg/js/modules/geppetto/api_agent.go
       Note: P0 owner-thread runAsync preparation and run-scoped sink integration (commit e3a01a6b)
     - Path: pkg/js/modules/geppetto/api_event_emitters.go
@@ -15,6 +17,10 @@ RelatedFiles:
       Note: P0 lifecycle and owner-thread regression tests (commit e3a01a6b)
     - Path: pkg/js/modules/geppetto/provider/provider_test.go
       Note: P0 provider path EventEmitter regression test (commit e3a01a6b)
+    - Path: pkg/js/runtime/runtime.go
+      Note: P1 default EventEmitter listener-error diagnostics (commit f63caade)
+    - Path: pkg/js/runtime/runtime_test.go
+      Note: P1 listener-error diagnostics test (commit f63caade)
     - Path: ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/design-doc/01-geppetto-js-streaming-events-design-and-implementation-guide.md
       Note: Final design deliverable
     - Path: ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/scripts/01-collect-evidence.sh
@@ -27,6 +33,7 @@ LastUpdated: 0001-01-01T00:00:00Z
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -800,3 +807,79 @@ The implementation also adds regression coverage for the previously risky paths:
   - handle shape `{ promise, cancel, close }`
 - EventEmitter refs are now adopted per run instead of during builder `.events(...)`.
 - The P0 code commit is `e3a01a6b388dfcf57e533ab9a2ba716bf17c74da`.
+
+## Step 13: Add and complete P1 diagnostics for EventEmitter runAsync
+
+This step turned the P1 review findings into explicit ticket tasks and then implemented the diagnostics and guardrails. The public JavaScript API stayed the same, but runtime failures are now easier to inspect: EventEmitter scheduling failures are logged with event context, Geppetto-owned runtimes install a default listener-error handler, `runAsync` rejects with JS `GoError` objects, and nil output turns are guarded before result wrappers are built.
+
+The changes also added regression tests for listener-error logging, JS Error-shaped promise rejections, and nil-output guard behavior. Troubleshooting notes were added to the JS API reference for missing EventEmitter manager wiring, listener throws, missing profiles, and provider variability around `text-delta` events.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, add tasks to the ticket, and then address the P1 issues. Commit at appropriate intervals."
+
+**Assistant interpretation:** Record the P1 diagnostics work as ticket tasks, implement those tasks, test thoroughly, and commit at sensible boundaries.
+
+**Inferred user intent:** Move beyond P0 lifecycle correctness into observable, debuggable failure behavior for EventEmitter `runAsync`.
+
+**Commit (tasks):** af41792f — "Tasks: add P1 EventEmitter diagnostics"
+
+**Commit (code/docs):** f63caade — "Add runAsync EventEmitter diagnostics"
+
+### What I did
+- Added a P1 diagnostics checklist to `tasks.md`.
+- Logged `jsEventEmitterSink.PublishEvent` scheduling failures with event type and emitted channel name.
+- Installed a default `jsevents.WithErrorHandler(...)` in Geppetto-owned runtimes when no custom `jsevents.manager` initializer is provided.
+- Changed `runAsync` rejections from string values to `vm.NewGoError(err)` values.
+- Added `cloneRunOutput(...)` guard so `run`/`runAsync` fail clearly if a nil output turn ever reaches result construction.
+- Added tests for:
+  - default listener-error logging in `pkg/js/runtime`;
+  - JS `Error`/`GoError`-shaped `runAsync` rejection values;
+  - nil-output guard behavior.
+- Added troubleshooting notes to `pkg/doc/topics/13-js-api-reference.md`.
+- Ran validation:
+  - `go test ./pkg/js/modules/geppetto ./pkg/js/runtime -run 'TestAgentRunAsyncRejectsWithErrorObject|TestCloneRunOutputRejectsNilOutputTurn|TestNewRuntime_DefaultJSEventsInitializerLogsListenerErrors|TestEventEmitter|TestAgentRunAsync' -count=1`
+  - `go test ./pkg/js/... ./cmd/examples/geppetto-js-run ./pkg/doc -count=1`
+  - pre-commit `go test ./...`
+  - pre-commit lint/vet hooks.
+
+### Why
+- The review found that event sink errors were easy to lose, listener exceptions were asynchronous, and string promise rejections were awkward for JavaScript callers.
+- Diagnostics should make host/runtime wiring problems visible without changing the supported API shape.
+
+### What worked
+- The default runtime listener-error handler test proved thrown EventEmitter listener exceptions are logged in Geppetto-owned runtimes.
+- The `runAsync` rejection test now verifies `err instanceof Error`, `err.message`, and `String(err)` behavior.
+- Full pre-commit validation passed.
+
+### What didn't work
+- An initial listener-error diagnostics test checked logs immediately after `WaitIdle`; it failed with empty logs because the asynchronous emit post had not necessarily been observed before the assertion. I fixed the test by polling briefly while calling `WaitIdle`, then checking for both the handler message and original listener error text.
+
+### What I learned
+- `WaitIdle` is not a complete synchronization primitive for work that may be posted just after the assertion path starts; tests around asynchronous EventEmitter posts should poll for the observable result.
+- Session execution already normalizes a nil engine result to the input turn in the common path, so the nil-output guard is mostly defensive. I tested the guard directly rather than relying on an engine returning `(nil, nil)`.
+
+### What was tricky to build
+- The listener-error path is intentionally asynchronous: `EmitterRef.EmitWithBuilder` schedules owner-thread delivery and reports listener failures through the manager error handler. The test needed to avoid assuming that scheduling and logging were complete immediately after `EmitWithBuilder` returned.
+- `runAsync` rejection needed to preserve Go error details while providing JavaScript-friendly behavior. `vm.NewGoError(err)` gives callers `err instanceof Error`, `err.message`, and the familiar `GoError: ...` string form.
+
+### What warrants a second pair of eyes
+- Confirm that provider/xgoja host documentation is sufficient: Geppetto-owned runtimes now install a handler, but provider-created runtimes still depend on host-provided `jsevents.Install(jsevents.WithErrorHandler(...))` or equivalent diagnostics.
+- Review whether `PublishEvent` should continue returning after the first failed channel (`event` or type-specific) or attempt both and aggregate/log failures.
+
+### What should be done in the future
+- Add P1/P2 payload coverage for provider/run lifecycle events.
+- Add structured TypeScript event payload unions after payload coverage is stable.
+- Consider runtime-lifetime contexts for event posts instead of `context.Background()`.
+
+### Code review instructions
+- Start with `pkg/js/modules/geppetto/api_agent.go` for `rejectPromiseWithError` and `cloneRunOutput`.
+- Review `pkg/js/modules/geppetto/api_event_emitters.go` for publish failure logging.
+- Review `pkg/js/runtime/runtime.go` and `runtime_test.go` for the default `jsevents` listener-error handler.
+- Review `pkg/js/modules/geppetto/api_event_emitters_test.go` for JS `Error` rejection and nil-output guard tests.
+- Validate with `go test ./pkg/js/... ./cmd/examples/geppetto-js-run ./pkg/doc -count=1`; full pre-commit already ran successfully for commit `f63caade`.
+
+### Technical details
+- `runAsync` now rejects with `GoError` objects rather than plain strings.
+- Geppetto-owned runtimes only install the default `jsevents` error handler when the caller did not provide a custom initializer with ID `jsevents.manager`.
+- Troubleshooting notes live in `pkg/doc/topics/13-js-api-reference.md` under the `runAsync` EventEmitter section.

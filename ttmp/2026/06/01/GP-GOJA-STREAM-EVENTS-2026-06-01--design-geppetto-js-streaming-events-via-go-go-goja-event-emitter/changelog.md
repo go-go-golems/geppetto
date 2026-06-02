@@ -164,3 +164,19 @@ P0 review cleanup: run-scoped EventEmitter refs, owner-thread runAsync preparati
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/01-investigation-diary.md — Recorded P0 cleanup
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/tasks.md — Marked P0 cleanup tasks complete
 
+
+## 2026-06-02
+
+P1 diagnostics cleanup: EventEmitter publish logging, default listener-error handler, JS Error rejections, nil-output guard, and troubleshooting docs (commits af41792f, f63caade)
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/doc/topics/13-js-api-reference.md — Troubleshooting notes
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_agent.go — JS Error promise rejections and nil-output guard
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_event_emitters.go — EventEmitter publish failure diagnostics
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_event_emitters_test.go — P1 rejection and guard regression tests
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/runtime/runtime.go — Default jsevents listener-error handler for owned runtimes
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/runtime/runtime_test.go — P1 listener-error diagnostics regression test
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/01-investigation-diary.md — Recorded P1 diagnostics work
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/tasks.md — P1 tasks completed
+
