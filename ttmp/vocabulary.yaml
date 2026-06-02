@@ -119,6 +119,8 @@ topics:
       description: Vector search and embedding-backed retrieval
     - slug: goja
       description: Goja JavaScript runtime integration and bindings
+    - slug: timeline
+      description: Timeline/sessionstream UI hydration storage and event history.
 docTypes:
     - slug: index
       description: Ticket index
