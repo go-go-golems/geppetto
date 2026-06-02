@@ -1,6 +1,7 @@
 package geppetto
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -13,9 +14,10 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-	"github.com/go-go-golems/geppetto/pkg/js/runtimebridge"
+	gpruntimebridge "github.com/go-go-golems/geppetto/pkg/js/runtimebridge"
 	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/go-go-goja/pkg/jsevents"
+	gojaruntimebridge "github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
@@ -74,7 +76,7 @@ type module struct {
 type moduleRuntime struct {
 	vm           *goja.Runtime
 	runtimeOwner runtimeowner.RuntimeOwner
-	bridge       *runtimebridge.Bridge
+	bridge       *gpruntimebridge.Bridge
 
 	logger zerolog.Logger
 
@@ -95,6 +97,7 @@ type moduleRuntime struct {
 	defaultEventSinks               []events.EventSink
 	eventEmitterManager             *jsevents.Manager
 	eventEmitterManagerResolver     func() (*jsevents.Manager, bool)
+	runtimeLifetimeContext          context.Context
 	defaultSnapshotHook             toolloop.SnapshotHook
 	defaultPersister                enginebuilder.TurnPersister
 }
@@ -122,6 +125,7 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		defaultEventSinks:             append([]events.EventSink(nil), opts.DefaultEventSinks...),
 		eventEmitterManager:           opts.EventEmitterManager,
 		eventEmitterManagerResolver:   opts.EventEmitterManagerResolver,
+		runtimeLifetimeContext:        context.Background(),
 		defaultSnapshotHook:           opts.DefaultSnapshotHook,
 		defaultPersister:              opts.DefaultPersister,
 	}
@@ -130,8 +134,11 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 	}
 	m.baseEngineProfileRegistry = m.profileRegistry
 	m.baseEngineProfileRegistryCloser = m.profileRegistryCloser
+	if services, ok := gojaruntimebridge.Lookup(vm); ok {
+		m.runtimeLifetimeContext = services.Lifetime()
+	}
 	if m.runtimeOwner != nil {
-		m.bridge = runtimebridge.New(m.runtimeOwner)
+		m.bridge = gpruntimebridge.New(m.runtimeOwner)
 	}
 	for k, v := range defaultGoMiddlewareFactories(lg) {
 		m.goMiddlewareFactories[k] = v
@@ -165,9 +172,6 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
 	m.mustSet(exports, "toolRegistry", m.toolRegistryBuilder)
 	m.installSchemaNamespace(exports)
 
-	eventsObj := m.vm.NewObject()
-	m.mustSet(eventsObj, "collector", m.eventsCollector)
-	m.mustSet(exports, "events", eventsObj)
 }
 
 func (m *moduleRuntime) mustSet(o *goja.Object, key string, v any) {

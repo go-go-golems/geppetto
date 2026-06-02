@@ -42,7 +42,6 @@ func TestHardCutPublicSurfaceContract(t *testing.T) {
 			"tool",
 			"toolRegistry",
 			"schema",
-			"events",
 		];
 		for (const key of required) {
 			assert(hasOwn(gp, key), "missing hard-cut export: " + key);
@@ -63,6 +62,7 @@ func TestHardCutPublicSurfaceContract(t *testing.T) {
 			"tools",
 			"embeddings",
 			"unsafe",
+			"events",
 		];
 		for (const key of removedTopLevel) {
 			assert(!hasOwn(gp, key), "legacy export should be absent: " + key);

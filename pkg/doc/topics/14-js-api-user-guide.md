@@ -123,6 +123,9 @@ Important constraints:
 - `handle.on(...)` is intentionally not part of the API.
 - `agent.runAsync(turn, { events })` is intentionally deferred; use builder-level `.events(emitter)` for now.
 - Canonical Geppetto `error` events emit as `inference-error`, not Node's special `error` event.
+- Each single Geppetto event attempts generic `event` delivery first and the type-specific channel second; no global ordering is guaranteed across concurrent publishers.
+- `runAsync` lifecycle uses `handle.promise`, `cancel()`, and `close()`; there are intentionally no JS-only `runasync-*` lifecycle events.
+- `gp.events.collector()` was removed; use `require("events")` EventEmitter values instead.
 
 See:
 

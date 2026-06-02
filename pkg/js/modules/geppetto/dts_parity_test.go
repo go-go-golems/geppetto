@@ -36,7 +36,7 @@ func TestGeneratedDTSMatchesRuntimeExportSurface(t *testing.T) {
 		runtimeObjectKeys(t, rt, `require("geppetto")`),
 	)
 
-	for _, namespace := range []string{"consts", "inferenceProfiles", "schema", "events"} {
+	for _, namespace := range []string{"consts", "inferenceProfiles", "schema"} {
 		want, ok := expected.Grouped[namespace]
 		if !ok {
 			t.Fatalf("generated d.ts does not contain export object for %q", namespace)

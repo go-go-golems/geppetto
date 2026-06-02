@@ -292,6 +292,14 @@ Type-specific payload fields:
 
 Provider support varies. Some providers emit many `text-delta` events; others may emit only lifecycle/final events. Always use `result.text()` as the final answer source.
 
+Ordering semantics:
+
+- For each single Geppetto event, the adapter attempts to emit the generic `"event"` channel first and the type-specific channel second.
+- If one channel cannot be scheduled, the adapter still attempts the other channel and logs the failed channel.
+- Ordering is not globally guaranteed across concurrent provider/tool publishers.
+- The EventEmitter carries Geppetto/provider/tool events only. `runAsync` lifecycle is represented by `handle.promise`, `cancel()`, and `close()`; there are intentionally no adapter-specific `runasync-*` events.
+- `gp.events.collector()` was removed. Use `require("events")` and builder-level `.events(emitter)` for JavaScript event handling.
+
 Troubleshooting:
 
 - `geppetto events: jsevents manager is not installed`: the host registered `require("geppetto")` without installing go-go-goja `jsevents.Install()` or without passing an `EventEmitterManagerResolver` to the Geppetto module options.
@@ -391,6 +399,22 @@ The Geppetto xgoja provider accepts registry configuration:
 
 `allowRegistryLoad` defaults to false. This prevents generated hosts from loading arbitrary registry paths unless explicitly allowed.
 
+For EventEmitter support, generated/xgoja hosts must provide the same runtime integration that `pkg/js/runtime.NewRuntime` installs automatically:
+
+```go
+opts.RuntimeOwner = ctx.Owner
+opts.EventEmitterManagerResolver = func() (*jsevents.Manager, bool) {
+    value, ok := ctx.Value(jsevents.RuntimeValueKey)
+    if !ok {
+        return nil, false
+    }
+    manager, ok := value.(*jsevents.Manager)
+    return manager, ok && manager != nil
+}
+```
+
+Hosts should also install listener diagnostics with `jsevents.Install(jsevents.WithErrorHandler(...))` or an equivalent runtime initializer. Without the manager resolver, `.events(new EventEmitter())` fails with `geppetto events: jsevents manager is not installed`.
+
 ## Removed Legacy Surface
 
 The following old public names are intentionally absent from the hard-cut surface:
@@ -405,5 +429,7 @@ The following old public names are intentionally absent from the hard-cut surfac
 - `gp.createBuilder`
 - `gp.createSession`
 - `gp.runInference`
+- `gp.events`
+- `gp.events.collector`
 
 Use the wrapper-first APIs in this reference instead.

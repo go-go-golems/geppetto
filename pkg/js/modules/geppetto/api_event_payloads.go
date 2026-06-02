@@ -31,6 +31,33 @@ func encodeGeppettoEventPayload(ev events.Event) map[string]any {
 	}
 
 	switch e := ev.(type) {
+	case *events.EventRunStarted:
+		payload["prompt"] = e.Prompt
+	case *events.EventRunFinished:
+		payload["status"] = e.Status
+	case *events.EventRunStopped:
+		payload["reason"] = e.Reason
+	case *events.EventRunFailed:
+		payload["error"] = e.ErrorString
+		payload["message"] = e.ErrorString
+	case *events.EventProviderCallMetadataUpdated:
+		payload["stopReason"] = e.StopReason
+		payload["stopSequence"] = e.StopSequence
+		if e.Usage != nil {
+			payload["usage"] = cloneJSONValue(e.Usage)
+		}
+	case *events.EventProviderCallFinished:
+		payload["stopReason"] = e.StopReason
+		payload["finishClass"] = e.FinishClass
+		payload["hasToolCalls"] = e.HasToolCalls
+		if e.Usage != nil {
+			payload["usage"] = cloneJSONValue(e.Usage)
+		}
+		if e.DurationMs != nil {
+			payload["durationMs"] = *e.DurationMs
+		}
+	case *events.EventTextSegmentStarted:
+		payload["role"] = e.Role
 	case *events.EventTextDelta:
 		payload["delta"] = e.Delta
 		payload["text"] = e.Text
@@ -38,6 +65,10 @@ func encodeGeppettoEventPayload(ev events.Event) map[string]any {
 	case *events.EventTextSegmentFinished:
 		payload["text"] = e.Text
 		payload["finishReason"] = e.FinishReason
+	case *events.EventReasoningSegmentStarted:
+		if e.Source != "" {
+			payload["source"] = e.Source
+		}
 	case *events.EventReasoningDelta:
 		payload["delta"] = e.Delta
 		payload["text"] = e.Text
@@ -93,6 +124,22 @@ func encodeGeppettoEventPayload(ev events.Event) map[string]any {
 		payload["message"] = e.ErrorString
 	case *events.EventInterrupt:
 		payload["text"] = e.Text
+	case *events.EventLog:
+		payload["level"] = e.Level
+		payload["message"] = e.Message
+		if len(e.Fields) > 0 {
+			payload["fields"] = cloneJSONValue(e.Fields)
+		}
+	case *events.EventInfo:
+		payload["message"] = e.Message
+		if len(e.Data) > 0 {
+			payload["data"] = cloneJSONValue(e.Data)
+		}
+	case *events.EventAgentModeSwitch:
+		payload["message"] = e.Message
+		if len(e.Data) > 0 {
+			payload["data"] = cloneJSONValue(e.Data)
+		}
 	}
 	if raw := ev.Payload(); len(raw) > 0 {
 		payload["rawPayload"] = string(raw)

@@ -157,8 +157,65 @@ declare module "geppetto" {
         toJSON(): Record<string, any>;
     }
 
+    export interface EventCorrelation {
+        session_id?: string;
+        run_id?: string;
+        turn_id?: string;
+        provider_call_id?: string;
+        segment_id?: string;
+        tool_call_id?: string;
+    }
+
+    export interface EventUsage {
+        input_tokens?: number;
+        output_tokens?: number;
+        cached_tokens?: number;
+        cache_creation_input_tokens?: number;
+        cache_read_input_tokens?: number;
+    }
+
+    export interface GeppettoEventBase {
+        type: string;
+        timestampMs: number;
+        sessionId?: string;
+        inferenceId?: string;
+        turnId?: string;
+        correlation?: EventCorrelation;
+        metaExtra?: Record<string, any>;
+        rawPayload?: string;
+    }
+
+    export type GeppettoEvent =
+        | (GeppettoEventBase & { type: "run-started"; prompt?: string })
+        | (GeppettoEventBase & { type: "run-finished"; status?: string })
+        | (GeppettoEventBase & { type: "run-stopped"; reason?: string })
+        | (GeppettoEventBase & { type: "run-failed"; error?: string; message?: string })
+        | (GeppettoEventBase & { type: "provider-call-started" })
+        | (GeppettoEventBase & { type: "provider-call-metadata-updated"; stopReason?: string; stopSequence?: string; usage?: EventUsage })
+        | (GeppettoEventBase & { type: "provider-call-finished"; stopReason?: string; finishClass?: string; usage?: EventUsage; durationMs?: number; hasToolCalls?: boolean })
+        | (GeppettoEventBase & { type: "text-segment-started"; role?: string })
+        | (GeppettoEventBase & { type: "text-delta"; delta: string; text: string; sequence?: number })
+        | (GeppettoEventBase & { type: "text-segment-finished"; text: string; finishReason?: string })
+        | (GeppettoEventBase & { type: "reasoning-segment-started"; source?: string })
+        | (GeppettoEventBase & { type: "reasoning-delta"; delta: string; text: string; sequence?: number; source?: string })
+        | (GeppettoEventBase & { type: "reasoning-segment-finished"; text?: string; finishReason?: string; source?: string })
+        | (GeppettoEventBase & { type: "tool-call-started"; toolCall: { id: string; name?: string } })
+        | (GeppettoEventBase & { type: "tool-call-arguments-delta"; toolCall: { id: string; delta: string; arguments: string; sequence?: number } })
+        | (GeppettoEventBase & { type: "tool-call-requested"; toolCall: { id: string; name: string; input: string } })
+        | (GeppettoEventBase & { type: "tool-execution-started"; toolCall: { id: string; name?: string; input?: string } })
+        | (GeppettoEventBase & { type: "tool-result-ready"; toolResult: { id: string; name?: string; result: string; status?: string } })
+        | (GeppettoEventBase & { type: "tool-call-finished"; toolCall: { id: string; name?: string; status?: string } })
+        | (GeppettoEventBase & { type: "error"; error?: string; message?: string })
+        | (GeppettoEventBase & { type: "interrupt"; text: string })
+        | (GeppettoEventBase & { type: "log"; level: string; message: string; fields?: Record<string, any> })
+        | (GeppettoEventBase & { type: "info"; message: string; data?: Record<string, any> })
+        | (GeppettoEventBase & { type: "agent-mode-switch"; message: string; data?: Record<string, any> })
+        | (GeppettoEventBase & { type: string; [key: string]: any });
+
     export interface EventEmitterLike {
+        on(name: "event", listener: (event: GeppettoEvent) => void): this;
         on(name: string | symbol, listener: (...args: any[]) => void): this;
+        once(name: "event", listener: (event: GeppettoEvent) => void): this;
         once(name: string | symbol, listener: (...args: any[]) => void): this;
         off(name: string | symbol, listener: (...args: any[]) => void): this;
         emit(name: string | symbol, ...args: any[]): boolean;
@@ -240,13 +297,4 @@ declare module "geppetto" {
 
     export function toolRegistry(): ToolRegistryBuilder;
 
-    export interface EventCollector {
-        on(eventType: string, callback: (event: any) => void): EventCollector;
-        clear(eventType?: string): EventCollector;
-        close(): void;
-    }
-
-    export const events: {
-        collector(): EventCollector;
-    };
 }

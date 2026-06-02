@@ -71,7 +71,17 @@ go run ./cmd/examples/geppetto-js-run run \
   --timeout-ms 120000
 ```
 
-Run EventEmitter + `runAsync` examples with:
+Run all EventEmitter + `runAsync` examples with the smoke wrapper:
+
+```bash
+GEPPETTO_PROFILE_REGISTRIES="$HOME/.config/pinocchio/profiles.yaml" \
+GEPPETTO_PROFILE=default \
+./examples/js/geppetto/run_event_emitter_examples.sh
+```
+
+The wrapper checks for final JSON output rather than requiring `text-delta`, because provider streaming behavior varies.
+
+Or run individual EventEmitter + `runAsync` examples with:
 
 ```bash
 go run ./cmd/examples/geppetto-js-run run \

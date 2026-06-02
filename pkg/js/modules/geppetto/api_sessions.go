@@ -59,6 +59,9 @@ func (m *moduleRuntime) requireEventSink(v goja.Value) (events.EventSink, error)
 
 func (sr *sessionRef) buildRunContext(opts runOptions) (context.Context, context.CancelFunc, error) {
 	ctx := context.Background()
+	if sr != nil && sr.api != nil {
+		ctx = sr.api.runtimeContext()
+	}
 	if opts.timeoutMs < 0 {
 		return nil, nil, fmt.Errorf("timeoutMs must be >= 0")
 	}

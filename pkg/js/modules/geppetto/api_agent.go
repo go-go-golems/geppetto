@@ -329,7 +329,7 @@ func (a *agentRef) runSync(input *turns.Turn, opts runOptions) (*runResultRef, e
 	}
 	started, err := a.startRun(input, opts, runScopedEventSinks)
 	if err != nil {
-		closeRunScopedEventEmitterSinks(context.Background(), closers)
+		closeRunScopedEventEmitterSinks(a.api.runtimeContext(), closers)
 		return nil, err
 	}
 	defer started.cancel()
@@ -407,7 +407,7 @@ func (a *agentRef) startAsync(input *turns.Turn, opts runOptions) goja.Value {
 	}
 	started, err := a.startRun(input, opts, runScopedEventSinks)
 	if err != nil {
-		closeRunScopedEventEmitterSinks(context.Background(), closers)
+		closeRunScopedEventEmitterSinks(a.api.runtimeContext(), closers)
 		a.rejectPromiseWithError(reject, err)
 		return handleObj
 	}
@@ -417,8 +417,8 @@ func (a *agentRef) startAsync(input *turns.Turn, opts runOptions) goja.Value {
 		defer clearActive()
 		defer started.cancel()
 		out, waitErr := started.handle.Wait()
-		postErr := a.api.postOnOwner(context.Background(), "agent.runAsync.settle", func(context.Context) {
-			defer closeRunScopedEventEmitterSinks(context.Background(), closers)
+		postErr := a.api.postOnOwner(a.api.runtimeContext(), "agent.runAsync.settle", func(ctx context.Context) {
+			defer closeRunScopedEventEmitterSinks(ctx, closers)
 			if waitErr != nil {
 				a.rejectPromiseWithError(reject, waitErr)
 				return
@@ -436,7 +436,7 @@ func (a *agentRef) startAsync(input *turns.Turn, opts runOptions) goja.Value {
 			}))
 		})
 		if postErr != nil {
-			closeRunScopedEventEmitterSinks(context.Background(), closers)
+			closeRunScopedEventEmitterSinks(a.api.runtimeContext(), closers)
 			a.api.logger.Error().Err(postErr).Msg("agent.runAsync: failed to settle promise on owner thread")
 		}
 	}()

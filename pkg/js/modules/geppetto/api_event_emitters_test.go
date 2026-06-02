@@ -459,6 +459,38 @@ func TestAgentRunAsyncRejectsWithErrorObject(t *testing.T) {
 	}
 }
 
+func TestRuntimeCloseCancelsRunAsyncExecutionContext(t *testing.T) {
+	rt := newGeppettoEventRuntime(t)
+	eng := &blockingEngine{started: make(chan struct{}), canceled: make(chan struct{})}
+	_, err := rt.Owner.Call(context.Background(), "test.startRuntimeCloseRunAsync", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		if setErr := vm.Set("blockingEngine", eng); setErr != nil {
+			return nil, setErr
+		}
+		_, runErr := vm.RunString(`
+			const gp = require("geppetto");
+			const agent = gp.agent().engine(globalThis.blockingEngine).build();
+			globalThis.handle = agent.runAsync(gp.turn().user("block until runtime close").build());
+		`)
+		return nil, runErr
+	})
+	if err != nil {
+		t.Fatalf("start script failed: %v", err)
+	}
+	select {
+	case <-eng.started:
+	case <-time.After(time.Second):
+		t.Fatalf("engine did not start")
+	}
+	if err := rt.Close(context.Background()); err != nil {
+		t.Fatalf("runtime close failed: %v", err)
+	}
+	select {
+	case <-eng.canceled:
+	case <-time.After(time.Second):
+		t.Fatalf("engine context was not canceled by runtime close")
+	}
+}
+
 func TestAgentRunAsyncCancelCancelsExecutionHandle(t *testing.T) {
 	rt := newGeppettoEventRuntime(t)
 	eng := &blockingEngine{started: make(chan struct{}), canceled: make(chan struct{})}

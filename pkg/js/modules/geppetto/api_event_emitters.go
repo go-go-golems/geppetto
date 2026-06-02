@@ -2,6 +2,7 @@ package geppetto
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync/atomic"
 
@@ -45,6 +46,9 @@ func (a *agentRef) newRunScopedEventEmitterSinks() ([]events.EventSink, []*jsEve
 
 func closeRunScopedEventEmitterSinks(ctx context.Context, sinks []*jsEventEmitterSink) {
 	for _, sink := range sinks {
+		if ctx == nil && sink != nil && sink.api != nil {
+			ctx = sink.api.runtimeContext()
+		}
 		if err := sink.Close(ctx); err != nil && sink != nil && sink.api != nil {
 			sink.api.logger.Warn().Err(err).Msg("geppetto events: failed to close run-scoped EventEmitter sink")
 		}
@@ -60,8 +64,8 @@ func (a *agentRef) closeRunScopedEventEmitterSinksAfterOwnerQueue(sinks []*jsEve
 			closeRunScopedEventEmitterSinks(context.Background(), sinks)
 			return
 		}
-		if err := a.api.postOnOwner(context.Background(), "agent.eventEmitters.closeRunScoped", func(context.Context) {
-			closeRunScopedEventEmitterSinks(context.Background(), sinks)
+		if err := a.api.postOnOwner(a.api.runtimeContext(), "agent.eventEmitters.closeRunScoped", func(ctx context.Context) {
+			closeRunScopedEventEmitterSinks(ctx, sinks)
 		}); err != nil {
 			a.api.logger.Warn().Err(err).Msg("geppetto events: failed to schedule run-scoped EventEmitter close")
 			closeRunScopedEventEmitterSinks(context.Background(), sinks)
@@ -108,19 +112,24 @@ func (s *jsEventEmitterSink) PublishEvent(ev events.Event) error {
 	}
 	payload := encodeGeppettoEventPayload(ev)
 	eventType, _ := payload["type"].(string)
+	var retErr error
 	for _, name := range eventEmitterNamesForPayload(payload) {
 		name := name
 		payloadCopy := cloneJSONMap(payload)
-		if err := s.ref.EmitWithBuilder(context.Background(), name, func(vm *goja.Runtime) ([]goja.Value, error) {
+		ctx := context.Background()
+		if s.api != nil {
+			ctx = s.api.runtimeContext()
+		}
+		if err := s.ref.EmitWithBuilder(ctx, name, func(vm *goja.Runtime) ([]goja.Value, error) {
 			return []goja.Value{toJSValueOn(vm, payloadCopy)}, nil
 		}); err != nil {
 			if s.api != nil {
 				s.api.logger.Warn().Err(err).Str("event_type", eventType).Str("event_name", name).Msg("geppetto events: failed to schedule EventEmitter publish")
 			}
-			return err
+			retErr = errors.Join(retErr, err)
 		}
 	}
-	return nil
+	return retErr
 }
 
 func (s *jsEventEmitterSink) Close(ctx context.Context) error {

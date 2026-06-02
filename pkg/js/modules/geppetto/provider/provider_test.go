@@ -280,7 +280,7 @@ func TestModuleLoaderInstallsGeppettoExports(t *testing.T) {
 			t.Fatalf("%s export is not a function", name)
 		}
 	}
-	for _, name := range []string{"consts", "inferenceProfiles", "schema", "events"} {
+	for _, name := range []string{"consts", "inferenceProfiles", "schema"} {
 		if obj := exports.Get(name).ToObject(vm); obj == nil {
 			t.Fatalf("%s export is not an object", name)
 		}

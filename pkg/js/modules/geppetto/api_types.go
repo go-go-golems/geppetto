@@ -1,8 +1,6 @@
 package geppetto
 
 import (
-	"sync"
-
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
@@ -48,14 +46,6 @@ type sessionRef struct {
 type runOptions struct {
 	timeoutMs int
 	tags      map[string]any
-}
-
-type jsEventCollector struct {
-	api *moduleRuntime
-
-	mu        sync.RWMutex
-	listeners map[string][]goja.Callable
-	closed    bool
 }
 
 type jsMiddlewareRef struct {
