@@ -131,3 +131,22 @@ Uploaded EventEmitter runAsync code review to reMarkable at /ai/2026/06/01/GP-GO
 
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/analysis/01-eventemitter-runasync-code-review-and-intern-guide.md — Uploaded review source
 
+
+## 2026-06-02
+
+Added research logbook cataloging useful, stale, and update-needed resources for EventEmitter runAsync work
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/01-investigation-diary.md — Recorded logbook creation
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/02-research-logbook.md — Research logbook source
+
+
+## 2026-06-02
+
+Uploaded research logbook to reMarkable at /ai/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/02-research-logbook.md — Uploaded research logbook
+

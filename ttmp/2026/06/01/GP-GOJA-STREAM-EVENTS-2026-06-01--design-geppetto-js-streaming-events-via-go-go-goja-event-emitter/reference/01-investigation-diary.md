@@ -646,3 +646,65 @@ Focus on deprecated code, messy code, missing functionality, confused understand
 
 ### Technical details
 - New doc path: `ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/analysis/01-eventemitter-runasync-code-review-and-intern-guide.md`.
+
+## Step 11: Create research logbook for EventEmitter resources
+
+This step created a ticket reference document that tracks which resources were useful, stale, wrong, or need updating for the EventEmitter `runAsync` work. The logbook is meant to help future contributors understand why each document or source file was consulted and whether it should still be trusted.
+
+The logbook covers ticket documents, Geppetto docs, examples, go-go-goja EventEmitter documentation/source, Geppetto event/session/runtime source, the example runner, and operational reMarkable upload guidance. It explicitly marks superseded `stream`/`handle.on` design material as historical rather than current API guidance.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Create a research logbook document in the ticket that allows us to keep track of which resources    
+ are useful / out of date / need updating .                                                          
+                                                                                                     
+ For all the documents and external resources you read, list:                                        
+                                                                                                     
+ - what you were researching                                                                         
+ - what you were looking for in this document in particular                                          
+ - why you chose it and what led you to it                                                           
+ - what you found useful in the document                                                              
+ - what you didn't find useful                                                                        
+ - what is out of date / what was wrong                                                              
+ - what would need updating.                                                                         
+                                                                                                     
+ Store in ticket and upload to remarkable."
+
+**Assistant interpretation:** Create a structured reference document cataloging every important resource consulted during the EventEmitter design/implementation/review and upload it to reMarkable.
+
+**Inferred user intent:** Preserve research provenance and help future maintainers know which resources are reliable versus stale.
+
+### What I did
+- Created `reference/02-research-logbook.md` in the EventEmitter ticket.
+- Added entries for ticket docs, Geppetto docs, examples, go-go-goja documentation/source, Geppetto event/session/runtime source, the provider path, and the example runner.
+- Related the logbook to key resources with `docmgr doc relate`.
+
+### Why
+- Several resources contain superseded API ideas, especially `agent.stream`, per-run emitters, and `handle.on(...)`.
+- Future cleanup work needs to know which references are current, partial, or misleading.
+
+### What worked
+- The logbook now has a quick status index and detailed per-resource entries.
+- It distinguishes current implementation facts from historical design notes.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The most important research-maintenance issue is keeping the design guide and API docs synchronized with cleanup work, because the implementation is still evolving.
+
+### What was tricky to build
+- The tricky part was defining the scope of "documents and external resources." I included internal ticket docs and source resources because they materially shaped the design, plus upstream go-go-goja docs/source because those are external architectural dependencies.
+
+### What warrants a second pair of eyes
+- Confirm whether additional external resources should be added if later work consulted web docs, provider docs, or host/runtime integration docs not captured here.
+
+### What should be done in the future
+- Update the logbook whenever EventEmitter lifecycle, provider integration, payload contracts, or example runner behavior changes.
+
+### Code review instructions
+- Review `reference/02-research-logbook.md` for completeness and stale-resource labeling.
+- Validate with `docmgr doctor --ticket GP-GOJA-STREAM-EVENTS-2026-06-01 --stale-after 30`.
+
+### Technical details
+- New doc path: `ttmp/2026/06/01/GP-GOJA-STREAM-EVENTS-2026-06-01--design-geppetto-js-streaming-events-via-go-go-goja-event-emitter/reference/02-research-logbook.md`.
