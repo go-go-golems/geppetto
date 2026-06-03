@@ -1,158 +1,194 @@
 ---
 Title: Geppetto JavaScript API User Guide
 Slug: geppetto-js-api-user-guide
-Short: Practical guide to composing engines and app-owned runtime behavior from JavaScript.
+Short: Practical guide for writing scripts against the hard-cut Geppetto JavaScript API.
 Topics:
 - geppetto
 - javascript
 - goja
-- user-guide
 Commands: []
 Flags: []
 IsTopLevel: true
 IsTemplate: false
 ShowPerDefault: true
-SectionType: Application
+SectionType: GeneralTopic
 ---
 
-This guide shows the intended split after the engine-profile hard cut:
+Use `require("geppetto")` from goja/xgoja hosts to access Geppetto's wrapper-first JavaScript API:
 
-- use engine profiles to resolve `InferenceSettings`
-- use the runner to assemble app-owned runtime behavior
-
-## Run Scripts
-
-```bash
-go run ./cmd/examples/geppetto-js-lab --script <your-script.js>
-```
-
-## Default Path
-
-For most scripts:
-
-1. resolve or construct an engine
-2. build app-owned runtime input
-3. run with `gp.runner`
-
-```javascript
+```js
 const gp = require("geppetto");
+```
 
-const engine = gp.engines.fromConfig({
-  apiType: "openai",
-  model: "gpt-4.1-mini",
-  apiKey: "test-openai-key",
+The public execution model is session-centered. Scripts build an agent, create a session, then run explicit `session.next()` steps. Public `gp.turn(...)`, `agent.run(turn)`, and `agent.runAsync(turn)` are intentionally absent.
+
+## 1. Resolve settings and build an agent
+
+```js
+const settings = gp.inferenceProfiles.resolve("default");
+
+const agent = gp.agent()
+  .name("assistant")
+  .inference(settings)
+  .runDefaults({ timeoutMs: 120000 })
+  .build();
+```
+
+Use registry-resolved `InferenceSettings` wrappers. Plain JavaScript settings maps are rejected.
+
+## 2. Create a session and run the first step
+
+```js
+const session = agent.session()
+  .id("chat-123")
+  .name("Demo chat")
+  .build();
+
+const result = session.next()
+  .system("Answer in one concise paragraph.")
+  .user("What is Geppetto?")
+  .run();
+
+console.log(result.text());
+```
+
+`session.next()` defines the run boundary. It starts from the latest session context, appends the blocks supplied by the builder, and records the final turn back into the session.
+
+## 3. Continue a conversation
+
+```js
+const first = session.next()
+  .user("Reply with exactly: ALPHA_GEPPETTO")
+  .run();
+
+const second = session.next()
+  .user("What exact token did you just return?")
+  .run();
+```
+
+The second call sees the first call's final turn as context. You do not pass output turns back into `agent.run(...)`; the session owns the progression.
+
+## 4. Run asynchronously with EventEmitter events
+
+Attach an EventEmitter at agent-builder time, then call `runAsync()` on a session turn builder:
+
+```js
+const EventEmitter = require("events");
+const events = new EventEmitter();
+
+events.on("text-delta", ev => {
+  if (ev.delta) console.log(ev.delta);
 });
 
-const runtime = gp.runner.resolveRuntime({
-  systemPrompt: "Answer in one short line.",
-  runtimeKey: "demo",
-});
+const asyncAgent = gp.agent()
+  .inference(settings)
+  .events(events)
+  .build();
 
-const out = gp.runner.run({
-  engine,
-  runtime,
-  prompt: "hello",
-});
+const asyncSession = asyncAgent.session().id("streaming-chat").build();
+const handle = asyncSession.next()
+  .user("Write a short streaming answer.")
+  .runAsync({ timeoutMs: 120000 });
+
+const asyncResult = await handle.promise;
 ```
 
-## Using Engine Profiles
+`runAsync()` returns `{ promise, cancel, close }`. There is no public `handle.on(...)`; register listeners on the EventEmitter before starting the run.
 
-Engine profiles now configure engine settings only.
+## 5. Use durable turn stores
 
-Resolve one:
+Turn storage is host-configured. JavaScript receives Go-owned `TurnStore` wrappers from `gp.turnStores`, then opts agents or sessions into explicit persistence:
 
-```javascript
-const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
-console.log(resolved.inferenceSettings.chat.engine);
+```js
+const store = gp.turnStores.default();
+
+const durableAgent = gp.agent()
+  .inference(settings)
+  .store(store)
+  .build();
+
+const durableSession = durableAgent.session()
+  .id("chat-123")
+  .store(store)
+  .resumeLatest()
+  .build();
+
+const result = durableSession.next()
+  .user("Continue from the stored conversation.")
+  .run();
 ```
 
-Build an engine from it:
+`resumeLatest()` is non-strict by default: if no stored final turn exists, the session starts empty. Use `resumeLatest({ required: true })` to fail instead. Use `.persist(false)` or agent `.persistTo(null)` to disable inherited host-default persistence.
 
-```javascript
-const engine = gp.engines.fromResolvedProfile(resolved);
+## 6. Fork a session
+
+Forking creates a new `SessionBuilder` pre-seeded from an existing session turn:
+
+```js
+const fork = session.fork()
+  .id("chat-123-branch")
+  .build();
+
+const forkResult = fork.next()
+  .user("Answer from a different angle.")
+  .run();
 ```
 
-Or skip the explicit resolve step:
+The imported base turn remains historical evidence. The first derived `next()` clears the copied turn id before executing a new run.
 
-```javascript
-const engine = gp.engines.fromProfile({ profileSlug: "assistant" });
+## 7. Build tools and schemas
+
+```js
+const input = gp.schema.object()
+  .property("value", gp.schema.string().description("Value to echo"))
+  .required("value")
+  .build();
+
+const echo = gp.tool("echo_value")
+  .description("Echo a value")
+  .input(input)
+  .handler((args, ctx) => ({ echoed: args.value, toolName: ctx.toolName }))
+  .build();
+
+const registry = gp.toolRegistry().add(echo);
+const agentWithTools = gp.agent()
+  .inference(settings)
+  .tool(registry)
+  .toolLoop({ maxIterations: 3 })
+  .build();
 ```
 
-## App-Owned Runtime
+If the host configured a Go tool registry, select host tools directly with `goTool(name)`:
 
-The runtime object belongs to the application side.
-
-Use it for:
-
-- `systemPrompt`
-- explicit middleware refs
-- tool-name filtering
-- runtime metadata like `runtimeKey`
-
-Example:
-
-```javascript
-const runtime = gp.runner.resolveRuntime({
-  systemPrompt: "Be terse.",
-  middlewares: [gp.middlewares.go("reorderToolResults")],
-  toolNames: ["search_docs"],
-  runtimeKey: "assistant-terse",
-});
+```js
+const agentWithHostTool = gp.agent()
+  .inference(settings)
+  .goTool("search")
+  .toolLoop({ maxIterations: 3 })
+  .build();
 ```
 
-Do not expect `gp.runner.resolveRuntime(...)` to resolve engine profiles. That was removed intentionally.
+Use `tool(registry)` for JavaScript-defined tools or explicit wrapper registries. Use `goTool(name)` for tools supplied by the embedding Go application.
 
-## Combining Both Sides
+## 8. Multimodal user input
 
-This is the target shape:
+Use the session turn builder's message callback:
 
-```javascript
-const gp = require("geppetto");
-
-const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
-const engine = gp.engines.fromResolvedProfile(resolved);
-
-const runtime = gp.runner.resolveRuntime({
-  systemPrompt: "App-owned prompt",
-  runtimeKey: resolved.profileSlug,
-  metadata: {
-    profileSlug: resolved.profileSlug,
-    profileRegistry: resolved.registrySlug,
-  },
-});
-
-const handle = gp.runner.start({
-  engine,
-  runtime,
-  prompt: "hello",
-});
+```js
+const result = session.next()
+  .user(m => m
+    .text("Describe this image.")
+    .imageURL("https://example.invalid/screenshot.png"))
+  .run();
 ```
 
-## Registry Stacks from JS
+## Migration notes
 
-If the host did not provide a registry, connect one from JS:
+Use the following replacements when updating older scripts:
 
-```javascript
-const gp = require("geppetto");
+- `gp.turn().user(...).build()` + `agent.run(turn)` → `agent.session().build().next().user(...).run()`
+- `gp.turn(previousTurn)` → `session.next()` or `session.fork().base(previousTurn)` depending on lifecycle intent
+- `agent.runAsync(turn)` → `session.next().user(...).runAsync()`
+- `agent.persistTo(store)` → `agent.store(store)` or `session.store(store)`; `persistTo` remains as an alias for host persistence selection
 
-gp.profiles.connectStack([
-  "examples/js/geppetto/profiles/10-provider-openai.yaml",
-  "examples/js/geppetto/profiles/20-team-agent.yaml",
-  "examples/js/geppetto/profiles/30-user-overrides.yaml",
-]);
-
-const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
-console.log(resolved.registrySlug, resolved.inferenceSettings.chat.engine);
-```
-
-## What Was Removed
-
-The older mixed model is gone:
-
-- no `effectiveRuntime` on resolved profiles
-- no profile-derived `runtimeKey` or `runtimeFingerprint`
-- no `resolvedProfile` builder option
-- no `useResolvedProfile(...)`
-- no `runner.resolveRuntime({ profile: ... })`
-
-If you need those behaviors, implement them explicitly in the host script or application code. That is now the intended architecture.
+Removed legacy APIs include `gp.turn`, `gp.turns`, `gp.events`, `gp.chat`, `gp.inferenceSettings`, `createBuilder`, `createSession`, `runInference`, and public `agent.run` / `agent.runAsync`.

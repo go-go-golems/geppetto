@@ -2,7 +2,7 @@ module github.com/go-go-golems/geppetto
 
 go 1.26.1
 
-toolchain go1.26.3
+toolchain go1.26.4
 
 require (
 	github.com/ThreeDotsLabs/watermill v1.5.1
@@ -11,7 +11,7 @@ require (
 	github.com/dop251/goja_nodejs v0.0.0-20250409162600-f7acab6894b0
 	github.com/go-go-golems/glazed v1.3.5
 	github.com/go-go-golems/go-emrichen v0.0.10
-	github.com/go-go-golems/go-go-goja v0.7.0
+	github.com/go-go-golems/go-go-goja v0.7.2
 	github.com/go-go-golems/logcopter v0.1.0
 	github.com/go-go-golems/sanitize v0.0.1
 	github.com/google/generative-ai-go v0.20.1
@@ -59,6 +59,7 @@ require (
 	github.com/dop251/base64dec v0.0.0-20231022112746-c6c9f9a96217 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

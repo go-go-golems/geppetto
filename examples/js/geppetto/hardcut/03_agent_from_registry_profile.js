@@ -1,0 +1,10 @@
+const gp = require("geppetto");
+const source = globalThis.GEPPETTO_PHASE123_PROFILE || "examples/js/geppetto/profiles/50-hardcut-phase123.yaml";
+const registry = gp.inferenceProfiles.load(source);
+const settings = registry.resolve("assistant");
+const agent = gp.agent().name("assistant").inference(settings).build();
+if (typeof agent.session !== "function") throw new Error("agent.session missing");
+if (Object.prototype.hasOwnProperty.call(agent, "run")) throw new Error("agent.run must not be public");
+const session = agent.session().id("hardcut-agent-demo").build();
+console.log(JSON.stringify({ agent: "assistant", session: session.id(), profile: settings.toJSON().provenance.profileSlug }, null, 2));
+registry.close();

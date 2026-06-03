@@ -15,148 +15,254 @@ ShowPerDefault: true
 SectionType: GeneralTopic
 ---
 
-This page documents the current hard-cut JavaScript API in [pkg/js/modules/geppetto](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto).
+This page documents the hard-cut JavaScript API exposed by:
 
-## Execution Harness
-
-Run scripts with:
-
-```bash
-go run ./cmd/examples/geppetto-js-lab --script <path-to-script.js>
+```js
+const gp = require("geppetto");
 ```
 
-## Top-Level Namespaces
+The API is Go-wrapper-first: scripts receive Go-owned wrapper objects and ask for explicit snapshots with `toJSON()`. Legacy map/session/runner exports and public turn-run execution were removed from the default public surface. Public execution now starts from an `AgentSession`:
 
-- `turns`
-- `engines`
-- `profiles`
-- `runner`
-- `middlewares`
-- `schemas`
-- `events`
-- `tools`
+```js
+const session = gp.agent().inference(settings).build()
+  .session().id("chat-123").build();
 
-## `engines`
-
-Current constructors:
-
-- `echo({ reply? })`
-- `fromFunction(fn)`
-- `fromConfig(options)`
-- `fromResolvedProfile(resolvedProfile)`
-- `fromProfile({ registrySlug?, profileSlug? })`
-
-Recommended meaning:
-
-- use `fromConfig(...)` when the script already knows the provider/model/settings
-- use `fromProfile(...)` or `fromResolvedProfile(...)` when the script wants Geppetto to resolve engine settings from an engine profile registry
-
-`fromProfile(...)` and `fromResolvedProfile(...)` build the engine only. They do not apply prompts, tool policy, or middleware policy.
-
-When the source profile has `inference_settings.model_info`, the returned engine object includes `engine.modelInfo` with the same shape exposed by `profiles.resolve(...)`. `fromConfig(...)` also accepts an optional `modelInfo` object for scripts that construct engines without profile resolution.
-
-Example:
-
-```javascript
-const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
-console.log(resolved.modelInfo?.reasoning);
-console.log(resolved.modelInfo?.contextWindow);
-console.log(resolved.modelInfo?.cost?.input);
-
-const engine = gp.engines.fromResolvedProfile(resolved);
-console.log(engine.modelInfo?.maxOutputTokens);
+const result = session.next()
+  .system("Be brief.")
+  .user("Hello")
+  .run();
 ```
 
-## `profiles`
+## `gp.inferenceProfiles`
 
-The `profiles` namespace is now really an **engine profiles** namespace, even though the JS name is still `profiles`.
+`gp.inferenceProfiles` loads and resolves Geppetto engine profile registries. It does **not** load Pinocchio unified app config documents with `app:` blocks.
 
-Available functions:
+```js
+const registry = gp.inferenceProfiles.load("./profiles.yaml");
+const settings = registry.resolve("assistant");
+```
+
+Supported source forms include YAML paths, `yaml:PATH`, `yaml://PATH`, SQLite paths, `sqlite:PATH`, and `sqlite-dsn:DSN`.
+
+Namespace methods:
+
+- `load(source: string | string[]): InferenceRegistry`
+- `resolve(input?: string | { registry?, registrySlug?, profile?, profileSlug? }): InferenceSettings`
+- `default(): InferenceRegistry`
+
+Registry methods:
 
 - `listRegistries()`
-- `getRegistry(registrySlug?)`
 - `listProfiles(registrySlug?)`
-- `getProfile(profileSlug, registrySlug?)`
-- `resolve({ registrySlug?, profileSlug? })`
-- `connectStack(sources)`
-- `disconnectStack()`
-- `getConnectedSources()`
+- `resolve(input?)`
+- `close()`
+- `sources`
 
-`resolve(...)` returns:
+`InferenceSettings` is read-only and Go-owned:
 
-- `registrySlug`
-- `profileSlug`
-- `inferenceSettings`
-- `modelInfo` when the resolved `InferenceSettings` contains `model_info`
-- `metadata`
+- `toJSON()` returns a sanitized snapshot.
+- `clone()` returns another settings wrapper.
 
-`modelInfo` is a convenience projection of `inferenceSettings.model_info` using JavaScript-friendly field names such as `contextWindow`, `qualityHighWatermark`, `maxOutputTokens`, and `cost.cacheRead`.
+## `gp.engine()`
 
-It no longer returns:
+Build a provider engine from resolved settings:
 
-- `effectiveRuntime`
-- `runtimeKey`
-- `runtimeFingerprint`
-
-## `runner`
-
-`runner` is now purely app/runtime-oriented.
-
-Available functions:
-
-- `resolveRuntime(input?)`
-- `prepare(options)`
-- `run(options, runOptions?)`
-- `start(options, runOptions?)`
-
-`runner.resolveRuntime(...)` accepts only direct runtime input such as:
-
-- `systemPrompt`
-- `middlewares`
-- `toolNames`
-- `runtimeKey`
-- `runtimeFingerprint`
-- `profileVersion`
-- `metadata`
-
-It no longer accepts `profile`.
-
-If you need engine profiles, resolve them separately:
-
-```javascript
-const resolved = gp.profiles.resolve({ profileSlug: "assistant" });
-const engine = gp.engines.fromResolvedProfile(resolved);
-const runtime = gp.runner.resolveRuntime({
-  systemPrompt: "App-owned prompt",
-  runtimeKey: "assistant",
-});
+```js
+const engine = gp.engine().inference(settings).build();
 ```
 
-## `createBuilder` / `createSession`
+Plain JavaScript settings objects are rejected; pass a Go-owned `InferenceSettings` wrapper.
 
-Builder/session construction is now lower-level again.
+## `gp.agent()`
 
-Supported builder inputs:
+Build an agent, then create sessions from it:
 
-- `engine`
-- `middlewares`
-- `tools`
-- `toolLoop`
-- `toolHooks`
+```js
+const agent = gp.agent()
+  .name("assistant")
+  .inference(settings)
+  .events(emitter)
+  .runDefaults({ timeoutMs: 120000 })
+  .build();
 
-Removed from the builder path:
+const session = agent.session().id("chat-123").build();
+```
 
-- `resolvedProfile`
-- `useResolvedProfile(...)`
+Agent builder methods include:
 
-If you want profile-derived engine settings, build the engine first with `gp.engines.fromProfile(...)` or `gp.engines.fromResolvedProfile(...)`, then pass the engine into the builder or runner.
+- `name(name)`
+- `inference(settings)`
+- `engine(engine)`
+- `events(emitter)` for builder-level EventEmitter delivery
+- `tool(toolOrRegistry)` / `goTool(name)` and `toolLoop(options)`
+- `store(turnStore)` / `persistTo(turnStore)`
+- `defaultStore(enabled?)` / `persistDefault(enabled?)` / `persist(enabled?)`
+- `runDefaults(options)`
+- `build()`
 
-## Files
+Built agents expose:
 
-Relevant implementation files:
+- `name`
+- `session(): SessionBuilder`
 
-- [api_profiles.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_profiles.go)
-- [api_engines.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_engines.go)
-- [api_runner.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_runner.go)
-- [api_runtime_metadata.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_runtime_metadata.go)
-- [api_builder_options.go](/home/manuel/workspaces/2026-03-17/add-opinionated-apis/geppetto/pkg/js/modules/geppetto/api_builder_options.go)
+They intentionally do **not** expose `run(turn)`, `runAsync(turn)`, or `ask(...)`.
+
+## Sessions
+
+`agent.session()` returns a `SessionBuilder`:
+
+```js
+const session = agent.session()
+  .id("chat-123")
+  .name("Support chat")
+  .metadata("tenant", "demo")
+  .runDefaults({ timeoutMs: 120000 })
+  .build();
+```
+
+Session builder methods:
+
+- `id(id)` sets the session id.
+- `name(name)` sets a human-readable name.
+- `base(turn)` imports a Go-owned `TurnWrapper` as historical base context.
+- `store(turnStore)` selects a store for persistence/resume.
+- `defaultStore()` selects the host default store.
+- `persist(enabled?)` enables or disables persistence for this session.
+- `resumeLatest(query?)` loads the latest stored final turn into the session base; pass `{ required: true }` to fail if none exists.
+- `resumeNone()` disables resume.
+- `metadata(key, value)` attaches session metadata.
+- `runDefaults(options)` overrides run defaults for this session.
+- `build()` returns an `AgentSession`.
+
+`AgentSession` methods:
+
+- `id()` and `name()`
+- `next(): SessionTurnBuilder`
+- `fork(options?): SessionBuilder`
+- `latestTurn(): TurnWrapper | null`
+- `turns(): TurnWrapper[]`
+- `turn(index): TurnWrapper | null`
+- `turnCount(): number`
+- `isRunning(): boolean`
+- `cancel()`
+- `close()`
+
+`session.next()` clones the latest context, clears any copied turn id for the derived run, appends requested blocks, and runs against the agent engine:
+
+```js
+const result = session.next()
+  .user("Continue from the previous answer.")
+  .run({ timeoutMs: 120000 });
+```
+
+`session.fork()` returns a pre-seeded `SessionBuilder`:
+
+```js
+const fork = session.fork().id("chat-123-fork").build();
+```
+
+## `SessionTurnBuilder`
+
+`session.next()` returns a builder with explicit block methods:
+
+- `system(text)`
+- `user(text | (messageBuilder) => messageBuilder)`
+- `assistant(text)`
+- `metadata(key, value)`
+- `run(options?)`
+- `runAsync(options?)`
+
+Multimodal user input uses the message builder callback:
+
+```js
+const result = session.next()
+  .user(m => m.text("Describe this image").imageURL("https://example.invalid/image.png"))
+  .run();
+```
+
+`runAsync()` returns `{ promise, cancel, close }` and uses the agent builder-level EventEmitter for live events:
+
+```js
+const handle = session.next().user("Stream a short answer.").runAsync();
+const result = await handle.promise;
+```
+
+## Results and turn wrappers
+
+`run()` and `runAsync().promise` resolve to a `RunResult` wrapper:
+
+- `text()` returns assistant text.
+- `inputTurn()` returns the run input turn.
+- `effectiveTurn()` returns the effective turn sent to the engine.
+- `outputTurn()` returns the final output turn.
+- `toJSON()` returns a snapshot.
+
+`TurnWrapper` objects are still public as snapshots/results/persistence data. They expose `toJSON()` and `clone()`, but JavaScript no longer constructs public turns with `gp.turn(...)`.
+
+## `gp.turnStores`
+
+`gp.turnStores` exposes host-configured durable turn stores as Go-owned wrappers. Geppetto does not open SQLite files directly from JavaScript; xgoja hosts such as Pinocchio provide stores through module/provider configuration.
+
+```js
+const store = gp.turnStores.default();
+const session = agent.session()
+  .id("chat-123")
+  .store(store)
+  .resumeLatest()
+  .build();
+```
+
+Methods:
+
+- `gp.turnStores.default(): TurnStore`
+- `gp.turnStores.get(name): TurnStore`
+- `store.name()`
+- `store.list(query?)`
+- `store.loadLatest(query?)`
+- `store.close()`
+
+## Tools and schema
+
+Tool and JSON schema wrappers remain Go-owned:
+
+```js
+const input = gp.schema.object()
+  .property("value", gp.schema.string())
+  .required("value")
+  .build();
+
+const echo = gp.tool("echo_value")
+  .description("Echo a value")
+  .input(input)
+  .handler(args => ({ echoed: args.value }))
+  .build();
+
+const registry = gp.toolRegistry().add(echo);
+```
+
+Host applications can also expose a Go-owned tool registry. Use `agent.goTool(name)` to select one of those host tools by name without constructing a JavaScript tool registry:
+
+```js
+const agent = gp.agent()
+  .inference(settings)
+  .goTool("search")
+  .toolLoop({ maxIterations: 4 })
+  .build();
+```
+
+`goTool(name)` resolves against an explicit `agent.tool(registry)` registry when one is set; otherwise it resolves against the module's host-provided Go tool registry.
+
+## Removed public exports
+
+The hard-cut surface intentionally omits legacy and turn-run APIs, including:
+
+- `gp.turn`
+- `gp.turns`
+- `gp.events`
+- `gp.chat`
+- `gp.inferenceSettings`
+- `gp.createBuilder`
+- `gp.createSession`
+- `gp.runInference`
+- `gp.engines`, `gp.profiles`, `gp.runner`, `gp.schemas`, `gp.middlewares`, `gp.tools`
+- `agent.run(turn)` and `agent.runAsync(turn)`

@@ -1,8 +1,10 @@
 package geppetto
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
@@ -13,8 +15,10 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop"
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-	"github.com/go-go-golems/geppetto/pkg/js/runtimebridge"
+	gpruntimebridge "github.com/go-go-golems/geppetto/pkg/js/runtimebridge"
 	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/go-go-golems/go-go-goja/pkg/jsevents"
+	gojaruntimebridge "github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
@@ -32,20 +36,26 @@ type MiddlewareFactory func(options map[string]any) (middleware.Middleware, erro
 
 // Options configures module behavior for a specific runtime.
 type Options struct {
-	RuntimeOwner             runtimeowner.RuntimeOwner
-	GoToolRegistry           tools.ToolRegistry
-	GoMiddlewareFactories    map[string]MiddlewareFactory
-	EngineProfileRegistry    profiles.RegistryReader
-	DefaultInferenceSettings *aistepssettings.InferenceSettings
-	UseDefaultProfileResolve bool
-	DefaultProfileResolve    profiles.ResolveInput
-	MiddlewareSchemas        middlewarecfg.DefinitionRegistry
-	ExtensionCodecs          profiles.ExtensionCodecRegistry
-	ExtensionSchemas         map[string]map[string]any
-	DefaultEventSinks        []events.EventSink
-	DefaultSnapshotHook      toolloop.SnapshotHook
-	DefaultPersister         enginebuilder.TurnPersister
-	Logger                   zerolog.Logger
+	RuntimeOwner                runtimeowner.RuntimeOwner
+	GoToolRegistry              tools.ToolRegistry
+	GoMiddlewareFactories       map[string]MiddlewareFactory
+	EngineProfileRegistry       profiles.RegistryReader
+	EngineProfileRegistrySpec   []string
+	DefaultInferenceSettings    *aistepssettings.InferenceSettings
+	UseDefaultProfileResolve    bool
+	DefaultProfileResolve       profiles.ResolveInput
+	MiddlewareSchemas           middlewarecfg.DefinitionRegistry
+	ExtensionCodecs             profiles.ExtensionCodecRegistry
+	ExtensionSchemas            map[string]map[string]any
+	DefaultEventSinks           []events.EventSink
+	EventEmitterManager         *jsevents.Manager
+	EventEmitterManagerResolver func() (*jsevents.Manager, bool)
+	DefaultSnapshotHook         toolloop.SnapshotHook
+	DefaultPersister            enginebuilder.TurnPersister
+	EnableStorage               bool
+	DefaultTurnStore            TurnStore
+	TurnStores                  map[string]TurnStore
+	Logger                      zerolog.Logger
 }
 
 // NewLoader returns the native geppetto module loader for use with a require
@@ -70,7 +80,7 @@ type module struct {
 type moduleRuntime struct {
 	vm           *goja.Runtime
 	runtimeOwner runtimeowner.RuntimeOwner
-	bridge       *runtimebridge.Bridge
+	bridge       *gpruntimebridge.Bridge
 
 	logger zerolog.Logger
 
@@ -79,7 +89,6 @@ type moduleRuntime struct {
 	defaultInferenceSettings        *aistepssettings.InferenceSettings
 	profileRegistry                 profiles.RegistryReader
 	profileRegistryCloser           io.Closer
-	profileRegistryOwned            bool
 	profileRegistrySpec             []string
 	baseEngineProfileRegistry       profiles.RegistryReader
 	baseEngineProfileRegistryCloser io.Closer
@@ -90,8 +99,14 @@ type moduleRuntime struct {
 	extensionCodecs                 profiles.ExtensionCodecRegistry
 	extensionSchemas                map[string]map[string]any
 	defaultEventSinks               []events.EventSink
+	eventEmitterManager             *jsevents.Manager
+	eventEmitterManagerResolver     func() (*jsevents.Manager, bool)
+	runtimeLifetimeContext          context.Context
 	defaultSnapshotHook             toolloop.SnapshotHook
 	defaultPersister                enginebuilder.TurnPersister
+	enableStorage                   bool
+	defaultTurnStore                TurnStore
+	turnStores                      map[string]TurnStore
 }
 
 func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
@@ -100,29 +115,46 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		lg = zlog.Logger
 	}
 	m := &moduleRuntime{
-		vm:                       vm,
-		runtimeOwner:             opts.RuntimeOwner,
-		logger:                   lg,
-		goToolRegistry:           opts.GoToolRegistry,
-		goMiddlewareFactories:    map[string]MiddlewareFactory{},
-		defaultInferenceSettings: cloneInferenceSettings(opts.DefaultInferenceSettings),
-		profileRegistry:          opts.EngineProfileRegistry,
-		useDefaultProfileResolve: opts.UseDefaultProfileResolve,
-		defaultProfileResolve:    opts.DefaultProfileResolve,
-		middlewareSchemas:        opts.MiddlewareSchemas,
-		extensionCodecs:          opts.ExtensionCodecs,
-		extensionSchemas:         cloneNestedStringAnyMap(opts.ExtensionSchemas),
-		defaultEventSinks:        append([]events.EventSink(nil), opts.DefaultEventSinks...),
-		defaultSnapshotHook:      opts.DefaultSnapshotHook,
-		defaultPersister:         opts.DefaultPersister,
+		vm:                            vm,
+		runtimeOwner:                  opts.RuntimeOwner,
+		logger:                        lg,
+		goToolRegistry:                opts.GoToolRegistry,
+		goMiddlewareFactories:         map[string]MiddlewareFactory{},
+		defaultInferenceSettings:      cloneInferenceSettings(opts.DefaultInferenceSettings),
+		profileRegistry:               opts.EngineProfileRegistry,
+		profileRegistrySpec:           append([]string(nil), opts.EngineProfileRegistrySpec...),
+		baseEngineProfileRegistrySpec: append([]string(nil), opts.EngineProfileRegistrySpec...),
+		useDefaultProfileResolve:      opts.UseDefaultProfileResolve,
+		defaultProfileResolve:         opts.DefaultProfileResolve,
+		middlewareSchemas:             opts.MiddlewareSchemas,
+		extensionCodecs:               opts.ExtensionCodecs,
+		extensionSchemas:              cloneNestedStringAnyMap(opts.ExtensionSchemas),
+		defaultEventSinks:             append([]events.EventSink(nil), opts.DefaultEventSinks...),
+		eventEmitterManager:           opts.EventEmitterManager,
+		eventEmitterManagerResolver:   opts.EventEmitterManagerResolver,
+		runtimeLifetimeContext:        context.Background(),
+		defaultSnapshotHook:           opts.DefaultSnapshotHook,
+		defaultPersister:              opts.DefaultPersister,
+		enableStorage:                 opts.EnableStorage,
+		defaultTurnStore:              opts.DefaultTurnStore,
+		turnStores:                    map[string]TurnStore{},
+	}
+	for name, store := range opts.TurnStores {
+		if strings.TrimSpace(name) == "" || store == nil {
+			continue
+		}
+		m.turnStores[strings.TrimSpace(name)] = store
 	}
 	if closer, ok := opts.EngineProfileRegistry.(io.Closer); ok && closer != nil {
 		m.profileRegistryCloser = closer
 	}
 	m.baseEngineProfileRegistry = m.profileRegistry
 	m.baseEngineProfileRegistryCloser = m.profileRegistryCloser
+	if services, ok := gojaruntimebridge.Lookup(vm); ok {
+		m.runtimeLifetimeContext = services.Lifetime()
+	}
 	if m.runtimeOwner != nil {
-		m.bridge = runtimebridge.New(m.runtimeOwner)
+		m.bridge = gpruntimebridge.New(m.runtimeOwner)
 	}
 	for k, v := range defaultGoMiddlewareFactories(lg) {
 		m.goMiddlewareFactories[k] = v
@@ -143,64 +175,19 @@ func (m *module) Loader(vm *goja.Runtime, moduleObj *goja.Object) {
 func (m *moduleRuntime) installExports(exports *goja.Object) {
 	m.mustSet(exports, "version", "0.1.0")
 	m.installConsts(exports)
-	m.mustSet(exports, "createBuilder", m.createBuilder)
-	m.mustSet(exports, "createSession", m.createSession)
-	m.mustSet(exports, "runInference", m.runInference)
 
-	turnsObj := m.vm.NewObject()
-	m.mustSet(turnsObj, "normalize", m.turnsNormalize)
-	m.mustSet(turnsObj, "newTurn", m.turnsNewTurn)
-	m.mustSet(turnsObj, "appendBlock", m.turnsAppendBlock)
-	m.mustSet(turnsObj, "newUserBlock", m.turnsNewUserBlock)
-	m.mustSet(turnsObj, "newSystemBlock", m.turnsNewSystemBlock)
-	m.mustSet(turnsObj, "newAssistantBlock", m.turnsNewAssistantBlock)
-	m.mustSet(turnsObj, "newToolCallBlock", m.turnsNewToolCallBlock)
-	m.mustSet(turnsObj, "newToolUseBlock", m.turnsNewToolUseBlock)
-	m.mustSet(exports, "turns", turnsObj)
+	inferenceProfilesObj := m.vm.NewObject()
+	m.mustSet(inferenceProfilesObj, "load", m.inferenceProfilesLoad)
+	m.mustSet(inferenceProfilesObj, "resolve", m.inferenceProfilesResolve)
+	m.mustSet(inferenceProfilesObj, "default", m.inferenceProfilesDefault)
+	m.mustSet(exports, "inferenceProfiles", inferenceProfilesObj)
+	m.mustSet(exports, "engine", m.engineBuilder)
+	m.mustSet(exports, "agent", m.agentBuilder)
+	m.installTurnStoresNamespace(exports)
+	m.mustSet(exports, "tool", m.toolBuilder)
+	m.mustSet(exports, "toolRegistry", m.toolRegistryBuilder)
+	m.installSchemaNamespace(exports)
 
-	enginesObj := m.vm.NewObject()
-	m.mustSet(enginesObj, "echo", m.engineEcho)
-	m.mustSet(enginesObj, "fromConfig", m.engineFromConfig)
-	m.mustSet(enginesObj, "fromProfile", m.engineFromProfile)
-	m.mustSet(enginesObj, "fromResolvedProfile", m.engineFromResolvedProfile)
-	m.mustSet(enginesObj, "fromFunction", m.engineFromFunction)
-	m.mustSet(exports, "engines", enginesObj)
-
-	profilesObj := m.vm.NewObject()
-	m.mustSet(profilesObj, "listRegistries", m.profilesListRegistries)
-	m.mustSet(profilesObj, "getRegistry", m.profilesGetRegistry)
-	m.mustSet(profilesObj, "listProfiles", m.profilesListEngineProfiles)
-	m.mustSet(profilesObj, "getProfile", m.profilesGetEngineProfile)
-	m.mustSet(profilesObj, "resolve", m.profilesResolve)
-	m.mustSet(profilesObj, "connectStack", m.profilesConnectStack)
-	m.mustSet(profilesObj, "disconnectStack", m.profilesDisconnectStack)
-	m.mustSet(profilesObj, "getConnectedSources", m.profilesGetConnectedSources)
-	m.mustSet(exports, "profiles", profilesObj)
-
-	runnerObj := m.vm.NewObject()
-	m.mustSet(runnerObj, "resolveRuntime", m.runnerResolveRuntime)
-	m.mustSet(runnerObj, "prepare", m.runnerPrepare)
-	m.mustSet(runnerObj, "run", m.runnerRun)
-	m.mustSet(runnerObj, "start", m.runnerStart)
-	m.mustSet(exports, "runner", runnerObj)
-
-	schemasObj := m.vm.NewObject()
-	m.mustSet(schemasObj, "listMiddlewares", m.schemasListMiddlewares)
-	m.mustSet(schemasObj, "listExtensions", m.schemasListExtensions)
-	m.mustSet(exports, "schemas", schemasObj)
-
-	mwsObj := m.vm.NewObject()
-	m.mustSet(mwsObj, "fromJS", m.middlewareFromJS)
-	m.mustSet(mwsObj, "go", m.middlewareFromGo)
-	m.mustSet(exports, "middlewares", mwsObj)
-
-	eventsObj := m.vm.NewObject()
-	m.mustSet(eventsObj, "collector", m.eventsCollector)
-	m.mustSet(exports, "events", eventsObj)
-
-	toolsObj := m.vm.NewObject()
-	m.mustSet(toolsObj, "createRegistry", m.toolsCreateRegistry)
-	m.mustSet(exports, "tools", toolsObj)
 }
 
 func (m *moduleRuntime) mustSet(o *goja.Object, key string, v any) {

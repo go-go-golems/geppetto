@@ -1,72 +1,115 @@
 # Geppetto JS Example Scripts
 
-This directory contains runnable scripts for the JS API surface exposed by:
+This directory contains runnable scripts for the hard-cut wrapper-first API exposed by:
 
 ```js
 const gp = require("geppetto");
 ```
 
-## Existing Core Surface
+Legacy map/session/runner examples and public turn-run execution were removed during the clean cutover. New scripts should use:
 
-- `01_turns_and_blocks.js`
-- `02_session_echo.js`
-- `03_middleware_composition.js`
-- `04_tools_and_toolloop.js`
-- `05_go_tools_from_js.js`
-- `06_live_profile_inference.js`
-- `07_context_and_constants.js`
+- `gp.inferenceProfiles`
+- `gp.engine()`
+- `gp.agent().session()`
+- `session.next().run()` / `session.next().runAsync()` for execution
+- `session.fork()` and `resumeLatest()` for explicit lifecycle flows
+- `gp.turnStores` for host-configured durable turn storage
+- `gp.schema`
+- `gp.tool()`
+- `gp.toolRegistry()`
 
-## Opinionated Runner Surface
+## Hard-Cut Examples
 
-- `22_runner_run.js`
-- `23_runner_profile_run.js`
-- `24_runner_start_handle.js`
+- `25_inference_profiles_load_resolve_settings.js`
+- `26_engine_builder_from_registry_profile.js`
+- `28_agent_from_registry_profile.js`
+- `29_tools_schema_multimodal_turn.js`
+- `30_real_provider_multiturn.js`
+- `31_event_emitter_run_async.js`
+- `32_event_emitter_progress_summary.js`
+- `33_event_emitter_multiturn_run_async.js`
+- `34_turn_store_persistence.js` (requires host-configured turn storage)
 
-## Profile/Schema Surface
+## Numbered Tutorial Examples
 
-- `08_profiles_registry_inventory.js`
-- `09_profiles_resolve_stack_precedence.js`
-- `10_engines_from_profile_metadata.js`
-- `11_profiles_resolve_explicit_registry.js`
-- `12_profiles_resolve_runtime_key.js`
-- `13_schemas_middlewares_catalog.js`
-- `14_schemas_extensions_catalog.js`
-- `15_profiles_sqlite_inventory.js`
-- `16_mixed_registry_precedence.js`
-- `18_missing_profile_registry_errors.js`
-- `19_profiles_connect_stack_runtime.js`
-- `20_events_collector_sink.js`
-- `21_resolved_profile_session.js`
+`hardcut/` contains short numbered examples matching the hard-cut documentation:
+
+- `hardcut/01_load_registry_resolve_profile.js`
+- `hardcut/02_engine_from_registry_profile.js`
+- `hardcut/03_agent_from_registry_profile.js`
+- `hardcut/04_tools_and_schema.js`
+- `hardcut/05_multimodal_turn.js`
+- `hardcut/06_embeddings_with_registry_profile.js` (self-skips until the hard-cut embeddings wrapper exists)
 
 ## Profile Registry Fixtures
 
 `profiles/` provides runtime YAML registry fixtures (one file = one registry):
 
-- `10-provider-openai.yaml`
-- `20-team-agent.yaml`
-- `30-user-overrides.yaml`
-- `40-embeddings.yaml`
+- `50-hardcut-phase123.yaml`
 
-The provider fixture includes `inference_settings.model_info` for `gpt-4o-mini`. JS profile resolution exposes this as `resolved.modelInfo`, and engines built from resolved profiles expose it as `engine.modelInfo`. The embeddings fixture shows OpenAI embedding profiles that stack the provider fixture for `openai-api-key`, plus local Ollama embedding profiles with explicit base URLs and dimensions.
+Older fixture files may still exist for lower-level Go tests, but the JavaScript examples above use the hard-cut fixture.
 
-## Run One Script
+## Run the Real Provider Examples
 
 ```bash
-go run ./cmd/examples/geppetto-js-lab \
-  --script examples/js/geppetto/23_runner_profile_run.js \
-  --profile-registries examples/js/geppetto/profiles/10-provider-openai.yaml,examples/js/geppetto/profiles/20-team-agent.yaml,examples/js/geppetto/profiles/30-user-overrides.yaml
+./examples/js/geppetto/run_real_provider_multiturn.sh
 ```
 
-## Run Full Suite
+Override the default Pinocchio registry/profile with:
 
 ```bash
-./examples/js/geppetto/run_profile_registry_examples.sh
+GEPPETTO_PROFILE_REGISTRIES="$HOME/.config/pinocchio/profiles.yaml" \
+GEPPETTO_PROFILE=default \
+GEPPETTO_TIMEOUT_MS=120000 \
+./examples/js/geppetto/run_real_provider_multiturn.sh
 ```
 
-The suite seeds a temporary sqlite profile registry and runs scripts against:
+The wrapper calls:
 
-- the opinionated runner examples,
-- stacked YAML registries,
-- sqlite registry,
-- mixed YAML + sqlite stack,
-- no-profile-registry mode for expected error scripts.
+```bash
+go run ./cmd/examples/geppetto-js-run run \
+  --script examples/js/geppetto/30_real_provider_multiturn.js \
+  --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
+  --profile default \
+  --timeout-ms 120000
+```
+
+Run all EventEmitter + session `runAsync` examples with the smoke wrapper:
+
+```bash
+GEPPETTO_PROFILE_REGISTRIES="$HOME/.config/pinocchio/profiles.yaml" \
+GEPPETTO_PROFILE=default \
+./examples/js/geppetto/run_event_emitter_examples.sh
+```
+
+The wrapper checks for final JSON output rather than requiring `text-delta`, because provider streaming behavior varies.
+
+`34_turn_store_persistence.js` demonstrates the JS API for `gp.turnStores.default()`, `agent.store(store)`, and `agent.session().store(store)`. It requires a host that enables storage and provides a TurnStore implementation; the plain `geppetto-js-run` helper does not open a store itself.
+
+Or run individual EventEmitter + session `runAsync` examples with:
+
+```bash
+go run ./cmd/examples/geppetto-js-run run \
+  --script examples/js/geppetto/31_event_emitter_run_async.js \
+  --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
+  --profile default \
+  --timeout-ms 120000
+
+go run ./cmd/examples/geppetto-js-run run \
+  --script examples/js/geppetto/32_event_emitter_progress_summary.js \
+  --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
+  --profile default \
+  --timeout-ms 120000
+
+go run ./cmd/examples/geppetto-js-run run \
+  --script examples/js/geppetto/33_event_emitter_multiturn_run_async.js \
+  --profile-registries "$HOME/.config/pinocchio/profiles.yaml" \
+  --profile default \
+  --timeout-ms 120000
+```
+
+## Run a Local Example
+
+```bash
+go test ./pkg/js/modules/geppetto -run TestHardCutExamples -count=1 -v
+```
