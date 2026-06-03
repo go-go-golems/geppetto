@@ -65,3 +65,12 @@ Recorded push-time Go 1.26.3 govulncheck failure and bumped Geppetto toolchain t
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/go.mod — Go toolchain directive bumped to go1.26.4 for govulncheck
 - /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/ttmp/2026/06/02/GP-JS-TURNSTORE-2026-06-02--design-javascript-turn-store-persistence-api-and-provider-wiring/reference/01-investigation-diary.md — Step 5 records push-time validation and failures
 
+
+## 2026-06-02
+
+Fixed CI flake in async turn-store persistence test by waiting for both store persistence and Promise resolution before asserting JS state.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-01/geppetto-js/geppetto/pkg/js/modules/geppetto/api_turn_store_test.go — Async persistence regression test now waits for Promise callback completion
+

@@ -24,7 +24,9 @@ RelatedFiles:
     - Path: pkg/js/modules/geppetto/api_turn_store.go
       Note: Implemented Go-owned JS TurnStore wrappers (commit cf09f49e)
     - Path: pkg/js/modules/geppetto/api_turn_store_test.go
-      Note: Turn-store wrapper and persistence regression coverage (commit cf09f49e)
+      Note: |-
+        Turn-store wrapper and persistence regression coverage (commit cf09f49e)
+        Fixes CI race in async persistence test
     - Path: pkg/js/modules/geppetto/provider/provider.go
       Note: Added enableStorage/turns provider config gating (commit cf09f49e)
 ExternalSources: []
@@ -33,6 +35,7 @@ LastUpdated: 2026-06-02T19:30:00-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 
@@ -440,3 +443,61 @@ This step is intentionally recorded because it changed the publish path for the 
 ### Technical details
 - Final Geppetto toolchain directive: `toolchain go1.26.4`.
 - The storage implementation commits remain separate from the toolchain-security commit.
+
+## Step 6: Fix CI async persistence test race
+
+CI for PR #367 failed in `TestAgentRunAsyncPersistsToStore`. The store write had completed, but the JavaScript Promise `.then(...)` callback had not yet run when the test read `globalThis.asyncPersistDone`, so the assertion saw `{"done":false}` even though persistence had already happened.
+
+I tightened the test to wait for both durable store persistence and Promise callback completion before asserting the final JavaScript state. This keeps the test focused on the intended behavior while removing the scheduler race that only appeared on GitHub Actions.
+
+### Prompt Context
+
+**User prompt (verbatim):** "https://github.com/go-go-golems/geppetto/actions/runs/26854058107/job/79192742539?pr=367
+
+fail"
+
+**Assistant interpretation:** Inspect the failing GitHub Actions job for PR #367, identify the failing test, fix it, validate locally, and push the repair.
+
+**Inferred user intent:** Get the PR CI green without weakening the storage/session behavior under test.
+
+**Commit (code):** c418c2a5 — "Fix async turn store test race"
+
+### What I did
+- Read the failed job log with `gh run view 26854058107 --job 79192742539 --log-failed`.
+- Identified the failing assertion in `pkg/js/modules/geppetto/api_turn_store_test.go:254`.
+- Changed the polling loop in `TestAgentRunAsyncPersistsToStore` to wait until `store.count() == 1` and `globalThis.asyncPersistDone === true`.
+- Re-ran the focused async persistence test repeatedly.
+
+### Why
+- `runAsync()` can persist the output turn before the JavaScript Promise continuation has been scheduled back onto the owner runtime.
+- The old test only waited for persistence, then immediately asserted Promise-side JS globals. That made the test sensitive to scheduler timing.
+
+### What worked
+- `go test ./pkg/js/modules/geppetto -run TestAgentRunAsyncPersistsToStore -count=20` passed.
+- `go test ./pkg/js/modules/geppetto -count=1` passed.
+- `go test ./pkg/js/... ./cmd/examples/geppetto-js-run -count=1` passed.
+
+### What didn't work
+- CI failed with:
+  - `--- FAIL: TestAgentRunAsyncPersistsToStore (0.00s)`
+  - `api_turn_store_test.go:254: runAsync state = {"done":false}, want {"done":true,"text":"stored answer"}`
+
+### What I learned
+- Store persistence is not a sufficient proxy for JavaScript Promise callback completion.
+- Async JS tests need to wait on the JS-visible completion signal when they assert JS-visible state.
+
+### What was tricky to build
+- The tricky part was preserving the test's original intent. Waiting only for `asyncPersistDone` could hide persistence failures, while waiting only for `store.count()` caused the CI race. The fix waits for both signals so the assertion remains meaningful.
+
+### What warrants a second pair of eyes
+- Review other `runAsync()` tests for the same pattern: waiting on a Go-side effect before reading Promise-populated JS globals.
+
+### What should be done in the future
+- Consider adding a shared `waitForJSCondition` helper for `jsRuntime` tests, similar to the EventEmitter tests' owner-condition helper.
+
+### Code review instructions
+- Review `pkg/js/modules/geppetto/api_turn_store_test.go:TestAgentRunAsyncPersistsToStore`.
+- Validate with `go test ./pkg/js/modules/geppetto -run TestAgentRunAsyncPersistsToStore -count=20`.
+
+### Technical details
+- The test now polls `globalThis.asyncPersistDone === true` through `mustEvalExprExport(...)`, which runs on the runtime owner and lets queued Promise work make progress between polls.

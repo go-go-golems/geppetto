@@ -240,7 +240,7 @@ func TestAgentRunAsyncPersistsToStore(t *testing.T) {
 	}
 	deadline := time.Now().Add(time.Second)
 	for time.Now().Before(deadline) {
-		if store.count() == 1 {
+		if store.count() == 1 && mustEvalExprExport(t, rt, `globalThis.asyncPersistDone === true`) == true {
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
