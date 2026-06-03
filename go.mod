@@ -1,6 +1,6 @@
 module github.com/go-go-golems/geppetto
 
-go 1.26.1
+go 1.26.3
 
 toolchain go1.26.4
 
@@ -9,9 +9,9 @@ require (
 	github.com/dnaeon/go-vcr v1.2.0
 	github.com/dop251/goja v0.0.0-20251103141225-af2ceb9156d7
 	github.com/dop251/goja_nodejs v0.0.0-20250409162600-f7acab6894b0
-	github.com/go-go-golems/glazed v1.3.5
-	github.com/go-go-golems/go-emrichen v0.0.10
-	github.com/go-go-golems/go-go-goja v0.7.2
+	github.com/go-go-golems/glazed v1.3.6
+	github.com/go-go-golems/go-emrichen v0.0.11
+	github.com/go-go-golems/go-go-goja v0.7.4
 	github.com/go-go-golems/logcopter v0.1.0
 	github.com/go-go-golems/sanitize v0.0.1
 	github.com/google/generative-ai-go v0.20.1
