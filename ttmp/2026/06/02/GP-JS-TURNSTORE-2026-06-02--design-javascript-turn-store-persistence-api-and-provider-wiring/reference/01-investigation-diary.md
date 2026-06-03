@@ -460,7 +460,7 @@ fail"
 
 **Inferred user intent:** Get the PR CI green without weakening the storage/session behavior under test.
 
-**Commit (code):** c418c2a5 — "Fix async turn store test race"
+**Commit (code):** 5acbd867 — "Fix async turn store test race"
 
 ### What I did
 - Read the failed job log with `gh run view 26854058107 --job 79192742539 --log-failed`.
