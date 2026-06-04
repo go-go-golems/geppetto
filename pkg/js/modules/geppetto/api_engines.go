@@ -52,6 +52,9 @@ func ensureInferenceSettingsProviderDefaults(ss *aistepssettings.InferenceSettin
 	if ss == nil || ss.Chat == nil || ss.Chat.ApiType == nil {
 		return
 	}
+	if ss.API == nil {
+		ss.API = aistepssettings.NewAPISettings()
+	}
 	if ss.API.BaseUrls == nil {
 		ss.API.BaseUrls = map[string]string{}
 	}
