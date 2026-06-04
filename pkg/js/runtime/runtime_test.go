@@ -10,19 +10,19 @@ import (
 
 	"github.com/dop251/goja"
 	gp "github.com/go-go-golems/geppetto/pkg/js/modules/geppetto"
-	gojengine "github.com/go-go-golems/go-go-goja/engine"
+	gojengine "github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsevents"
 	"github.com/rs/zerolog"
 )
 
 type runtimeInitFunc struct {
 	id string
-	fn func(ctx *gojengine.RuntimeContext) error
+	fn func(ctx *gojengine.RuntimeInitializationContext) error
 }
 
 func (f runtimeInitFunc) ID() string { return f.id }
 
-func (f runtimeInitFunc) InitRuntime(ctx *gojengine.RuntimeContext) error {
+func (f runtimeInitFunc) InitRuntime(ctx *gojengine.RuntimeInitializationContext) error {
 	if f.fn == nil {
 		return nil
 	}
@@ -95,7 +95,7 @@ func TestNewRuntime_SkipsNilRuntimeInitializers(t *testing.T) {
 			nil,
 			runtimeInitFunc{
 				id: "real-init",
-				fn: func(ctx *gojengine.RuntimeContext) error {
+				fn: func(ctx *gojengine.RuntimeInitializationContext) error {
 					initCalls.Add(1)
 					return ctx.VM.Set("runtimeInitWorked", true)
 				},
@@ -182,7 +182,7 @@ func TestNewRuntime_RegistersGeppettoAndCustomBindings(t *testing.T) {
 		RuntimeInitializers: []gojengine.RuntimeInitializer{
 			runtimeInitFunc{
 				id: "pinocchio-like-bindings",
-				fn: func(ctx *gojengine.RuntimeContext) error {
+				fn: func(ctx *gojengine.RuntimeInitializationContext) error {
 					return ctx.VM.Set("registerSemReducer", func(call goja.FunctionCall) goja.Value {
 						reducerCalls.Add(1)
 						return goja.Undefined()

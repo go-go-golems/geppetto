@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/dop251/goja_nodejs/require"
-	gojengine "github.com/go-go-golems/go-go-goja/engine"
 	ggjmodules "github.com/go-go-golems/go-go-goja/modules"
+	gojengine "github.com/go-go-golems/go-go-goja/pkg/engine"
 )
 
 type ToolDescription struct {
@@ -104,7 +104,7 @@ type EnvironmentManifest struct {
 
 type ModuleRegistrar func(*require.Registry) error
 
-type GlobalBinding func(ctx *gojengine.RuntimeContext) error
+type GlobalBinding func(ctx *gojengine.RuntimeInitializationContext) error
 
 type moduleEntry struct {
 	name     string

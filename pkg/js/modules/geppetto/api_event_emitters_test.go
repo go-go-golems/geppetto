@@ -12,13 +12,13 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	inferenceengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/turns"
-	gojengine "github.com/go-go-golems/go-go-goja/engine"
+	gojengine "github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsevents"
 )
 
 func newJSEventEmitterTestRuntime(t *testing.T) (*gojengine.Runtime, *moduleRuntime) {
 	t.Helper()
-	factory, err := gojengine.NewBuilder(
+	factory, err := gojengine.NewRuntimeFactoryBuilder(
 		gojengine.WithDataOnlyDefaultRegistryModules(true),
 	).
 		UseModuleMiddleware(gojengine.Pipeline()).
@@ -137,7 +137,7 @@ type geppettoEventTestModuleSpec struct {
 
 func (s geppettoEventTestModuleSpec) ID() string { return "geppetto" }
 
-func (s geppettoEventTestModuleSpec) RegisterRuntimeModule(ctx *gojengine.RuntimeModuleContext, reg *require.Registry) error {
+func (s geppettoEventTestModuleSpec) RegisterRuntimeModule(ctx *gojengine.RuntimeModuleRegistrationContext, reg *require.Registry) error {
 	opts := s.opts
 	opts.RuntimeOwner = ctx.Owner
 	opts.EventEmitterManagerResolver = func() (*jsevents.Manager, bool) {
@@ -154,7 +154,7 @@ func (s geppettoEventTestModuleSpec) RegisterRuntimeModule(ctx *gojengine.Runtim
 
 func newGeppettoEventRuntime(t *testing.T) *gojengine.Runtime {
 	t.Helper()
-	factory, err := gojengine.NewBuilder(
+	factory, err := gojengine.NewRuntimeFactoryBuilder(
 		gojengine.WithDataOnlyDefaultRegistryModules(true),
 	).
 		UseModuleMiddleware(gojengine.Pipeline()).

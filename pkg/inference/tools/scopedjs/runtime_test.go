@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
-	gojengine "github.com/go-go-golems/go-go-goja/engine"
 	ggjmodules "github.com/go-go-golems/go-go-goja/modules"
+	gojengine "github.com/go-go-golems/go-go-goja/pkg/engine"
 )
 
 type mathModule struct{}
@@ -39,7 +39,7 @@ func TestBuildRuntimeLoadsGlobalsAndBootstrap(t *testing.T) {
 			if err := b.AddNativeModule(mathModule{}); err != nil {
 				return "", err
 			}
-			if err := b.AddGlobal("db", func(ctx *gojengine.RuntimeContext) error {
+			if err := b.AddGlobal("db", func(ctx *gojengine.RuntimeInitializationContext) error {
 				obj := ctx.VM.NewObject()
 				if err := obj.Set("answer", 42); err != nil {
 					return err
