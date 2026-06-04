@@ -22,6 +22,8 @@ const configSectionSlug = "geppetto"
 type Config struct {
 	DefaultProfileRegistries []string `json:"defaultProfileRegistries,omitempty"`
 	DefaultProfile           string   `json:"defaultProfile,omitempty"`
+	TurnsDSN                 string   `json:"turnsDSN,omitempty"`
+	TurnsDB                  string   `json:"turnsDB,omitempty"`
 }
 
 type HostServices interface {
@@ -38,7 +40,9 @@ var configSchema = json.RawMessage(`{
         {"type": "array", "items": {"type": "string"}}
       ]
     },
-    "defaultProfile": {"type": "string", "description": "Default engine profile slug for gp.inferenceProfiles.resolve() when no profile is supplied."}
+    "defaultProfile": {"type": "string", "description": "Default engine profile slug for gp.inferenceProfiles.resolve() when no profile is supplied."},
+    "turnsDSN": {"type": "string", "description": "SQLite DSN for the default gp.turnStores.default() store; preferred over turnsDB."},
+    "turnsDB": {"type": "string", "description": "SQLite database path for the default gp.turnStores.default() store."}
   },
   "additionalProperties": false
 }`)
@@ -56,15 +60,17 @@ func Register(registry *providerapi.ProviderRegistry) error {
 				if err != nil {
 					return nil, fmt.Errorf("geppetto provider config: %w", err)
 				}
-				host, ok := ctx.Host.(HostServices)
-				if !ok || host == nil {
-					return nil, fmt.Errorf("geppetto provider requires geppetto provider HostServices")
-				}
-				opts, err := host.GeppettoOptions(ctx.Context, cfg)
-				if err != nil {
-					return nil, fmt.Errorf("geppetto provider host options: %w", err)
+				opts := geppettomodule.Options{}
+				if host, ok := ctx.Host.(HostServices); ok && host != nil {
+					opts, err = host.GeppettoOptions(ctx.Context, cfg)
+					if err != nil {
+						return nil, fmt.Errorf("geppetto provider host options: %w", err)
+					}
 				}
 				if err := applyConfigRegistryOptions(ctx.Context, cfg, &opts); err != nil {
+					return nil, err
+				}
+				if err := applyConfigTurnStoreOptions(cfg, &opts); err != nil {
 					return nil, err
 				}
 				return geppettomodule.NewLoader(opts), nil
@@ -146,16 +152,35 @@ func applyConfigRegistryOptions(ctx context.Context, cfg Config, opts *geppettom
 	return nil
 }
 
+func applyConfigTurnStoreOptions(cfg Config, opts *geppettomodule.Options) error {
+	if opts == nil || (strings.TrimSpace(cfg.TurnsDSN) == "" && strings.TrimSpace(cfg.TurnsDB) == "") {
+		return nil
+	}
+	store, err := openSQLiteTurnStore(cfg.TurnsDSN, cfg.TurnsDB)
+	if err != nil {
+		return err
+	}
+	opts.EnableStorage = true
+	opts.DefaultTurnStore = store
+	opts.DefaultPersister = store
+	if opts.TurnStores == nil {
+		opts.TurnStores = map[string]geppettomodule.TurnStore{}
+	}
+	opts.TurnStores["default"] = store
+	return nil
+}
+
 type capability struct{}
 
 func (capability) CapabilityID() string { return "geppetto-config" }
 
 func (capability) GlazedConfigSections(providerapi.SectionRequest) ([]schema.Section, error) {
 	section, err := schema.NewSection(configSectionSlug, "Geppetto",
-		schema.WithPrefix("geppetto-"),
 		schema.WithFields(
-			fields.New("default-profile-registries", fields.TypeStringList, fields.WithHelp("Default Geppetto profile registry sources for this module instance")),
-			fields.New("default-profile", fields.TypeString, fields.WithHelp("Default Geppetto engine profile slug for this module instance")),
+			fields.New("profile-registries", fields.TypeStringList, fields.WithHelp("Default Geppetto profile registry sources for this module instance")),
+			fields.New("profile", fields.TypeString, fields.WithHelp("Default Geppetto engine profile slug for this module instance")),
+			fields.New("turns-dsn", fields.TypeString, fields.WithHelp("SQLite DSN for the default Geppetto turn store")),
+			fields.New("turns-db", fields.TypeString, fields.WithHelp("SQLite DB file path for the default Geppetto turn store")),
 		),
 	)
 	if err != nil {
@@ -176,10 +201,16 @@ func (capability) XGojaConfigFromGlazed(_ context.Context, req providerapi.XGoja
 	if req.GlazedValues == nil {
 		return out, nil
 	}
-	if err := copyGlazedField(req.GlazedValues, out, "default-profile-registries", "defaultProfileRegistries"); err != nil {
+	if err := copyGlazedField(req.GlazedValues, out, "profile-registries", "defaultProfileRegistries"); err != nil {
 		return nil, err
 	}
-	if err := copyGlazedField(req.GlazedValues, out, "default-profile", "defaultProfile"); err != nil {
+	if err := copyGlazedField(req.GlazedValues, out, "profile", "defaultProfile"); err != nil {
+		return nil, err
+	}
+	if err := copyGlazedField(req.GlazedValues, out, "turns-dsn", "turnsDSN"); err != nil {
+		return nil, err
+	}
+	if err := copyGlazedField(req.GlazedValues, out, "turns-db", "turnsDB"); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -190,6 +221,8 @@ func xgojaConfigSection() (schema.Section, error) {
 		schema.WithFields(
 			fields.New("defaultProfileRegistries", fields.TypeStringList),
 			fields.New("defaultProfile", fields.TypeString),
+			fields.New("turnsDSN", fields.TypeString),
+			fields.New("turnsDB", fields.TypeString),
 		),
 	)
 }

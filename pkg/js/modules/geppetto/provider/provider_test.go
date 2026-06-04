@@ -16,16 +16,15 @@ import (
 	inferenceengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	geppettomodule "github.com/go-go-golems/geppetto/pkg/js/modules/geppetto"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	gojengine "github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsevents"
 	"github.com/go-go-golems/go-go-goja/pkg/xgoja/providerapi"
 )
 
 type fakeHost struct {
-	seen        Config
-	opts        geppettomodule.Options
-	storage     geppettomodule.StorageOptions
-	storageSeen bool
+	seen Config
+	opts geppettomodule.Options
 }
 
 func (h *fakeHost) GeppettoOptions(_ context.Context, cfg Config) (geppettomodule.Options, error) {
@@ -33,28 +32,9 @@ func (h *fakeHost) GeppettoOptions(_ context.Context, cfg Config) (geppettomodul
 	return h.opts, nil
 }
 
-func (h *fakeHost) GeppettoTurnStores(_ context.Context, cfg Config) (geppettomodule.StorageOptions, error) {
-	h.seen = cfg
-	h.storageSeen = true
-	return h.storage, nil
-}
-
 func (h *fakeHost) AssetResolver() providerapi.AssetResolver {
 	return nil
 }
-
-type providerRecordingStore struct{}
-
-var _ geppettomodule.TurnStore = (*providerRecordingStore)(nil)
-
-func (s *providerRecordingStore) PersistTurn(context.Context, *turns.Turn) error { return nil }
-func (s *providerRecordingStore) ListTurns(context.Context, geppettomodule.TurnStoreQuery) ([]geppettomodule.TurnStoreSnapshot, error) {
-	return nil, nil
-}
-func (s *providerRecordingStore) LoadLatestTurn(context.Context, geppettomodule.TurnStoreQuery) (*geppettomodule.TurnStoreSnapshot, error) {
-	return nil, nil
-}
-func (s *providerRecordingStore) Close() error { return nil }
 
 func TestRegisterProvider(t *testing.T) {
 	registry := providerapi.NewProviderRegistry()
@@ -70,10 +50,14 @@ func TestRegisterProvider(t *testing.T) {
 	}
 }
 
-func TestProviderRequiresHostServices(t *testing.T) {
+func TestProviderWorksWithoutHostServices(t *testing.T) {
 	mod := resolveModule(t)
-	if _, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{}); err == nil {
-		t.Fatalf("expected missing host services error")
+	loader, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{})
+	if err != nil {
+		t.Fatalf("expected provider to work without host services: %v", err)
+	}
+	if loader == nil {
+		t.Fatalf("loader is nil")
 	}
 }
 
@@ -172,8 +156,91 @@ func TestProviderIgnoresRemovedLegacyStorageFields(t *testing.T) {
 	if loader == nil {
 		t.Fatalf("loader is nil")
 	}
-	if host.storageSeen {
-		t.Fatalf("storage host should not be invoked by provider config")
+}
+
+func TestProviderMapsGlazedFlagsToXGojaConfig(t *testing.T) {
+	cap := capability{}
+	sections, err := cap.GlazedConfigSections(providerapi.SectionRequest{})
+	if err != nil {
+		t.Fatalf("GlazedConfigSections failed: %v", err)
+	}
+	if len(sections) != 1 {
+		t.Fatalf("sections = %d, want 1", len(sections))
+	}
+	if sections[0].GetPrefix() != "" {
+		t.Fatalf("geppetto public flags should be unprefixed, got prefix %q", sections[0].GetPrefix())
+	}
+	glazedSection, err := values.NewSectionValues(sections[0],
+		values.WithFieldValue("profile-registries", []string{"profiles.yaml"}),
+		values.WithFieldValue("profile", "assistant"),
+		values.WithFieldValue("turns-db", "/tmp/turns.db"),
+	)
+	if err != nil {
+		t.Fatalf("NewSectionValues failed: %v", err)
+	}
+	configSection, err := xgojaConfigSection()
+	if err != nil {
+		t.Fatalf("xgojaConfigSection failed: %v", err)
+	}
+	out, err := cap.XGojaConfigFromGlazed(context.Background(), providerapi.XGojaConfigRequest{
+		ConfigSection: configSection,
+		GlazedValues:  values.New(values.WithSectionValues(configSectionSlug, glazedSection)),
+	})
+	if err != nil {
+		t.Fatalf("XGojaConfigFromGlazed failed: %v", err)
+	}
+	assertSectionField(t, out, "defaultProfile", "assistant")
+	assertSectionField(t, out, "turnsDB", "/tmp/turns.db")
+	registries, ok := out.GetField("defaultProfileRegistries")
+	if !ok {
+		t.Fatalf("defaultProfileRegistries missing")
+	}
+	entries, ok := registries.([]string)
+	if !ok || len(entries) != 1 || entries[0] != "profiles.yaml" {
+		t.Fatalf("defaultProfileRegistries = %#v", registries)
+	}
+}
+
+func TestSQLiteTurnStorePersistsAndReadsTurns(t *testing.T) {
+	store, err := openSQLiteTurnStore("", filepath.Join(t.TempDir(), "turns.db"))
+	if err != nil {
+		t.Fatalf("openSQLiteTurnStore failed: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+
+	turn := &turns.Turn{ID: "turn-a"}
+	if err := turns.KeyTurnMetaSessionID.Set(&turn.Metadata, "session-a"); err != nil {
+		t.Fatalf("set session id: %v", err)
+	}
+	turns.AppendBlock(turn, turns.NewUserTextBlock("hello"))
+	turns.AppendBlock(turn, turns.NewAssistantTextBlock("stored"))
+	if err := store.PersistTurn(context.Background(), turn); err != nil {
+		t.Fatalf("PersistTurn failed: %v", err)
+	}
+	listed, err := store.ListTurns(context.Background(), geppettomodule.TurnStoreQuery{SessionID: "session-a", Phase: "final"})
+	if err != nil {
+		t.Fatalf("ListTurns failed: %v", err)
+	}
+	if len(listed) != 1 {
+		t.Fatalf("listed = %d, want 1", len(listed))
+	}
+	latest, err := store.LoadLatestTurn(context.Background(), geppettomodule.TurnStoreQuery{SessionID: "session-a", Phase: "final"})
+	if err != nil {
+		t.Fatalf("LoadLatestTurn failed: %v", err)
+	}
+	if latest == nil || latest.Turn == nil || latest.SessionID != "session-a" || latest.TurnID != "turn-a" {
+		t.Fatalf("unexpected latest: %#v", latest)
+	}
+}
+
+func assertSectionField(t *testing.T, sectionValues *values.SectionValues, key string, want any) {
+	t.Helper()
+	got, ok := sectionValues.GetField(key)
+	if !ok {
+		t.Fatalf("%s missing", key)
+	}
+	if got != want {
+		t.Fatalf("%s = %#v, want %#v", key, got, want)
 	}
 }
 
