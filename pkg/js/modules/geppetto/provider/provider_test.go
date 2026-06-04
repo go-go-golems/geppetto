@@ -201,6 +201,32 @@ func TestProviderMapsGlazedFlagsToXGojaConfig(t *testing.T) {
 	}
 }
 
+func TestProviderRegistersSQLiteTurnStoreCloser(t *testing.T) {
+	mod := resolveModule(t)
+	closers := []func(context.Context) error{}
+	_, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{
+		Context: context.Background(),
+		Name:    geppettomodule.ModuleName,
+		As:      geppettomodule.ModuleName,
+		Config: json.RawMessage(`{
+			"turnsDB": ` + strconv.Quote(filepath.Join(t.TempDir(), "turns.db")) + `
+		}`),
+		AddCloser: func(fn func(context.Context) error) error {
+			closers = append(closers, fn)
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewModuleFactory: %v", err)
+	}
+	if len(closers) != 1 {
+		t.Fatalf("closers = %d, want 1", len(closers))
+	}
+	if err := closers[0](context.Background()); err != nil {
+		t.Fatalf("closer: %v", err)
+	}
+}
+
 func TestSQLiteTurnStorePersistsAndReadsTurns(t *testing.T) {
 	store, err := openSQLiteTurnStore("", filepath.Join(t.TempDir(), "turns.db"))
 	if err != nil {

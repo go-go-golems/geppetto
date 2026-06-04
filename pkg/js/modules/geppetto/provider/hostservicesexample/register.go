@@ -74,6 +74,10 @@ func (capability) ContributeHostServices(ctx context.Context, req providerapi.Ho
 			return err
 		}
 		contribution.DefaultEventSinks = append(contribution.DefaultEventSinks, eventSink)
+		if err := sink.AddCloser(func(context.Context) error { return eventSink.Close() }); err != nil {
+			_ = eventSink.Close()
+			return fmt.Errorf("register event log closer: %w", err)
+		}
 	}
 	return sink.AddHostService(geppettoprovider.HostOptionsServiceKey, contribution)
 }

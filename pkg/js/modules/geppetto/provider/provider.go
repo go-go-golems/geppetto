@@ -73,7 +73,7 @@ func Register(registry *providerapi.ProviderRegistry) error {
 				if err := applyConfigRegistryOptions(ctx.Context, cfg, &opts); err != nil {
 					return nil, err
 				}
-				if err := applyConfigTurnStoreOptions(cfg, &opts); err != nil {
+				if err := applyConfigTurnStoreOptions(cfg, &opts, ctx.AddCloser); err != nil {
 					return nil, err
 				}
 				return geppettomodule.NewLoader(opts), nil
@@ -155,13 +155,19 @@ func applyConfigRegistryOptions(ctx context.Context, cfg Config, opts *geppettom
 	return nil
 }
 
-func applyConfigTurnStoreOptions(cfg Config, opts *geppettomodule.Options) error {
+func applyConfigTurnStoreOptions(cfg Config, opts *geppettomodule.Options, addCloser func(func(context.Context) error) error) error {
 	if opts == nil || (strings.TrimSpace(cfg.TurnsDSN) == "" && strings.TrimSpace(cfg.TurnsDB) == "") {
 		return nil
 	}
 	store, err := openSQLiteTurnStore(cfg.TurnsDSN, cfg.TurnsDB)
 	if err != nil {
 		return err
+	}
+	if addCloser != nil {
+		if err := addCloser(func(context.Context) error { return store.Close() }); err != nil {
+			_ = store.Close()
+			return fmt.Errorf("geppetto provider register turns sqlite closer: %w", err)
+		}
 	}
 	opts.EnableStorage = true
 	opts.DefaultTurnStore = store
