@@ -123,6 +123,8 @@ topics:
       description: Timeline/sessionstream UI hydration storage and event history.
     - slug: sessions
       description: Session lifecycle abstractions for multi-turn interactions
+    - slug: providers
+      description: Provider-specific inference engine implementations and API integration behavior
 docTypes:
     - slug: index
       description: Ticket index
