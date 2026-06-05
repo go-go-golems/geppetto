@@ -113,35 +113,23 @@ func (s *sqliteTurnStore) ListTurns(ctx context.Context, q geppettomodule.TurnSt
 	if s == nil || s.db == nil {
 		return nil, fmt.Errorf("geppetto provider turns sqlite store is nil")
 	}
-	where := []string{"1=1"}
-	args := []any{}
-	if convID := strings.TrimSpace(q.ConvID); convID != "" {
-		where = append(where, "conv_id = ?")
-		args = append(args, convID)
-	}
-	if sessionID := strings.TrimSpace(q.SessionID); sessionID != "" {
-		where = append(where, "session_id = ?")
-		args = append(args, sessionID)
-	}
-	if phase := strings.TrimSpace(q.Phase); phase != "" {
-		where = append(where, "phase = ?")
-		args = append(args, phase)
-	}
-	if q.SinceMs > 0 {
-		where = append(where, "created_at_ms >= ?")
-		args = append(args, q.SinceMs)
-	}
+	convID := strings.TrimSpace(q.ConvID)
+	sessionID := strings.TrimSpace(q.SessionID)
+	phase := strings.TrimSpace(q.Phase)
+	sinceMs := q.SinceMs
 	limit := q.Limit
 	if limit <= 0 {
 		limit = 100
 	}
-	args = append(args, limit)
 	rows, err := s.db.QueryContext(ctx, `
 SELECT conv_id, session_id, turn_id, phase, runtime_key, inference_id, created_at_ms, payload
 FROM geppetto_turns
-WHERE `+strings.Join(where, " AND ")+`
+WHERE (? = '' OR conv_id = ?)
+  AND (? = '' OR session_id = ?)
+  AND (? = '' OR phase = ?)
+  AND (? <= 0 OR created_at_ms >= ?)
 ORDER BY created_at_ms DESC
-LIMIT ?`, args...)
+LIMIT ?`, convID, convID, sessionID, sessionID, phase, phase, sinceMs, sinceMs, limit)
 	if err != nil {
 		return nil, fmt.Errorf("geppetto provider turns sqlite store list turns: %w", err)
 	}
