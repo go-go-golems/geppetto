@@ -1,0 +1,1 @@
+{"id":"chatcmpl_proxy_1780686735071800362","object":"chat.completion","created":1780686735,"model":"gemini-3-flash-preview","choices":[{"index":0,"message":{"role":"assistant","content":"image smoke ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1102,"completion_tokens":3,"total_tokens":1105}}

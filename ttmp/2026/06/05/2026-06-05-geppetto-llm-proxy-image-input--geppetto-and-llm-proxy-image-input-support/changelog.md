@@ -83,3 +83,15 @@ Step 7: implement Gemini modern InlineData image mapping with fixture tests
 - /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/gemini/modern_adapter_test.go — Gemini image tests
 - /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/reference/01-investigation-diary.md — Step 7 diary
 
+
+## 2026-06-05
+
+Step 8: add direct Geppetto and llm-proxy image smoke scripts; gemini-3-flash-preview image smokes pass
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/02-geppetto-image-smoke/main.go — Direct smoke script
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/03-llm-proxy-image-smoke.py — Proxy smoke script
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/artifacts/geppetto-image-gemini-3-flash-preview-summary.json — Direct smoke result
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/artifacts/llm-proxy-image-smoke-summary.json — Proxy smoke result
+

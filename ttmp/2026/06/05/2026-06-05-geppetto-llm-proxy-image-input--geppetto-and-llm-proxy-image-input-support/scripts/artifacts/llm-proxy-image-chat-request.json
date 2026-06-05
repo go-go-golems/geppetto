@@ -1,0 +1,22 @@
+{
+  "model": "gemini-3-flash-preview",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "You are given an image. Reply exactly: image smoke ok"
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+            "detail": "low"
+          }
+        }
+      ]
+    }
+  ],
+  "max_tokens": 32
+}

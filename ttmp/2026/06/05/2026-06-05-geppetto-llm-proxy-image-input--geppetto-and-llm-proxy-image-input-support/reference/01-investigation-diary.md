@@ -46,6 +46,14 @@ RelatedFiles:
       Note: |-
         Line anchors gathered in Step 1
         Step 2 renamed/frontmattered evidence artifact for doctor
+    - Path: ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/02-geppetto-image-smoke/main.go
+      Note: Step 8 direct Geppetto image smoke
+    - Path: ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/03-llm-proxy-image-smoke.py
+      Note: Step 8 llm-proxy image smoke
+    - Path: ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/artifacts/geppetto-image-gemini-3-flash-preview-summary.json
+      Note: Step 8 direct Gemini image smoke passed
+    - Path: ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/artifacts/llm-proxy-image-smoke-summary.json
+      Note: Step 8 proxy Gemini image smoke passed
     - Path: ttmp/vocabulary.yaml
       Note: Step 2 added llm-proxy and multimodal topics
 ExternalSources: []
@@ -54,6 +62,7 @@ LastUpdated: 2026-06-05T18:05:00-04:00
 WhatFor: Use to resume image-input implementation planning with context on evidence gathered, documents written, and upload status.
 WhenToUse: Read before implementing multimodal image input in llm-proxy or Geppetto provider adapters.
 ---
+
 
 
 
@@ -721,4 +730,125 @@ Supported Gemini mappings after this step:
 data URL / inline bytes -> Part.InlineData Blob
 file_uri + media_type   -> Part.FileData
 generic URL             -> explicit error
+```
+
+## Step 8: Add and run image smoke scripts
+
+This step added live smoke coverage for the image-input path and archived the evidence in the ticket. I added a direct Geppetto smoke for Gemini image input and a proxy smoke that sends an OpenAI-compatible Chat content array through `llm-proxy` into the Gemini profile.
+
+Both smoke tests passed with `gemini-3-flash-preview`. The direct Geppetto smoke proves the provider adapter can send a data URL image as Gemini inline data. The proxy smoke proves the new `llm-proxy` parser accepts `messages[].content` arrays, maps them into a Geppetto multimodal user block, and receives a normal OpenAI-compatible Chat response.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 3)
+
+**Assistant interpretation:** Finish the implementation sequence with image smoke scripts and validation artifacts.
+
+**Inferred user intent:** Avoid stopping at fixture tests; prove the cross-repo image path works with a live provider and archived evidence.
+
+### What I did
+
+- Added direct Geppetto image smoke:
+  - `scripts/02-geppetto-image-smoke/main.go`
+- Added proxy image smoke:
+  - `scripts/03-llm-proxy-image-smoke.py`
+- Ran direct Geppetto image smoke with profile `gemini-3-flash-preview`.
+- Ran `llm-proxy` image smoke with profile `gemini-3-flash-preview`.
+- Archived artifacts under:
+  - `scripts/artifacts/`
+- Ran a secret scan over the new image smoke scripts/artifacts.
+- Ran focused Geppetto provider tests and full `llm-proxy` tests.
+
+### Why
+
+- The ticket requires direct provider validation before proxy validation.
+- The new behavior crosses two repos and a live provider, so fixture tests alone are not enough evidence.
+
+### What worked
+
+- Direct Geppetto image smoke passed:
+
+```text
+OK: image smoke on gemini-3-flash-preview
+summary: scripts/artifacts/geppetto-image-gemini-3-flash-preview-summary.json
+```
+
+- Proxy image smoke passed:
+
+```json
+{
+  "profile": "gemini-3-flash-preview",
+  "ok": true,
+  "http_status": 200,
+  "finish_reason": "stop",
+  "content": "image smoke ok"
+}
+```
+
+- Validation passed:
+
+```bash
+go test ./pkg/steps/ai/gemini ./pkg/steps/ai/imageparts ./pkg/steps/ai/openai ./pkg/steps/ai/openai_responses ./pkg/steps/ai/claude -count=1
+cd ../llm-proxy && go test ./... -count=1
+```
+
+- Secret scan over image smoke scripts/artifacts found no API key patterns.
+
+### What didn't work
+
+- The first direct smoke run failed before reaching the provider because the default profile registry list included two files with the same registry slug:
+
+```text
+duplicate registry slug "default" across profile registry sources
+```
+
+- I fixed the direct image smoke script to use the first existing profile registry path, matching the earlier Gemini smoke runner behavior.
+
+- The first commit attempt failed during the Geppetto pre-commit `go test ./...` run because `go vet` rejected converting `BlockKind` directly to `string`:
+
+```text
+conversion from BlockKind (int) to string yields a string of one rune, not a string of digits
+```
+
+- I fixed the smoke summary helper to use `b.Kind.String()` and reran the direct smoke plus the smoke package test.
+
+### What I learned
+
+- The full path now works: OpenAI-compatible image content array → `llm-proxy` parser → Geppetto multimodal turn → Gemini `InlineData` → provider response.
+- Gemini image prompts can have substantial input token counts even for a tiny image; the direct smoke reported `input_tokens: 1102` and `thoughts_token_count: 111`.
+
+### What was tricky to build
+
+- The direct script had to avoid raw provider-key environment reads and use profile registries, but multiple profile registry files can exist locally. Selecting the first existing registry avoids duplicate slug failures.
+- The proxy script had to allocate an ephemeral local port so stale servers do not produce false-positive health checks.
+
+### What warrants a second pair of eyes
+
+- Review whether the smoke scripts should support non-Gemini profiles immediately or remain focused on the newly implemented Gemini image path.
+- Review whether large data URLs should be redacted or summarized in future artifacts if bigger image fixtures are used.
+
+### What should be done in the future
+
+- Add smoke cases for OpenAI Responses, OpenAI Chat, and Claude when suitable live vision profiles are available.
+- Consider adding a small committed image fixture instead of embedding the tiny PNG data URL in both scripts.
+
+### Code review instructions
+
+- Review `scripts/02-geppetto-image-smoke/main.go` first for direct provider behavior.
+- Review `scripts/03-llm-proxy-image-smoke.py` for OpenAI-compatible proxy behavior.
+- Validate with the commands in `What worked`.
+
+### Technical details
+
+Artifacts created:
+
+```text
+scripts/artifacts/geppetto-image-gemini-3-flash-preview-summary.json
+scripts/artifacts/geppetto-image-gemini-3-flash-preview-events.ndjson
+scripts/artifacts/geppetto-image-gemini-3-flash-preview-turn.yaml
+scripts/artifacts/geppetto-image-gemini-3-flash-preview-inference-result.json
+scripts/artifacts/llm-proxy-image-smoke-summary.json
+scripts/artifacts/llm-proxy-image-chat-request.json
+scripts/artifacts/llm-proxy-image-chat-response.json
+scripts/artifacts/llm-proxy-image-server.log
 ```
