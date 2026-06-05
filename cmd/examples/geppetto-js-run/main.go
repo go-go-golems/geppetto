@@ -17,7 +17,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
-	gojengine "github.com/go-go-golems/go-go-goja/engine"
+	gojengine "github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )

@@ -8,8 +8,8 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
-	gojengine "github.com/go-go-golems/go-go-goja/engine"
 	ggjmodules "github.com/go-go-golems/go-go-goja/modules"
+	gojengine "github.com/go-go-golems/go-go-goja/pkg/engine"
 )
 
 type registeredModuleSpec struct {
@@ -21,7 +21,7 @@ func (s registeredModuleSpec) ID() string {
 	return s.id
 }
 
-func (s registeredModuleSpec) RegisterRuntimeModule(_ *gojengine.RuntimeModuleContext, reg *require.Registry) error {
+func (s registeredModuleSpec) RegisterRuntimeModule(_ *gojengine.RuntimeModuleRegistrationContext, reg *require.Registry) error {
 	if reg == nil {
 		return fmt.Errorf("require registry is nil")
 	}
@@ -33,14 +33,14 @@ func (s registeredModuleSpec) RegisterRuntimeModule(_ *gojengine.RuntimeModuleCo
 
 type runtimeInitFunc struct {
 	id string
-	fn func(ctx *gojengine.RuntimeContext) error
+	fn func(ctx *gojengine.RuntimeInitializationContext) error
 }
 
 func (f runtimeInitFunc) ID() string {
 	return f.id
 }
 
-func (f runtimeInitFunc) InitRuntime(ctx *gojengine.RuntimeContext) error {
+func (f runtimeInitFunc) InitRuntime(ctx *gojengine.RuntimeInitializationContext) error {
 	if f.fn == nil {
 		return nil
 	}
@@ -61,7 +61,7 @@ func BuildRuntime[Scope any, Meta any](ctx context.Context, spec EnvironmentSpec
 		return nil, fmt.Errorf("configure runtime %q: %w", spec.RuntimeLabel, err)
 	}
 
-	engineBuilder := gojengine.NewBuilder()
+	engineBuilder := gojengine.NewRuntimeFactoryBuilder()
 	if len(builder.modules) > 0 || len(builder.nativeModules) > 0 {
 		engineBuilder = engineBuilder.WithModules(builder.moduleSpecs()...)
 	}
@@ -93,8 +93,8 @@ func BuildRuntime[Scope any, Meta any](ctx context.Context, spec EnvironmentSpec
 	}, nil
 }
 
-func (b *Builder) moduleSpecs() []gojengine.RuntimeModuleSpec {
-	specs := make([]gojengine.RuntimeModuleSpec, 0, len(b.modules)+len(b.nativeModules))
+func (b *Builder) moduleSpecs() []gojengine.RuntimeModuleRegistrar {
+	specs := make([]gojengine.RuntimeModuleRegistrar, 0, len(b.modules)+len(b.nativeModules))
 	for _, mod := range b.modules {
 		specs = append(specs, registeredModuleSpec{
 			id:       "module:" + mod.name,
@@ -105,7 +105,7 @@ func (b *Builder) moduleSpecs() []gojengine.RuntimeModuleSpec {
 		if mod == nil {
 			continue
 		}
-		specs = append(specs, gojengine.NativeModuleSpec{
+		specs = append(specs, gojengine.NativeModuleRegistrar{
 			ModuleID:   "native:" + strings.TrimSpace(mod.Name()),
 			ModuleName: strings.TrimSpace(mod.Name()),
 			Loader:     mod.Loader,
@@ -120,7 +120,7 @@ func (b *Builder) runtimeInitializers() []gojengine.RuntimeInitializer {
 		global_ := global
 		ret = append(ret, runtimeInitFunc{
 			id: "global:" + global_.name,
-			fn: func(ctx *gojengine.RuntimeContext) error {
+			fn: func(ctx *gojengine.RuntimeInitializationContext) error {
 				return global_.bind(ctx)
 			},
 		})

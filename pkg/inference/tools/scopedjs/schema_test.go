@@ -7,8 +7,8 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
-	gojengine "github.com/go-go-golems/go-go-goja/engine"
 	ggjmodules "github.com/go-go-golems/go-go-goja/modules"
+	gojengine "github.com/go-go-golems/go-go-goja/pkg/engine"
 )
 
 type testNativeModule struct{}
@@ -23,7 +23,7 @@ type testRuntimeInitializer struct{}
 
 func (testRuntimeInitializer) ID() string { return "test-init" }
 
-func (testRuntimeInitializer) InitRuntime(*gojengine.RuntimeContext) error { return nil }
+func (testRuntimeInitializer) InitRuntime(*gojengine.RuntimeInitializationContext) error { return nil }
 
 var _ ggjmodules.NativeModule = (*testNativeModule)(nil)
 
@@ -96,7 +96,7 @@ func TestBuilderValidationAndManifest(t *testing.T) {
 	if err := b.AddNativeModule(testNativeModule{}); err != nil {
 		t.Fatalf("AddNativeModule failed: %v", err)
 	}
-	if err := b.AddGlobal("db", func(*gojengine.RuntimeContext) error { return nil }, GlobalDoc{
+	if err := b.AddGlobal("db", func(*gojengine.RuntimeInitializationContext) error { return nil }, GlobalDoc{
 		Type:        "DatabaseClient",
 		Description: "Scoped DB handle",
 	}); err != nil {

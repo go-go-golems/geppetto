@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	gojengine "github.com/go-go-golems/go-go-goja/engine"
 	ggjmodules "github.com/go-go-golems/go-go-goja/modules"
+	gojengine "github.com/go-go-golems/go-go-goja/pkg/engine"
 )
 
 func (b *Builder) AddModule(name string, register ModuleRegistrar, doc ModuleDoc) error {

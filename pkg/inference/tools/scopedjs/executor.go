@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	gojengine "github.com/go-go-golems/go-go-goja/engine"
+	gojengine "github.com/go-go-golems/go-go-goja/pkg/engine"
 )
 
 type RuntimeExecutor struct {

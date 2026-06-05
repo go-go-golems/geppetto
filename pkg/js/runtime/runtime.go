@@ -6,7 +6,7 @@ import (
 
 	"github.com/dop251/goja_nodejs/require"
 	gp "github.com/go-go-golems/geppetto/pkg/js/modules/geppetto"
-	gojengine "github.com/go-go-golems/go-go-goja/engine"
+	gojengine "github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsevents"
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
@@ -36,7 +36,7 @@ type geppettoModuleSpec struct {
 
 func (s geppettoModuleSpec) ID() string { return "geppetto" }
 
-func (s geppettoModuleSpec) RegisterRuntimeModule(ctx *gojengine.RuntimeModuleContext, reg *require.Registry) error {
+func (s geppettoModuleSpec) RegisterRuntimeModule(ctx *gojengine.RuntimeModuleRegistrationContext, reg *require.Registry) error {
 	if ctx == nil {
 		return fmt.Errorf("runtime module context is nil")
 	}
@@ -66,7 +66,7 @@ func NewRuntime(ctx context.Context, opts Options) (*gojengine.Runtime, error) {
 	if len(opts.RequireOptions) > 0 {
 		builderOpts = append(builderOpts, gojengine.WithRequireOptions(opts.RequireOptions...))
 	}
-	builder := gojengine.NewBuilder(builderOpts...).WithModules(geppettoModuleSpec{opts: opts.ModuleOptions})
+	builder := gojengine.NewRuntimeFactoryBuilder(builderOpts...).WithModules(geppettoModuleSpec{opts: opts.ModuleOptions})
 	if opts.IncludeDefaultModules {
 		builder = builder.UseModuleMiddleware(gojengine.Pipeline())
 	}

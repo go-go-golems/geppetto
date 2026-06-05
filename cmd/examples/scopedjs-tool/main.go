@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	gojengine "github.com/go-go-golems/go-go-goja/engine"
 	ggjmodules "github.com/go-go-golems/go-go-goja/modules"
 	_ "github.com/go-go-golems/go-go-goja/modules/fs"
+	gojengine "github.com/go-go-golems/go-go-goja/pkg/engine"
 
 	"github.com/go-go-golems/geppetto/cmd/examples/internal/examplecmd"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
@@ -79,7 +79,7 @@ func (c *runCommand) RunIntoGlazeProcessor(ctx context.Context, _ *values.Values
 			if err := b.AddNativeModule(fsModule); err != nil {
 				return struct{}{}, err
 			}
-			if err := b.AddGlobal("workspaceRoot", func(ctx *gojengine.RuntimeContext) error {
+			if err := b.AddGlobal("workspaceRoot", func(ctx *gojengine.RuntimeInitializationContext) error {
 				return ctx.VM.Set("workspaceRoot", root)
 			}, scopedjs.GlobalDoc{
 				Type:        "string",

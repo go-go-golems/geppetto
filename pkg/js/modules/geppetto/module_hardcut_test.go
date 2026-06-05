@@ -9,7 +9,7 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
-	gojengine "github.com/go-go-golems/go-go-goja/engine"
+	gojengine "github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 )
 
@@ -20,7 +20,7 @@ type jsRuntime struct {
 
 func newJSRuntime(t *testing.T, opts Options) *jsRuntime {
 	t.Helper()
-	factory, err := gojengine.NewBuilder().Build()
+	factory, err := gojengine.NewRuntimeFactoryBuilder().Build()
 	if err != nil {
 		t.Fatalf("failed creating go-go-goja factory: %v", err)
 	}

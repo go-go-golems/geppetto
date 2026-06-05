@@ -9,7 +9,7 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
-	gojengine "github.com/go-go-golems/go-go-goja/engine"
+	gojengine "github.com/go-go-golems/go-go-goja/pkg/engine"
 )
 
 type scopeKey struct{}
@@ -43,7 +43,7 @@ func TestRegisterPrebuiltAndLazyRegistrar(t *testing.T) {
 			if err := b.AddNativeModule(mathModule{}); err != nil {
 				return struct{}{}, err
 			}
-			if err := b.AddGlobal("prefix", func(ctx *gojengine.RuntimeContext) error {
+			if err := b.AddGlobal("prefix", func(ctx *gojengine.RuntimeInitializationContext) error {
 				return ctx.VM.Set("prefix", s.Prefix)
 			}, GlobalDoc{Type: "string"}); err != nil {
 				return struct{}{}, err

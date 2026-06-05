@@ -16,16 +16,15 @@ import (
 	inferenceengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	geppettomodule "github.com/go-go-golems/geppetto/pkg/js/modules/geppetto"
 	"github.com/go-go-golems/geppetto/pkg/turns"
-	gojengine "github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	gojengine "github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsevents"
 	"github.com/go-go-golems/go-go-goja/pkg/xgoja/providerapi"
 )
 
 type fakeHost struct {
-	seen        Config
-	opts        geppettomodule.Options
-	storage     geppettomodule.StorageOptions
-	storageSeen bool
+	seen Config
+	opts geppettomodule.Options
 }
 
 func (h *fakeHost) GeppettoOptions(_ context.Context, cfg Config) (geppettomodule.Options, error) {
@@ -33,39 +32,12 @@ func (h *fakeHost) GeppettoOptions(_ context.Context, cfg Config) (geppettomodul
 	return h.opts, nil
 }
 
-func (h *fakeHost) GeppettoTurnStores(_ context.Context, cfg Config) (geppettomodule.StorageOptions, error) {
-	h.seen = cfg
-	h.storageSeen = true
-	return h.storage, nil
-}
-
 func (h *fakeHost) AssetResolver() providerapi.AssetResolver {
 	return nil
 }
 
-type fakeOptionsOnlyHost struct{}
-
-func (fakeOptionsOnlyHost) GeppettoOptions(context.Context, Config) (geppettomodule.Options, error) {
-	return geppettomodule.Options{}, nil
-}
-
-func (fakeOptionsOnlyHost) AssetResolver() providerapi.AssetResolver { return nil }
-
-type providerRecordingStore struct{}
-
-var _ geppettomodule.TurnStore = (*providerRecordingStore)(nil)
-
-func (s *providerRecordingStore) PersistTurn(context.Context, *turns.Turn) error { return nil }
-func (s *providerRecordingStore) ListTurns(context.Context, geppettomodule.TurnStoreQuery) ([]geppettomodule.TurnStoreSnapshot, error) {
-	return nil, nil
-}
-func (s *providerRecordingStore) LoadLatestTurn(context.Context, geppettomodule.TurnStoreQuery) (*geppettomodule.TurnStoreSnapshot, error) {
-	return nil, nil
-}
-func (s *providerRecordingStore) Close() error { return nil }
-
 func TestRegisterProvider(t *testing.T) {
-	registry := providerapi.NewRegistry()
+	registry := providerapi.NewProviderRegistry()
 	if err := Register(registry); err != nil {
 		t.Fatalf("register provider: %v", err)
 	}
@@ -78,14 +50,18 @@ func TestRegisterProvider(t *testing.T) {
 	}
 }
 
-func TestProviderRequiresHostServices(t *testing.T) {
+func TestProviderWorksWithoutHostServices(t *testing.T) {
 	mod := resolveModule(t)
-	if _, err := mod.New(providerapi.ModuleContext{}); err == nil {
-		t.Fatalf("expected missing host services error")
+	loader, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{})
+	if err != nil {
+		t.Fatalf("expected provider to work without host services: %v", err)
+	}
+	if loader == nil {
+		t.Fatalf("loader is nil")
 	}
 }
 
-func TestProviderLoadsProfileRegistriesWhenAllowed(t *testing.T) {
+func TestProviderLoadsDefaultProfileRegistries(t *testing.T) {
 	profilePath := filepath.Join(t.TempDir(), "profiles.yaml")
 	if err := os.WriteFile(profilePath, []byte(`slug: xgoja
 profiles:
@@ -102,21 +78,20 @@ profiles:
 	}
 	mod := resolveModule(t)
 	host := &fakeHost{}
-	loader, err := mod.New(providerapi.ModuleContext{
+	loader, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{
 		Name: geppettomodule.ModuleName,
 		As:   geppettomodule.ModuleName,
 		Host: host,
 		Config: json.RawMessage(`{
-			"profileRegistries": [` + strconv.Quote(profilePath) + `],
-			"defaultProfile": "assistant",
-			"allowRegistryLoad": true
+			"defaultProfileRegistries": [` + strconv.Quote(profilePath) + `],
+			"defaultProfile": "assistant"
 		}`),
 	})
 	if err != nil {
 		t.Fatalf("create loader: %v", err)
 	}
-	if got := len(host.seen.ProfileRegistries); got != 1 {
-		t.Fatalf("host saw %d profileRegistries", got)
+	if got := len(host.seen.DefaultProfileRegistries); got != 1 {
+		t.Fatalf("host saw %d defaultProfileRegistries", got)
 	}
 
 	vm := goja.New()
@@ -151,7 +126,7 @@ profiles:
 func TestProviderIgnoresRemovedLegacyRegistryField(t *testing.T) {
 	mod := resolveModule(t)
 	host := &fakeHost{}
-	_, err := mod.New(providerapi.ModuleContext{
+	_, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{
 		Name:   geppettomodule.ModuleName,
 		As:     geppettomodule.ModuleName,
 		Host:   host,
@@ -160,57 +135,15 @@ func TestProviderIgnoresRemovedLegacyRegistryField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("legacy registry field should be ignored by provider decode: %v", err)
 	}
-	if len(host.seen.ProfileRegistries) != 0 {
-		t.Fatalf("legacy registry populated profileRegistries: %#v", host.seen.ProfileRegistries)
+	if len(host.seen.DefaultProfileRegistries) != 0 {
+		t.Fatalf("legacy registry populated defaultProfileRegistries: %#v", host.seen.DefaultProfileRegistries)
 	}
 }
 
-func TestProviderRejectsProfileRegistriesUnlessAllowed(t *testing.T) {
+func TestProviderIgnoresRemovedLegacyStorageFields(t *testing.T) {
 	mod := resolveModule(t)
-	_, err := mod.New(providerapi.ModuleContext{
-		Name:   geppettomodule.ModuleName,
-		As:     geppettomodule.ModuleName,
-		Host:   &fakeHost{},
-		Config: json.RawMessage(`{"profileRegistries": ["profiles.yaml"]}`),
-	})
-	if err == nil {
-		t.Fatalf("expected allowRegistryLoad error")
-	}
-}
-
-func TestProviderTurnsConfigRequiresEnableStorage(t *testing.T) {
-	mod := resolveModule(t)
-	_, err := mod.New(providerapi.ModuleContext{
-		Context: context.Background(),
-		Name:    geppettomodule.ModuleName,
-		As:      geppettomodule.ModuleName,
-		Host:    &fakeHost{},
-		Config:  json.RawMessage(`{"turns":{"dsn":"file:test.sqlite"}}`),
-	})
-	if err == nil {
-		t.Fatalf("expected enableStorage error")
-	}
-}
-
-func TestProviderEnableStorageRequiresStorageHost(t *testing.T) {
-	mod := resolveModule(t)
-	_, err := mod.New(providerapi.ModuleContext{
-		Context: context.Background(),
-		Name:    geppettomodule.ModuleName,
-		As:      geppettomodule.ModuleName,
-		Host:    fakeOptionsOnlyHost{},
-		Config:  json.RawMessage(`{"enableStorage":true}`),
-	})
-	if err == nil {
-		t.Fatalf("expected storage host capability error")
-	}
-}
-
-func TestProviderEnableStorageInstallsDefaultTurnStore(t *testing.T) {
-	mod := resolveModule(t)
-	store := &providerRecordingStore{}
-	host := &fakeHost{storage: geppettomodule.StorageOptions{Default: store}}
-	loader, err := mod.New(providerapi.ModuleContext{
+	host := &fakeHost{}
+	loader, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{
 		Context: context.Background(),
 		Name:    geppettomodule.ModuleName,
 		As:      geppettomodule.ModuleName,
@@ -218,25 +151,164 @@ func TestProviderEnableStorageInstallsDefaultTurnStore(t *testing.T) {
 		Config:  json.RawMessage(`{"enableStorage":true,"turns":{"default":true,"phase":"final"}}`),
 	})
 	if err != nil {
-		t.Fatalf("create loader with storage: %v", err)
+		t.Fatalf("legacy storage fields should be ignored by provider decode: %v", err)
 	}
 	if loader == nil {
 		t.Fatalf("loader is nil")
 	}
-	if !host.storageSeen {
-		t.Fatalf("storage host was not invoked")
+}
+
+func TestProviderMapsGlazedFlagsToXGojaConfig(t *testing.T) {
+	providerCapability := capability{}
+	sections, err := providerCapability.GlazedConfigSections(providerapi.SectionRequest{})
+	if err != nil {
+		t.Fatalf("GlazedConfigSections failed: %v", err)
 	}
-	if host.seen.Turns == nil || !host.seen.Turns.Default || host.seen.Turns.Phase != "final" {
-		t.Fatalf("host saw storage config %+v", host.seen)
+	if len(sections) != 1 {
+		t.Fatalf("sections = %d, want 1", len(sections))
+	}
+	if sections[0].GetPrefix() != "" {
+		t.Fatalf("geppetto public flags should be unprefixed, got prefix %q", sections[0].GetPrefix())
+	}
+	glazedSection, err := values.NewSectionValues(sections[0],
+		values.WithFieldValue("profile-registries", []string{"profiles.yaml"}),
+		values.WithFieldValue("profile", "assistant"),
+		values.WithFieldValue("turns-db", "/tmp/turns.db"),
+	)
+	if err != nil {
+		t.Fatalf("NewSectionValues failed: %v", err)
+	}
+	configSection, err := xgojaConfigSection()
+	if err != nil {
+		t.Fatalf("xgojaConfigSection failed: %v", err)
+	}
+	out, err := providerCapability.XGojaConfigFromGlazed(context.Background(), providerapi.XGojaConfigRequest{
+		ConfigSection: configSection,
+		GlazedValues:  values.New(values.WithSectionValues(configSectionSlug, glazedSection)),
+	})
+	if err != nil {
+		t.Fatalf("XGojaConfigFromGlazed failed: %v", err)
+	}
+	assertSectionField(t, out, "defaultProfile", "assistant")
+	assertSectionField(t, out, "turnsDB", "/tmp/turns.db")
+	registries, ok := out.GetField("defaultProfileRegistries")
+	if !ok {
+		t.Fatalf("defaultProfileRegistries missing")
+	}
+	entries, ok := registries.([]string)
+	if !ok || len(entries) != 1 || entries[0] != "profiles.yaml" {
+		t.Fatalf("defaultProfileRegistries = %#v", registries)
 	}
 }
 
-type providerRuntimeModuleSpec struct{}
+func TestProviderRegistersSQLiteTurnStoreCloser(t *testing.T) {
+	mod := resolveModule(t)
+	closers := []func(context.Context) error{}
+	_, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{
+		Context: context.Background(),
+		Name:    geppettomodule.ModuleName,
+		As:      geppettomodule.ModuleName,
+		Config: json.RawMessage(`{
+			"turnsDB": ` + strconv.Quote(filepath.Join(t.TempDir(), "turns.db")) + `
+		}`),
+		AddCloser: func(fn func(context.Context) error) error {
+			closers = append(closers, fn)
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewModuleFactory: %v", err)
+	}
+	if len(closers) != 1 {
+		t.Fatalf("closers = %d, want 1", len(closers))
+	}
+	if err := closers[0](context.Background()); err != nil {
+		t.Fatalf("closer: %v", err)
+	}
+}
 
-func (providerRuntimeModuleSpec) ID() string { return "geppetto-provider-test" }
+func TestSQLiteTurnStorePersistsAndReadsTurns(t *testing.T) {
+	store, err := openSQLiteTurnStore("", filepath.Join(t.TempDir(), "turns.db"))
+	if err != nil {
+		t.Fatalf("openSQLiteTurnStore failed: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
 
-func (providerRuntimeModuleSpec) RegisterRuntimeModule(ctx *gojengine.RuntimeModuleContext, reg *require.Registry) error {
-	registry := providerapi.NewRegistry()
+	turn := &turns.Turn{ID: "turn-a"}
+	if err := turns.KeyTurnMetaSessionID.Set(&turn.Metadata, "session-a"); err != nil {
+		t.Fatalf("set session id: %v", err)
+	}
+	turns.AppendBlock(turn, turns.NewUserTextBlock("hello"))
+	turns.AppendBlock(turn, turns.NewAssistantTextBlock("stored"))
+	if err := store.PersistTurn(context.Background(), turn); err != nil {
+		t.Fatalf("PersistTurn failed: %v", err)
+	}
+	listed, err := store.ListTurns(context.Background(), geppettomodule.TurnStoreQuery{SessionID: "session-a", Phase: "final"})
+	if err != nil {
+		t.Fatalf("ListTurns failed: %v", err)
+	}
+	if len(listed) != 1 {
+		t.Fatalf("listed = %d, want 1", len(listed))
+	}
+	latest, err := store.LoadLatestTurn(context.Background(), geppettomodule.TurnStoreQuery{SessionID: "session-a", Phase: "final"})
+	if err != nil {
+		t.Fatalf("LoadLatestTurn failed: %v", err)
+	}
+	if latest == nil || latest.Turn == nil || latest.SessionID != "session-a" || latest.TurnID != "turn-a" {
+		t.Fatalf("unexpected latest: %#v", latest)
+	}
+}
+
+func TestSQLiteTurnStoreLoadLatestKeepsConvAndSessionPredicatesSeparate(t *testing.T) {
+	store, err := openSQLiteTurnStore("", filepath.Join(t.TempDir(), "turns.db"))
+	if err != nil {
+		t.Fatalf("openSQLiteTurnStore failed: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+
+	_, err = store.db.Exec(`
+INSERT INTO geppetto_turns (conv_id, session_id, turn_id, phase, runtime_key, inference_id, created_at_ms, payload)
+VALUES
+	('conv-a', 'session-a', 'turn-a', 'final', '', '', 100, ''),
+	('conv-a', 'session-b', 'turn-b', 'final', '', '', 200, '')`)
+	if err != nil {
+		t.Fatalf("insert turns: %v", err)
+	}
+
+	latest, err := store.LoadLatestTurn(context.Background(), geppettomodule.TurnStoreQuery{SessionID: "session-a", Phase: "final"})
+	if err != nil {
+		t.Fatalf("LoadLatestTurn by session failed: %v", err)
+	}
+	if latest == nil || latest.ConvID != "conv-a" || latest.SessionID != "session-a" || latest.TurnID != "turn-a" {
+		t.Fatalf("session-only latest = %#v", latest)
+	}
+
+	latest, err = store.LoadLatestTurn(context.Background(), geppettomodule.TurnStoreQuery{ConvID: "conv-a", SessionID: "session-a", Phase: "final"})
+	if err != nil {
+		t.Fatalf("LoadLatestTurn by conv+session failed: %v", err)
+	}
+	if latest == nil || latest.ConvID != "conv-a" || latest.SessionID != "session-a" || latest.TurnID != "turn-a" {
+		t.Fatalf("conv+session latest = %#v", latest)
+	}
+}
+
+func assertSectionField(t *testing.T, sectionValues *values.SectionValues, key string, want any) {
+	t.Helper()
+	got, ok := sectionValues.GetField(key)
+	if !ok {
+		t.Fatalf("%s missing", key)
+	}
+	if got != want {
+		t.Fatalf("%s = %#v, want %#v", key, got, want)
+	}
+}
+
+type providerRuntimeModuleRegistrar struct{}
+
+func (providerRuntimeModuleRegistrar) ID() string { return "geppetto-provider-test" }
+
+func (providerRuntimeModuleRegistrar) RegisterRuntimeModule(ctx *gojengine.RuntimeModuleRegistrationContext, reg *require.Registry) error {
+	registry := providerapi.NewProviderRegistry()
 	if err := Register(registry); err != nil {
 		return err
 	}
@@ -255,7 +327,7 @@ func (providerRuntimeModuleSpec) RegisterRuntimeModule(ctx *gojengine.RuntimeMod
 			return manager, ok && manager != nil
 		},
 	}}
-	loader, err := mod.New(providerapi.ModuleContext{
+	loader, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{
 		Context: context.Background(),
 		Name:    geppettomodule.ModuleName,
 		As:      geppettomodule.ModuleName,
@@ -282,12 +354,12 @@ func (e *providerEventEngine) RunInference(ctx context.Context, t *turns.Turn) (
 }
 
 func TestProviderRuntimeSupportsEventEmitterRunAsync(t *testing.T) {
-	factory, err := gojengine.NewBuilder(
+	factory, err := gojengine.NewRuntimeFactoryBuilder(
 		gojengine.WithDataOnlyDefaultRegistryModules(true),
 	).
 		UseModuleMiddleware(gojengine.Pipeline()).
 		WithRuntimeInitializers(jsevents.Install()).
-		WithModules(providerRuntimeModuleSpec{}).
+		WithModules(providerRuntimeModuleRegistrar{}).
 		Build()
 	if err != nil {
 		t.Fatalf("failed creating runtime factory: %v", err)
@@ -352,7 +424,7 @@ func TestProviderRuntimeSupportsEventEmitterRunAsync(t *testing.T) {
 func TestModuleLoaderInstallsGeppettoExports(t *testing.T) {
 	mod := resolveModule(t)
 	host := &fakeHost{}
-	loader, err := mod.New(providerapi.ModuleContext{
+	loader, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{
 		Name:   geppettomodule.ModuleName,
 		As:     geppettomodule.ModuleName,
 		Host:   host,
@@ -361,8 +433,8 @@ func TestModuleLoaderInstallsGeppettoExports(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create loader: %v", err)
 	}
-	if host.seen.Profile != "test-profile" || !host.seen.AllowNetwork {
-		t.Fatalf("host saw config %+v", host.seen)
+	if host.seen.DefaultProfile != "" || len(host.seen.DefaultProfileRegistries) != 0 {
+		t.Fatalf("removed legacy config fields should be ignored, host saw %+v", host.seen)
 	}
 
 	vm := goja.New()
@@ -394,7 +466,7 @@ func TestModuleLoaderInstallsGeppettoExports(t *testing.T) {
 
 func resolveModule(t *testing.T) providerapi.Module {
 	t.Helper()
-	registry := providerapi.NewRegistry()
+	registry := providerapi.NewProviderRegistry()
 	if err := Register(registry); err != nil {
 		t.Fatalf("register provider: %v", err)
 	}
