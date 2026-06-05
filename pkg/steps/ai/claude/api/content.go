@@ -14,6 +14,7 @@ const (
 	ContentTypeImage      ContentType = "image"
 	ContentTypeToolUse    ContentType = "tool_use"
 	ContentTypeToolResult ContentType = "tool_result"
+	ContentTypeThinking   ContentType = "thinking"
 )
 
 type Content interface {
@@ -70,6 +71,16 @@ func (t ToolResultContent) Type() ContentType {
 	return ContentTypeToolResult
 }
 
+type ThinkingContent struct {
+	BaseContent
+	Thinking  string `json:"thinking,omitempty"`
+	Signature string `json:"signature,omitempty"`
+}
+
+func (t ThinkingContent) Type() ContentType {
+	return ContentTypeThinking
+}
+
 func NewTextContent(text string) Content {
 	return TextContent{BaseContent: BaseContent{Type_: ContentTypeText}, Text: text}
 }
@@ -101,6 +112,14 @@ func NewToolResultContent(toolUseID, content string) Content {
 		BaseContent: BaseContent{Type_: ContentTypeToolResult},
 		ToolUseID:   toolUseID,
 		Content:     content,
+	}
+}
+
+func NewThinkingContent(thinking, signature string) Content {
+	return ThinkingContent{
+		BaseContent: BaseContent{Type_: ContentTypeThinking},
+		Thinking:    thinking,
+		Signature:   signature,
 	}
 }
 
@@ -138,6 +157,16 @@ func (trc ToolResultContent) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("content", trc.Content)
 }
 
+func (tc ThinkingContent) MarshalZerologObject(e *zerolog.Event) {
+	e.Object("base", tc.BaseContent)
+	if tc.Thinking != "" {
+		e.Str("thinking", tc.Thinking)
+	}
+	if tc.Signature != "" {
+		e.Str("signature", tc.Signature)
+	}
+}
+
 func UnmarshalContent(data []byte) (Content, error) {
 	var base BaseContent
 	if err := json.Unmarshal(data, &base); err != nil {
@@ -169,6 +198,12 @@ func UnmarshalContent(data []byte) (Content, error) {
 			return nil, err
 		}
 		return toolResult, nil
+	case ContentTypeThinking:
+		var thinking ThinkingContent
+		if err := json.Unmarshal(data, &thinking); err != nil {
+			return nil, err
+		}
+		return thinking, nil
 	default:
 		return nil, fmt.Errorf("unknown content type: %s", base.Type_)
 	}

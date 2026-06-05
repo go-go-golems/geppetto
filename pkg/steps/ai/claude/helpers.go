@@ -288,7 +288,20 @@ func (e *ClaudeEngine) buildMessageProjectionFromTurn(t *turns.Turn) (*messagePr
 					}
 				}
 			case turns.BlockKindReasoning:
-				continue
+				text := ""
+				if v, ok := b.Payload[turns.PayloadKeyText]; ok {
+					_ = assignString(&text, v)
+				}
+				signature := ""
+				if v, ok := b.Payload["signature"]; ok {
+					_ = assignString(&signature, v)
+				}
+				msg := api.Message{Role: RoleAssistant, Content: []api.Content{api.NewThinkingContent(text, signature)}}
+				if toolPhaseActive {
+					delayedMsgs = append(delayedMsgs, msg)
+				} else {
+					msgs = append(msgs, msg)
+				}
 			case turns.BlockKindToolCall:
 				name := ""
 				if v, ok := b.Payload[turns.PayloadKeyName]; ok {

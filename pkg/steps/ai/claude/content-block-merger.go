@@ -307,6 +307,8 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			corr := cbm.contentBlockCorrelation(event.Index, events.SegmentTypeTool)
 			corr.ToolCallID = event.ContentBlock.ID
 			return []events.Event{events.NewToolCallStartedEvent(cbm.metadata, corr, event.ContentBlock.ID, event.ContentBlock.Name)}, nil
+		case api.ContentTypeThinking:
+			return []events.Event{events.NewReasoningSegmentStartedEvent(cbm.metadata, cbm.contentBlockCorrelation(event.Index, events.SegmentTypeReasoning), "thinking")}, nil
 		case api.ContentTypeImage, api.ContentTypeToolResult:
 			return []events.Event{}, nil
 		default:
@@ -344,6 +346,13 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			corr := cbm.contentBlockCorrelation(event.Index, events.SegmentTypeTool)
 			corr.ToolCallID = cb.ID
 			return []events.Event{events.NewToolCallArgumentsDeltaEvent(cbm.metadata, corr, cb.ID, delta, inputString(cb.Input), 0)}, nil
+		case api.ThinkingDeltaType:
+			delta = event.Delta.Thinking
+			cb.Thinking += event.Delta.Thinking
+			return []events.Event{events.NewReasoningDeltaEventWithSource(cbm.metadata, cbm.contentBlockCorrelation(event.Index, events.SegmentTypeReasoning), "thinking", delta, cb.Thinking, 0)}, nil
+		case api.SignatureDeltaType:
+			cb.Signature += event.Delta.Signature
+			return []events.Event{}, nil
 		}
 		return []events.Event{}, nil
 
@@ -377,6 +386,10 @@ func (cbm *ContentBlockMerger) Add(event api.StreamingEvent) ([]events.Event, er
 			corr := cbm.contentBlockCorrelation(event.Index, events.SegmentTypeTool)
 			corr.ToolCallID = cb.ID
 			return []events.Event{events.NewToolCallRequestedEvent(cbm.metadata, corr, cb.ID, cb.Name, inputStr)}, nil
+
+		case api.ContentTypeThinking:
+			cbm.response.Content = append(cbm.response.Content, api.NewThinkingContent(cb.Thinking, cb.Signature))
+			return []events.Event{events.NewReasoningSegmentFinishedEventWithSource(cbm.metadata, cbm.contentBlockCorrelation(event.Index, events.SegmentTypeReasoning), "thinking", cb.Thinking, "content_block_stop")}, nil
 
 		case api.ContentTypeImage, api.ContentTypeToolResult:
 			return nil, errors.Errorf("Unsupported content block type: %s", cb.Type)

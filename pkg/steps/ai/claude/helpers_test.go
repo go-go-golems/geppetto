@@ -11,10 +11,13 @@ import (
 	"testing"
 
 	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	aisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	claudesettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
 	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func newTestEngine(st *aisettings.InferenceSettings) *ClaudeEngine {
@@ -313,4 +316,32 @@ func TestClaudeRunInference_UsesConfiguredHTTPClient(t *testing.T) {
 	if out == nil || len(out.Blocks) == 0 {
 		t.Fatalf("expected response blocks to be appended")
 	}
+}
+
+func TestMakeMessageRequestFromTurnPreservesReasoningBlocks(t *testing.T) {
+	engine := "claude-sonnet-4-20250514"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		Claude: &claudesettings.Settings{},
+		Chat: &aisettings.ChatSettings{
+			Engine: &engine,
+			Stream: true,
+		},
+	}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("solve"),
+		{Kind: turns.BlockKindReasoning, Role: turns.RoleAssistant, Payload: map[string]any{turns.PayloadKeyText: "private thought", "signature": "sig_abc"}},
+		turns.NewAssistantTextBlock("answer"),
+	}}
+
+	e := newTestEngine(st)
+	req, err := e.MakeMessageRequestFromTurn(turn)
+	require.NoError(t, err)
+	require.Len(t, req.Messages, 3)
+	require.Equal(t, RoleAssistant, req.Messages[1].Role)
+	require.Len(t, req.Messages[1].Content, 1)
+	thinking, ok := req.Messages[1].Content[0].(api.ThinkingContent)
+	require.True(t, ok)
+	assert.Equal(t, "private thought", thinking.Thinking)
+	assert.Equal(t, "sig_abc", thinking.Signature)
 }

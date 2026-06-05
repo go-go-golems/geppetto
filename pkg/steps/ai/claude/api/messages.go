@@ -140,6 +140,9 @@ func (m MessageResponse) FullText() string {
 		case ToolResultContent:
 			res += "Tool Call Result: " + v.ToolUseID + "\n"
 			res += v.Content
+		case ThinkingContent:
+			// Thinking content is intentionally omitted from FullText so callers that
+			// expect assistant-facing text do not leak model reasoning.
 		default:
 
 		}

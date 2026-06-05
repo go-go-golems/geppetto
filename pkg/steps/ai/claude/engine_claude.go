@@ -252,6 +252,20 @@ streamingComplete:
 			corr := completionMerger.contentBlockCorrelation(i, events.SegmentTypeTool)
 			corr.ToolCallID = v.ID
 			turns.AppendBlock(t, toolblocks.NewToolCallBlockWithCorrelation(v.ID, v.Name, args, corr))
+		case api.ThinkingContent:
+			payload := map[string]any{}
+			if v.Thinking != "" {
+				payload[turns.PayloadKeyText] = v.Thinking
+			}
+			if v.Signature != "" {
+				payload["signature"] = v.Signature
+			}
+			turns.AppendBlock(t, turns.Block{
+				ID:      uuid.NewString(),
+				Kind:    turns.BlockKindReasoning,
+				Role:    turns.RoleAssistant,
+				Payload: payload,
+			})
 		}
 	}
 
