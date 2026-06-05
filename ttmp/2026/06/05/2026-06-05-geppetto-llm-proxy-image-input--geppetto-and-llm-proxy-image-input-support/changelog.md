@@ -95,3 +95,8 @@ Step 8: add direct Geppetto and llm-proxy image smoke scripts; gemini-3-flash-pr
 - /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/artifacts/geppetto-image-gemini-3-flash-preview-summary.json — Direct smoke result
 - /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/artifacts/llm-proxy-image-smoke-summary.json — Proxy smoke result
 
+
+## 2026-06-05
+
+Ticket closed
+

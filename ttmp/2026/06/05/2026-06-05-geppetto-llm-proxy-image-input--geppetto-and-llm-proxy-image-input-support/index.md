@@ -1,7 +1,7 @@
 ---
 Title: Geppetto and llm-proxy Image Input Support
 Ticket: 2026-06-05-geppetto-llm-proxy-image-input
-Status: active
+Status: complete
 Topics:
     - geppetto
     - llm-proxy
@@ -14,10 +14,11 @@ Owners:
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-06-05T13:33:06.780442257-04:00
+LastUpdated: 2026-06-05T15:16:51.389241178-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Geppetto and llm-proxy Image Input Support
 
