@@ -38,3 +38,25 @@ Add concrete implementation tasks for image input parser, normalization, provide
 - /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/reference/01-investigation-diary.md — Step 3 implementation planning diary
 - /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/tasks.md — Implementation task list
 
+
+## 2026-06-05
+
+Step 4: implement llm-proxy Chat content-array parsing and multimodal Geppetto turn mapping
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/reference/01-investigation-diary.md — Step 4 diary
+- /home/manuel/workspaces/2026-06-04/llm-proxy/llm-proxy/pkg/openaichat/mapper.go — Multimodal block mapping
+- /home/manuel/workspaces/2026-06-04/llm-proxy/llm-proxy/pkg/openaichat/types.go — Content-array parser
+
+
+## 2026-06-05
+
+Step 5: add shared Geppetto image normalization helper and tests
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/imageparts/image_parts.go — Shared normalization helper
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/imageparts/image_parts_test.go — Helper tests
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/reference/01-investigation-diary.md — Step 5 diary
+

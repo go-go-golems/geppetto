@@ -12,6 +12,18 @@ Intent: long-term
 Owners:
     - manuel
 RelatedFiles:
+    - Path: ../../../../../../../llm-proxy/pkg/openaichat/mapper.go
+      Note: Step 4 maps user image parts to Geppetto multimodal block
+    - Path: ../../../../../../../llm-proxy/pkg/openaichat/mapper_test.go
+      Note: Step 4 mapper coverage
+    - Path: ../../../../../../../llm-proxy/pkg/openaichat/types.go
+      Note: Step 4 content-array parser and image part normalization
+    - Path: ../../../../../../../llm-proxy/pkg/openaichat/types_test.go
+      Note: Step 4 parser coverage
+    - Path: pkg/steps/ai/imageparts/image_parts.go
+      Note: Step 5 shared image normalization helper
+    - Path: pkg/steps/ai/imageparts/image_parts_test.go
+      Note: Step 5 normalization fixture tests
     - Path: ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/analysis/01-evidence-and-gap-matrix.md
       Note: Quick support matrix written in Step 1
     - Path: ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/design-doc/01-image-input-support-intern-guide.md
@@ -28,6 +40,8 @@ LastUpdated: 2026-06-05T18:05:00-04:00
 WhatFor: Use to resume image-input implementation planning with context on evidence gathered, documents written, and upload status.
 WhenToUse: Read before implementing multimodal image input in llm-proxy or Geppetto provider adapters.
 ---
+
+
 
 
 
@@ -322,4 +336,209 @@ Tasks added:
 8. Refactor OpenAI Chat, OpenAI Responses, and Claude image mapping to use shared normalization.
 9. Implement Gemini modern InlineData image mapping with fixture tests.
 10. Add/update image smoke scripts and record validation results.
+```
+
+## Step 4: Implement llm-proxy content-array parsing and multimodal turn mapping
+
+This step implemented the first behavior change from the guide. `llm-proxy` now accepts OpenAI-compatible Chat Completions user content arrays containing `text` and `image_url` parts, and maps them into Geppetto's existing `NewUserMultimodalBlock` representation.
+
+The change is intentionally narrow. Content arrays are accepted for user messages only. System, developer, assistant, and tool messages keep the previous string-content validation unless a later phase designs replay semantics for non-user image parts.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 3)
+
+**Assistant interpretation:** Begin implementing the ticket tasks incrementally, starting with the proxy parser because it is the first blocker for image input through `llm-proxy`.
+
+**Inferred user intent:** Turn the design guide into working code with tests and commit each coherent step.
+
+### What I did
+
+- Updated `/home/manuel/workspaces/2026-06-04/llm-proxy/llm-proxy/pkg/openaichat/types.go`:
+  - added `ChatContentImage`,
+  - added user content-array parsing,
+  - supports `text` parts,
+  - supports `image_url` object form and compact string form,
+  - extracts `media_type` from data URLs for Geppetto image descriptors,
+  - keeps content arrays rejected for non-user roles.
+- Updated `/home/manuel/workspaces/2026-06-04/llm-proxy/llm-proxy/pkg/openaichat/mapper.go`:
+  - maps user messages with image parts to `turns.NewUserMultimodalBlock`,
+  - keeps string-only user messages mapped to `turns.NewUserTextBlock`.
+- Added tests in:
+  - `/home/manuel/workspaces/2026-06-04/llm-proxy/llm-proxy/pkg/openaichat/types_test.go`,
+  - `/home/manuel/workspaces/2026-06-04/llm-proxy/llm-proxy/pkg/openaichat/mapper_test.go`.
+
+### Why
+
+- Before this change, `llm-proxy` rejected `messages[].content` arrays with `unsupported_content_shape`, so no OpenAI-compatible image input could reach Geppetto.
+- Mapping to `NewUserMultimodalBlock` keeps the internal representation provider-neutral and matches the existing Geppetto provider helpers.
+
+### What worked
+
+- Focused tests passed:
+
+```bash
+cd /home/manuel/workspaces/2026-06-04/llm-proxy/llm-proxy
+go test ./pkg/openaichat ./pkg/runtime ./pkg/server -count=1
+```
+
+- Tests now cover:
+  - text-only content arrays,
+  - object-form `image_url`,
+  - string-form `image_url`,
+  - data URL media-type extraction,
+  - unsupported content part rejection,
+  - assistant image-array rejection,
+  - mapper conversion into `PayloadKeyImages`.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The proxy change does not require provider-specific logic. It only needs to preserve enough image descriptor data for Geppetto provider adapters.
+- Data URL media-type extraction at the proxy layer is useful because providers such as Gemini and Claude need a MIME type for inline image content.
+
+### What was tricky to build
+
+- The OpenAI-compatible `image_url` field is sometimes represented as an object and sometimes as a string by client libraries. The parser handles both shapes to keep the proxy tolerant while still rejecting unknown content part types.
+- The mapper has to preserve existing text-only behavior because most tests and clients still send simple string content.
+
+### What warrants a second pair of eyes
+
+- Review whether text parts should be joined with newlines or preserved as separate Geppetto blocks. The implementation currently joins multiple text parts with `\n` inside one user block.
+- Review whether `media_type` should be inferred only from data URLs at the proxy layer or left entirely to Geppetto normalization.
+
+### What should be done in the future
+
+- Implement the shared Geppetto image normalization helper.
+- Add provider-side fixture tests to consume the multimodal turn produced by this mapper.
+
+### Code review instructions
+
+- Start with `pkg/openaichat/types.go`, especially `UserContent`, `parseChatImageURLPart`, and `ToTurnImageMap`.
+- Then read `pkg/openaichat/mapper.go` user-message mapping.
+- Validate with:
+
+```bash
+go test ./pkg/openaichat ./pkg/runtime ./pkg/server -count=1
+```
+
+### Technical details
+
+Example accepted request shape:
+
+```json
+{
+  "role": "user",
+  "content": [
+    {"type":"text","text":"describe this"},
+    {"type":"image_url","image_url":{"url":"data:image/png;base64,UE5H","detail":"high"}}
+  ]
+}
+```
+
+Mapped Geppetto payload:
+
+```go
+map[string]any{
+    turns.PayloadKeyText: "describe this",
+    turns.PayloadKeyImages: []map[string]any{{
+        "url": "data:image/png;base64,UE5H",
+        "media_type": "image/png",
+        "detail": "high",
+    }},
+}
+```
+
+## Step 5: Add shared Geppetto image normalization helper
+
+This step added the provider-neutral image normalization package proposed by the guide. The helper accepts the existing `NewUserMultimodalBlock` map shape and turns it into a typed `ImagePart` with normalized URL, inline data, provider file reference, media type, and detail fields.
+
+This is a small but important boundary. Providers should not each parse data URLs, base64 strings, byte slices, `url` aliases, `image_url` aliases, `file_id`, and `file_uri` differently. The helper gives the provider adapters one common interpretation of the canonical image descriptor map while still letting each provider decide which normalized forms it supports.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 3)
+
+**Assistant interpretation:** Continue implementing the ticket tasks after the proxy parser by adding the shared Geppetto normalization layer.
+
+**Inferred user intent:** Avoid inconsistent image handling across providers and prepare for provider-specific refactors.
+
+### What I did
+
+- Added `/home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/imageparts/image_parts.go`.
+- Added `/home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/imageparts/image_parts_test.go`.
+- Implemented normalization for:
+  - `url`,
+  - `image_url`,
+  - data URLs,
+  - inline `[]byte`,
+  - inline base64 strings,
+  - `file_id`,
+  - `file_uri`,
+  - `media_type`,
+  - `detail`.
+- Added helper functions for data URL decoding and data URL generation.
+
+### Why
+
+- OpenAI Responses, OpenAI Chat, Claude, and Gemini need different provider request shapes, but they should agree on the meaning of the Geppetto image descriptor map.
+- Provider-local parsing was already diverging.
+
+### What worked
+
+- Focused tests passed:
+
+```bash
+go test ./pkg/steps/ai/imageparts -count=1
+```
+
+- Tests cover URL images, data URLs, inline bytes, inline base64, missing media type, file references, and data URL generation.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Data URLs are the most useful bridge format because OpenAI-compatible clients often send them, while Gemini and Claude need decoded bytes/base64 plus MIME type.
+
+### What was tricky to build
+
+- The helper must be provider-neutral. It cannot decide that a generic URL is valid for Gemini or that a `file_id` is valid for Claude. It only normalizes and leaves provider adapters to enforce provider-specific support.
+
+### What warrants a second pair of eyes
+
+- Review the fallback behavior for non-base64 `content` strings. The helper currently treats them as raw bytes after base64 decoding fails.
+- Review whether `original` should remain an accepted detail value for OpenAI Responses compatibility.
+
+### What should be done in the future
+
+- Refactor existing OpenAI Responses/OpenAI Chat/Claude image mapping to use this helper.
+- Add Gemini `InlineData` support using `ImagePart.Data`.
+
+### Code review instructions
+
+- Review `pkg/steps/ai/imageparts/image_parts.go` first.
+- Validate with:
+
+```bash
+go test ./pkg/steps/ai/imageparts -count=1
+```
+
+### Technical details
+
+The normalized struct is:
+
+```go
+type ImagePart struct {
+    MediaType string
+    URL       string
+    Data      []byte
+    FileID    string
+    FileURI   string
+    Detail    string
+}
 ```
