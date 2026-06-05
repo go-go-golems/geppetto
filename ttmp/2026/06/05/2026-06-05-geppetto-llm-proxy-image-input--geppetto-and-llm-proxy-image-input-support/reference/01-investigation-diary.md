@@ -1,0 +1,325 @@
+---
+Title: Investigation Diary
+Ticket: 2026-06-05-geppetto-llm-proxy-image-input
+Status: active
+Topics:
+    - geppetto
+    - llm-proxy
+    - providers
+    - multimodal
+DocType: reference
+Intent: long-term
+Owners:
+    - manuel
+RelatedFiles:
+    - Path: ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/analysis/01-evidence-and-gap-matrix.md
+      Note: Quick support matrix written in Step 1
+    - Path: ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/design-doc/01-image-input-support-intern-guide.md
+      Note: Primary intern-facing guide written in Step 1
+    - Path: ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/01-evidence-line-anchors.md
+      Note: |-
+        Line anchors gathered in Step 1
+        Step 2 renamed/frontmattered evidence artifact for doctor
+    - Path: ttmp/vocabulary.yaml
+      Note: Step 2 added llm-proxy and multimodal topics
+ExternalSources: []
+Summary: Chronological diary for the Geppetto and llm-proxy image input design ticket.
+LastUpdated: 2026-06-05T18:05:00-04:00
+WhatFor: Use to resume image-input implementation planning with context on evidence gathered, documents written, and upload status.
+WhenToUse: Read before implementing multimodal image input in llm-proxy or Geppetto provider adapters.
+---
+
+
+
+# Diary
+
+## Goal
+
+This diary records the setup and documentation work for image input support across `llm-proxy` and Geppetto's provider backends. It captures the evidence gathered, the current support matrix, the proposed implementation path, and validation/delivery steps.
+
+## Step 1: Create image-input ticket and intern guide
+
+This step created a focused ticket for the next multimodal gap after the Gemini SDK modernization work. The investigation showed that Geppetto already has a canonical multimodal user block shape, but support is uneven: OpenAI Responses has strong image mapping, OpenAI Chat and Claude have partial mapping, Gemini's modern path does not yet map images, and `llm-proxy` rejects OpenAI-compatible content arrays before they can reach Geppetto.
+
+I wrote the intern-facing guide as an implementation plan rather than a code change. The guide explains the existing turn/block model, shows exact provider mapping gaps, proposes a shared image normalization helper, and lays out a phased implementation/testing sequence that keeps direct Geppetto provider validation ahead of proxy validation.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok create a new ticket and Create  a detailed analysis / design / implementation guide that is for a new intern, explaining all the parts of the system needed to understand what it is, with prose paragraphs and bullet point sand pseudocode and diagrams and api references and file references. It should be very clear and technical. Store in the ticket and the nupload to remarkable."
+
+**Assistant interpretation:** Create a docmgr ticket for image input support across `llm-proxy` and Geppetto backends, write a detailed intern-facing analysis/design/implementation guide with evidence and references, store it in the ticket, and upload it to reMarkable.
+
+**Inferred user intent:** Turn the image-input gap into a structured, reviewable implementation package before code changes begin.
+
+### What I did
+
+- Created ticket `2026-06-05-geppetto-llm-proxy-image-input`.
+- Created documents:
+  - `design-doc/01-image-input-support-intern-guide.md`
+  - `analysis/01-evidence-and-gap-matrix.md`
+  - `reference/01-investigation-diary.md`
+- Added ticket tasks for guide writing, evidence/gap matrix writing, and reMarkable upload.
+- Gathered line-anchored evidence into `scripts/01-evidence-line-anchors.md`.
+- Inspected these code paths:
+  - `pkg/turns/helpers_blocks.go`
+  - `pkg/steps/ai/openai_responses/helpers.go`
+  - `pkg/steps/ai/openai_responses/helpers_test.go`
+  - `pkg/steps/ai/openai/helpers.go`
+  - `pkg/steps/ai/claude/helpers.go`
+  - `pkg/steps/ai/gemini/modern_adapter.go`
+  - `llm-proxy/pkg/openaichat/types.go`
+  - `llm-proxy/pkg/openaichat/mapper.go`
+  - `google.golang.org/genai@v1.58.0/types.go`
+- Wrote the intern guide with:
+  - executive summary,
+  - current-state architecture,
+  - provider support matrix,
+  - `llm-proxy` parser/mapper design,
+  - shared normalization proposal,
+  - provider-specific mapping guidance,
+  - Mermaid sequence diagram,
+  - decision records,
+  - implementation phases,
+  - test strategy,
+  - risks and open questions,
+  - intern review checklist.
+- Wrote a shorter evidence/gap matrix for quick reference.
+
+### Why
+
+- Image support spans two repositories and multiple provider adapters. A direct implementation without a map of current behavior would risk inconsistent provider behavior.
+- Geppetto already has `turns.NewUserMultimodalBlock`, so the correct first question is how to normalize and route the existing representation, not whether to create a new conversation model.
+- `llm-proxy` currently blocks content arrays, which means backend image support cannot be exercised through the OpenAI-compatible surface until the request decoder and mapper are extended.
+
+### What worked
+
+- The repository already had strong evidence for a canonical internal shape: `NewUserMultimodalBlock(text, images)` documents `media_type`, `url`, `content`, provider-specific `file_id`, and `detail`.
+- OpenAI Responses already has robust fixture coverage for URL images, inline image bytes, mixed text plus multiple images, and detail preservation.
+- The modern Gemini SDK clearly exposes `Part.InlineData` and `Blob{MIMEType, Data}`, which gives a straightforward implementation path for inline image support in Gemini.
+- The design doc now gives an intern a phased plan that starts with tests and avoids provider-specific request ambiguity.
+
+### What didn't work
+
+- No implementation or live image smoke tests were run in this step. The requested deliverable was a ticket and detailed guide, not code changes.
+- No external documentation was downloaded into `sources/` yet. The guide includes API reference URLs, but the evidence base for this first pass is local code plus the already-installed Gemini SDK source.
+
+### What I learned
+
+- The biggest immediate gap is `llm-proxy`, not Geppetto's turn model. `llm-proxy/pkg/openaichat/types.go` rejects content arrays with `unsupported_content_shape`.
+- Geppetto's provider support is not uniform. OpenAI Responses should be treated as the baseline behavior; OpenAI Chat and Claude should be refactored toward the same normalization rules; Gemini needs new `InlineData` mapping.
+- Generic image URLs should not automatically be mapped into Gemini `FileData` without live API verification. Inline data is the safest first Gemini implementation target.
+
+### What was tricky to build
+
+- The tricky part was separating canonical representation from provider-specific transport. A URL, a data URL, inline bytes, OpenAI `file_id`, and Gemini `file_uri` are all image references, but they are not interchangeable across providers.
+- Another sharp edge is silent image loss. Some current provider helpers skip unsupported image shapes. The guide recommends explicit errors in new tests for unsupported shapes so implementers do not mistake a text-only request for a successful multimodal request.
+
+### What warrants a second pair of eyes
+
+- Review whether the proposed shared image normalization helper should live under `pkg/steps/ai/imageparts` or an existing helper package.
+- Review the phase-one policy to accept image content arrays only on user messages.
+- Review the Gemini URL policy: inline content first, explicit `file_uri` optional, generic URL support only after live API verification.
+- Review whether Claude URL images should error or be skipped.
+
+### What should be done in the future
+
+- Implement `llm-proxy` content-array parsing and mapper tests.
+- Add the shared Geppetto image normalization helper.
+- Add Gemini `InlineData` mapping.
+- Refactor OpenAI Responses/OpenAI Chat/Claude to use the shared helper without changing proven behavior.
+- Run direct provider image smokes before `llm-proxy` image smokes.
+
+### Code review instructions
+
+- Start with `design-doc/01-image-input-support-intern-guide.md` for the implementation plan.
+- Use `analysis/01-evidence-and-gap-matrix.md` as the quick matrix.
+- Check exact line evidence in `scripts/01-evidence-line-anchors.md`.
+- Before implementing, inspect:
+  - `/home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/turns/helpers_blocks.go`
+  - `/home/manuel/workspaces/2026-06-04/llm-proxy/llm-proxy/pkg/openaichat/types.go`
+  - `/home/manuel/workspaces/2026-06-04/llm-proxy/llm-proxy/pkg/openaichat/mapper.go`
+  - `/home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/openai_responses/helpers.go`
+  - `/home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/gemini/modern_adapter.go`
+
+### Technical details
+
+Primary ticket path:
+
+```text
+/home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support
+```
+
+Current support conclusion:
+
+```text
+llm-proxy Chat: rejects content arrays
+OpenAI Responses: strongest current image support
+OpenAI Chat: partial image_url support
+Claude: partial inline base64 support
+Gemini modern: missing image mapping, but SDK supports InlineData
+```
+
+## Step 2: Validate ticket hygiene and upload guide to reMarkable
+
+This step finished the delivery portion of the ticket. I ran `docmgr doctor`, fixed the two hygiene issues it found, and uploaded the guide bundle to reMarkable after the ticket passed validation.
+
+The first upload succeeded, but `docmgr doctor` showed that the ticket still needed cleanup: the evidence artifact had no frontmatter and did not have a numeric prefix, and the topic vocabulary did not yet know `llm-proxy` or `multimodal`. I renamed and frontmattered the evidence artifact, added the missing vocabulary entries, reran doctor successfully, and then re-uploaded the corrected guide bundle with `--force` so the reMarkable copy matches the final ticket documents.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Finish the requested ticket documentation workflow by validating and uploading the intern guide.
+
+**Inferred user intent:** Ensure the implementation guide is both stored in the ticket workspace and available on reMarkable for reading/review.
+
+### What I did
+
+- Ran `docmgr doctor --ticket 2026-06-05-geppetto-llm-proxy-image-input --stale-after 30`.
+- Fixed doctor issues:
+  - added vocabulary topics `llm-proxy` and `multimodal`,
+  - renamed `scripts/evidence-line-anchors.md` to `scripts/01-evidence-line-anchors.md`,
+  - added docmgr frontmatter to the evidence artifact,
+  - updated references to the renamed evidence artifact.
+- Reran `docmgr doctor`; it passed.
+- Uploaded the guide bundle to reMarkable:
+  - `design-doc/01-image-input-support-intern-guide.md`
+  - `analysis/01-evidence-and-gap-matrix.md`
+- Used remote directory:
+  - `/ai/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input`
+
+### Why
+
+- Ticket documentation should pass docmgr validation before handoff.
+- The uploaded reMarkable PDF should reflect final corrected paths and metadata.
+
+### What worked
+
+- `docmgr doctor` passed after cleanup.
+- reMarkable upload succeeded with:
+
+```text
+OK: uploaded Geppetto llm-proxy Image Input Intern Guide.pdf -> /ai/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input
+```
+
+### What didn't work
+
+- The first doctor run failed because `scripts/evidence-line-anchors.md` was an ad-hoc markdown artifact without frontmatter.
+- The first doctor run also warned that `llm-proxy` and `multimodal` were not known vocabulary topics.
+
+### What I learned
+
+- Ticket-local evidence artifacts should use numeric prefixes and frontmatter even when they are generated from shell commands.
+- The Geppetto docmgr vocabulary did not previously include `llm-proxy` or `multimodal`, even though those are useful topics for this cross-repo work.
+
+### What was tricky to build
+
+- The only tricky part was ordering: the first upload succeeded before the doctor cleanup. To avoid leaving a stale PDF on reMarkable, I re-uploaded the corrected bundle with `--force` after doctor passed.
+
+### What warrants a second pair of eyes
+
+- Confirm whether future evidence artifacts should live under `scripts/` or `reference/` when they are markdown documents with frontmatter.
+- Confirm whether `llm-proxy` and `multimodal` should remain first-class vocabulary topics in the Geppetto docs root.
+
+### What should be done in the future
+
+- Implement the guide's Phase 1 parser/mapper tests in `llm-proxy`.
+- Add a ticket-local image smoke fixture before live provider smoke testing.
+
+### Code review instructions
+
+- Review the reMarkable bundle source docs:
+  - `design-doc/01-image-input-support-intern-guide.md`
+  - `analysis/01-evidence-and-gap-matrix.md`
+- Validate with:
+
+```bash
+docmgr doctor --ticket 2026-06-05-geppetto-llm-proxy-image-input --stale-after 30
+```
+
+### Technical details
+
+Upload command used:
+
+```bash
+remarquee upload bundle \
+  ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/design-doc/01-image-input-support-intern-guide.md \
+  ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/analysis/01-evidence-and-gap-matrix.md \
+  --name "Geppetto llm-proxy Image Input Intern Guide" \
+  --remote-dir "/ai/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input" \
+  --toc-depth 2 \
+  --force \
+  --non-interactive
+```
+
+## Step 3: Add implementation tasks and commit the baseline ticket package
+
+This step turns the image-input documentation ticket into an implementation tracker. The guide is already written and uploaded, so the next work needs explicit tasks for the parser, provider normalization, Gemini image mapping, and smoke validation.
+
+I also committed the baseline documentation package before editing code. This creates a stable checkpoint for the guide, vocabulary, evidence artifact, and diary so implementation commits can focus on behavior changes.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Add tasks to the ticket, and implement one by one, committing at appropriate intervals, keeping a detailed diary"
+
+**Assistant interpretation:** Expand the image-input ticket into concrete implementation tasks, then proceed through them in focused code/doc commits while maintaining the diary.
+
+**Inferred user intent:** Make the implementation incremental, reviewable, and continuation-friendly instead of doing one large unstructured patch.
+
+### What I did
+
+- Added implementation tasks for:
+  - baseline docs/vocabulary commit,
+  - `llm-proxy` content-array parsing and turn mapping,
+  - shared Geppetto image normalization,
+  - OpenAI/OpenAI Responses/Claude refactors,
+  - Gemini `InlineData` mapping,
+  - image smoke scripts and validation.
+- Prepared to commit the baseline ticket docs and vocabulary before code changes.
+
+### Why
+
+- The image-input work crosses repositories and providers, so task boundaries are important.
+- A baseline docs commit makes later implementation diffs easier to review.
+
+### What worked
+
+- The ticket now has concrete implementation tasks numbered after the completed guide/upload tasks.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The next code change should be `llm-proxy` first because the proxy currently rejects content arrays before Geppetto can see images.
+
+### What was tricky to build
+
+- The main bookkeeping concern is that the image-input ticket lives in the Geppetto repository while one implementation phase lives in the separate `llm-proxy` repository. The diary will use absolute file paths for cross-repo relations.
+
+### What warrants a second pair of eyes
+
+- Confirm the task ordering: proxy parser first, then Geppetto shared normalization/provider support.
+
+### What should be done in the future
+
+- Implement tasks 6 through 10 one by one.
+
+### Code review instructions
+
+- Review `tasks.md` for the implementation sequence.
+- Review the baseline docs commit before code commits.
+
+### Technical details
+
+Tasks added:
+
+```text
+5. Commit baseline image-input ticket docs and vocabulary.
+6. Implement llm-proxy Chat content-array parsing and multimodal turn mapping.
+7. Add shared Geppetto image normalization helper with fixture tests.
+8. Refactor OpenAI Chat, OpenAI Responses, and Claude image mapping to use shared normalization.
+9. Implement Gemini modern InlineData image mapping with fixture tests.
+10. Add/update image smoke scripts and record validation results.
+```
