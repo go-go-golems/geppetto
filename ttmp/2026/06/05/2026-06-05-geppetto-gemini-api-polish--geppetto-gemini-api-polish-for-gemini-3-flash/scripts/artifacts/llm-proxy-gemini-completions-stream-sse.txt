@@ -1,0 +1,8 @@
+data: {"id":"cmpl_proxy_1780676299582937460","object":"text_completion","created":1780676299,"model":"gemini-3-flash-preview","choices":[{"text":"llm-proxy","index":0,"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"cmpl_proxy_1780676299582937460","object":"text_completion","created":1780676299,"model":"gemini-3-flash-preview","choices":[{"text":" gemini completions stream ok","index":0,"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"cmpl_proxy_1780676299582937460","object":"text_completion","created":1780676299,"model":"gemini-3-flash-preview","choices":[{"text":"","index":0,"logprobs":null,"finish_reason":"stop"}]}
+
+data: [DONE]
+

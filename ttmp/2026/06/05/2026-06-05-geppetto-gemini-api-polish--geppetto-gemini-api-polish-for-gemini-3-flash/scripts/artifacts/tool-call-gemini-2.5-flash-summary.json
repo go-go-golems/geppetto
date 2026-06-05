@@ -1,0 +1,58 @@
+{
+  "case": "tool-call",
+  "profile": "gemini-2.5-flash",
+  "model": "gemini-2.5-flash",
+  "ok": true,
+  "started_at": "2026-06-05T11:59:11.293688518-04:00",
+  "duration_ms": 984,
+  "event_counts": {
+    "provider-call-finished": 1,
+    "provider-call-metadata-updated": 2,
+    "provider-call-started": 1,
+    "tool-call-requested": 1,
+    "tool-call-started": 1
+  },
+  "final_block_kinds": [
+    "system",
+    "user",
+    "tool_call"
+  ],
+  "tool_call_ids": [
+    "70dc0c76-38e7-4e3a-b476-8046c9449db8"
+  ],
+  "inference_result": {
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "stop_reason": "STOP",
+    "finish_class": "tool_calls_pending",
+    "usage": {
+      "input_tokens": 113,
+      "output_tokens": 10
+    },
+    "duration_ms": 977,
+    "response_id": "T_IiaqinG5iZ9MoP37uziQw",
+    "extra": {
+      "settings": {
+        "ai-api-type": "gemini",
+        "ai-engine": "gemini-2.5-flash",
+        "ai-temperature": 0.7,
+        "embeddings-dimensions": 1536,
+        "embeddings-engine": "text-embedding-3-small",
+        "embeddings-type": "openai",
+        "ollama-temperature": 0.8,
+        "proxy-from-environment": true
+      },
+      "thoughts_token_count": 49,
+      "total_token_count": 172
+    }
+  },
+  "artifacts": {
+    "events_ndjson": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/tool-call-gemini-2.5-flash-events.ndjson",
+    "inference_result": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/tool-call-gemini-2.5-flash-inference-result.json",
+    "summary": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/tool-call-gemini-2.5-flash-summary.json",
+    "turn_yaml": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/tool-call-gemini-2.5-flash-turn.yaml"
+  },
+  "interpretation": [
+    "captured 1 tool_call id(s): 70dc0c76-38e7-4e3a-b476-8046c9449db8"
+  ]
+}

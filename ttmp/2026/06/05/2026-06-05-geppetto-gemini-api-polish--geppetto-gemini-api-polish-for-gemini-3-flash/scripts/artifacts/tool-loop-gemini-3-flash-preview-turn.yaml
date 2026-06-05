@@ -1,0 +1,112 @@
+blocks:
+    - id: 36ddca83-aa7d-4d08-9cbd-1c2bc3249683
+      kind: system
+      role: system
+      payload:
+        text: You are a terse Geppetto Gemini smoke-test assistant. If a tool is useful, call it instead of guessing.
+    - id: 27d0acd0-0881-4149-8dad-8e1aa5566396
+      kind: user
+      role: user
+      payload:
+        text: What is the weather in Zurich? Use the lookup_weather tool.
+    - id: 1r05mmol
+      kind: tool_call
+      payload:
+        args:
+            city: Zurich
+        correlation:
+            run_id: 4afc4fc5-f071-4575-9d7f-1b4123e95bfb
+            provider_call_id: gemini:4afc4fc5-f071-4575-9d7f-1b4123e95bfb:provider-call:0
+            segment_id: gemini:4afc4fc5-f071-4575-9d7f-1b4123e95bfb:provider-call:0:1r05mmol:0:tool
+            tool_call_id: 1r05mmol
+        id: 1r05mmol
+        name: lookup_weather
+      metadata:
+        geppetto.inference_result@v1:
+            provider: gemini
+            model: gemini-3-flash-preview
+            stop_reason: STOP
+            finish_class: tool_calls_pending
+            usage:
+                input_tokens: 113
+                output_tokens: 17
+            duration_ms: 1114
+            response_id: ofUiaruPKIX0jrEPx77CgA8
+            extra:
+                settings:
+                    ai-api-type: gemini
+                    ai-engine: gemini-3-flash-preview
+                    ai-temperature: 0.7
+                    embeddings-dimensions: 1536
+                    embeddings-engine: text-embedding-3-small
+                    embeddings-type: openai
+                    ollama-temperature: 0.8
+                    proxy-from-environment: true
+                thoughts_token_count: 38
+                total_token_count: 168
+    - id: a226857d-45c5-4bdf-98a1-2104932fd3a8
+      kind: tool_use
+      payload:
+        error: ""
+        id: 1r05mmol
+        result:
+            condition: clear
+            location: Zurich
+            source: client-side smoke test result
+            temperature: 21 C
+    - id: d5cc0b7e-de5a-483e-b19b-a8346d0df7e4
+      kind: user
+      role: user
+      payload:
+        text: Please summarize the tool result in one sentence.
+    - id: 3045aee0-26c3-453c-a703-0dfe77127ece
+      kind: llm_text
+      role: assistant
+      payload:
+        text: The weather in Zurich is clear with a temperature of 21°C.
+      metadata:
+        geppetto.inference_result@v1:
+            provider: gemini
+            model: gemini-3-flash-preview
+            stop_reason: STOP
+            finish_class: completed
+            usage:
+                input_tokens: 180
+                output_tokens: 15
+            duration_ms: 1279
+            response_id: ovUiauXnKPy9sOIPi7XD-Ak
+            extra:
+                settings:
+                    ai-api-type: gemini
+                    ai-engine: gemini-3-flash-preview
+                    ai-temperature: 0.7
+                    embeddings-dimensions: 1536
+                    embeddings-engine: text-embedding-3-small
+                    embeddings-type: openai
+                    ollama-temperature: 0.8
+                    proxy-from-environment: true
+                thoughts_token_count: 77
+                total_token_count: 272
+metadata:
+    geppetto.inference_result@v1:
+        provider: gemini
+        model: gemini-3-flash-preview
+        stop_reason: STOP
+        finish_class: completed
+        usage:
+            input_tokens: 180
+            output_tokens: 15
+        duration_ms: 1279
+        response_id: ovUiauXnKPy9sOIPi7XD-Ak
+        extra:
+            settings:
+                ai-api-type: gemini
+                ai-engine: gemini-3-flash-preview
+                ai-temperature: 0.7
+                embeddings-dimensions: 1536
+                embeddings-engine: text-embedding-3-small
+                embeddings-type: openai
+                ollama-temperature: 0.8
+                proxy-from-environment: true
+            thoughts_token_count: 77
+            total_token_count: 272

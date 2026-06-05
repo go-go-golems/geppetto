@@ -1,0 +1,27 @@
+{
+  "case": "plain-text",
+  "profile": "gemini-3-pro",
+  "model": "gemini-3-pro",
+  "ok": false,
+  "error": "Error 404, Message: models/gemini-3-pro is not found for API version v1beta, or is not supported for generateContent. Call ModelService.ListModels to see the list of available models and their supported methods., Status: NOT_FOUND, Details: []",
+  "started_at": "2026-06-05T11:58:37.886765423-04:00",
+  "duration_ms": 195,
+  "event_counts": {
+    "error": 1,
+    "provider-call-finished": 1,
+    "provider-call-started": 1
+  },
+  "final_block_kinds": [
+    "system",
+    "user"
+  ],
+  "artifacts": {
+    "events_ndjson": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/plain-text-gemini-3-pro-events.ndjson",
+    "inference_result": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/plain-text-gemini-3-pro-inference-result.json",
+    "summary": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/plain-text-gemini-3-pro-summary.json",
+    "turn_yaml": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/plain-text-gemini-3-pro-turn.yaml"
+  },
+  "interpretation": [
+    "provider or Geppetto returned an error; inspect turn_yaml and events_ndjson"
+  ]
+}

@@ -258,7 +258,7 @@ streamingComplete:
 				payload[turns.PayloadKeyText] = v.Thinking
 			}
 			if v.Signature != "" {
-				payload["signature"] = v.Signature
+				payload[claudePayloadKeySignature] = v.Signature
 			}
 			turns.AppendBlock(t, turns.Block{
 				ID:      uuid.NewString(),

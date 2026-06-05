@@ -13,6 +13,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const claudePayloadKeySignature = "signature"
+
 type messageProjection struct {
 	System   string
 	Messages []api.Message
@@ -293,7 +295,7 @@ func (e *ClaudeEngine) buildMessageProjectionFromTurn(t *turns.Turn) (*messagePr
 					_ = assignString(&text, v)
 				}
 				signature := ""
-				if v, ok := b.Payload["signature"]; ok {
+				if v, ok := b.Payload[claudePayloadKeySignature]; ok {
 					_ = assignString(&signature, v)
 				}
 				msg := api.Message{Role: RoleAssistant, Content: []api.Content{api.NewThinkingContent(text, signature)}}

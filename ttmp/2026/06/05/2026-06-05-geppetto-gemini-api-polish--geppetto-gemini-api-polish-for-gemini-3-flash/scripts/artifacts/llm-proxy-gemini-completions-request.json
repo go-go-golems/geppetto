@@ -1,0 +1,5 @@
+{
+  "max_tokens": 64,
+  "model": "gemini-3-flash-preview",
+  "prompt": "Reply with exactly: llm-proxy gemini completions ok"
+}

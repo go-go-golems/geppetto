@@ -1,0 +1,63 @@
+{
+  "case": "tool-loop",
+  "profile": "gemini-2.5-flash",
+  "model": "gemini-2.5-flash",
+  "ok": true,
+  "started_at": "2026-06-05T11:59:12.392769205-04:00",
+  "duration_ms": 1423,
+  "event_counts": {
+    "provider-call-finished": 2,
+    "provider-call-metadata-updated": 5,
+    "provider-call-started": 2,
+    "text-delta": 2,
+    "text-segment-finished": 1,
+    "text-segment-started": 1,
+    "tool-call-requested": 1,
+    "tool-call-started": 1
+  },
+  "final_block_kinds": [
+    "system",
+    "user",
+    "tool_call",
+    "tool_use",
+    "user",
+    "llm_text"
+  ],
+  "tool_call_ids": [
+    "69276c3b-8691-4016-850e-d993f51f3648"
+  ],
+  "inference_result": {
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "stop_reason": "STOP",
+    "finish_class": "completed",
+    "usage": {
+      "input_tokens": 174,
+      "output_tokens": 15
+    },
+    "duration_ms": 562,
+    "response_id": "UfIiavPPFPaZ9MoPmI2lwQY",
+    "extra": {
+      "settings": {
+        "ai-api-type": "gemini",
+        "ai-engine": "gemini-2.5-flash",
+        "ai-temperature": 0.7,
+        "embeddings-dimensions": 1536,
+        "embeddings-engine": "text-embedding-3-small",
+        "embeddings-type": "openai",
+        "ollama-temperature": 0.8,
+        "proxy-from-environment": true
+      },
+      "total_token_count": 189
+    }
+  },
+  "artifacts": {
+    "events_ndjson": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/tool-loop-gemini-2.5-flash-events.ndjson",
+    "inference_result": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/tool-loop-gemini-2.5-flash-inference-result.json",
+    "summary": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/tool-loop-gemini-2.5-flash-summary.json",
+    "turn_yaml": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/tool-loop-gemini-2.5-flash-turn.yaml"
+  },
+  "interpretation": [
+    "captured 1 tool_call id(s): 69276c3b-8691-4016-850e-d993f51f3648"
+  ]
+}

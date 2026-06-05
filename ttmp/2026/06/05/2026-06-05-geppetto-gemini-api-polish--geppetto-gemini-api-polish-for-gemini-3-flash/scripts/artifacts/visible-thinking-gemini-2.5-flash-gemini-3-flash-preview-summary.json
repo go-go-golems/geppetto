@@ -1,0 +1,52 @@
+{
+  "case": "visible-thinking",
+  "profile": "gemini-2.5-flash",
+  "model": "gemini-3-flash-preview",
+  "ok": true,
+  "started_at": "2026-06-05T11:59:55.805614071-04:00",
+  "duration_ms": 1020,
+  "event_counts": {
+    "provider-call-finished": 1,
+    "provider-call-metadata-updated": 3,
+    "provider-call-started": 1,
+    "text-delta": 1,
+    "text-segment-finished": 1,
+    "text-segment-started": 1
+  },
+  "final_block_kinds": [
+    "system",
+    "user",
+    "llm_text"
+  ],
+  "inference_result": {
+    "provider": "gemini",
+    "model": "gemini-3-flash-preview",
+    "stop_reason": "STOP",
+    "finish_class": "completed",
+    "usage": {
+      "input_tokens": 39,
+      "output_tokens": 4
+    },
+    "duration_ms": 1014,
+    "response_id": "fPIiavivA_3ljMcPioP9qAo",
+    "extra": {
+      "settings": {
+        "ai-api-type": "gemini",
+        "ai-engine": "gemini-3-flash-preview",
+        "ai-temperature": 0.7,
+        "embeddings-dimensions": 1536,
+        "embeddings-engine": "text-embedding-3-small",
+        "embeddings-type": "openai",
+        "ollama-temperature": 0.8,
+        "proxy-from-environment": true
+      },
+      "total_token_count": 43
+    }
+  },
+  "artifacts": {
+    "events_ndjson": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/visible-thinking-gemini-2.5-flash-gemini-3-flash-preview-events.ndjson",
+    "inference_result": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/visible-thinking-gemini-2.5-flash-gemini-3-flash-preview-inference-result.json",
+    "summary": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/visible-thinking-gemini-2.5-flash-gemini-3-flash-preview-summary.json",
+    "turn_yaml": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/visible-thinking-gemini-2.5-flash-gemini-3-flash-preview-turn.yaml"
+  }
+}

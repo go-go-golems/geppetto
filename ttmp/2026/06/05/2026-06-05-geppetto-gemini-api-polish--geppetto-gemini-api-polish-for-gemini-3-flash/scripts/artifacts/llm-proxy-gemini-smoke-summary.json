@@ -1,0 +1,126 @@
+{
+  "base_url": "http://127.0.0.1:54857",
+  "cases": [
+    {
+      "http_status": 200,
+      "model_listed": true,
+      "name": "models",
+      "ok": true,
+      "response_artifact": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/llm-proxy-gemini-models-response.json"
+    },
+    {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "logprobs": null,
+          "text": "llm-proxy gemini completions ok"
+        }
+      ],
+      "content_type": "application/json",
+      "endpoint": "/v1/completions",
+      "http_status": 200,
+      "id": "cmpl_proxy_1780676299578539505",
+      "name": "completions",
+      "ok": true,
+      "request_artifact": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/llm-proxy-gemini-completions-request.json",
+      "response_artifact": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/llm-proxy-gemini-completions-response.json",
+      "usage": {
+        "completion_tokens": 8,
+        "prompt_tokens": 13,
+        "total_tokens": 21
+      }
+    },
+    {
+      "contains_done": true,
+      "contains_tool_calls": false,
+      "content_type": "text/event-stream",
+      "data_line_count": 4,
+      "endpoint": "/v1/completions",
+      "http_status": 200,
+      "name": "completions-stream",
+      "ok": true,
+      "request_artifact": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/llm-proxy-gemini-completions-stream-request.json",
+      "response_artifact": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/llm-proxy-gemini-completions-stream-sse.txt"
+    },
+    {
+      "content": "llm-proxy gemini chat ok",
+      "content_type": "application/json",
+      "endpoint": "/v1/chat/completions",
+      "finish_reason": "stop",
+      "http_status": 200,
+      "id": "chatcmpl_proxy_1780676302070183333",
+      "name": "chat",
+      "ok": true,
+      "request_artifact": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/llm-proxy-gemini-chat-request.json",
+      "response_artifact": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/llm-proxy-gemini-chat-response.json",
+      "tool_calls": [],
+      "usage": {
+        "completion_tokens": 8,
+        "prompt_tokens": 13,
+        "total_tokens": 21
+      }
+    },
+    {
+      "contains_done": true,
+      "contains_tool_calls": false,
+      "content_type": "text/event-stream",
+      "data_line_count": 5,
+      "endpoint": "/v1/chat/completions",
+      "http_status": 200,
+      "name": "chat-stream",
+      "ok": true,
+      "request_artifact": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/llm-proxy-gemini-chat-stream-request.json",
+      "response_artifact": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/llm-proxy-gemini-chat-stream-sse.txt"
+    },
+    {
+      "content": "",
+      "content_type": "application/json",
+      "endpoint": "/v1/chat/completions",
+      "finish_reason": "tool_calls",
+      "http_status": 200,
+      "id": "chatcmpl_proxy_1780676304301945548",
+      "name": "tool-call",
+      "ok": true,
+      "request_artifact": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/llm-proxy-gemini-tool-call-request.json",
+      "response_artifact": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/llm-proxy-gemini-tool-call-response.json",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{\"city\":\"Zurich\"}",
+            "name": "lookup_weather"
+          },
+          "id": "ox2qt3ax",
+          "type": "function"
+        }
+      ],
+      "usage": {
+        "completion_tokens": 17,
+        "prompt_tokens": 85,
+        "total_tokens": 102
+      }
+    },
+    {
+      "content": "The weather in Zurich is currently clear with a temperature of 21\u00b0C.",
+      "content_type": "application/json",
+      "endpoint": "/v1/chat/completions",
+      "finish_reason": "stop",
+      "http_status": 200,
+      "id": "chatcmpl_proxy_1780676305612659925",
+      "name": "tool-loop",
+      "ok": true,
+      "request_artifact": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/llm-proxy-gemini-tool-loop-request.json",
+      "response_artifact": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/llm-proxy-gemini-tool-loop-response.json",
+      "tool_calls": [],
+      "usage": {
+        "completion_tokens": 17,
+        "prompt_tokens": 141,
+        "total_tokens": 158
+      }
+    }
+  ],
+  "ok": true,
+  "profile": "gemini-3-flash-preview",
+  "profiles_file": "/home/manuel/.config/pinocchio/profiles.yaml",
+  "server_log": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/llm-proxy-gemini-server.log"
+}
