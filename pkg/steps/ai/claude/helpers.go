@@ -290,11 +290,18 @@ func (e *ClaudeEngine) buildMessageProjectionFromTurn(t *turns.Turn) (*messagePr
 				if v, ok := b.Payload[turns.PayloadKeyText]; ok {
 					_ = assignString(&text, v)
 				}
+				if text == "" {
+					break
+				}
 				signature := ""
 				if v, ok := b.Payload[claudePayloadKeySignature]; ok {
 					_ = assignString(&signature, v)
 				}
-				msg := api.Message{Role: RoleAssistant, Content: []api.Content{api.NewThinkingContent(text, signature)}}
+				content := api.NewTextContent(fmt.Sprintf("<thinking>%s</thinking>", text))
+				if signature != "" {
+					content = api.NewThinkingContent(text, signature)
+				}
+				msg := api.Message{Role: RoleAssistant, Content: []api.Content{content}}
 				if toolPhaseActive {
 					delayedMsgs = append(delayedMsgs, msg)
 				} else {

@@ -318,7 +318,7 @@ func TestClaudeRunInference_UsesConfiguredHTTPClient(t *testing.T) {
 	}
 }
 
-func TestMakeMessageRequestFromTurnPreservesReasoningBlocks(t *testing.T) {
+func TestMakeMessageRequestFromTurnPreservesSignedReasoningBlocksAsClaudeThinking(t *testing.T) {
 	engine := "claude-sonnet-4-20250514"
 	st := &aisettings.InferenceSettings{
 		Client: &aisettings.ClientSettings{},
@@ -330,7 +330,7 @@ func TestMakeMessageRequestFromTurnPreservesReasoningBlocks(t *testing.T) {
 	}
 	turn := &turns.Turn{Blocks: []turns.Block{
 		turns.NewUserTextBlock("solve"),
-		{Kind: turns.BlockKindReasoning, Role: turns.RoleAssistant, Payload: map[string]any{turns.PayloadKeyText: "private thought", "signature": "sig_abc"}},
+		{Kind: turns.BlockKindReasoning, Role: turns.RoleAssistant, Payload: map[string]any{turns.PayloadKeyText: "private thought", claudePayloadKeySignature: "sig_abc"}},
 		turns.NewAssistantTextBlock("answer"),
 	}}
 
@@ -344,6 +344,38 @@ func TestMakeMessageRequestFromTurnPreservesReasoningBlocks(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "private thought", thinking.Thinking)
 	assert.Equal(t, "sig_abc", thinking.Signature)
+}
+
+func TestMakeMessageRequestFromTurnWrapsUnsignedReasoningBlocksAsAssistantText(t *testing.T) {
+	engine := "claude-sonnet-4-20250514"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		Claude: &claudesettings.Settings{},
+		Chat: &aisettings.ChatSettings{
+			Engine: &engine,
+			Stream: true,
+		},
+	}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("solve"),
+		{Kind: turns.BlockKindReasoning, Role: turns.RoleAssistant, Payload: map[string]any{turns.PayloadKeyText: "reasoning from another provider"}},
+		{Kind: turns.BlockKindReasoning, Role: turns.RoleAssistant, Payload: map[string]any{turns.PayloadKeyText: "empty signature reasoning", claudePayloadKeySignature: ""}},
+	}}
+
+	e := newTestEngine(st)
+	req, err := e.MakeMessageRequestFromTurn(turn)
+	require.NoError(t, err)
+	require.Len(t, req.Messages, 3)
+	for i, want := range []string{"<thinking>reasoning from another provider</thinking>", "<thinking>empty signature reasoning</thinking>"} {
+		msg := req.Messages[i+1]
+		require.Equal(t, RoleAssistant, msg.Role)
+		require.Len(t, msg.Content, 1)
+		_, isThinking := msg.Content[0].(api.ThinkingContent)
+		require.False(t, isThinking)
+		text, ok := msg.Content[0].(api.TextContent)
+		require.True(t, ok)
+		assert.Equal(t, want, text.Text)
+	}
 }
 
 func TestMakeMessageRequestFromTurnUserImageDataURL(t *testing.T) {
