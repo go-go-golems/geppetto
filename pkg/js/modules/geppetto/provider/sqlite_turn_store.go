@@ -153,10 +153,8 @@ func (s *sqliteTurnStore) LoadLatestTurn(ctx context.Context, q geppettomodule.T
 		return nil, fmt.Errorf("geppetto provider turns sqlite store is nil")
 	}
 	convID := strings.TrimSpace(q.ConvID)
-	if convID == "" {
-		convID = strings.TrimSpace(q.SessionID)
-	}
-	if convID == "" {
+	sessionID := strings.TrimSpace(q.SessionID)
+	if convID == "" && sessionID == "" {
 		return nil, fmt.Errorf("geppetto provider turns sqlite store: convId or sessionId required")
 	}
 	phase := strings.TrimSpace(q.Phase)
@@ -166,9 +164,11 @@ func (s *sqliteTurnStore) LoadLatestTurn(ctx context.Context, q geppettomodule.T
 	row := s.db.QueryRowContext(ctx, `
 SELECT conv_id, session_id, turn_id, phase, runtime_key, inference_id, created_at_ms, payload
 FROM geppetto_turns
-WHERE conv_id = ? AND phase = ?
+WHERE (? = '' OR conv_id = ?)
+  AND (? = '' OR session_id = ?)
+  AND phase = ?
 ORDER BY created_at_ms DESC
-LIMIT 1`, convID, phase)
+LIMIT 1`, convID, convID, sessionID, sessionID, phase)
 	snapshot, err := scanTurnSnapshot(row)
 	if err == sql.ErrNoRows {
 		return nil, nil

@@ -259,6 +259,39 @@ func TestSQLiteTurnStorePersistsAndReadsTurns(t *testing.T) {
 	}
 }
 
+func TestSQLiteTurnStoreLoadLatestKeepsConvAndSessionPredicatesSeparate(t *testing.T) {
+	store, err := openSQLiteTurnStore("", filepath.Join(t.TempDir(), "turns.db"))
+	if err != nil {
+		t.Fatalf("openSQLiteTurnStore failed: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+
+	_, err = store.db.Exec(`
+INSERT INTO geppetto_turns (conv_id, session_id, turn_id, phase, runtime_key, inference_id, created_at_ms, payload)
+VALUES
+	('conv-a', 'session-a', 'turn-a', 'final', '', '', 100, ''),
+	('conv-a', 'session-b', 'turn-b', 'final', '', '', 200, '')`)
+	if err != nil {
+		t.Fatalf("insert turns: %v", err)
+	}
+
+	latest, err := store.LoadLatestTurn(context.Background(), geppettomodule.TurnStoreQuery{SessionID: "session-a", Phase: "final"})
+	if err != nil {
+		t.Fatalf("LoadLatestTurn by session failed: %v", err)
+	}
+	if latest == nil || latest.ConvID != "conv-a" || latest.SessionID != "session-a" || latest.TurnID != "turn-a" {
+		t.Fatalf("session-only latest = %#v", latest)
+	}
+
+	latest, err = store.LoadLatestTurn(context.Background(), geppettomodule.TurnStoreQuery{ConvID: "conv-a", SessionID: "session-a", Phase: "final"})
+	if err != nil {
+		t.Fatalf("LoadLatestTurn by conv+session failed: %v", err)
+	}
+	if latest == nil || latest.ConvID != "conv-a" || latest.SessionID != "session-a" || latest.TurnID != "turn-a" {
+		t.Fatalf("conv+session latest = %#v", latest)
+	}
+}
+
 func assertSectionField(t *testing.T, sectionValues *values.SectionValues, key string, want any) {
 	t.Helper()
 	got, ok := sectionValues.GetField(key)
