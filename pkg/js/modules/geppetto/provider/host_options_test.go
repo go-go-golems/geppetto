@@ -15,7 +15,9 @@ func TestApplyHostOptionsContributionsMergesToolsMiddlewareAndSinks(t *testing.T
 	registry := tools.NewInMemoryToolRegistry()
 	tool, err := tools.NewToolFromFunc("wordCount", "Count words", func(in struct {
 		Text string `json:"text"`
-	}) (map[string]int, error) { return map[string]int{"count": len(in.Text)}, nil })
+	}) (map[string]int, error) {
+		return map[string]int{"count": len(in.Text)}, nil
+	})
 	if err != nil {
 		t.Fatalf("NewToolFromFunc: %v", err)
 	}

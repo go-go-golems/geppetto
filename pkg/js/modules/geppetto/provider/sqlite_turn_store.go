@@ -145,7 +145,7 @@ LIMIT ?`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("geppetto provider turns sqlite store list turns: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := []geppettomodule.TurnStoreSnapshot{}
 	for rows.Next() {
 		snapshot, err := scanTurnSnapshot(rows)

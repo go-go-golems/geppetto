@@ -159,8 +159,8 @@ func TestProviderIgnoresRemovedLegacyStorageFields(t *testing.T) {
 }
 
 func TestProviderMapsGlazedFlagsToXGojaConfig(t *testing.T) {
-	cap := capability{}
-	sections, err := cap.GlazedConfigSections(providerapi.SectionRequest{})
+	providerCapability := capability{}
+	sections, err := providerCapability.GlazedConfigSections(providerapi.SectionRequest{})
 	if err != nil {
 		t.Fatalf("GlazedConfigSections failed: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestProviderMapsGlazedFlagsToXGojaConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("xgojaConfigSection failed: %v", err)
 	}
-	out, err := cap.XGojaConfigFromGlazed(context.Background(), providerapi.XGojaConfigRequest{
+	out, err := providerCapability.XGojaConfigFromGlazed(context.Background(), providerapi.XGojaConfigRequest{
 		ConfigSection: configSection,
 		GlazedValues:  values.New(values.WithSectionValues(configSectionSlug, glazedSection)),
 	})
