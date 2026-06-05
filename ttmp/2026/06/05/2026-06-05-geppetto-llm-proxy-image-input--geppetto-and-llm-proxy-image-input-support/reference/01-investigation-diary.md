@@ -24,6 +24,10 @@ RelatedFiles:
       Note: Step 6 uses shared image normalization
     - Path: pkg/steps/ai/claude/helpers_test.go
       Note: Step 6 Claude data URL image fixture
+    - Path: pkg/steps/ai/gemini/modern_adapter.go
+      Note: Step 7 Gemini InlineData image mapping
+    - Path: pkg/steps/ai/gemini/modern_adapter_test.go
+      Note: Step 7 Gemini image mapping tests
     - Path: pkg/steps/ai/imageparts/image_parts.go
       Note: Step 5 shared image normalization helper
     - Path: pkg/steps/ai/imageparts/image_parts_test.go
@@ -50,6 +54,7 @@ LastUpdated: 2026-06-05T18:05:00-04:00
 WhatFor: Use to resume image-input implementation planning with context on evidence gathered, documents written, and upload status.
 WhenToUse: Read before implementing multimodal image input in llm-proxy or Geppetto provider adapters.
 ---
+
 
 
 
@@ -635,4 +640,85 @@ Provider behavior after this step:
 OpenAI Responses: URL/data URL/inline data/file_id -> input_image
 OpenAI Chat: URL/data URL/inline data -> image_url
 Claude: data URL/inline data -> image base64 content
+```
+
+## Step 7: Implement Gemini modern InlineData image mapping
+
+This step implemented image input for the modern Gemini provider path. The adapter now reads `PayloadKeyImages` from user/system/other blocks, normalizes image descriptors through the shared helper, and maps inline image bytes into Gemini `Part.InlineData` values.
+
+The implementation is intentionally conservative for URL handling. Data URLs are decoded into inline bytes and supported. Explicit provider `file_uri` values are mapped to Gemini `FileData`. Generic HTTPS image URLs return an error for Gemini until live API behavior is confirmed, because the SDK's `FileData` comments describe provider-side file URIs rather than arbitrary web fetching.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 3)
+
+**Assistant interpretation:** Continue with the next task by adding Gemini image support to the modern SDK adapter.
+
+**Inferred user intent:** Make all provider backends capable of consuming the canonical Geppetto image representation, including the recently modernized Gemini path.
+
+### What I did
+
+- Updated `/home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/gemini/modern_adapter.go`:
+  - added `modernGeminiImagePartsFromBlock`,
+  - appends image parts for user/system/other blocks,
+  - maps inline data to `&moderngenai.Part{InlineData: &moderngenai.Blob{MIMEType, Data}}`,
+  - maps explicit `file_uri` to `moderngenai.NewPartFromURI`,
+  - rejects generic URL-only images.
+- Added tests in `/home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/gemini/modern_adapter_test.go` for:
+  - inline data URL mapping,
+  - explicit Gemini file URI mapping,
+  - generic URL rejection.
+
+### Why
+
+- Gemini was the largest remaining provider gap for image input after the proxy parser and shared normalization work.
+- The modern SDK has the necessary `InlineData` and `Blob` fields, so no additional SDK migration is needed.
+
+### What worked
+
+- Focused tests passed:
+
+```bash
+go test ./pkg/steps/ai/gemini ./pkg/steps/ai/imageparts -count=1
+```
+
+### What didn't work
+
+- No live Gemini image smoke was run yet. That remains task 10.
+
+### What I learned
+
+- The shared helper makes Gemini support small: the provider adapter only needs to decide whether each normalized image is inline data, file URI, or unsupported URL.
+
+### What was tricky to build
+
+- Generic URL behavior should not be guessed. OpenAI accepts URL image parts, but Gemini's Go SDK `FileData` is documented as URI-based data stored for the provider. Treating arbitrary HTTPS URLs as `FileData` could create provider errors that look like adapter bugs.
+
+### What warrants a second pair of eyes
+
+- Review whether rejecting generic URLs is too strict for Gemini Developer API models. If live API tests prove public URLs are accepted, this can be relaxed.
+- Review whether system/other blocks should be allowed to carry images or whether only user blocks should be accepted in Gemini.
+
+### What should be done in the future
+
+- Add a smoke script or extend an existing smoke runner with an image case.
+- Run direct Gemini image smoke with a tiny data URL image.
+
+### Code review instructions
+
+- Start with `modernGeminiImagePartsFromBlock`.
+- Validate with:
+
+```bash
+go test ./pkg/steps/ai/gemini ./pkg/steps/ai/imageparts -count=1
+```
+
+### Technical details
+
+Supported Gemini mappings after this step:
+
+```text
+data URL / inline bytes -> Part.InlineData Blob
+file_uri + media_type   -> Part.FileData
+generic URL             -> explicit error
 ```

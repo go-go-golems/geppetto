@@ -135,3 +135,54 @@ func TestModernGeminiContentsReplayThoughtSignatureAndToolIDs(t *testing.T) {
 		t.Fatalf("function response = %#v, want matching provider id/name/result", response)
 	}
 }
+
+func TestModernGeminiContentsMapsInlineImageData(t *testing.T) {
+	turn := &turns.Turn{ID: "turn-image"}
+	turns.AppendBlock(turn, turns.NewUserMultimodalBlock("describe", []map[string]any{{
+		"content": "data:image/png;base64,UE5H",
+	}}))
+
+	contents, err := buildModernGeminiContentsFromTurn(turn)
+	if err != nil {
+		t.Fatalf("build contents: %v", err)
+	}
+	if len(contents) != 1 || len(contents[0].Parts) != 2 {
+		t.Fatalf("contents = %#v", contents)
+	}
+	if contents[0].Parts[0].Text != "describe" {
+		t.Fatalf("text part = %#v", contents[0].Parts[0])
+	}
+	inline := contents[0].Parts[1].InlineData
+	if inline == nil || inline.MIMEType != "image/png" || string(inline.Data) != "PNG" {
+		t.Fatalf("inline data = %#v", inline)
+	}
+}
+
+func TestModernGeminiContentsMapsImageFileURI(t *testing.T) {
+	turn := &turns.Turn{ID: "turn-image-uri"}
+	turns.AppendBlock(turn, turns.NewUserMultimodalBlock("describe", []map[string]any{{
+		"file_uri":   "gs://bucket/image.png",
+		"media_type": "image/png",
+	}}))
+
+	contents, err := buildModernGeminiContentsFromTurn(turn)
+	if err != nil {
+		t.Fatalf("build contents: %v", err)
+	}
+	fileData := contents[0].Parts[1].FileData
+	if fileData == nil || fileData.FileURI != "gs://bucket/image.png" || fileData.MIMEType != "image/png" {
+		t.Fatalf("file data = %#v", fileData)
+	}
+}
+
+func TestModernGeminiContentsRejectsGenericImageURL(t *testing.T) {
+	turn := &turns.Turn{ID: "turn-image-url"}
+	turns.AppendBlock(turn, turns.NewUserMultimodalBlock("describe", []map[string]any{{
+		"url": "https://example.com/image.png",
+	}}))
+
+	_, err := buildModernGeminiContentsFromTurn(turn)
+	if err == nil {
+		t.Fatalf("expected generic URL error")
+	}
+}

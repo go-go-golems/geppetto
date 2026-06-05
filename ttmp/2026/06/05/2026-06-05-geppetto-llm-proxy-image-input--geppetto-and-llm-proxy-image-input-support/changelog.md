@@ -72,3 +72,14 @@ Step 6: refactor OpenAI Chat, OpenAI Responses, and Claude image mapping to use 
 - /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/openai_responses/helpers.go — Responses refactor
 - /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/reference/01-investigation-diary.md — Step 6 diary
 
+
+## 2026-06-05
+
+Step 7: implement Gemini modern InlineData image mapping with fixture tests
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/gemini/modern_adapter.go — Gemini image mapping
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/gemini/modern_adapter_test.go — Gemini image tests
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/reference/01-investigation-diary.md — Step 7 diary
+

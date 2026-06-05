@@ -3,9 +3,11 @@ package gemini
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/imageparts"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/google/uuid"
 	moderngenai "google.golang.org/genai"
@@ -236,6 +238,11 @@ func buildModernGeminiContentsFromTurn(t *turns.Turn) ([]*moderngenai.Content, e
 			if txt, ok := blockText(b); ok {
 				content.Parts = append(content.Parts, moderngenai.NewPartFromText(txt))
 			}
+			parts, err := modernGeminiImagePartsFromBlock(b)
+			if err != nil {
+				return nil, err
+			}
+			content.Parts = append(content.Parts, parts...)
 		case turns.BlockKindLLMText:
 			content.Role = string(moderngenai.RoleModel)
 			if txt, ok := blockText(b); ok {
@@ -277,6 +284,35 @@ func buildModernGeminiContentsFromTurn(t *turns.Turn) ([]*moderngenai.Content, e
 		}
 	}
 	return contents, nil
+}
+
+func modernGeminiImagePartsFromBlock(b turns.Block) ([]*moderngenai.Part, error) {
+	if b.Payload == nil {
+		return nil, nil
+	}
+	imgs, ok := b.Payload[turns.PayloadKeyImages].([]map[string]any)
+	if !ok || len(imgs) == 0 {
+		return nil, nil
+	}
+	parts := make([]*moderngenai.Part, 0, len(imgs))
+	for _, img := range imgs {
+		part, ok, err := imageparts.NormalizeImageMap(img)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			continue
+		}
+		switch {
+		case len(part.Data) > 0:
+			parts = append(parts, &moderngenai.Part{InlineData: &moderngenai.Blob{MIMEType: part.MediaType, Data: part.Data}})
+		case part.FileURI != "":
+			parts = append(parts, moderngenai.NewPartFromURI(part.FileURI, part.MediaType))
+		case part.URL != "":
+			return nil, fmt.Errorf("gemini image url requires inline content data URL or provider file_uri")
+		}
+	}
+	return parts, nil
 }
 
 func blockText(b turns.Block) (string, bool) {
