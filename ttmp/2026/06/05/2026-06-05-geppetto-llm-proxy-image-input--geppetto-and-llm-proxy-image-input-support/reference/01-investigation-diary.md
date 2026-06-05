@@ -20,10 +20,20 @@ RelatedFiles:
       Note: Step 4 content-array parser and image part normalization
     - Path: ../../../../../../../llm-proxy/pkg/openaichat/types_test.go
       Note: Step 4 parser coverage
+    - Path: pkg/steps/ai/claude/helpers.go
+      Note: Step 6 uses shared image normalization
+    - Path: pkg/steps/ai/claude/helpers_test.go
+      Note: Step 6 Claude data URL image fixture
     - Path: pkg/steps/ai/imageparts/image_parts.go
       Note: Step 5 shared image normalization helper
     - Path: pkg/steps/ai/imageparts/image_parts_test.go
       Note: Step 5 normalization fixture tests
+    - Path: pkg/steps/ai/openai/helpers.go
+      Note: Step 6 uses shared image normalization
+    - Path: pkg/steps/ai/openai/helpers_test.go
+      Note: Step 6 OpenAI Chat image fixture
+    - Path: pkg/steps/ai/openai_responses/helpers.go
+      Note: Step 6 uses shared image normalization
     - Path: ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/analysis/01-evidence-and-gap-matrix.md
       Note: Quick support matrix written in Step 1
     - Path: ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/design-doc/01-image-input-support-intern-guide.md
@@ -40,6 +50,7 @@ LastUpdated: 2026-06-05T18:05:00-04:00
 WhatFor: Use to resume image-input implementation planning with context on evidence gathered, documents written, and upload status.
 WhenToUse: Read before implementing multimodal image input in llm-proxy or Geppetto provider adapters.
 ---
+
 
 
 
@@ -541,4 +552,87 @@ type ImagePart struct {
     FileURI   string
     Detail    string
 }
+```
+
+## Step 6: Refactor OpenAI Chat, OpenAI Responses, and Claude image mapping
+
+This step applied the shared image normalization helper to the provider adapters that already had partial image support. The goal was to preserve existing behavior while eliminating provider-local parsing differences for URLs, data URLs, inline bytes, base64 strings, media types, and detail values.
+
+OpenAI Responses remains the baseline because it already had the strongest image behavior and tests. OpenAI Chat now uses the same normalization helper for `image_url` parts, and Claude now accepts data URLs by decoding them through the shared helper before re-encoding the bytes into Claude's expected base64 image source.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 3)
+
+**Assistant interpretation:** Continue the implementation sequence by refactoring the providers with existing image support to use the common normalization layer.
+
+**Inferred user intent:** Keep each provider's external request shape correct while reducing duplicated and divergent image parsing code.
+
+### What I did
+
+- Updated `/home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/openai_responses/helpers.go`:
+  - replaced local image parsing helpers with `imageparts.NormalizeImageMap`,
+  - preserved `input_image` URL/data URL/file-id behavior.
+- Updated `/home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/openai/helpers.go`:
+  - replaced provider-local image parsing with `imageparts.NormalizeImageMap`,
+  - preserved Chat Completions `image_url` output,
+  - preserves normalized detail values.
+- Added OpenAI Chat image fixture coverage in `pkg/steps/ai/openai/helpers_test.go`.
+- Updated `/home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/claude/helpers.go`:
+  - replaced local inline image parsing with `imageparts.NormalizeImageMap`,
+  - supports data URL input for Claude by normalizing to bytes and then sending Claude base64 image content.
+- Added Claude image fixture coverage in `pkg/steps/ai/claude/helpers_test.go`.
+
+### Why
+
+- Before this step, each provider interpreted the same `PayloadKeyImages` map differently.
+- Refactoring existing providers before adding Gemini support reduces the risk that Gemini implements a fourth incompatible interpretation of the same map.
+
+### What worked
+
+- Focused tests passed:
+
+```bash
+go test ./pkg/steps/ai/imageparts ./pkg/steps/ai/openai ./pkg/steps/ai/openai_responses ./pkg/steps/ai/claude -count=1
+```
+
+- Existing OpenAI Responses tests still pass after the helper refactor.
+- New OpenAI Chat and Claude image tests pass.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Claude's provider shape is still inline-only in this implementation. Plain remote URLs normalize successfully but are skipped by Claude because Claude needs base64 image content in this local API helper.
+- OpenAI Chat and Responses can both consume data URLs as URL-like request fields, while Claude needs bytes re-encoded as base64.
+
+### What was tricky to build
+
+- The helper returns normalized provider-neutral fields, but each provider must still decide which fields are legal. For example, `FileID` is meaningful for OpenAI Responses, `URL` is meaningful for OpenAI Chat, and `Data` is meaningful for Claude.
+
+### What warrants a second pair of eyes
+
+- Review whether Claude should return an explicit error instead of skipping URL-only image descriptors.
+- Review whether OpenAI Chat should include text-only `MultiContent` when all image descriptors normalize to unsupported forms. The implementation currently skips unsupported image forms and still emits the message.
+
+### What should be done in the future
+
+- Add Gemini `InlineData` mapping using the same helper.
+- Add provider smoke scripts after Gemini mapping lands.
+
+### Code review instructions
+
+- Start with the shared helper from Step 5, then inspect the three provider request builders.
+- Validate with the focused provider tests listed above.
+
+### Technical details
+
+Provider behavior after this step:
+
+```text
+OpenAI Responses: URL/data URL/inline data/file_id -> input_image
+OpenAI Chat: URL/data URL/inline data -> image_url
+Claude: data URL/inline data -> image base64 content
 ```

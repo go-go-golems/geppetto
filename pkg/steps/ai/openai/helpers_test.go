@@ -338,3 +338,38 @@ func TestMakeCompletionRequestFromTurnInferenceEmptyStopClearsChatStop(t *testin
 		t.Fatalf("expected stop override to clear chat stop, got %v", req.Stop)
 	}
 }
+
+func TestMakeCompletionRequestFromTurnUserImageContent(t *testing.T) {
+	engine := "gpt-4o-mini"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		OpenAI: &aisettingsopenai.Settings{},
+		Chat:   &aisettings.ChatSettings{Engine: &engine},
+	}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserMultimodalBlock("describe", []map[string]any{{
+			"media_type": "image/png",
+			"content":    []byte("PNG"),
+			"detail":     "high",
+		}}),
+	}}
+
+	e := newTestEngine(st)
+	req, err := e.MakeCompletionRequestFromTurn(tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(req.Messages) != 1 || len(req.Messages[0].MultiContent) != 2 {
+		t.Fatalf("messages = %#v", req.Messages)
+	}
+	if req.Messages[0].MultiContent[0].Type != chatMessagePartTypeText || req.Messages[0].MultiContent[0].Text != "describe" {
+		t.Fatalf("text part = %#v", req.Messages[0].MultiContent[0])
+	}
+	img := req.Messages[0].MultiContent[1]
+	if img.Type != chatMessagePartTypeImageURL || img.ImageURL == nil {
+		t.Fatalf("image part = %#v", img)
+	}
+	if img.ImageURL.URL != "data:image/png;base64,UE5H" || img.ImageURL.Detail != "high" {
+		t.Fatalf("image URL = %#v", img.ImageURL)
+	}
+}

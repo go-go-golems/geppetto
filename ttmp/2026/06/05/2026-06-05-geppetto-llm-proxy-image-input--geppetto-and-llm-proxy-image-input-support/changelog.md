@@ -60,3 +60,15 @@ Step 5: add shared Geppetto image normalization helper and tests
 - /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/imageparts/image_parts_test.go — Helper tests
 - /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/reference/01-investigation-diary.md — Step 5 diary
 
+
+## 2026-06-05
+
+Step 6: refactor OpenAI Chat, OpenAI Responses, and Claude image mapping to use shared normalization
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/claude/helpers.go — Claude refactor
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/openai/helpers.go — OpenAI Chat refactor
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/pkg/steps/ai/openai_responses/helpers.go — Responses refactor
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/reference/01-investigation-diary.md — Step 6 diary
+

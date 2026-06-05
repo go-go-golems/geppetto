@@ -345,3 +345,33 @@ func TestMakeMessageRequestFromTurnPreservesReasoningBlocks(t *testing.T) {
 	assert.Equal(t, "private thought", thinking.Thinking)
 	assert.Equal(t, "sig_abc", thinking.Signature)
 }
+
+func TestMakeMessageRequestFromTurnUserImageDataURL(t *testing.T) {
+	engine := "claude-sonnet-4-20250514"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		Claude: &claudesettings.Settings{},
+		Chat:   &aisettings.ChatSettings{Engine: &engine, Stream: true},
+	}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserMultimodalBlock("describe", []map[string]any{{
+			"content": "data:image/png;base64,UE5H",
+		}}),
+	}}
+
+	e := newTestEngine(st)
+	req, err := e.MakeMessageRequestFromTurn(tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(req.Messages) != 1 || len(req.Messages[0].Content) != 2 {
+		t.Fatalf("messages = %#v", req.Messages)
+	}
+	img, ok := req.Messages[0].Content[1].(api.ImageContent)
+	if !ok {
+		t.Fatalf("second content = %#v, want ImageContent", req.Messages[0].Content[1])
+	}
+	if img.Source.MediaType != "image/png" || img.Source.Data != "UE5H" {
+		t.Fatalf("image = %#v", img)
+	}
+}

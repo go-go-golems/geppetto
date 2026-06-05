@@ -9,6 +9,7 @@ import (
 	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/imageparts"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
 )
@@ -236,19 +237,14 @@ func (e *ClaudeEngine) buildMessageProjectionFromTurn(t *turns.Turn) (*messagePr
 				}
 				if imgs, ok := b.Payload[turns.PayloadKeyImages].([]map[string]any); ok && len(imgs) > 0 {
 					for _, img := range imgs {
-						mediaType, _ := img["media_type"].(string)
-						if raw, ok := img["content"]; ok && raw != nil {
-							var base64Content string
-							switch rv := raw.(type) {
-							case []byte:
-								base64Content = base64.StdEncoding.EncodeToString(rv)
-							case string:
-								base64Content = rv
-							}
-							if base64Content != "" {
-								parts = append(parts, api.NewImageContent(mediaType, base64Content))
-							}
+						part, ok, err := imageparts.NormalizeImageMap(img)
+						if err != nil {
+							return nil, err
 						}
+						if !ok || len(part.Data) == 0 {
+							continue
+						}
+						parts = append(parts, api.NewImageContent(part.MediaType, base64.StdEncoding.EncodeToString(part.Data)))
 					}
 				}
 				if len(parts) > 0 {

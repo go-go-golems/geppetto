@@ -1,13 +1,13 @@
 package openai
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
 
 	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/imageparts"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
@@ -239,28 +239,25 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 				if imgs, ok := b.Payload[turns.PayloadKeyImages].([]map[string]any); ok && len(imgs) > 0 {
 					parts := []ChatMessagePart{{Type: chatMessagePartTypeText, Text: text}}
 					for _, img := range imgs {
-						mediaType, _ := img["media_type"].(string)
-						url, _ := img["url"].(string)
-						// content can be []byte or base64 string
-						var base64Content string
-						if raw, ok := img["content"]; ok && raw != nil {
-							switch rv := raw.(type) {
-							case []byte:
-								base64Content = base64.StdEncoding.EncodeToString(rv)
-							case string:
-								// assume already base64
-								base64Content = rv
-							}
+						part, ok, err := imageparts.NormalizeImageMap(img)
+						if err != nil {
+							return nil, err
 						}
-						imageURL := url
-						if imageURL == "" && base64Content != "" {
-							imageURL = fmt.Sprintf("data:%s;base64,%s", mediaType, base64Content)
+						if !ok {
+							continue
+						}
+						imageURL := part.URL
+						if imageURL == "" && len(part.Data) > 0 {
+							imageURL = imageparts.DataURL(part.MediaType, part.Data)
+						}
+						if imageURL == "" {
+							continue
 						}
 						parts = append(parts, ChatMessagePart{
 							Type: chatMessagePartTypeImageURL,
 							ImageURL: &ChatMessageImageURL{
 								URL:    imageURL,
-								Detail: chatImageURLDetailAuto,
+								Detail: part.Detail,
 							},
 						})
 					}
