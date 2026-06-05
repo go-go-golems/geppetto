@@ -60,12 +60,16 @@ func Register(registry *providerapi.ProviderRegistry) error {
 				if err != nil {
 					return nil, fmt.Errorf("geppetto provider config: %w", err)
 				}
+
 				opts := geppettomodule.Options{}
 				if host, ok := ctx.Host.(HostServices); ok && host != nil {
 					opts, err = host.GeppettoOptions(ctx.Context, cfg)
 					if err != nil {
 						return nil, fmt.Errorf("geppetto provider host options: %w", err)
 					}
+				}
+				if opts.RuntimeOwner == nil {
+					opts.RuntimeOwner = ctx.RuntimeOwner
 				}
 				if err := applyHostOptionsContributions(ctx.Context, ctx.Host, cfg, &opts); err != nil {
 					return nil, err
