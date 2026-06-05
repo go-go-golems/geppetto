@@ -52,7 +52,10 @@ func TestRegisterProvider(t *testing.T) {
 
 func TestProviderWorksWithoutHostServices(t *testing.T) {
 	mod := resolveModule(t)
-	loader, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{})
+	loader, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{
+		Name: geppettomodule.ModuleName,
+		As:   geppettomodule.ModuleName,
+	})
 	if err != nil {
 		t.Fatalf("expected provider to work without host services: %v", err)
 	}
