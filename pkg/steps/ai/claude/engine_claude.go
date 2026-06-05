@@ -92,6 +92,12 @@ func (e *ClaudeEngine) RunInference(
 	if err != nil {
 		return nil, err
 	}
+	// RunInference always consumes Anthropic's streaming Messages API path.
+	// Force the request into SSE mode even when a profile was authored with
+	// chat.stream=false; otherwise Anthropic returns a non-streaming JSON
+	// response and the streaming parser observes a closed stream with no
+	// message_start event.
+	req.Stream = true
 
 	// Add tools from context if present (no Turn.Data registry).
 	if reg, ok := tools.RegistryFrom(ctx); ok && reg != nil {
