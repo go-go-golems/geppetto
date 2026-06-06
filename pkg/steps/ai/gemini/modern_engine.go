@@ -14,7 +14,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
-	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
 	"github.com/google/uuid"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
@@ -363,7 +362,12 @@ func completeModernGeminiStream(
 			if t.Blocks[j].Kind == turns.BlockKindToolCall {
 				id, _ := t.Blocks[j].Payload[turns.PayloadKeyID].(string)
 				if id == c.id {
-					t.Blocks[j] = toolblocks.NewToolCallBlockWithCorrelation(c.id, c.name, c.args, geminiToolCorrelation(state.providerCallCorr, c.id, i))
+					b, err := newModernGeminiToolCallBlock(c, geminiToolCorrelation(state.providerCallCorr, c.id, i))
+					if err != nil {
+						terminalErr = err
+						continue
+					}
+					t.Blocks[j] = b
 				}
 			}
 		}

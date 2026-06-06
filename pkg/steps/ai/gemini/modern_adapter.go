@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/imageparts"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
 	"github.com/google/uuid"
 	moderngenai "google.golang.org/genai"
 )
@@ -78,13 +79,15 @@ func reduceModernGeminiResponse(metadata events.EventMetadata, state *modernGemi
 			}
 			if part.Thought {
 				out = append(out, reduceModernGeminiThoughtPart(metadata, state, part, partIndex)...)
-				continue
+				if part.FunctionCall == nil {
+					continue
+				}
 			}
-			if part.Text != "" {
+			if part.Text != "" && !part.Thought {
 				out = append(out, reduceModernGeminiTextPart(metadata, state, part.Text)...)
 			}
 			if part.FunctionCall != nil {
-				out = append(out, reduceModernGeminiFunctionCall(metadata, state, part.FunctionCall)...)
+				out = append(out, reduceModernGeminiFunctionCall(metadata, state, part)...)
 			}
 		}
 	}
@@ -137,10 +140,11 @@ func reduceModernGeminiTextPart(metadata events.EventMetadata, state *modernGemi
 	return out
 }
 
-func reduceModernGeminiFunctionCall(metadata events.EventMetadata, state *modernGeminiStreamState, call *moderngenai.FunctionCall) []events.Event {
-	if call == nil {
+func reduceModernGeminiFunctionCall(metadata events.EventMetadata, state *modernGeminiStreamState, part *moderngenai.Part) []events.Event {
+	if part == nil || part.FunctionCall == nil {
 		return nil
 	}
+	call := part.FunctionCall
 	args := call.Args
 	if args == nil {
 		args = map[string]any{}
@@ -149,7 +153,7 @@ func reduceModernGeminiFunctionCall(metadata events.EventMetadata, state *modern
 	if id == "" {
 		id = uuid.NewString()
 	}
-	state.pendingCalls = append(state.pendingCalls, geminiPendingCall{id: id, name: call.Name, args: args})
+	state.pendingCalls = append(state.pendingCalls, geminiPendingCall{id: id, name: call.Name, args: args, thoughtSignature: append([]byte(nil), part.ThoughtSignature...)})
 	inputBytes, _ := json.Marshal(args)
 	toolCorr := geminiToolCorrelation(state.providerCallCorr, id, state.toolCallIndex)
 	state.toolCallIndex++
@@ -210,9 +214,28 @@ func appendModernGeminiStateBlocks(t *turns.Turn, state *modernGeminiStreamState
 		turns.AppendBlock(t, turns.NewAssistantTextBlock(state.message))
 	}
 	for _, call := range state.pendingCalls {
-		turns.AppendBlock(t, turns.NewToolCallBlock(call.id, call.name, call.args))
+		b, err := newModernGeminiToolCallBlock(call, events.Correlation{})
+		if err != nil {
+			return err
+		}
+		turns.AppendBlock(t, b)
 	}
 	return nil
+}
+
+func newModernGeminiToolCallBlock(call geminiPendingCall, corr events.Correlation) (turns.Block, error) {
+	b := toolblocks.NewToolCallBlockWithCorrelation(call.id, call.name, call.args, corr)
+	if err := setModernGeminiThoughtSignatureMetadata(&b, call.thoughtSignature); err != nil {
+		return turns.Block{}, err
+	}
+	return b, nil
+}
+
+func setModernGeminiThoughtSignatureMetadata(b *turns.Block, sig []byte) error {
+	if b == nil || len(sig) == 0 {
+		return nil
+	}
+	return keyBlockMetaGeminiThoughtSignature.Set(&b.Metadata, base64.StdEncoding.EncodeToString(sig))
 }
 
 func buildModernGeminiContentsFromTurn(t *turns.Turn) ([]*moderngenai.Content, error) {
@@ -269,7 +292,17 @@ func buildModernGeminiContentsFromTurn(t *turns.Turn) ([]*moderngenai.Content, e
 			id, _ := b.Payload[turns.PayloadKeyID].(string)
 			name, _ := b.Payload[turns.PayloadKeyName].(string)
 			args := toolCallArgsMap(b.Payload[turns.PayloadKeyArgs])
-			content.Parts = append(content.Parts, &moderngenai.Part{FunctionCall: &moderngenai.FunctionCall{ID: id, Name: name, Args: args}})
+			part := &moderngenai.Part{FunctionCall: &moderngenai.FunctionCall{ID: id, Name: name, Args: args}}
+			if sig64, ok, err := keyBlockMetaGeminiThoughtSignature.Get(b.Metadata); err != nil {
+				return nil, err
+			} else if ok && strings.TrimSpace(sig64) != "" {
+				sig, err := base64.StdEncoding.DecodeString(sig64)
+				if err != nil {
+					return nil, err
+				}
+				part.ThoughtSignature = sig
+			}
+			content.Parts = append(content.Parts, part)
 		case turns.BlockKindToolUse:
 			content.Role = string(moderngenai.RoleUser)
 			id, _ := b.Payload[turns.PayloadKeyID].(string)

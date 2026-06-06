@@ -84,6 +84,39 @@ func TestModernGeminiReducerUsesProviderFunctionCallID(t *testing.T) {
 	}
 }
 
+func TestModernGeminiReducerPreservesFunctionCallThoughtSignature(t *testing.T) {
+	metadata := events.EventMetadata{SessionID: "session-1", InferenceID: "inference-1", TurnID: "turn-1"}
+	providerCorr := geminiProviderCallCorrelation(metadata, metadata.InferenceID, "gemini-3", 0)
+	state := newModernGeminiStreamState(providerCorr)
+
+	got := reduceModernGeminiResponse(metadata, state, &moderngenai.GenerateContentResponse{Candidates: []*moderngenai.Candidate{{Content: &moderngenai.Content{Parts: []*moderngenai.Part{{
+		FunctionCall:     &moderngenai.FunctionCall{ID: "provider-call-1", Name: "lookup", Args: map[string]any{"q": "x"}},
+		ThoughtSignature: []byte("call-sig-1"),
+	}}}}}})
+
+	assertGeminiEventTypes(t, got, []events.EventType{
+		events.EventTypeToolCallStarted,
+		events.EventTypeToolCallRequested,
+	})
+	if len(state.pendingCalls) != 1 || string(state.pendingCalls[0].thoughtSignature) != "call-sig-1" {
+		t.Fatalf("pending calls = %#v, want preserved function-call thought signature", state.pendingCalls)
+	}
+	turn := &turns.Turn{ID: "turn-1"}
+	if err := appendModernGeminiStateBlocks(turn, state); err != nil {
+		t.Fatalf("append blocks: %v", err)
+	}
+	if len(turn.Blocks) != 1 || turn.Blocks[0].Kind != turns.BlockKindToolCall {
+		t.Fatalf("turn blocks = %#v, want one tool call", turn.Blocks)
+	}
+	sig64, ok, err := keyBlockMetaGeminiThoughtSignature.Get(turn.Blocks[0].Metadata)
+	if err != nil || !ok {
+		t.Fatalf("missing tool call thought signature metadata: ok=%v err=%v", ok, err)
+	}
+	if gotSig, _ := base64.StdEncoding.DecodeString(sig64); string(gotSig) != "call-sig-1" {
+		t.Fatalf("signature metadata = %q decoded=%q, want call-sig-1", sig64, string(gotSig))
+	}
+}
+
 func TestModernGeminiUsagePreservesThoughtsTokenCountInExtra(t *testing.T) {
 	usage, extra, ok := extractModernGeminiUsage(&moderngenai.GenerateContentResponse{UsageMetadata: &moderngenai.GenerateContentResponseUsageMetadata{
 		PromptTokenCount:        11,
@@ -110,9 +143,13 @@ func TestModernGeminiContentsReplayThoughtSignatureAndToolIDs(t *testing.T) {
 	if err := keyBlockMetaGeminiThoughtSignature.Set(&reasoning.Metadata, base64.StdEncoding.EncodeToString([]byte("sig-1"))); err != nil {
 		t.Fatalf("set signature: %v", err)
 	}
+	toolCall := turns.NewToolCallBlock("provider-call-1", "lookup", `{"q":"x"}`)
+	if err := keyBlockMetaGeminiThoughtSignature.Set(&toolCall.Metadata, base64.StdEncoding.EncodeToString([]byte("call-sig-1"))); err != nil {
+		t.Fatalf("set tool signature: %v", err)
+	}
 	turns.AppendBlock(turn, turns.NewUserTextBlock("question"))
 	turns.AppendBlock(turn, reasoning)
-	turns.AppendBlock(turn, turns.NewToolCallBlock("provider-call-1", "lookup", `{"q":"x"}`))
+	turns.AppendBlock(turn, toolCall)
 	turns.AppendBlock(turn, turns.NewToolUseBlock("provider-call-1", map[string]any{"answer": "y"}))
 
 	contents, err := buildModernGeminiContentsFromTurn(turn)
@@ -126,9 +163,13 @@ func TestModernGeminiContentsReplayThoughtSignatureAndToolIDs(t *testing.T) {
 	if !thought.Thought || thought.Text != "private chain" || string(thought.ThoughtSignature) != "sig-1" {
 		t.Fatalf("thought part = %#v, want thought text + signature", thought)
 	}
-	call := contents[2].Parts[0].FunctionCall
+	callPart := contents[2].Parts[0]
+	call := callPart.FunctionCall
 	if call == nil || call.ID != "provider-call-1" || call.Name != "lookup" || call.Args["q"] != "x" {
 		t.Fatalf("function call = %#v, want provider id/name/args", call)
+	}
+	if string(callPart.ThoughtSignature) != "call-sig-1" {
+		t.Fatalf("function call thought signature = %q, want call-sig-1", string(callPart.ThoughtSignature))
 	}
 	response := contents[3].Parts[0].FunctionResponse
 	if response == nil || response.ID != "provider-call-1" || response.Name != "lookup" || response.Response["answer"] != "y" {
