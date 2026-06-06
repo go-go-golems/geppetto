@@ -12,6 +12,10 @@ profiles:
         engine: gpt-4o-mini
         temperature: 0.2
         max_response_tokens: 128
+      embeddings:
+        type: openai
+        engine: text-embedding-3-small
+        dimensions: 4
       model_info:
         id: gpt-4o-mini
         name: GPT-4o Mini
