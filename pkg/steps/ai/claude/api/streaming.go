@@ -31,6 +31,8 @@ type StreamingDeltaType string
 const (
 	TextDeltaType      StreamingDeltaType = "text_delta"
 	InputJSONDeltaType StreamingDeltaType = "input_json_delta"
+	ThinkingDeltaType  StreamingDeltaType = "thinking_delta"
+	SignatureDeltaType StreamingDeltaType = "signature_delta"
 )
 
 type StreamingEvent struct {
@@ -74,11 +76,13 @@ func (s StreamingEvent) MarshalZerologObject(e *zerolog.Event) {
 var _ zerolog.LogObjectMarshaler = StreamingEvent{}
 
 type ContentBlock struct {
-	Type  ContentType `json:"type"`
-	ID    string      `json:"id,omitempty"`
-	Name  string      `json:"name,omitempty"`
-	Input interface{} `json:"input,omitempty"` // Can be string for text or object for tool_use
-	Text  string      `json:"text,omitempty"`
+	Type      ContentType `json:"type"`
+	ID        string      `json:"id,omitempty"`
+	Name      string      `json:"name,omitempty"`
+	Input     interface{} `json:"input,omitempty"` // Can be string for text or object for tool_use
+	Text      string      `json:"text,omitempty"`
+	Thinking  string      `json:"thinking,omitempty"`
+	Signature string      `json:"signature,omitempty"`
 }
 
 type Error struct {
@@ -90,6 +94,8 @@ type Delta struct {
 	Type         StreamingDeltaType `json:"type"`
 	Text         string             `json:"text,omitempty"`
 	PartialJSON  string             `json:"partial_json"`
+	Thinking     string             `json:"thinking,omitempty"`
+	Signature    string             `json:"signature,omitempty"`
 	StopReason   string             `json:"stop_reason,omitempty"`
 	StopSequence string             `json:"stop_sequence,omitempty"`
 }
@@ -108,6 +114,12 @@ func (cb ContentBlock) MarshalZerologObject(e *zerolog.Event) {
 	if cb.Text != "" {
 		e.Str("text", cb.Text)
 	}
+	if cb.Thinking != "" {
+		e.Str("thinking", cb.Thinking)
+	}
+	if cb.Signature != "" {
+		e.Str("signature", cb.Signature)
+	}
 }
 
 func (err Error) MarshalZerologObject(e *zerolog.Event) {
@@ -121,6 +133,12 @@ func (d Delta) MarshalZerologObject(e *zerolog.Event) {
 		e.Str("text", d.Text)
 	}
 	e.Str("partial_json", d.PartialJSON)
+	if d.Thinking != "" {
+		e.Str("thinking", d.Thinking)
+	}
+	if d.Signature != "" {
+		e.Str("signature", d.Signature)
+	}
 	if d.StopReason != "" {
 		e.Str("stop_reason", d.StopReason)
 	}

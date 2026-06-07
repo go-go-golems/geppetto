@@ -1,0 +1,51 @@
+{
+  "profile": "gemini-3-flash-preview",
+  "model": "gemini-3-flash-preview",
+  "ok": true,
+  "started_at": "2026-06-05T15:16:14.727251688-04:00",
+  "duration_ms": 1018,
+  "event_counts": {
+    "provider-call-finished": 1,
+    "provider-call-metadata-updated": 3,
+    "provider-call-started": 1,
+    "text-delta": 1,
+    "text-segment-finished": 1,
+    "text-segment-started": 1
+  },
+  "final_block_kinds": [
+    "user",
+    "llm_text"
+  ],
+  "inference_result": {
+    "provider": "gemini",
+    "model": "gemini-3-flash-preview",
+    "stop_reason": "STOP",
+    "finish_class": "completed",
+    "usage": {
+      "input_tokens": 1102,
+      "output_tokens": 3
+    },
+    "duration_ms": 1010,
+    "response_id": "fiAjauSZObaX_uMPk6_yyQ4",
+    "extra": {
+      "settings": {
+        "ai-api-type": "gemini",
+        "ai-engine": "gemini-3-flash-preview",
+        "ai-temperature": 0.7,
+        "embeddings-dimensions": 1536,
+        "embeddings-engine": "text-embedding-3-small",
+        "embeddings-type": "openai",
+        "ollama-temperature": 0.8,
+        "proxy-from-environment": true
+      },
+      "thoughts_token_count": 62,
+      "total_token_count": 1167
+    }
+  },
+  "artifacts": {
+    "events_ndjson": "ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/artifacts/geppetto-image-gemini-3-flash-preview-events.ndjson",
+    "inference_result": "ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/artifacts/geppetto-image-gemini-3-flash-preview-inference-result.json",
+    "summary": "ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/artifacts/geppetto-image-gemini-3-flash-preview-summary.json",
+    "turn_yaml": "ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/artifacts/geppetto-image-gemini-3-flash-preview-turn.yaml"
+  }
+}

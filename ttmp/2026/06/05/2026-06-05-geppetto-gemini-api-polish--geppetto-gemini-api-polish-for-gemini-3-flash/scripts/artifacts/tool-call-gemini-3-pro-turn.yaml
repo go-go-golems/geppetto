@@ -1,0 +1,28 @@
+blocks:
+    - id: 54fe0854-146b-43fa-8e0e-032094cfcce6
+      kind: system
+      role: system
+      payload:
+        text: You are a terse Geppetto Gemini smoke-test assistant. If a tool is useful, call it instead of guessing.
+    - id: 26f90e91-e422-474a-af94-62f34b05594a
+      kind: user
+      role: user
+      payload:
+        text: What is the weather in Zurich? Use the lookup_weather tool.
+metadata:
+    geppetto.inference_result@v1:
+        provider: gemini
+        model: gemini-3-pro
+        stop_reason: error
+        finish_class: error
+        duration_ms: 188
+        extra:
+            settings:
+                ai-api-type: gemini
+                ai-engine: gemini-3-pro
+                ai-temperature: 0.7
+                embeddings-dimensions: 1536
+                embeddings-engine: text-embedding-3-small
+                embeddings-type: openai
+                ollama-temperature: 0.8
+                proxy-from-environment: true

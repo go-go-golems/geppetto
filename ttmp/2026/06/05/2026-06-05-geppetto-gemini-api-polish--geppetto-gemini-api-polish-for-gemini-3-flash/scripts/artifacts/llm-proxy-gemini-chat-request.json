@@ -1,0 +1,10 @@
+{
+  "max_tokens": 64,
+  "messages": [
+    {
+      "content": "Reply with exactly: llm-proxy gemini chat ok",
+      "role": "user"
+    }
+  ],
+  "model": "gemini-3-flash-preview"
+}

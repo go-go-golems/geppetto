@@ -9,8 +9,9 @@ import (
 )
 
 type geminiPendingCall struct {
-	id, name string
-	args     map[string]any
+	id, name         string
+	args             map[string]any
+	thoughtSignature []byte
 }
 
 type geminiStreamState struct {

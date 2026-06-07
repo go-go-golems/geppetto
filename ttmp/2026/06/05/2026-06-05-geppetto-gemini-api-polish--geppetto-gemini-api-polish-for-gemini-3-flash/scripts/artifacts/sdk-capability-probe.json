@@ -1,0 +1,33 @@
+{
+  "generated_at": "2026-06-05T13:37:48.763424+00:00",
+  "purpose": "Compare legacy github.com/google/generative-ai-go/genai and modern google.golang.org/genai support for Gemini 3 fields.",
+  "modules": {
+    "legacy": "github.com/google/generative-ai-go v0.20.1",
+    "modern": "google.golang.org/genai v1.58.0"
+  },
+  "results": [
+    {
+      "name": "old_baseline",
+      "build_ok": true,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "old_modern_fields",
+      "build_ok": false,
+      "stdout": "",
+      "stderr": "# command-line-arguments\n./old_modern_fields.go:7:16: undefined: oldgenai.ThinkingConfig\n./old_modern_fields.go:8:6: invalid composite literal type genai.Part\n./old_modern_fields.go:9:28: unknown field ID in struct literal of type genai.FunctionCall\n./old_modern_fields.go:10:32: unknown field ID in struct literal of type genai.FunctionResponse\n./old_modern_fields.go:11:39: unknown field ResponseID in struct literal of type genai.GenerateContentResponse\n"
+    },
+    {
+      "name": "new_modern_fields",
+      "build_ok": true,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "interpretation": {
+    "old_baseline": "Legacy SDK compiles for basic text/function call/function response types.",
+    "old_modern_fields": "Expected to fail: legacy SDK should not expose ThinkingConfig, Part struct thought fields, FunctionCall.ID, FunctionResponse.ID, or GenerateContentResponse.ResponseID.",
+    "new_modern_fields": "Expected to pass: modern SDK exposes Gemini 3 thinking/signature/function ID/usage fields."
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "max_tokens": 128,
+  "messages": [
+    {
+      "content": "What is the weather in Zurich? Use lookup_weather.",
+      "role": "user"
+    },
+    {
+      "content": null,
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{\"city\":\"Zurich\"}",
+            "name": "lookup_weather"
+          },
+          "id": "ox2qt3ax",
+          "type": "function"
+        }
+      ]
+    },
+    {
+      "content": "{\"city\": \"Zurich\", \"condition\": \"clear\", \"temperature\": \"21 C\"}",
+      "role": "tool",
+      "tool_call_id": "ox2qt3ax"
+    },
+    {
+      "content": "Summarize the tool result in one sentence.",
+      "role": "user"
+    }
+  ],
+  "model": "gemini-3-flash-preview",
+  "tools": [
+    {
+      "function": {
+        "description": "Look up deterministic weather for a city.",
+        "name": "lookup_weather",
+        "parameters": {
+          "properties": {
+            "city": {
+              "description": "City name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "city"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "function"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+blocks:
+    - id: 8642787c-1060-49c1-9c68-cd32d2cccf90
+      kind: system
+      role: system
+      payload:
+        text: You are a terse Geppetto Gemini smoke-test assistant. If a tool is useful, call it instead of guessing.
+    - id: 5d6cad38-35d4-4e8a-94e0-99c675a646a9
+      kind: user
+      role: user
+      payload:
+        text: 'Reply with exactly: gemini smoke ok'
+metadata:
+    geppetto.inference_result@v1:
+        provider: gemini
+        model: gemini-3-pro
+        stop_reason: error
+        finish_class: error
+        duration_ms: 179
+        extra:
+            settings:
+                ai-api-type: gemini
+                ai-engine: gemini-3-pro
+                ai-temperature: 0.7
+                embeddings-dimensions: 1536
+                embeddings-engine: text-embedding-3-small
+                embeddings-type: openai
+                ollama-temperature: 0.8
+                proxy-from-environment: true

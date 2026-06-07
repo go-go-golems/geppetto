@@ -1,0 +1,26 @@
+{
+  "provider": "gemini",
+  "model": "gemini-3-flash-preview",
+  "stop_reason": "STOP",
+  "finish_class": "tool_calls_pending",
+  "usage": {
+    "input_tokens": 113,
+    "output_tokens": 17
+  },
+  "duration_ms": 1300,
+  "response_id": "U_Iiavu4M5Ga9MoPq5bL2Qo",
+  "extra": {
+    "settings": {
+      "ai-api-type": "gemini",
+      "ai-engine": "gemini-3-flash-preview",
+      "ai-temperature": 0.7,
+      "embeddings-dimensions": 1536,
+      "embeddings-engine": "text-embedding-3-small",
+      "embeddings-type": "openai",
+      "ollama-temperature": 0.8,
+      "proxy-from-environment": true
+    },
+    "thoughts_token_count": 38,
+    "total_token_count": 168
+  }
+}

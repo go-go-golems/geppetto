@@ -1,0 +1,10 @@
+data: {"id":"chatcmpl_proxy_1780676302078132265","object":"chat.completion.chunk","created":1780676302,"model":"gemini-3-flash-preview","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl_proxy_1780676302078132265","object":"chat.completion.chunk","created":1780676302,"model":"gemini-3-flash-preview","choices":[{"index":0,"delta":{"content":"llm-proxy"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl_proxy_1780676302078132265","object":"chat.completion.chunk","created":1780676302,"model":"gemini-3-flash-preview","choices":[{"index":0,"delta":{"content":" gemini chat stream ok"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl_proxy_1780676302078132265","object":"chat.completion.chunk","created":1780676302,"model":"gemini-3-flash-preview","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+

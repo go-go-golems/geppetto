@@ -2,6 +2,8 @@ package claude
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -9,10 +11,13 @@ import (
 	"testing"
 
 	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	aisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	claudesettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
 	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func newTestEngine(st *aisettings.InferenceSettings) *ClaudeEngine {
@@ -160,6 +165,85 @@ func (t *claudeHeaderTransport) RoundTrip(req *http.Request) (*http.Response, er
 	return t.base.RoundTrip(req2)
 }
 
+func TestClaudeRunInference_ForcesStreamingMessagesRequest(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Fatalf("decode request body: %v", err)
+		}
+		if got, ok := payload["stream"].(bool); !ok || !got {
+			t.Fatalf("expected RunInference to force stream=true, got %#v in %s", payload["stream"], string(body))
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte(strings.Join([]string{
+			"event: message_start",
+			`data: {"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","content":[],"model":"claude-sonnet-4-20250514","stop_reason":"","stop_sequence":"","usage":{"input_tokens":1,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}`,
+			"",
+			"event: content_block_start",
+			`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+			"",
+			"event: content_block_delta",
+			`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}`,
+			"",
+			"event: content_block_stop",
+			`data: {"type":"content_block_stop","index":0}`,
+			"",
+			"event: message_delta",
+			`data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":""},"usage":{"input_tokens":1,"output_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}`,
+			"",
+			"event: message_stop",
+			`data: {"type":"message_stop"}`,
+			"",
+		}, "\n")))
+	}))
+	defer server.Close()
+	targetURL, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse server URL: %v", err)
+	}
+
+	httpClient := server.Client()
+	httpClient.Transport = &claudeHeaderTransport{
+		base:   httpClient.Transport,
+		target: targetURL,
+		host:   "api.anthropic.com",
+		scheme: "https",
+		header: "X-Test-Transport",
+		value:  "claude-proxy",
+	}
+
+	engine := "claude-sonnet-4-20250514"
+	apiType := ai_types.ApiTypeClaude
+	e := newTestEngine(&aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{HTTPClient: httpClient},
+		Claude: &claudesettings.Settings{},
+		API: &aisettings.APISettings{
+			APIKeys:  map[string]string{"claude-api-key": "test"},
+			BaseUrls: map[string]string{"claude-base-url": "https://api.anthropic.com"},
+		},
+		Chat: &aisettings.ChatSettings{
+			Engine:  &engine,
+			ApiType: &apiType,
+			Stream:  false,
+		},
+	})
+
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("hello"),
+	}}
+	out, err := e.RunInference(context.Background(), turn)
+	if err != nil {
+		t.Fatalf("RunInference: %v", err)
+	}
+	if out == nil || len(out.Blocks) == 0 {
+		t.Fatalf("expected response blocks to be appended")
+	}
+}
+
 func TestClaudeRunInference_UsesConfiguredHTTPClient(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("X-Test-Transport"); got != "claude-proxy" {
@@ -231,5 +315,95 @@ func TestClaudeRunInference_UsesConfiguredHTTPClient(t *testing.T) {
 	}
 	if out == nil || len(out.Blocks) == 0 {
 		t.Fatalf("expected response blocks to be appended")
+	}
+}
+
+func TestMakeMessageRequestFromTurnPreservesSignedReasoningBlocksAsClaudeThinking(t *testing.T) {
+	engine := "claude-sonnet-4-20250514"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		Claude: &claudesettings.Settings{},
+		Chat: &aisettings.ChatSettings{
+			Engine: &engine,
+			Stream: true,
+		},
+	}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("solve"),
+		{Kind: turns.BlockKindReasoning, Role: turns.RoleAssistant, Payload: map[string]any{turns.PayloadKeyText: "private thought", claudePayloadKeySignature: "sig_abc"}},
+		turns.NewAssistantTextBlock("answer"),
+	}}
+
+	e := newTestEngine(st)
+	req, err := e.MakeMessageRequestFromTurn(turn)
+	require.NoError(t, err)
+	require.Len(t, req.Messages, 3)
+	require.Equal(t, RoleAssistant, req.Messages[1].Role)
+	require.Len(t, req.Messages[1].Content, 1)
+	thinking, ok := req.Messages[1].Content[0].(api.ThinkingContent)
+	require.True(t, ok)
+	assert.Equal(t, "private thought", thinking.Thinking)
+	assert.Equal(t, "sig_abc", thinking.Signature)
+}
+
+func TestMakeMessageRequestFromTurnWrapsUnsignedReasoningBlocksAsAssistantText(t *testing.T) {
+	engine := "claude-sonnet-4-20250514"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		Claude: &claudesettings.Settings{},
+		Chat: &aisettings.ChatSettings{
+			Engine: &engine,
+			Stream: true,
+		},
+	}
+	turn := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserTextBlock("solve"),
+		{Kind: turns.BlockKindReasoning, Role: turns.RoleAssistant, Payload: map[string]any{turns.PayloadKeyText: "reasoning from another provider"}},
+		{Kind: turns.BlockKindReasoning, Role: turns.RoleAssistant, Payload: map[string]any{turns.PayloadKeyText: "empty signature reasoning", claudePayloadKeySignature: ""}},
+	}}
+
+	e := newTestEngine(st)
+	req, err := e.MakeMessageRequestFromTurn(turn)
+	require.NoError(t, err)
+	require.Len(t, req.Messages, 3)
+	for i, want := range []string{"<thinking>reasoning from another provider</thinking>", "<thinking>empty signature reasoning</thinking>"} {
+		msg := req.Messages[i+1]
+		require.Equal(t, RoleAssistant, msg.Role)
+		require.Len(t, msg.Content, 1)
+		_, isThinking := msg.Content[0].(api.ThinkingContent)
+		require.False(t, isThinking)
+		text, ok := msg.Content[0].(api.TextContent)
+		require.True(t, ok)
+		assert.Equal(t, want, text.Text)
+	}
+}
+
+func TestMakeMessageRequestFromTurnUserImageDataURL(t *testing.T) {
+	engine := "claude-sonnet-4-20250514"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		Claude: &claudesettings.Settings{},
+		Chat:   &aisettings.ChatSettings{Engine: &engine, Stream: true},
+	}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserMultimodalBlock("describe", []map[string]any{{
+			"content": "data:image/png;base64,UE5H",
+		}}),
+	}}
+
+	e := newTestEngine(st)
+	req, err := e.MakeMessageRequestFromTurn(tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(req.Messages) != 1 || len(req.Messages[0].Content) != 2 {
+		t.Fatalf("messages = %#v", req.Messages)
+	}
+	img, ok := req.Messages[0].Content[1].(api.ImageContent)
+	if !ok {
+		t.Fatalf("second content = %#v, want ImageContent", req.Messages[0].Content[1])
+	}
+	if img.Source.MediaType != "image/png" || img.Source.Data != "UE5H" {
+		t.Fatalf("image = %#v", img)
 	}
 }

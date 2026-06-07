@@ -1,0 +1,13 @@
+{
+  "profile": "gemini-3-flash-preview",
+  "base_url": "http://127.0.0.1:35691",
+  "ok": true,
+  "http_status": 200,
+  "finish_reason": "stop",
+  "content": "image smoke ok",
+  "artifacts": {
+    "request": "ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/artifacts/llm-proxy-image-chat-request.json",
+    "response": "ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/artifacts/llm-proxy-image-chat-response.json",
+    "server_log": "ttmp/2026/06/05/2026-06-05-geppetto-llm-proxy-image-input--geppetto-and-llm-proxy-image-input-support/scripts/artifacts/llm-proxy-image-server.log"
+  }
+}

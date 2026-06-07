@@ -1,0 +1,30 @@
+{
+  "messages": [
+    {
+      "content": "What is the weather in Zurich? Use lookup_weather.",
+      "role": "user"
+    }
+  ],
+  "model": "gemini-3-flash-preview",
+  "tools": [
+    {
+      "function": {
+        "description": "Look up deterministic weather for a city.",
+        "name": "lookup_weather",
+        "parameters": {
+          "properties": {
+            "city": {
+              "description": "City name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "city"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "function"
+    }
+  ]
+}

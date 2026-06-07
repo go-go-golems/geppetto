@@ -1,12 +1,12 @@
 package openai_responses
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/imageparts"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -612,70 +612,20 @@ func buildResponsesMessageParts(role string, payload map[string]any) []responses
 }
 
 func responsesImagePartFromMap(img map[string]any) (responsesContentPart, bool) {
-	if len(img) == 0 {
+	part, ok, err := imageparts.NormalizeImageMap(img)
+	if err != nil || !ok {
 		return responsesContentPart{}, false
 	}
-	detail := normalizeResponsesImageDetail(img["detail"])
-	if imageURL := firstNonEmptyString(img["url"], img["image_url"]); imageURL != "" {
-		return responsesContentPart{Type: "input_image", ImageURL: imageURL, Detail: detail}, true
+	if part.URL != "" {
+		return responsesContentPart{Type: "input_image", ImageURL: part.URL, Detail: part.Detail}, true
 	}
-	if raw, ok := img["content"]; ok && raw != nil {
-		if dataURL, ok := raw.(string); ok && strings.HasPrefix(strings.TrimSpace(dataURL), "data:") {
-			return responsesContentPart{Type: "input_image", ImageURL: strings.TrimSpace(dataURL), Detail: detail}, true
-		}
-		if mediaType := firstNonEmptyString(img["media_type"]); mediaType != "" {
-			if base64Content := base64ImageContent(raw); base64Content != "" {
-				return responsesContentPart{
-					Type:     "input_image",
-					ImageURL: fmt.Sprintf("data:%s;base64,%s", mediaType, base64Content),
-					Detail:   detail,
-				}, true
-			}
-		}
+	if len(part.Data) > 0 {
+		return responsesContentPart{Type: "input_image", ImageURL: imageparts.DataURL(part.MediaType, part.Data), Detail: part.Detail}, true
 	}
-	if fileID := firstNonEmptyString(img["file_id"]); fileID != "" {
-		return responsesContentPart{Type: "input_image", FileID: fileID, Detail: detail}, true
+	if part.FileID != "" {
+		return responsesContentPart{Type: "input_image", FileID: part.FileID, Detail: part.Detail}, true
 	}
 	return responsesContentPart{}, false
-}
-
-func firstNonEmptyString(values ...any) string {
-	for _, value := range values {
-		switch v := value.(type) {
-		case string:
-			if s := strings.TrimSpace(v); s != "" {
-				return s
-			}
-		case []byte:
-			if s := strings.TrimSpace(string(v)); s != "" {
-				return s
-			}
-		}
-	}
-	return ""
-}
-
-func base64ImageContent(raw any) string {
-	switch v := raw.(type) {
-	case []byte:
-		if len(v) == 0 {
-			return ""
-		}
-		return base64.StdEncoding.EncodeToString(v)
-	case string:
-		return strings.TrimSpace(v)
-	default:
-		return ""
-	}
-}
-
-func normalizeResponsesImageDetail(v any) string {
-	switch strings.ToLower(strings.TrimSpace(firstNonEmptyString(v))) {
-	case "low", "high", "auto", "original":
-		return strings.ToLower(strings.TrimSpace(firstNonEmptyString(v)))
-	default:
-		return "auto"
-	}
 }
 
 func toolUsePayloadToJSONString(payload map[string]any) string {

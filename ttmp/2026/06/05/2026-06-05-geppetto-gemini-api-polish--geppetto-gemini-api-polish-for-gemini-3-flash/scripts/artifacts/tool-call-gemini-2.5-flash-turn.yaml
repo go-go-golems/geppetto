@@ -1,0 +1,68 @@
+blocks:
+    - id: 1e775821-3d2d-4ca1-a9a0-014dbfc7a83d
+      kind: system
+      role: system
+      payload:
+        text: You are a terse Geppetto Gemini smoke-test assistant. If a tool is useful, call it instead of guessing.
+    - id: 1dd89dd9-49d5-47d9-9961-006120b0b31e
+      kind: user
+      role: user
+      payload:
+        text: What is the weather in Zurich? Use the lookup_weather tool.
+    - id: 70dc0c76-38e7-4e3a-b476-8046c9449db8
+      kind: tool_call
+      payload:
+        args: {}
+        correlation:
+            run_id: b3547dd9-0a34-4b7e-b31d-a0440f0366dc
+            provider_call_id: gemini:b3547dd9-0a34-4b7e-b31d-a0440f0366dc:provider-call:0
+            segment_id: gemini:b3547dd9-0a34-4b7e-b31d-a0440f0366dc:provider-call:0:70dc0c76-38e7-4e3a-b476-8046c9449db8:0:tool
+            tool_call_id: 70dc0c76-38e7-4e3a-b476-8046c9449db8
+        id: 70dc0c76-38e7-4e3a-b476-8046c9449db8
+        name: lookup_weather
+      metadata:
+        geppetto.inference_result@v1:
+            provider: gemini
+            model: gemini-2.5-flash
+            stop_reason: STOP
+            finish_class: tool_calls_pending
+            usage:
+                input_tokens: 113
+                output_tokens: 10
+            duration_ms: 977
+            response_id: T_IiaqinG5iZ9MoP37uziQw
+            extra:
+                settings:
+                    ai-api-type: gemini
+                    ai-engine: gemini-2.5-flash
+                    ai-temperature: 0.7
+                    embeddings-dimensions: 1536
+                    embeddings-engine: text-embedding-3-small
+                    embeddings-type: openai
+                    ollama-temperature: 0.8
+                    proxy-from-environment: true
+                thoughts_token_count: 49
+                total_token_count: 172
+metadata:
+    geppetto.inference_result@v1:
+        provider: gemini
+        model: gemini-2.5-flash
+        stop_reason: STOP
+        finish_class: tool_calls_pending
+        usage:
+            input_tokens: 113
+            output_tokens: 10
+        duration_ms: 977
+        response_id: T_IiaqinG5iZ9MoP37uziQw
+        extra:
+            settings:
+                ai-api-type: gemini
+                ai-engine: gemini-2.5-flash
+                ai-temperature: 0.7
+                embeddings-dimensions: 1536
+                embeddings-engine: text-embedding-3-small
+                embeddings-type: openai
+                ollama-temperature: 0.8
+                proxy-from-environment: true
+            thoughts_token_count: 49
+            total_token_count: 172

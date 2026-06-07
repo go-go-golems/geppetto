@@ -123,6 +123,12 @@ topics:
       description: Timeline/sessionstream UI hydration storage and event history.
     - slug: sessions
       description: Session lifecycle abstractions for multi-turn interactions
+    - slug: providers
+      description: Provider-specific inference engine implementations and API integration behavior
+    - slug: llm-proxy
+      description: OpenAI-compatible llm-proxy service and related request/response mapping work
+    - slug: multimodal
+      description: Multimodal input/output support such as image content in LLM turns
 docTypes:
     - slug: index
       description: Ticket index

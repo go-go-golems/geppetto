@@ -1,0 +1,34 @@
+# Changelog
+
+## 2026-06-05
+
+- Initial workspace created
+
+
+## 2026-06-05
+
+Created provider gap audit ticket and intern-facing architecture/audit guide
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-provider-gap-audit--geppetto-provider-gap-audit/design-doc/01-intern-guide-to-geppetto-provider-architecture-and-gap-audit-plan.md — Guide and audit plan
+
+
+## 2026-06-05
+
+Uploaded provider gap audit intern guide to reMarkable
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-provider-gap-audit--geppetto-provider-gap-audit/design-doc/01-intern-guide-to-geppetto-provider-architecture-and-gap-audit-plan.md — Uploaded guide source
+
+
+## 2026-06-05
+
+Step 3: wrote static provider gap audit findings matrix and captured source/evidence artifacts
+
+### Related Files
+
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-provider-gap-audit--geppetto-provider-gap-audit/analysis/01-provider-gap-audit-findings.md — Provider matrix and prioritized gap findings
+- /home/manuel/workspaces/2026-06-04/llm-proxy/geppetto/ttmp/2026/06/05/2026-06-05-geppetto-provider-gap-audit--geppetto-provider-gap-audit/reference/01-investigation-diary.md — Diary updated with Step 3 context
+

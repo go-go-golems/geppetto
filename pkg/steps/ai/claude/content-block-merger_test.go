@@ -613,3 +613,51 @@ func TestContentBlockMergerToolUseMessageDeltaMetadataPreservedWithoutEvent(t *t
 	assert.Equal(t, 2, response.Usage.CacheCreationInputTokens)
 	assert.Equal(t, 5, response.Usage.CacheReadInputTokens)
 }
+
+func TestContentBlockMergerThinkingBlock(t *testing.T) {
+	metadata := events.EventMetadata{}
+	merger := NewContentBlockMerger(metadata)
+
+	stream := []api.StreamingEvent{
+		{Type: api.MessageStartType, Message: &api.MessageResponse{ID: "msg_think", Role: "assistant", Model: "claude-sonnet-4-6"}},
+		{Type: api.ContentBlockStartType, Index: 0, ContentBlock: &api.ContentBlock{Type: api.ContentTypeThinking}},
+		{Type: api.ContentBlockDeltaType, Index: 0, Delta: &api.Delta{Type: api.ThinkingDeltaType, Thinking: "I should compute "}},
+		{Type: api.ContentBlockDeltaType, Index: 0, Delta: &api.Delta{Type: api.ThinkingDeltaType, Thinking: "carefully."}},
+		{Type: api.ContentBlockDeltaType, Index: 0, Delta: &api.Delta{Type: api.SignatureDeltaType, Signature: "sig_123"}},
+		{Type: api.ContentBlockStopType, Index: 0},
+	}
+
+	var got []events.Event
+	for _, ev := range stream {
+		events_, err := merger.Add(ev)
+		require.NoError(t, err)
+		got = append(got, events_...)
+	}
+
+	require.Len(t, got, 5)
+	assert.IsType(t, &events.EventProviderCallStarted{}, got[0])
+	assert.IsType(t, &events.EventReasoningSegmentStarted{}, got[1])
+	delta1, ok := got[2].(*events.EventReasoningDelta)
+	require.True(t, ok)
+	assert.Equal(t, "thinking", delta1.Source)
+	assert.Equal(t, "I should compute ", delta1.Delta)
+	assert.Equal(t, "I should compute ", delta1.Text)
+	delta2, ok := got[3].(*events.EventReasoningDelta)
+	require.True(t, ok)
+	assert.Equal(t, "thinking", delta2.Source)
+	assert.Equal(t, "carefully.", delta2.Delta)
+	assert.Equal(t, "I should compute carefully.", delta2.Text)
+	finished, ok := got[4].(*events.EventReasoningSegmentFinished)
+	require.True(t, ok)
+	assert.Equal(t, "thinking", finished.Source)
+	assert.Equal(t, "I should compute carefully.", finished.Text)
+
+	response := merger.Response()
+	require.NotNil(t, response)
+	require.Len(t, response.Content, 1)
+	thinking, ok := response.Content[0].(api.ThinkingContent)
+	require.True(t, ok)
+	assert.Equal(t, "I should compute carefully.", thinking.Thinking)
+	assert.Equal(t, "sig_123", thinking.Signature)
+	assert.Equal(t, "", response.FullText(), "thinking must not leak through FullText")
+}

@@ -1,0 +1,58 @@
+{
+  "case": "tool-call",
+  "profile": "gemini-3-flash-preview",
+  "model": "gemini-3-flash-preview",
+  "ok": true,
+  "started_at": "2026-06-05T12:13:20.341195787-04:00",
+  "duration_ms": 1002,
+  "event_counts": {
+    "provider-call-finished": 1,
+    "provider-call-metadata-updated": 3,
+    "provider-call-started": 1,
+    "tool-call-requested": 1,
+    "tool-call-started": 1
+  },
+  "final_block_kinds": [
+    "system",
+    "user",
+    "tool_call"
+  ],
+  "tool_call_ids": [
+    "ke5gcxe8"
+  ],
+  "inference_result": {
+    "provider": "gemini",
+    "model": "gemini-3-flash-preview",
+    "stop_reason": "STOP",
+    "finish_class": "tool_calls_pending",
+    "usage": {
+      "input_tokens": 113,
+      "output_tokens": 17
+    },
+    "duration_ms": 996,
+    "response_id": "oPUiaunmIqql1MkP6N-M-A4",
+    "extra": {
+      "settings": {
+        "ai-api-type": "gemini",
+        "ai-engine": "gemini-3-flash-preview",
+        "ai-temperature": 0.7,
+        "embeddings-dimensions": 1536,
+        "embeddings-engine": "text-embedding-3-small",
+        "embeddings-type": "openai",
+        "ollama-temperature": 0.8,
+        "proxy-from-environment": true
+      },
+      "thoughts_token_count": 44,
+      "total_token_count": 174
+    }
+  },
+  "artifacts": {
+    "events_ndjson": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/tool-call-gemini-3-flash-preview-events.ndjson",
+    "inference_result": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/tool-call-gemini-3-flash-preview-inference-result.json",
+    "summary": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/tool-call-gemini-3-flash-preview-summary.json",
+    "turn_yaml": "ttmp/2026/06/05/2026-06-05-geppetto-gemini-api-polish--geppetto-gemini-api-polish-for-gemini-3-flash/scripts/artifacts/tool-call-gemini-3-flash-preview-turn.yaml"
+  },
+  "interpretation": [
+    "captured 1 tool_call id(s): ke5gcxe8"
+  ]
+}

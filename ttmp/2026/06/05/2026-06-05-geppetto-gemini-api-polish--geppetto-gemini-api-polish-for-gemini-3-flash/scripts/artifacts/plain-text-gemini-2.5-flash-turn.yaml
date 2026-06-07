@@ -1,0 +1,62 @@
+blocks:
+    - id: 62626a0a-9fd3-409f-b31b-a2a4bcece7b3
+      kind: system
+      role: system
+      payload:
+        text: You are a terse Geppetto Gemini smoke-test assistant. If a tool is useful, call it instead of guessing.
+    - id: bd97505f-b6b0-4f4e-87ee-8b4b6070ae07
+      kind: user
+      role: user
+      payload:
+        text: 'Reply with exactly: gemini smoke ok'
+    - id: 20292eeb-251e-44c9-8119-d30af707a663
+      kind: llm_text
+      role: assistant
+      payload:
+        text: gemini smoke ok
+      metadata:
+        geppetto.inference_result@v1:
+            provider: gemini
+            model: gemini-2.5-flash
+            stop_reason: STOP
+            finish_class: completed
+            usage:
+                input_tokens: 35
+                output_tokens: 4
+            duration_ms: 1455
+            response_id: TfIiaoq0NeC8_uMPk7WgyAs
+            extra:
+                settings:
+                    ai-api-type: gemini
+                    ai-engine: gemini-2.5-flash
+                    ai-temperature: 0.7
+                    embeddings-dimensions: 1536
+                    embeddings-engine: text-embedding-3-small
+                    embeddings-type: openai
+                    ollama-temperature: 0.8
+                    proxy-from-environment: true
+                thoughts_token_count: 168
+                total_token_count: 207
+metadata:
+    geppetto.inference_result@v1:
+        provider: gemini
+        model: gemini-2.5-flash
+        stop_reason: STOP
+        finish_class: completed
+        usage:
+            input_tokens: 35
+            output_tokens: 4
+        duration_ms: 1455
+        response_id: TfIiaoq0NeC8_uMPk7WgyAs
+        extra:
+            settings:
+                ai-api-type: gemini
+                ai-engine: gemini-2.5-flash
+                ai-temperature: 0.7
+                embeddings-dimensions: 1536
+                embeddings-engine: text-embedding-3-small
+                embeddings-type: openai
+                ollama-temperature: 0.8
+                proxy-from-environment: true
+            thoughts_token_count: 168
+            total_token_count: 207

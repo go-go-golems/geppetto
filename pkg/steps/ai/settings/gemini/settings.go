@@ -7,10 +7,20 @@ import (
 	"github.com/huandu/go-clone"
 )
 
-type Settings struct{}
+type Settings struct {
+	APIVersion      string `yaml:"api_version,omitempty" glazed:"gemini-api-version"`
+	IncludeThoughts *bool  `yaml:"include_thoughts,omitempty" glazed:"gemini-include-thoughts"`
+	ThinkingBudget  *int   `yaml:"thinking_budget,omitempty" glazed:"gemini-thinking-budget"`
+	ThinkingLevel   string `yaml:"thinking_level,omitempty" glazed:"gemini-thinking-level"`
+}
 
 func NewSettings() (*Settings, error) {
-	s := &Settings{}
+	s := &Settings{
+		APIVersion:      "",
+		IncludeThoughts: nil,
+		ThinkingBudget:  nil,
+		ThinkingLevel:   "",
+	}
 	p, err := NewValueSection()
 	if err != nil {
 		return nil, err

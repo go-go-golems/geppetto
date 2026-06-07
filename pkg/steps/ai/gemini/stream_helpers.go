@@ -1,8 +1,6 @@
 package gemini
 
 import (
-	"errors"
-	"io"
 	"strings"
 	"time"
 
@@ -10,39 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
-	genai "github.com/google/generative-ai-go/genai"
-	"google.golang.org/api/iterator"
 )
-
-type geminiStreamIterator interface {
-	Next() (*genai.GenerateContentResponse, error)
-}
-
-func consumeGeminiStream(
-	iter geminiStreamIterator,
-	metadata events.EventMetadata,
-	state *geminiStreamState,
-	publishEvent func(events.Event),
-	publishProviderRecord func(string, any),
-) error {
-	for {
-		resp, err := iter.Next()
-		if err == iterator.Done || errors.Is(err, io.EOF) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if publishProviderRecord != nil {
-			publishProviderRecord("gemini.stream.chunk", resp)
-		}
-		for _, event := range reduceGeminiStreamResponse(metadata, state, resp) {
-			if publishEvent != nil {
-				publishEvent(event)
-			}
-		}
-	}
-}
 
 func completeGeminiStream(
 	t *turns.Turn,

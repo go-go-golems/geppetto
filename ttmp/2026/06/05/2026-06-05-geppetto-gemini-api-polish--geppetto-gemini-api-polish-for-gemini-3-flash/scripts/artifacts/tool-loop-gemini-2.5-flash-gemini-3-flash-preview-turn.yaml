@@ -1,0 +1,112 @@
+blocks:
+    - id: d7883d8c-7aed-4592-8d64-9dede6ad0017
+      kind: system
+      role: system
+      payload:
+        text: You are a terse Geppetto Gemini smoke-test assistant. If a tool is useful, call it instead of guessing.
+    - id: 58294ca5-6a96-4c6a-90e7-f22e25247fdc
+      kind: user
+      role: user
+      payload:
+        text: What is the weather in Zurich? Use the lookup_weather tool.
+    - id: s961p89g
+      kind: tool_call
+      payload:
+        args:
+            city: Zurich
+        correlation:
+            run_id: a5cf177e-4b93-4102-8560-1a352f7d88e2
+            provider_call_id: gemini:a5cf177e-4b93-4102-8560-1a352f7d88e2:provider-call:0
+            segment_id: gemini:a5cf177e-4b93-4102-8560-1a352f7d88e2:provider-call:0:s961p89g:0:tool
+            tool_call_id: s961p89g
+        id: s961p89g
+        name: lookup_weather
+      metadata:
+        geppetto.inference_result@v1:
+            provider: gemini
+            model: gemini-3-flash-preview
+            stop_reason: STOP
+            finish_class: tool_calls_pending
+            usage:
+                input_tokens: 113
+                output_tokens: 17
+            duration_ms: 1309
+            response_id: WfMiaoFWk5v-4w-79YaYDg
+            extra:
+                settings:
+                    ai-api-type: gemini
+                    ai-engine: gemini-3-flash-preview
+                    ai-temperature: 0.7
+                    embeddings-dimensions: 1536
+                    embeddings-engine: text-embedding-3-small
+                    embeddings-type: openai
+                    ollama-temperature: 0.8
+                    proxy-from-environment: true
+                thoughts_token_count: 38
+                total_token_count: 168
+    - id: 26b5e54e-166b-4e29-8dc8-9c406e858641
+      kind: tool_use
+      payload:
+        error: ""
+        id: s961p89g
+        result:
+            condition: clear
+            location: Zurich
+            source: client-side smoke test result
+            temperature: 21 C
+    - id: debb1eba-5621-4ad0-bd69-4d5c32eabf64
+      kind: user
+      role: user
+      payload:
+        text: Please summarize the tool result in one sentence.
+    - id: 3426d1ed-b4db-4704-b6d0-4d33ed58a0fc
+      kind: llm_text
+      role: assistant
+      payload:
+        text: The weather in Zurich is currently clear with a temperature of 21°C.
+      metadata:
+        geppetto.inference_result@v1:
+            provider: gemini
+            model: gemini-3-flash-preview
+            stop_reason: STOP
+            finish_class: completed
+            usage:
+                input_tokens: 180
+                output_tokens: 17
+            duration_ms: 1139
+            response_id: WvMiavXTDYqq_uMPnaTkmQ4
+            extra:
+                settings:
+                    ai-api-type: gemini
+                    ai-engine: gemini-3-flash-preview
+                    ai-temperature: 0.7
+                    embeddings-dimensions: 1536
+                    embeddings-engine: text-embedding-3-small
+                    embeddings-type: openai
+                    ollama-temperature: 0.8
+                    proxy-from-environment: true
+                thoughts_token_count: 62
+                total_token_count: 259
+metadata:
+    geppetto.inference_result@v1:
+        provider: gemini
+        model: gemini-3-flash-preview
+        stop_reason: STOP
+        finish_class: completed
+        usage:
+            input_tokens: 180
+            output_tokens: 17
+        duration_ms: 1139
+        response_id: WvMiavXTDYqq_uMPnaTkmQ4
+        extra:
+            settings:
+                ai-api-type: gemini
+                ai-engine: gemini-3-flash-preview
+                ai-temperature: 0.7
+                embeddings-dimensions: 1536
+                embeddings-engine: text-embedding-3-small
+                embeddings-type: openai
+                ollama-temperature: 0.8
+                proxy-from-environment: true
+            thoughts_token_count: 62
+            total_token_count: 259

@@ -10,3 +10,17 @@ flags:
     type: string
     help: API key
     default: ""
+  - name: gemini-api-version
+    type: string
+    help: Gemini API version used by google.golang.org/genai HTTP options
+    default: "v1beta"
+  - name: gemini-include-thoughts
+    type: bool
+    help: include Gemini thought parts in responses when supported by the model
+  - name: gemini-thinking-budget
+    type: int
+    help: Gemini thinking budget in tokens when supported by the model
+  - name: gemini-thinking-level
+    type: string
+    help: Gemini thinking level (MINIMAL, LOW, MEDIUM, HIGH) when supported by the model
+    default: ""
