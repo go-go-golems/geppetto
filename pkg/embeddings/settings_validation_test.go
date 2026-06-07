@@ -68,6 +68,17 @@ func TestValidateInferenceSettingsForEmbeddings(t *testing.T) {
 			},
 		},
 		{
+			name: "openai complete with embedding-local key",
+			in: &settings.InferenceSettings{
+				Embeddings: &config.EmbeddingsConfig{
+					Type:       "openai",
+					Engine:     "text-embedding-3-small",
+					Dimensions: 1536,
+					APIKeys:    map[string]string{"openai-api-key": "test-key"},
+				},
+			},
+		},
+		{
 			name: "ollama complete",
 			in: &settings.InferenceSettings{
 				Embeddings: &config.EmbeddingsConfig{Type: "ollama", Engine: "nomic-embed-text", Dimensions: 768},

@@ -223,11 +223,22 @@ func NewSettingsFactoryFromInferenceSettings(s *settings.InferenceSettings) *Set
 	}
 
 	if s.API != nil {
-		// Copy relevant API keys and base URLs
+		// Copy top-level API keys and base URLs as defaults.
 		for apiType, key := range s.API.APIKeys {
 			config.APIKeys[apiType] = key
 		}
 		for apiType, url := range s.API.BaseUrls {
+			config.BaseURLs[apiType] = url
+		}
+	}
+
+	if s.Embeddings != nil {
+		// Embedding-local credentials and endpoints are more specific than the
+		// top-level API maps and should win when both are present.
+		for apiType, key := range s.Embeddings.APIKeys {
+			config.APIKeys[apiType] = key
+		}
+		for apiType, url := range s.Embeddings.BaseURLs {
 			config.BaseURLs[apiType] = url
 		}
 	}
