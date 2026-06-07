@@ -119,6 +119,19 @@ declare module "geppetto" {
 
     export function engine(): EngineBuilder;
 
+    export interface EmbeddingModel {
+        name: string;
+        dimensions: number;
+    }
+
+    export interface EmbeddingsProvider {
+        embed(text: string): number[];
+        embedBatch(texts: string[]): number[][];
+        model(): EmbeddingModel;
+    }
+
+    export function embeddings(settings: InferenceSettings): EmbeddingsProvider;
+
     export interface MessageBuilder {
         text(text: string): MessageBuilder;
         imageURL(url: string, options?: Record<string, any>): MessageBuilder;

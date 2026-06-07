@@ -11,7 +11,7 @@ require (
 	github.com/dop251/goja_nodejs v0.0.0-20250409162600-f7acab6894b0
 	github.com/go-go-golems/glazed v1.3.6
 	github.com/go-go-golems/go-emrichen v0.0.11
-	github.com/go-go-golems/go-go-goja v0.8.0
+	github.com/go-go-golems/go-go-goja v0.8.3
 	github.com/go-go-golems/logcopter v0.1.0
 	github.com/go-go-golems/sanitize v0.0.2
 	github.com/google/generative-ai-go v0.20.1
@@ -101,6 +101,7 @@ require (
 	github.com/tiendc/go-deepcopy v1.7.1 // indirect
 	github.com/tree-sitter-grammars/tree-sitter-yaml v0.7.2 // indirect
 	github.com/tree-sitter/go-tree-sitter v0.25.0 // indirect
+	github.com/tree-sitter/tree-sitter-javascript v0.25.0 // indirect
 	github.com/ugorji/go/codec v1.3.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/xuri/efp v0.0.1 // indirect

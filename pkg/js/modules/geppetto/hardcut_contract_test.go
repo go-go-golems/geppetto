@@ -39,6 +39,7 @@ func TestHardCutPublicSurfaceContract(t *testing.T) {
 			"inferenceProfiles",
 			"turnStores",
 			"engine",
+			"embeddings",
 			"tool",
 			"toolRegistry",
 			"schema",
@@ -61,7 +62,6 @@ func TestHardCutPublicSurfaceContract(t *testing.T) {
 			"schemas",
 			"middlewares",
 			"tools",
-			"embeddings",
 			"unsafe",
 			"events",
 		];

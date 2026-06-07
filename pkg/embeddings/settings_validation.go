@@ -37,8 +37,8 @@ func ValidateInferenceSettingsForEmbeddings(s *settings.InferenceSettings) error
 
 	switch providerType {
 	case openAIEmbeddingProvider:
-		if s.API == nil || strings.TrimSpace(s.API.APIKeys["openai-api-key"]) == "" {
-			return fmt.Errorf("selected OpenAI embedding profile has no openai-api-key; stack an OpenAI base profile or set inference_settings.api.api_keys.openai-api-key")
+		if strings.TrimSpace(openAIEmbeddingAPIKey(s)) == "" {
+			return fmt.Errorf("selected OpenAI embedding profile has no openai-api-key; stack an OpenAI base profile or set inference_settings.api.api_keys.openai-api-key or inference_settings.embeddings.api_keys.openai-api-key")
 		}
 	case ollamaEmbeddingProvider:
 		if s.Embeddings.Dimensions == 0 {
@@ -49,4 +49,19 @@ func ValidateInferenceSettingsForEmbeddings(s *settings.InferenceSettings) error
 	}
 
 	return nil
+}
+
+func openAIEmbeddingAPIKey(s *settings.InferenceSettings) string {
+	if s == nil {
+		return ""
+	}
+	if s.Embeddings != nil {
+		if key := s.Embeddings.APIKeys["openai-api-key"]; strings.TrimSpace(key) != "" {
+			return key
+		}
+	}
+	if s.API != nil {
+		return s.API.APIKeys["openai-api-key"]
+	}
+	return ""
 }

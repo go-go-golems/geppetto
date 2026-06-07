@@ -182,6 +182,7 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
 	m.mustSet(inferenceProfilesObj, "default", m.inferenceProfilesDefault)
 	m.mustSet(exports, "inferenceProfiles", inferenceProfilesObj)
 	m.mustSet(exports, "engine", m.engineBuilder)
+	m.mustSet(exports, "embeddings", m.embeddingsBuilder)
 	m.mustSet(exports, "agent", m.agentBuilder)
 	m.installTurnStoresNamespace(exports)
 	m.mustSet(exports, "tool", m.toolBuilder)
