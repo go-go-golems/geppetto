@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+
+	"github.com/go-go-golems/geppetto/pkg/security"
 )
 
 const multipleContentTypesExpected = `{"role":"assistant","content":[{"type":"text","text":"Text"},{"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":"base64data"}},{"type":"tool_use","id":"tool1","name":"calculator","input":{"operation":"add","numbers":[1,2]}}]}`
@@ -109,5 +111,25 @@ func TestMessageDeserialization(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestClientOutboundOptionsDefaultDeny(t *testing.T) {
+	client := NewClient("test-key", "http://127.0.0.1:9999")
+	err := security.ValidateOutboundURL(client.BaseURL, client.outboundOptions())
+	if err == nil {
+		t.Fatal("expected default outbound options to reject plain HTTP")
+	}
+}
+
+func TestClientOutboundOptionsCanAllowLocalHTTP(t *testing.T) {
+	client := NewClient("test-key", "http://127.0.0.1:9999")
+	client.SetOutboundURLOptions(security.OutboundURLOptions{
+		AllowHTTP:          true,
+		AllowLocalNetworks: true,
+	})
+
+	if err := security.ValidateOutboundURL(client.BaseURL, client.outboundOptions()); err != nil {
+		t.Fatalf("expected local HTTP to be allowed after opt-in: %v", err)
 	}
 }

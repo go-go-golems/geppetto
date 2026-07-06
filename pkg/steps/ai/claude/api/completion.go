@@ -50,10 +50,11 @@ type ErrorDetail struct {
 
 // Client represents the Claude API client.
 type Client struct {
-	httpClient *http.Client
-	apiKey     string
-	APIVersion string
-	BaseURL    string
+	httpClient         *http.Client
+	apiKey             string
+	APIVersion         string
+	BaseURL            string
+	outboundURLOptions security.OutboundURLOptions
 }
 
 const defaultAPIVersion = "2023-06-01"
@@ -79,6 +80,17 @@ func (c *Client) SetHTTPClient(httpClient *http.Client) {
 	c.httpClient = httpClient
 }
 
+func (c *Client) SetOutboundURLOptions(opts security.OutboundURLOptions) {
+	c.outboundURLOptions = opts
+}
+
+func (c *Client) outboundOptions() security.OutboundURLOptions {
+	if c == nil {
+		return security.OutboundURLOptions{}
+	}
+	return c.outboundURLOptions
+}
+
 // Helper function to set necessary headers
 func (c *Client) setHeaders(req *http.Request) {
 	req.Header.Set("x-api-key", c.apiKey)
@@ -88,9 +100,7 @@ func (c *Client) setHeaders(req *http.Request) {
 
 // Complete sends a completion request and returns the response.
 func (c *Client) Complete(req *Request) (*SuccessfulResponse, error) {
-	if err := security.ValidateOutboundURL(c.BaseURL, security.OutboundURLOptions{
-		AllowHTTP: false,
-	}); err != nil {
+	if err := security.ValidateOutboundURL(c.BaseURL, c.outboundOptions()); err != nil {
 		return nil, fmt.Errorf("invalid claude base URL: %w", err)
 	}
 
@@ -149,9 +159,7 @@ type Event struct {
 }
 
 func (c *Client) StreamComplete(req *Request) (<-chan Event, error) {
-	if err := security.ValidateOutboundURL(c.BaseURL, security.OutboundURLOptions{
-		AllowHTTP: false,
-	}); err != nil {
+	if err := security.ValidateOutboundURL(c.BaseURL, c.outboundOptions()); err != nil {
 		return nil, fmt.Errorf("invalid claude base URL: %w", err)
 	}
 

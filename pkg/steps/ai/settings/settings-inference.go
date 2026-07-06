@@ -43,12 +43,23 @@ type factoryConfigFileWrapper struct {
 type APISettings struct {
 	APIKeys  map[string]string `yaml:"api_keys,omitempty" glazed:"*-api-key"`
 	BaseUrls map[string]string `yaml:"base_urls,omitempty" glazed:"*-base-url"`
+
+	// AllowHTTP permits plain HTTP provider URLs for explicitly opted-in API
+	// types. It is intentionally false by default; use only for local test
+	// providers or trusted local gateways.
+	AllowHTTP map[string]bool `yaml:"allow_http,omitempty"`
+	// AllowLocalNetworks permits loopback/private/link-local provider targets for
+	// explicitly opted-in API types. It is intentionally false by default; use
+	// only for local test providers or trusted local gateways.
+	AllowLocalNetworks map[string]bool `yaml:"allow_local_networks,omitempty"`
 }
 
 func NewAPISettings() *APISettings {
 	return &APISettings{
-		APIKeys:  map[string]string{},
-		BaseUrls: map[string]string{},
+		APIKeys:            map[string]string{},
+		BaseUrls:           map[string]string{},
+		AllowHTTP:          map[string]bool{},
+		AllowLocalNetworks: map[string]bool{},
 	}
 }
 

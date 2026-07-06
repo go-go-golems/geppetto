@@ -82,6 +82,7 @@ func (e *ClaudeEngine) RunInference(
 	}
 
 	client := api.NewClient(apiKey, baseURL)
+	client.SetOutboundURLOptions(settings.OutboundURLOptions(apiSettings, string(apiType)))
 	httpClient, err := settings.EnsureHTTPClient(clientSettings)
 	if err != nil {
 		return nil, err

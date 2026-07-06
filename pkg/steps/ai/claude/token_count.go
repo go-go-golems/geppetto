@@ -49,6 +49,7 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 	}
 
 	client := api.NewClient(apiKey, baseURL)
+	client.SetOutboundURLOptions(settings.OutboundURLOptions(tc.settings.API, "claude"))
 	if tc.settings.Client != nil && tc.settings.Client.HTTPClient != nil {
 		client.SetHTTPClient(tc.settings.Client.HTTPClient)
 	}
