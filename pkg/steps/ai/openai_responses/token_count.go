@@ -69,7 +69,7 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 	}
 
 	url := responsesEndpoint(tc.settings.API, "/responses/input_tokens")
-	if err := security.ValidateOutboundURL(url, security.OutboundURLOptions{AllowHTTP: false}); err != nil {
+	if err := security.ValidateOutboundURL(url, responsesOutboundURLOptions(tc.settings.API)); err != nil {
 		return nil, errors.Wrap(err, "invalid responses token count URL")
 	}
 

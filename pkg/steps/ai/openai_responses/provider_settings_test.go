@@ -103,3 +103,27 @@ func settingsWithAPIType(apiType string) *settings.InferenceSettings {
 	ret.Chat.ApiType = &v
 	return ret
 }
+
+func TestResponsesOutboundURLOptionsPrefersOpenResponsesAlias(t *testing.T) {
+	api := settings.NewAPISettings()
+	api.AllowHTTP["openai"] = false
+	api.AllowHTTP["open-responses"] = true
+	api.AllowLocalNetworks["openai"] = false
+	api.AllowLocalNetworks["open-responses"] = true
+
+	opts := responsesOutboundURLOptions(api)
+	if !opts.AllowHTTP || !opts.AllowLocalNetworks {
+		t.Fatalf("responses outbound options = %#v, want open-responses alias", opts)
+	}
+}
+
+func TestResponsesOutboundURLOptionsFallsBackToOpenAI(t *testing.T) {
+	api := settings.NewAPISettings()
+	api.AllowHTTP["openai"] = true
+	api.AllowLocalNetworks["openai"] = true
+
+	opts := responsesOutboundURLOptions(api)
+	if !opts.AllowHTTP || !opts.AllowLocalNetworks {
+		t.Fatalf("responses outbound options = %#v, want openai fallback", opts)
+	}
+}

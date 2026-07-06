@@ -168,9 +168,7 @@ func (u Usage) MarshalZerologObject(e *zerolog.Event) {
 // SendMessage sends a message request and returns the response.
 func (c *Client) SendMessage(ctx context.Context, req *MessageRequest) (*MessageResponse, error) {
 	url := strings.TrimSuffix(c.BaseURL, "/") + "/v1/messages"
-	if err := security.ValidateOutboundURL(url, security.OutboundURLOptions{
-		AllowHTTP: false,
-	}); err != nil {
+	if err := security.ValidateOutboundURL(url, c.outboundOptions()); err != nil {
 		return nil, fmt.Errorf("invalid claude messages URL: %w", err)
 	}
 
@@ -225,9 +223,7 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 	}
 
 	url := strings.TrimSuffix(c.BaseURL, "/") + "/v1/messages"
-	if err := security.ValidateOutboundURL(url, security.OutboundURLOptions{
-		AllowHTTP: false,
-	}); err != nil {
+	if err := security.ValidateOutboundURL(url, c.outboundOptions()); err != nil {
 		return nil, fmt.Errorf("invalid claude messages URL: %w", err)
 	}
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
@@ -283,9 +279,7 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 
 func (c *Client) CountTokens(ctx context.Context, req *MessageCountTokensRequest) (*MessageCountTokensResponse, error) {
 	url := strings.TrimSuffix(c.BaseURL, "/") + "/v1/messages/count_tokens"
-	if err := security.ValidateOutboundURL(url, security.OutboundURLOptions{
-		AllowHTTP: false,
-	}); err != nil {
+	if err := security.ValidateOutboundURL(url, c.outboundOptions()); err != nil {
 		return nil, fmt.Errorf("invalid claude count tokens URL: %w", err)
 	}
 

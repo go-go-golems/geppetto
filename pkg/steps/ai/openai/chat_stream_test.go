@@ -6,6 +6,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 )
 
 func TestOpenChatCompletionStream_404HintsWhenBaseURLLooksLikeChatEndpoint(t *testing.T) {
@@ -174,5 +177,35 @@ func TestNormalizeChatStreamEvent_NormalizesToolCalls(t *testing.T) {
 	}
 	if call.Function.Arguments != "{\"q\":\"cats\"}" {
 		t.Fatalf("unexpected tool call arguments: %q", call.Function.Arguments)
+	}
+}
+
+func TestResolveChatStreamConfigRejectsLocalHTTPByDefault(t *testing.T) {
+	apiSettings := settings.NewAPISettings()
+	apiSettings.APIKeys["openai-api-key"] = "test-key"
+	apiSettings.BaseUrls["openai-base-url"] = "http://127.0.0.1:9999/v1"
+
+	_, err := resolveChatStreamConfig(apiSettings, nil, ai_types.ApiTypeOpenAI)
+	if err == nil {
+		t.Fatal("expected local HTTP base URL to be rejected by default")
+	}
+	if !strings.Contains(err.Error(), "http scheme is not allowed") {
+		t.Fatalf("expected http rejection, got %v", err)
+	}
+}
+
+func TestResolveChatStreamConfigAllowsLocalHTTPWhenProfileOptsIn(t *testing.T) {
+	apiSettings := settings.NewAPISettings()
+	apiSettings.APIKeys["openai-api-key"] = "test-key"
+	apiSettings.BaseUrls["openai-base-url"] = "http://127.0.0.1:9999/v1"
+	apiSettings.AllowHTTP["openai"] = true
+	apiSettings.AllowLocalNetworks["openai"] = true
+
+	cfg, err := resolveChatStreamConfig(apiSettings, nil, ai_types.ApiTypeOpenAI)
+	if err != nil {
+		t.Fatalf("resolveChatStreamConfig: %v", err)
+	}
+	if got := cfg.endpoint; got != "http://127.0.0.1:9999/v1/chat/completions" {
+		t.Fatalf("endpoint = %q", got)
 	}
 }

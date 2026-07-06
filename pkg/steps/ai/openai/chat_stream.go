@@ -65,9 +65,7 @@ func resolveChatStreamConfig(
 		return chatStreamConfig{}, errors.Errorf("no base URL for %s", apiType)
 	}
 	endpoint := strings.TrimRight(baseURL, "/") + "/chat/completions"
-	if err := security.ValidateOutboundURL(endpoint, security.OutboundURLOptions{
-		AllowHTTP: false,
-	}); err != nil {
+	if err := security.ValidateOutboundURL(endpoint, settings.OutboundURLOptions(apiSettings, string(apiType))); err != nil {
 		return chatStreamConfig{}, errors.Wrap(err, "invalid chat completion URL")
 	}
 	httpClient, err := settings.EnsureHTTPClient(clientSettings)

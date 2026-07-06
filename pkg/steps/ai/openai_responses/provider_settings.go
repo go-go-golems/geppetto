@@ -3,6 +3,7 @@ package openai_responses
 import (
 	"strings"
 
+	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 )
@@ -43,6 +44,15 @@ func responsesBaseURL(api *settings.APISettings) string {
 func responsesEndpoint(api *settings.APISettings, path string) string {
 	path = "/" + strings.TrimLeft(path, "/")
 	return strings.TrimRight(responsesBaseURL(api), "/") + path
+}
+
+func responsesOutboundURLOptions(api *settings.APISettings) security.OutboundURLOptions {
+	return settings.OutboundURLOptionsForKeys(
+		api,
+		string(types.ApiTypeOpenResponses),
+		string(types.ApiTypeOpenAIResponses),
+		string(types.ApiTypeOpenAI),
+	)
 }
 
 func responsesAPIType(s *settings.InferenceSettings) types.ApiType {

@@ -95,15 +95,14 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	if e.settings != nil && e.settings.API != nil {
 		apiKey = responsesAPIKey(e.settings.API)
 	}
-	url := responsesEndpoint(func() *settings.APISettings {
+	apiSettings := func() *settings.APISettings {
 		if e.settings == nil {
 			return nil
 		}
 		return e.settings.API
-	}(), "/responses")
-	if err := security.ValidateOutboundURL(url, security.OutboundURLOptions{
-		AllowHTTP: false,
-	}); err != nil {
+	}()
+	url := responsesEndpoint(apiSettings, "/responses")
+	if err := security.ValidateOutboundURL(url, responsesOutboundURLOptions(apiSettings)); err != nil {
 		return nil, errors.Wrap(err, "invalid responses URL")
 	}
 	httpClient, err := settings.EnsureHTTPClient(func() *settings.ClientSettings {

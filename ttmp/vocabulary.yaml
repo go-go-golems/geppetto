@@ -129,6 +129,8 @@ topics:
       description: OpenAI-compatible llm-proxy service and related request/response mapping work
     - slug: multimodal
       description: Multimodal input/output support such as image content in LLM turns
+    - slug: byok
+      description: Bring-your-own-key credential brokering and delegated provider credentials
 docTypes:
     - slug: index
       description: Ticket index
