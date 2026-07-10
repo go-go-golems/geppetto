@@ -32,4 +32,4 @@
 - [x] Commit implementation and record exact validation evidence in the diary <!-- t:p3a3 -->
 - [x] Update ticket file relations, changelog, and task status <!-- t:p3a4 -->
 - [x] Run `docmgr doctor` cleanly <!-- t:p3a5 -->
-- [ ] Dry-run then upload the guide/diary/tasks bundle to reMarkable and verify the remote listing <!-- t:p3a6 -->
+- [x] Dry-run then upload the guide/diary/tasks bundle to reMarkable and verify the remote listing <!-- t:p3a6 -->

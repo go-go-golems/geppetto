@@ -267,3 +267,96 @@ type BearerTokenSource interface {
 ```
 
 `RenewableBearerTokenSource` is optional convenience infrastructure. Hosts may supply a custom source instead, including one that maps identities beyond the generic provider/base-URL key. No profile field carries a refresh token.
+
+## Step 3: Validate ticket delivery and publish the review bundle
+
+The implementation source and ticket documentation are now committed as separate, reviewable changes. The final ticket quality check is clean, and the intern guide, diary, tasks, index, and changelog were bundled into one PDF and published to the requested reMarkable ticket directory.
+
+The delivery records the full-race and toolchain caveats instead of claiming a clean repository-wide race result. This makes the feature’s focused concurrency evidence distinguishable from unrelated baseline failures.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Finish the implementation as a durable handoff: commit it, keep the ticket synchronized, validate it, and publish an offline-readable bundle.
+
+**Inferred user intent:** Make the source and its operating model accessible to reviewers and a new intern, not merely leave an unrecorded local patch.
+
+**Commit (code):** `18289da274a256e5609bca48669c17074abb8b6b` — "docs: record renewable credential design"
+
+### What I did
+
+- Ran `docmgr doctor --ticket GEPPETTO-REFRESHABLE-CREDENTIALS-387 --stale-after 30` after adding `oauth` and `credentials` vocabulary entries.
+- Committed the detailed design guide, diary, tasks, index/changelog, and vocabulary update.
+- Ran `remarquee upload bundle --dry-run` for the complete ticket bundle.
+- Uploaded the same bundle with ToC depth 2.
+- Recorded the destination and success output here.
+
+### Why
+
+- The ticket docs contain design decisions and validation exceptions that source code alone cannot convey.
+- A PDF bundle with a table of contents allows offline review without relying on the worktree.
+
+### What worked
+
+Docmgr reported:
+
+```text
+GEPPETTO-REFRESHABLE-CREDENTIALS-387
+- ✅ All checks passed
+```
+
+The dry run enumerated all five ticket artifacts and the actual upload reported:
+
+```text
+OK: uploaded Geppetto Refreshable Bearer Credential Guide.pdf -> /ai/2026/07/10/GEPPETTO-REFRESHABLE-CREDENTIALS-387
+```
+
+### What didn't work
+
+The first documentation commit attempt stopped at `git diff --check` because docmgr left a blank line at the end of `changelog.md`:
+
+```text
+ttmp/2026/07/10/GEPPETTO-REFRESHABLE-CREDENTIALS-387--refreshable-bearer-credentials-for-openai-compatible-providers/changelog.md:16: new blank line at EOF.
+```
+
+I removed only that whitespace-only final line, reran the check, and committed successfully.
+
+### What I learned
+
+- Ticket bookkeeping tools can emit formatting that repository whitespace hooks reject; always run `git diff --check` before committing generated Markdown.
+- The upload command’s explicit `OK: uploaded` output is the successful remote-delivery signal; no destructive overwrite or post-upload listing was needed.
+
+### What was tricky to build
+
+The bundle intentionally includes both the implementation guide and failure evidence. Omitting the known JS runtime race or Go 1.26.4 advisory would make the delivery look cleaner but would make future validation less trustworthy. The guide therefore separates feature-specific passes from baseline failures and explains the Go 1.26.5 clean vulnerability rerun.
+
+### What warrants a second pair of eyes
+
+- Review the public API and cache identity decisions before merging.
+- Decide whether to file/attach a separate issue for the existing JS runtime race.
+- Decide whether the repository’s normal toolchain should move to Go 1.26.5.
+
+### What should be done in the future
+
+- Implement a consuming host’s concrete OAuth adapter and integration test.
+- Extend the source to remaining provider HTTP paths only after path-by-path security/retry review.
+
+### Code review instructions
+
+Review commits in order:
+
+```text
+8ac6832e feat: add renewable bearer credential source
+18289da2 docs: record renewable credential design
+```
+
+Open the reMarkable bundle at:
+
+```text
+/ai/2026/07/10/GEPPETTO-REFRESHABLE-CREDENTIALS-387/Geppetto Refreshable Bearer Credential Guide.pdf
+```
+
+### Technical details
+
+Bundle inputs: ticket index, design guide, implementation diary, tasks, and changelog. Upload used `--toc-depth 2` and `--non-interactive`.
