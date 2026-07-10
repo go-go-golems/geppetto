@@ -1,7 +1,7 @@
 ---
 Title: Normalize missing provider settings in inference profiles
 Ticket: GEP-PROFILE-DEFAULTS
-Status: active
+Status: complete
 Topics:
     - javascript
     - profiles
@@ -13,10 +13,11 @@ Owners:
 RelatedFiles: []
 ExternalSources: []
 Summary: Make sparse registry-resolved inference profiles safe for JavaScript agent execution by materializing runtime-owned API, client, and provider settings according to chat API type.
-LastUpdated: 2026-07-10T19:04:18.666496664-04:00
+LastUpdated: 2026-07-10T19:16:04.49140878-04:00
 WhatFor: Track the analysis, implementation, tests, and validation that make omitted provider blocks behave as initialized defaults in Geppetto JavaScript profiles.
 WhenToUse: Start here when a resolved inference profile builds an agent but fails during session execution because a runtime settings pointer is nil.
 ---
+
 
 # Normalize missing provider settings in inference profiles
 
