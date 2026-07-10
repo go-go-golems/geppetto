@@ -40,7 +40,9 @@ func (m *moduleRuntime) newEngineBuilderObject(ref *engineBuilderRef) *goja.Obje
 			panic(m.vm.NewGoError(fmt.Errorf("engine().build requires inference(settings) first")))
 		}
 		settings := cloneInferenceSettings(ref.settings.settings)
-		ensureInferenceSettingsProviderDefaults(settings)
+		if err := ensureInferenceSettingsProviderDefaults(settings); err != nil {
+			panic(m.vm.NewGoError(err))
+		}
 		eng, err := enginefactory.NewEngineFromSettings(settings)
 		if err != nil {
 			panic(m.vm.NewGoError(err))

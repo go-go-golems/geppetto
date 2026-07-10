@@ -242,7 +242,9 @@ func (b *agentBuilderRef) build() (*agentRef, error) {
 	base := b.base
 	if base == nil && b.settings != nil {
 		settings := cloneInferenceSettings(b.settings.settings)
-		ensureInferenceSettingsProviderDefaults(settings)
+		if err := ensureInferenceSettingsProviderDefaults(settings); err != nil {
+			return nil, err
+		}
 		eng, err := enginefactory.NewEngineFromSettings(settings)
 		if err != nil {
 			return nil, err
