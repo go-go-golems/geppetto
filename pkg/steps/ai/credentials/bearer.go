@@ -5,6 +5,7 @@ package credentials
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"strings"
@@ -67,6 +68,17 @@ type BearerTokenSource interface {
 	BearerToken(context.Context, Request) (string, error)
 }
 
+// UnauthorizedBearerTokenSource is an optional extension for a provider request
+// that was rejected with HTTP 401 before it produced any response output. It
+// returns a replacement token for exactly one caller-managed replay and must
+// never expose token material through errors.
+//
+// Callers must not use it for static settings or retry a second 401 response.
+type UnauthorizedBearerTokenSource interface {
+	BearerTokenSource
+	BearerTokenAfterUnauthorized(context.Context, Request, string) (string, error)
+}
+
 // ErrUnavailable is returned without token material when loading, refreshing,
 // persisting, or validating a credential fails.
 type ErrUnavailable struct {
@@ -120,6 +132,7 @@ type RenewableBearerTokenSource struct {
 }
 
 var _ BearerTokenSource = (*RenewableBearerTokenSource)(nil)
+var _ UnauthorizedBearerTokenSource = (*RenewableBearerTokenSource)(nil)
 
 // NewRenewableBearerTokenSource constructs a source. Store and Refresher are
 // required because a non-usable credential must be refreshed and safely saved.
@@ -147,6 +160,75 @@ func NewRenewableBearerTokenSource(store Store, refresher Refresher, opts ...Ren
 
 // Invalidate drops an in-memory credential after an application explicitly
 // replaces or revokes it in the host store. It never touches persistent state.
+// BearerTokenAfterUnauthorized forces one refreshed credential when rejected
+// matches the current credential. If another request already replaced it, the
+// usable replacement is returned instead. Concurrent 401 handlers for one key
+// share the forced refresh.
+func (s *RenewableBearerTokenSource) BearerTokenAfterUnauthorized(ctx context.Context, request Request, rejected string) (string, error) {
+	if s == nil {
+		return "", &ErrUnavailable{Provider: request.Provider, Operation: "unauthorized source lookup"}
+	}
+	key, err := request.key()
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(rejected) == "" {
+		return "", &ErrUnavailable{Provider: request.Provider, Operation: "unauthorized credential validation"}
+	}
+
+	result := s.refreshGroup.DoChan(key+"\x00unauthorized", func() (any, error) {
+		return s.refreshAfterUnauthorized(ctx, key, request, rejected)
+	})
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case response := <-result:
+		if response.Err != nil {
+			return "", response.Err
+		}
+		credential, ok := response.Val.(Credential)
+		if !ok || !credential.Usable(s.now(), 0) {
+			return "", &ErrUnavailable{Provider: request.Provider, Operation: "unauthorized credential validation"}
+		}
+		return credential.AccessToken, nil
+	}
+}
+
+func (s *RenewableBearerTokenSource) refreshAfterUnauthorized(ctx context.Context, key string, request Request, rejected string) (Credential, error) {
+	credential, ok := s.cached(key)
+	if ok && credential.Usable(s.now(), s.refreshSkew) && !tokensEqual(credential.AccessToken, rejected) {
+		return credential, nil
+	}
+	if !ok {
+		loaded, err := s.store.Load(ctx, request)
+		if err != nil {
+			return Credential{}, &ErrUnavailable{Provider: request.Provider, Operation: "credential load after unauthorized"}
+		}
+		credential = loaded
+		if credential.Usable(s.now(), s.refreshSkew) && !tokensEqual(credential.AccessToken, rejected) {
+			s.putCached(key, credential)
+			return credential, nil
+		}
+	}
+
+	refreshed, err := s.refresher.Refresh(ctx, request, credential)
+	if err != nil {
+		return Credential{}, &ErrUnavailable{Provider: request.Provider, Operation: "credential refresh after unauthorized"}
+	}
+	if !refreshed.Usable(s.now(), 0) {
+		return Credential{}, &ErrUnavailable{Provider: request.Provider, Operation: "refreshed credential validation after unauthorized"}
+	}
+	if err := s.store.Save(ctx, request, refreshed); err != nil {
+		return Credential{}, &ErrUnavailable{Provider: request.Provider, Operation: "credential save after unauthorized"}
+	}
+	s.putCached(key, refreshed)
+	return refreshed, nil
+}
+
+func tokensEqual(left, right string) bool {
+	return subtle.ConstantTimeCompare([]byte(left), []byte(right)) == 1
+}
+
 func (s *RenewableBearerTokenSource) Invalidate(request Request) error {
 	if s == nil {
 		return errors.New("nil renewable bearer token source")

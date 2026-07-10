@@ -103,6 +103,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	if err := security.ValidateOutboundURL(url, responsesOutboundURLOptions(apiSettings)); err != nil {
 		return nil, errors.Wrap(err, "invalid responses URL")
 	}
+	credentialRequest := credentials.Request{Provider: string(responsesAPIType(e.settings)), BaseURL: responsesBaseURL(apiSettings)}
 	apiKey, err := resolveResponsesBearerToken(ctx, apiSettings, responsesAPIType(e.settings), e.bearerTokenSource)
 	if err != nil {
 		return nil, err
@@ -159,5 +160,5 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	// Responses always uses streaming internally so provider-to-canonical event
 	// normalization has one lifecycle path. Profiles may still carry chat.stream
 	// for other engines, but this engine forces the request and runtime path.
-	return e.runStreamingInference(ctx, t, httpClient, url, b, apiKey, metadata, tap, startTime, reqBody)
+	return e.runStreamingInference(ctx, t, httpClient, url, b, apiKey, e.bearerTokenSource, credentialRequest, metadata, tap, startTime, reqBody)
 }

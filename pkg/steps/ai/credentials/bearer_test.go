@@ -119,6 +119,25 @@ func TestRenewableBearerTokenSourceRefreshesAndPersistsRotatedCredential(t *test
 	}
 }
 
+func TestRenewableBearerTokenSourceRefreshesAfterUnauthorizedEvenWhenCredentialHasNotExpired(t *testing.T) {
+	now := time.Date(2026, 7, 10, 20, 0, 0, 0, time.UTC)
+	store := &memoryStore{credential: credentials.Credential{AccessToken: "rejected-access", RefreshToken: "old-refresh", ExpiresAt: now.Add(time.Hour)}}
+	refresher := &refresher{result: credentials.Credential{AccessToken: "replacement-access", RefreshToken: "rotated-refresh", ExpiresAt: now.Add(time.Hour)}}
+	source := newSource(t, store, refresher, now)
+
+	first, err := source.BearerToken(context.Background(), request())
+	if err != nil || first != "rejected-access" {
+		t.Fatalf("initial BearerToken() = %q, %v", first, err)
+	}
+	replacement, err := source.BearerTokenAfterUnauthorized(context.Background(), request(), first)
+	if err != nil || replacement != "replacement-access" {
+		t.Fatalf("BearerTokenAfterUnauthorized() = %q, %v", replacement, err)
+	}
+	if refresher.callCount() != 1 || store.saveCalls != 1 || store.credential.RefreshToken != "rotated-refresh" {
+		t.Fatalf("refresh=%d save=%d stored=%#v", refresher.callCount(), store.saveCalls, store.credential)
+	}
+}
+
 func TestRenewableBearerTokenSourceCollapsesConcurrentRefreshesAndAllowsWaitingCancellation(t *testing.T) {
 	now := time.Date(2026, 7, 10, 20, 0, 0, 0, time.UTC)
 	store := &memoryStore{credential: credentials.Credential{AccessToken: "expired-access", RefreshToken: "refresh", ExpiresAt: now.Add(-time.Minute)}}
