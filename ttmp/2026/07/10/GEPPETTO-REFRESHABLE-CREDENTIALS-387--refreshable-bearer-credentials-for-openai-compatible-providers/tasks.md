@@ -33,3 +33,10 @@
 - [x] Update ticket file relations, changelog, and task status <!-- t:p3a4 -->
 - [x] Run `docmgr doctor` cleanly <!-- t:p3a5 -->
 - [x] Dry-run then upload the guide/diary/tasks bundle to reMarkable and verify the remote listing <!-- t:p3a6 -->
+
+## Phase 4 — Bounded OpenAI-compatible 401 recovery
+
+- [x] Add an opt-in `UnauthorizedBearerTokenSource` extension that forces a persisted replacement after a rejected bearer <!-- t:p4a1 -->
+- [x] Replay exactly once after a pre-stream provider 401 in OpenAI Chat and OpenAI Responses; return a second 401 unchanged <!-- t:p4a2 -->
+- [x] Test forced refresh, source error redaction, one replay, second-401 stop, and focused race behavior <!-- t:p4a3 -->
+- [x] Amend the design/diary/changelog and validate the expanded ticket <!-- t:p4a4 -->

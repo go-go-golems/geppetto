@@ -19,16 +19,20 @@ RelatedFiles:
       Note: |-
         Public renewable bearer source contract and cache/refresh implementation
         Public host-injected credential contracts, caching, refresh, persistence, and redaction
+        Optional forced-refresh interface and renewable source implementation
     - Path: repo://pkg/steps/ai/credentials/bearer_test.go
       Note: Renewal invariants and concurrent refresh evidence
     - Path: repo://pkg/steps/ai/openai/chat_stream.go
       Note: |-
         OpenAI-compatible Chat request-time bearer resolution and header injection
         Chat request-time credential lookup after outbound URL validation
+        Bounded pre-stream Chat 401 replay
     - Path: repo://pkg/steps/ai/openai_responses/engine.go
       Note: OpenAI Responses request-time bearer resolution
     - Path: repo://pkg/steps/ai/openai_responses/provider_settings.go
       Note: Responses request-time source and static fallback
+    - Path: repo://pkg/steps/ai/openai_responses/streaming.go
+      Note: Bounded pre-stream Responses 401 replay
 ExternalSources:
     - https://github.com/go-go-golems/geppetto/issues/387
 Summary: Design and implementation record for host-owned renewable bearer credentials used at outbound OpenAI-compatible inference request time.
@@ -36,6 +40,7 @@ LastUpdated: 2026-07-10T20:15:00-04:00
 WhatFor: Implement, operate, and review expiring OAuth access credentials without storing refresh material in profiles.
 WhenToUse: Use when embedding Geppetto with OAuth-backed OpenAI-compatible providers or another host-owned renewable bearer credential system.
 ---
+
 
 
 # Refreshable bearer credential source: analysis, design, and implementation guide
@@ -63,7 +68,8 @@ This work covers OpenAI-compatible inference request paths:
 - `pkg/steps/ai/openai` Chat Completions streaming path;
 - `pkg/steps/ai/openai_responses` Responses streaming path;
 - `pkg/inference/engine/factory` construction and validation for those engines;
-- a generic renewable bearer source that hosts can use with their own credential storage and OAuth refresher.
+- a generic renewable bearer source that hosts can use with their own credential storage and OAuth refresher;
+- one bounded provider-401 refresh-and-replay attempt for those two streaming paths when a configured source explicitly supports it.
 
 The source calls are request-time. A healthy cached token performs only local map/mutex/time operations; it does **not** contact an OAuth server for every inference request.
 
@@ -75,7 +81,6 @@ This release intentionally does **not**:
 - implement Umans, OpenAI, Anthropic, or another vendor’s OAuth refresh endpoint;
 - serialize `refresh_token`, `access_token`, or expiry data into engine profile YAML;
 - persist credentials in Geppetto;
-- retry a completed request after provider `401` automatically;
 - extend Claude/Gemini/embedding/transcription paths in this first slice;
 - provide a browser OAuth login flow.
 
@@ -211,6 +216,17 @@ func NewRenewableBearerTokenSource(
 
 `Store.Save` is required after a successful refresh. OAuth servers can rotate refresh tokens; using a new access token without persisting its paired refresh value can strand the application on the next expiry. On save failure, this implementation returns a redacted failure and does not cache the new credential.
 
+The optional retry extension is deliberately separate, so existing custom sources do not gain replay behavior accidentally:
+
+```go
+type UnauthorizedBearerTokenSource interface {
+    BearerTokenSource
+    BearerTokenAfterUnauthorized(ctx context.Context, request Request, rejected string) (string, error)
+}
+```
+
+`RenewableBearerTokenSource` implements it. It forces a refresh when the rejected token is still current, or returns a replacement already cached by a concurrent 401 handler. The rejected value remains in process memory only and must never enter logs or errors.
+
 ### 5.3 Engine and factory integration APIs
 
 Direct constructors opt in with provider-specific options:
@@ -313,7 +329,7 @@ The waiting caller can cancel without changing the cache or interrupting its own
 - Source returns an error to an engine: engine returns a generic provider/source resolution error rather than wrapping arbitrary host error text.
 - Static key with no source: preserve current static request behavior.
 
-There is intentionally no automatic retry after `401`. An inference request may be billable or have observable side effects. A host can invalidate a source after an application-specific credential error, then make an explicit retry decision with its own idempotency policy.
+A provider-originated `401` before any response stream is exposed has a narrow recovery path. If the configured source implements `UnauthorizedBearerTokenSource`, Chat and Responses ask it for a replacement token, then replay the byte-identical request exactly once. The engine never retries a second `401`, never retries static API-key settings, and never retries after it has returned an HTTP success response or emitted an SSE event. The source persists a rotated credential before returning the replacement token.
 
 ## 7. Design decisions
 
@@ -353,13 +369,13 @@ There is intentionally no automatic retry after `401`. An inference request may 
 - **Consequences:** Refresh latency includes host persistence. Hosts should make save bounded and durable according to their risk model.
 - **Status:** accepted.
 
-### Decision: No implicit 401 replay
+### Decision: One bounded pre-stream 401 replay for an opt-in source
 
-- **Context:** A provider may have accepted work before returning/losing a response; retry can duplicate cost or effects.
-- **Options considered:** Refresh and retry every 401; refresh only proactively; add host-controlled retry later.
-- **Decision:** Proactive expiry refresh only.
-- **Rationale:** It is safe by default and isolates credential validity from inference idempotency.
-- **Consequences:** Hosts may explicitly invalidate/retry only where their application contract proves it safe.
+- **Context:** Access tokens can be rejected before their recorded expiry, and the source can refresh them. A broad automatic retry can duplicate cost or side effects.
+- **Options considered:** Never retry; refresh/retry every failure; one retry for any 401; one retry only before output with an opt-in source.
+- **Decision:** On the first provider HTTP `401`, before a successful response or SSE event exists, call optional `UnauthorizedBearerTokenSource.BearerTokenAfterUnauthorized` and replay once.
+- **Rationale:** It repairs stale/revoked access credentials while maintaining a strict retry bound and excluding static credentials.
+- **Consequences:** The original provider request may still have incurred cost in an unusual gateway; callers must treat this feature as a bounded recovery, not an idempotency guarantee. Embeddings, transcription, Claude, and Gemini remain outside this ticket.
 - **Status:** accepted.
 
 ## 8. Implementation map
@@ -378,7 +394,7 @@ There is intentionally no automatic retry after `401`. An inference request may 
 
 ## 9. Host integration example
 
-A host owns the actual OAuth protocol and secret store. The following is pseudocode; it must use the host’s encrypted persistence, not profile YAML:
+A host owns the actual OAuth protocol and secret store. The following is pseudocode; the follow-on Pinocchio ticket defines the requested owner-readable, atomic profile-YAML store and browser login flow:
 
 ```go
 store := &encryptedCredentialStore{ /* host-owned */ }
@@ -426,6 +442,7 @@ A refresher should:
 - Responses settings test checks the canonical `open-responses` identity and verifies source errors are not copied into returned errors.
 - Factory test deletes `openai-api-key`, injects a source, and proves engine construction plus outbound authorization succeeds.
 - Existing OpenAI stream configuration tests retain static fallback coverage.
+- Chat and Responses transport tests prove a provider 401 uses a replacement bearer once, and a second 401 is returned without another replay.
 
 ### 10.3 Required commands
 
@@ -461,7 +478,7 @@ A successful refresh is not complete until the store persists the returned crede
 
 ### 11.4 Revocation and provider 401
 
-A host that learns a credential is revoked can call `Invalidate(request)` after updating/revoking persistent state. Geppetto will not retry the failed inference automatically. A host can decide to make an explicit retry only for a proven idempotent workflow.
+For Chat and Responses, a configured `UnauthorizedBearerTokenSource` receives the rejected token after the first provider 401 and may persist a replacement before the engine performs one replay. Any second 401 is returned to the caller. Other paths remain non-retrying until separately audited.
 
 ## 12. Risks, alternatives, and follow-up work
 
@@ -476,11 +493,11 @@ A host that learns a credential is revoked can call `Invalidate(request)` after 
 
 **Mutable profile rewrite at expiry.** This is simple but unsafe for concurrent readers, loses source-of-truth ownership, and persists secrets in a configuration surface.
 
-**Refresh token fields in YAML.** This makes long-lived credentials easy to serialize, clone, inspect, and accidentally commit.
+**Refresh token fields in engine settings.** This makes long-lived credentials easy to serialize, clone, inspect, and accidentally commit. The separate Pinocchio ticket instead proposes an explicit secret-bearing profile store with `0600` permissions, atomic updates, and redacted tooling.
 
 **A global Geppetto credential singleton.** Global state causes test pollution and prevents applications from using separate accounts/providers safely.
 
-**Automatic 401 retry.** It can duplicate inference cost and side effects.
+**Unbounded/general automatic 401 retry.** It can duplicate inference cost and side effects. This ticket accepts only one pre-stream replay for an opt-in renewable source.
 
 ### 12.3 Next implementation slices
 

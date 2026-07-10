@@ -13,16 +13,25 @@ Owners:
 RelatedFiles:
     - Path: repo://pkg/inference/engine/factory/factory.go
       Note: Source-aware engine construction and validation
+    - Path: repo://pkg/js/modules/geppetto/provider/hostservicesexample/logcopter.go
+      Note: Regenerated package logger required by check
     - Path: repo://pkg/js/runtime/runtime_test.go
       Note: Existing full-race failure observed during validation; not modified
     - Path: repo://pkg/steps/ai/credentials/bearer.go
       Note: |-
         Renewable source implementation
         Implemented in commit 8ac6832e
+        Forced refresh and persistence after rejected bearer
+    - Path: repo://pkg/steps/ai/imageparts/logcopter.go
+      Note: Regenerated package logger required by check
     - Path: repo://pkg/steps/ai/openai/chat_stream.go
-      Note: Request-time Chat bearer integration
+      Note: |-
+        Request-time Chat bearer integration
+        One pre-stream Chat replay after first 401
     - Path: repo://pkg/steps/ai/openai_responses/provider_settings.go
       Note: Request-time Responses bearer integration
+    - Path: repo://pkg/steps/ai/openai_responses/streaming.go
+      Note: One pre-stream Responses replay after first 401
 ExternalSources:
     - https://github.com/go-go-golems/geppetto/issues/387
 Summary: Chronological evidence for the renewable bearer credential implementation.
@@ -30,6 +39,7 @@ LastUpdated: 2026-07-10T20:35:00-04:00
 WhatFor: Review and continue the refreshable bearer source implementation.
 WhenToUse: Use when reviewing provider credential renewal, host integration, tests, or validation results.
 ---
+
 
 
 # Implementation diary
@@ -360,3 +370,172 @@ Open the reMarkable bundle at:
 ### Technical details
 
 Bundle inputs: ticket index, design guide, implementation diary, tasks, and changelog. Upload used `--toc-depth 2` and `--non-interactive`.
+
+## Step 4: Add bounded provider-401 recovery for OpenAI Chat and Responses
+
+The ticket scope now includes only Phase 4A: when OpenAI Chat or Responses receives a provider HTTP 401 before a response stream exists, an explicitly capable renewable source may force a refresh and the engine may replay the marshalled request once. This reverses the original no-replay decision only under a narrow, documented set of constraints.
+
+The new API does not give ordinary static credentials or existing custom sources a retry. A source must opt in through `UnauthorizedBearerTokenSource`; the built-in renewable implementation persists the replacement credential before returning it. A second 401 is returned as an error, and no embedding, transcription, Claude, Gemini, or post-output streaming retry is added.
+
+### Prompt Context
+
+**User prompt (verbatim):** "alright, only add 4A, and create a new docmgr ticket for 4D and persisting credentials, and adding support for refresh endpoint."
+
+**Assistant interpretation:** Implement only OpenAI Chat/Responses Phase 4A now, while opening a separate Pinocchio ticket for YAML credential persistence, OAuth refresh endpoint support, and browser login.
+
+**Inferred user intent:** Recover automatically from a rejected but refreshable bearer token without broadening retry behavior or mixing host OAuth lifecycle work into the generic library ticket.
+
+**Commit (code):** `7d873d1d0b663c5a50a1b4eaf3002c42ff3d38f5` — "feat: retry stale bearer once after provider 401"
+
+### What I did
+
+- Added public optional `credentials.UnauthorizedBearerTokenSource` with `BearerTokenAfterUnauthorized`.
+- Made `RenewableBearerTokenSource` force a refresh after its currently cached token is rejected, persist before cache replacement, and share concurrent forced refreshes by credential key.
+- Updated Chat and Responses transport paths to replay a pre-stream provider 401 once only when the configured source implements the extension.
+- Reused the original marshalled request bytes for the replay; neither path retries after a successful HTTP response or emitted SSE data.
+- Added Chat and Responses tests for replacement-header replay and second-401 termination; added source test for forced refresh despite a future expiry.
+- Created follow-on ticket `PINOCCHIO-OAUTH-PROFILE-CREDENTIALS` for the requested profile persistence, refresh-endpoint, and browser-flow work.
+
+### Why
+
+- An OAuth access token can become invalid before its recorded expiry because of provider revocation or token replacement.
+- A strict one-replay limit repairs that known failure while avoiding generic retry loops and preserving the static-key behavior.
+- Pinocchio owns the requested profile YAML and OAuth protocol lifecycle; Geppetto remains a reusable consumer of an injected source.
+
+### What worked
+
+After formatting, focused tests passed:
+
+```text
+GOWORK=off go test ./pkg/steps/ai/credentials ./pkg/steps/ai/openai ./pkg/steps/ai/openai_responses -count=1
+GOWORK=off go test -race ./pkg/steps/ai/credentials ./pkg/steps/ai/openai ./pkg/steps/ai/openai_responses -count=1
+```
+
+The tests verify first 401 → replacement bearer → success, and first 401 → replacement bearer → second 401 error with no third request.
+
+### What didn't work
+
+The first focused test build failed because I declared a `roundTripperFunc` helper already defined by `pkg/steps/ai/openai_responses/engine_test.go`:
+
+```text
+pkg/steps/ai/openai_responses/provider_settings_test.go:35:6: roundTripperFunc redeclared in this block
+pkg/steps/ai/openai_responses/engine_test.go:43:6: other declaration of roundTripperFunc
+```
+
+I removed the duplicate declaration and reused the package-local helper. No production code changed to address this test-only conflict.
+
+The first lint run also found an unchecked test close:
+
+```text
+pkg/steps/ai/openai/chat_stream_test.go:71:20: Error return value of `stream.Close` is not checked (errcheck)
+```
+
+I changed the test cleanup to report a close failure through `t.Errorf`; focused tests and lint then passed.
+
+`GOWORK=off make logcopter-check` remains blocked by an unrelated stale generated file:
+
+```text
+logcopter-gen: generated file is not current: /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/js/modules/geppetto/provider/hostservicesexample/logcopter.go
+```
+
+At the time of the initial failure, that file was outside this change and had no working-tree diff. After the user requested regeneration, `GOWORK=off make logcopter-generate` created it and the also-missing `pkg/steps/ai/imageparts/logcopter.go`; `GOWORK=off make logcopter-check` then passed. Full `GOWORK=off go test -race ./... -count=1` still reports the previously recorded `pkg/js/runtime.TestNewRuntime_DefaultJSEventsInitializerLogsListenerErrors` bytes.Buffer/zerolog race; all changed packages pass focused race tests.
+
+### What I learned
+
+- Cache invalidation alone is insufficient after a 401: loading a stored credential with a future expiry would return the same rejected token. The new source therefore has a distinct forced-refresh operation.
+- Including the rejected token allows concurrent 401 handlers to recognize a newer cached replacement and avoid redundant refreshes.
+- Chat and Responses already marshal their bodies before HTTP execution, so their first pre-stream retry can replay byte-identical JSON safely; multipart transcription needs a different audit.
+
+### What was tricky to build
+
+A generic `BearerTokenSource` cannot safely imply retry semantics. Adding retry to the base interface would cause all source implementations—including static wrappers—to look eligible. The optional interface keeps the behavior opt-in, and the engine only inspects it after receiving the first provider 401. The source error is replaced with a generic engine error so a provider adapter cannot leak a token through a custom error string.
+
+### What warrants a second pair of eyes
+
+- Review whether a shared forced refresh should use a source-owned bounded context rather than the first rejected request’s context.
+- Review whether observability should record a secret-free retry count; this first slice intentionally does not add telemetry.
+- Review the provider-cost risk statement: a 401 normally indicates rejected authentication, but an unusual gateway could still have accepted work.
+
+### What should be done in the future
+
+- Execute the new Pinocchio OAuth-profile ticket.
+- Audit embeddings/transcription only with replayable-body guarantees, then audit Claude/Gemini header/auth semantics independently.
+- Consider a source-owned bounded context for refresh operations.
+
+### Code review instructions
+
+Review `pkg/steps/ai/credentials/bearer.go` first, then `openai/chat_stream.go` and `openai_responses/streaming.go`. Confirm that retry is gated by HTTP 401 plus optional source capability, is capped at one replay, and happens before any stream is exposed. Run the focused normal and race commands above.
+
+### Technical details
+
+The retry extension is:
+
+```go
+type UnauthorizedBearerTokenSource interface {
+    BearerTokenSource
+    BearerTokenAfterUnauthorized(context.Context, Request, string) (string, error)
+}
+```
+
+The `Request` argument is a non-secret provider/base URL identity; the final string is the in-memory rejected bearer and must never be logged or serialized.
+
+## Step 5: Regenerate required logcopter output
+
+The requested generator run repaired the repository’s logcopter consistency check. It created two small generated package logger declarations that were absent from the worktree; retaining them makes future `make logcopter-check` runs reproducible without changing runtime behavior.
+
+### Prompt Context
+
+**User prompt (verbatim):** "regenerate logcopter if needed"
+
+**Assistant interpretation:** Run the repository generator because the validation check reported stale/missing logcopter output, then retain the required generated artifacts.
+
+**Inferred user intent:** Make the check genuinely pass rather than treating generated-code drift as an unrelated validation exception.
+
+**Commit (code):** `7d873d1d0b663c5a50a1b4eaf3002c42ff3d38f5` — "feat: retry stale bearer once after provider 401"
+
+### What I did
+
+- Ran `GOWORK=off make logcopter-generate`.
+- Retained generated `pkg/js/modules/geppetto/provider/hostservicesexample/logcopter.go` and `pkg/steps/ai/imageparts/logcopter.go`.
+- Ran `GOWORK=off make logcopter-check`, which passed.
+
+### Why
+
+The generated declarations are repository-maintained source and the user explicitly requested regeneration after the check exposed drift.
+
+### What worked
+
+```text
+go generate ./...
+go tool logcopter-gen -area-prefix go-go-golems.geppetto -strip-prefix github.com/go-go-golems/geppetto -check ./pkg/...
+```
+
+Both commands completed successfully.
+
+### What didn't work
+
+Before generation, `make logcopter-check` failed because `hostservicesexample/logcopter.go` was not current. Generation resolved the failure.
+
+### What I learned
+
+The generator currently discovers two packages that need committed generated logger declarations; neither is specific to the 401 retry implementation.
+
+### What was tricky to build
+
+N/A — this was deterministic generator output, not hand-authored logic. The relevant judgment was to keep both generated files because the successful check confirms they are required by the repository contract.
+
+### What warrants a second pair of eyes
+
+Confirm repository policy expects generated logcopter output to be committed for packages with no direct feature change; the passing check and user instruction support that conclusion.
+
+### What should be done in the future
+
+Run `make logcopter-generate` whenever `make logcopter-check` reports generated drift.
+
+### Code review instructions
+
+Verify both generated files have only the standard generated package logger declaration, then run `GOWORK=off make logcopter-check`.
+
+### Technical details
+
+No credential or provider behavior changed in this step.
