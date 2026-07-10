@@ -129,18 +129,16 @@ topics:
       description: OpenAI-compatible llm-proxy service and related request/response mapping work
     - slug: multimodal
       description: Multimodal input/output support such as image content in LLM turns
-<<<<<<< Updated upstream
     - slug: byok
       description: Bring-your-own-key credential brokering and delegated provider credentials
-||||||| Stash base
-=======
     - slug: docmgr
       description: 'History report topic: docmgr'
     - slug: git-history
       description: 'History report topic: git-history'
     - slug: research
       description: 'History report topic: research'
->>>>>>> Stashed changes
+    - slug: javascript
+      description: JavaScript runtimes, bindings, APIs, and scripting workflows
 docTypes:
     - slug: index
       description: Ticket index
