@@ -19,20 +19,28 @@ RelatedFiles:
       Note: |-
         Geppetto host-facing renewable credential contract to be consumed by this work
         Host contract Pinocchio will implement for profile-backed OAuth credentials
+        Host contract the future Pinocchio store and refresher will implement
+    - Path: repo://pkg/steps/ai/credentials/oauth/oauth.go
+      Note: Reusable profile-agnostic OAuth PKCE, code exchange, and forced refresh client
+    - Path: repo://pkg/steps/ai/credentials/oauth/oauth_test.go
+      Note: Fake token-endpoint coverage for protocol, rotation, and redaction
 ExternalSources:
     - https://github.com/go-go-golems/geppetto/issues/387
-Summary: Design for Pinocchio-owned OAuth browser login, YAML token persistence, refresh endpoint calls, and Geppetto source injection.
+Summary: Split design for Geppetto OAuth protocol primitives and Pinocchio profile-backed credential, browser, and injection ownership.
 LastUpdated: 2026-07-10T20:55:00-04:00
 WhatFor: Plan the host integration that supplies persisted renewable OAuth credentials to Geppetto.
 WhenToUse: Use before implementing Pinocchio profile OAuth authentication or a provider refresh adapter.
 ---
 
 
+
 # OAuth profile credential persistence and refresh endpoint design
 
 ## Executive summary
 
-Geppetto now exposes a reusable request-time bearer credential seam, including a renewable implementation and one bounded OpenAI-compatible 401 replay. It intentionally does not know how a user obtains, stores, or refreshes OAuth tokens. This ticket gives that responsibility to Pinocchio: Pinocchio will own the browser OAuth flow, profile schema, durable token persistence, and provider refresh-endpoint client; it will inject the resulting source into Geppetto.
+Geppetto now exposes a reusable request-time bearer credential seam, including a renewable implementation and one bounded OpenAI-compatible 401 replay. It will also own a pure OAuth protocol package: PKCE values, authorization URL construction, authorization-code exchange, refresh-token grant execution, expiry normalization, and redacted errors. The package is configuration- and UI-agnostic: it accepts explicit OAuth inputs and returns a `credentials.Credential`.
+
+Pinocchio remains the host integration layer. It owns the browser/loopback listener, selected provider/client/scopes, profile schema, durable YAML persistence, file permissions, and construction/injection of the Geppetto source. This separation permits another Geppetto host to reuse standard OAuth protocol mechanics without inheriting Pinocchio’s profile format or command UX.
 
 The requested storage model is explicit: profile YAML contains the OAuth access token, refresh token, and expiry metadata. That is acceptable only as an opt-in secret-bearing profile format with mode `0600`, atomic updates, redacted display/export paths, and a clear warning that Git, sync services, backups, and ticket attachments must never receive the file. A later optional encrypted/keyring backend may improve at-rest protection, but it must not delay a correct, narrowly-scoped first implementation.
 
@@ -42,18 +50,19 @@ A static API key in a profile cannot represent an OAuth credential lifecycle. A 
 
 ### In scope
 
+- A Geppetto pure OAuth protocol package for PKCE, authorization URL construction, code exchange, forced refresh, expiry normalization, and redacted failures.
 - A versioned Pinocchio profile YAML schema for OAuth bearer credentials.
 - Strict `0600` file permissions and atomic, locked credential updates.
 - Authorization Code with PKCE S256 browser login through a loopback callback.
 - State/nonce validation, callback timeout, authorization-code exchange, and refresh-token exchange.
 - Refresh-token rotation persistence before the new access token is handed to Geppetto.
-- A Pinocchio-owned adapter implementing Geppetto `credentials.Store` and `credentials.Refresher`.
+- A Pinocchio adapter that configures Geppetto’s pure OAuth client and implements `credentials.Store` plus `credentials.Refresher`.
 - Exact integration point that injects a source into the selected OpenAI-compatible Geppetto engine/factory.
 - Redaction, diagnostics, migration, and test strategy.
 
 ### Out of scope
 
-- Changing Geppetto `APISettings` to own OAuth protocol behavior.
+- Changing Geppetto `APISettings` to own OAuth configuration, profiles, or browser behavior.
 - Writing tokens to shell output, generated docs, reMarkable bundles, telemetry, debug taps, or profile introspection output.
 - Supporting every provider’s bespoke OAuth variant in the initial release.
 - Browser-hosted OAuth callbacks, device code flow, and client-credential grant unless a selected provider requires them.
@@ -85,10 +94,11 @@ A static API key in a profile cannot represent an OAuth credential lifecycle. A 
 
 ### Boundary rules
 
-- **Pinocchio owns secrets and OAuth.** It knows profile locations, OAuth issuer metadata, client configuration, scopes, and the refresh endpoint.
+- **Geppetto owns standard OAuth protocol mechanics.** Its pure package builds PKCE authorization requests, exchanges authorization codes, sends refresh grants, and converts standard token responses into `credentials.Credential`. It owns neither a profile path nor a browser listener.
+- **Pinocchio owns secrets and application policy.** It knows profile locations, selected issuer/client/scopes, permission policy, browser callback lifecycle, and which credential gets persisted.
 - **Geppetto owns inference request timing.** It calls the injected source immediately before a provider request and may ask the source for one replacement after a provider-originated 401.
 - **The profile file is secret material.** It is not a normal portable configuration artifact even though it is YAML.
-- **Provider adapters own protocol quirks.** Token endpoint parameters, refresh-token rotation rules, and expiry response forms are not hard-coded into a generic engine.
+- **Provider adapters own non-standard quirks.** A standard OAuth client is reusable; a provider-specific wrapper remains responsible for non-standard parameters, response fields, or rotation semantics.
 
 ## Profile schema
 
@@ -163,14 +173,22 @@ The loopback listener must bind loopback only, use a random state, and return a 
 
 ## Refresh endpoint support
 
-The provider-specific refresher receives the current `credentials.Credential` from the store and performs a refresh-token grant. Its output must normalize provider responses into `access_token`, optional rotated `refresh_token`, and `expires_at`.
+Geppetto provides the protocol-level authorization-code and forced refresh operations. A Pinocchio provider adapter supplies selected profile configuration and any documented non-standard parameters, then maps the result into its profile store. The protocol result contains `access_token`, optional rotated `refresh_token`, and `expires_at`.
 
 ```go
-type OAuthProviderAdapter interface {
-    Refresh(context.Context, ProfileOAuthConfig, credentials.Credential) (credentials.Credential, error)
-    ExchangeAuthorizationCode(context.Context, ProfileOAuthConfig, AuthorizationCodeInput) (credentials.Credential, error)
-}
+client, err := oauth.NewClient(oauth.Config{
+    AuthorizationURL: profile.Auth.AuthorizationURL,
+    TokenURL:         profile.Auth.TokenURL,
+    ClientID:         profile.Auth.ClientID,
+    RedirectURL:      redirectURL,
+    Scopes:           profile.Auth.Scopes,
+}, oauth.WithRefreshTokenPolicy(oauth.PreservePreviousRefreshToken))
+
+replacement, err := client.Refresh(ctx, previous)
+credential, err := client.ExchangeAuthorizationCode(ctx, code, pkce)
 ```
+
+Pinocchio’s provider adapter configures this client and can add documented provider-specific behavior outside the standard path. It chooses whether an omitted refresh token preserves the old value or is rejected because that provider rotates on every grant.
 
 Refresh pseudocode:
 
@@ -211,19 +229,19 @@ No Geppetto settings object receives refresh material. The profile resolver must
 - **Decision:** Use a loopback redirect, PKCE S256, state, exact callback validation, and a finite listener lifetime.
 - **Consequences:** Selected provider clients must permit a loopback redirect; headless environments need a documented manual URL/open-browser path rather than a weaker callback policy.
 
-### Decision: Provider adapter, not generic token endpoint magic
+### Decision: Geppetto protocol primitive plus Pinocchio provider adapter
 
-- **Status:** proposed.
-- **Context:** OAuth responses and rotation semantics vary.
-- **Decision:** Define a small adapter per supported provider.
-- **Consequences:** The first provider is deliberately narrow, but its behavior is testable and no endpoint behavior is guessed.
+- **Status:** accepted for the Geppetto primitive; proposed for the first Pinocchio adapter.
+- **Context:** Standard OAuth authorization-code and refresh-token grants are reusable, while endpoint selection, custom parameters, and rotation semantics vary by provider.
+- **Decision:** Geppetto implements a pure standard OAuth client with explicit config and redacted failures. Pinocchio wraps it for each selected provider and retains policy/quirk handling.
+- **Consequences:** The protocol code is reusable by other Geppetto hosts, but no provider endpoint is guessed and no profile behavior leaks into Geppetto.
 
 ## Implementation phases
 
-1. **Discovery and schema:** locate Pinocchio’s profile model/resolver/output surfaces; choose the initial provider; add fixtures and migration rules.
-2. **Secret-safe YAML store:** locking, parse/update/write, permissions, race tests, redaction tests, and failure recovery.
-3. **OAuth adapter and refresh endpoint:** discovery metadata/config validation, refresh grant, expiry normalization, rotation behavior, fake-token-server integration tests.
-4. **Browser login command:** PKCE, loopback callback, code exchange, cancellation/timeout, and sanitized operator UX.
+1. **Geppetto OAuth primitive:** implement/test PKCE, authorization URL, authorization-code exchange, forced refresh, expiry normalization, explicit rotation policy, and redacted failures.
+2. **Pinocchio discovery and schema:** locate profile model/resolver/output surfaces; select initial provider; add fixtures and migration rules.
+3. **Secret-safe YAML store:** locking, parse/update/write, permissions, race tests, redaction tests, and failure recovery.
+4. **Pinocchio OAuth adapter and browser login:** configure the Geppetto primitive, add loopback callback orchestration, code exchange, cancellation/timeout, and sanitized operator UX.
 5. **Geppetto wiring:** build/inject source for OAuth profiles; prove proactive expiry refresh and one bounded 401 replay end to end.
 6. **Operations:** docs, revoke/logout behavior, migration/recovery guide, and permission repair workflow.
 
@@ -247,5 +265,7 @@ No Geppetto settings object receives refresh material. The profile resolver must
 ## References
 
 - `pkg/steps/ai/credentials/bearer.go` — Geppetto public source/store/refresher contracts and forced refresh after provider 401.
+- `pkg/steps/ai/credentials/oauth/oauth.go` — profile-agnostic OAuth protocol primitives implemented in this ticket.
+- `pkg/steps/ai/credentials/oauth/oauth_test.go` — fake token-endpoint and PKCE/redaction test coverage.
 - `pkg/inference/engine/factory/factory.go` — source injection into OpenAI-compatible engines.
 - Geppetto issue [#387](https://github.com/go-go-golems/geppetto/issues/387) — original generic credential lifecycle issue.

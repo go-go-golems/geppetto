@@ -1,6 +1,13 @@
 # Tasks
 
-## Phase 0 — Discovery and constraints
+## Phase G — Geppetto profile-agnostic OAuth primitives
+
+- [x] Add standard OAuth client config validation, PKCE S256 generation, and authorization URL construction <!-- t:pga1 -->
+- [x] Add authorization-code exchange and forced refresh-token grant with expiry normalization and explicit refresh-token rotation policy <!-- t:pga2 -->
+- [x] Add fake token-endpoint tests for PKCE, exchange, forced refresh, rotation policy, and secret-free failures <!-- t:pga3 -->
+- [x] Generate/check logcopter, run focused/full/race/lint validation, and document the Geppetto boundary <!-- t:pga4 -->
+
+## Phase 0 — Pinocchio discovery and constraints
 
 - [ ] Locate the Pinocchio profile model, resolver, profile display/export paths, and CLI command root <!-- t:p0a1 -->
 - [ ] Select the initial OAuth provider and collect its documented authorization/token endpoints, PKCE, redirect URI, scope, and rotation requirements <!-- t:p0a2 -->

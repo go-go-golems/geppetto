@@ -23,7 +23,7 @@ WhenToUse: 'Use when planning or reviewing profile YAML token storage, OAuth ref
 
 ## Overview
 
-Pinocchio will own OAuth credential lifecycle for profiles that opt into `auth.kind: oauth_bearer`: Authorization Code with PKCE browser login, profile YAML access/refresh/expiry persistence, refresh-endpoint calls, and injection of a renewable source into Geppetto. The ticket is design-ready; implementation starts with locating the Pinocchio profile and CLI packages plus confirming the initial provider contract.
+Geppetto now owns a reusable, profile-agnostic OAuth protocol client for PKCE, authorization-code exchange, forced refresh grants, expiry normalization, and redacted errors. Pinocchio will own the host integration for profiles that opt into `auth.kind: oauth_bearer`: selected provider/client policy, browser loopback login, profile YAML access/refresh/expiry persistence, and source injection. The remaining work starts with locating Pinocchio’s profile and CLI packages plus confirming the initial provider contract.
 
 ## Key Links
 
