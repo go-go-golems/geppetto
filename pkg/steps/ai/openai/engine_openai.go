@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
@@ -30,6 +31,7 @@ type OpenAIEngine struct {
 	toolAdapter         *tools.OpenAIToolAdapter
 	observer            geppettoobs.Observer
 	observabilityConfig geppettoobs.Config
+	bearerTokenSource   credentials.BearerTokenSource
 }
 
 // NewOpenAIEngine creates a new OpenAI inference engine with the given settings and options.
@@ -64,7 +66,7 @@ func (e *OpenAIEngine) RunInference(
 
 	// Chat engine no longer routes to Responses; factory selects the correct engine
 
-	streamCfg, err := resolveChatStreamConfig(e.settings.API, e.settings.Client, *e.settings.Chat.ApiType)
+	streamCfg, err := resolveChatStreamConfig(ctx, e.settings.API, e.settings.Client, *e.settings.Chat.ApiType, e.bearerTokenSource)
 	if err != nil {
 		return nil, err
 	}

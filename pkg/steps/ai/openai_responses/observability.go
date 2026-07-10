@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/events"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 )
 
 type EngineOption func(*Engine)
@@ -20,6 +21,14 @@ func WithObserver(obs geppettoobs.Observer) EngineOption {
 func WithObservabilityConfig(cfg geppettoobs.Config) EngineOption {
 	return func(e *Engine) {
 		e.observabilityConfig = cfg.Normalized()
+	}
+}
+
+// WithBearerTokenSource resolves a usable bearer token at outbound request
+// time. When configured it is authoritative over static API-key settings.
+func WithBearerTokenSource(source credentials.BearerTokenSource) EngineOption {
+	return func(e *Engine) {
+		e.bearerTokenSource = source
 	}
 }
 

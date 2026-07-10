@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/pkg/errors"
@@ -52,14 +53,12 @@ type chatCompletionStream struct {
 }
 
 func resolveChatStreamConfig(
+	ctx context.Context,
 	apiSettings *settings.APISettings,
 	clientSettings *settings.ClientSettings,
 	apiType ai_types.ApiType,
+	bearerTokenSource credentials.BearerTokenSource,
 ) (chatStreamConfig, error) {
-	apiKey, ok := apiSettings.APIKeys[string(apiType)+"-api-key"]
-	if !ok || strings.TrimSpace(apiKey) == "" {
-		return chatStreamConfig{}, errors.Errorf("no API key for %s", apiType)
-	}
 	baseURL, ok := apiSettings.BaseUrls[string(apiType)+"-base-url"]
 	if !ok || strings.TrimSpace(baseURL) == "" {
 		return chatStreamConfig{}, errors.Errorf("no base URL for %s", apiType)
@@ -72,12 +71,40 @@ func resolveChatStreamConfig(
 	if err != nil {
 		return chatStreamConfig{}, err
 	}
+	apiKey, err := resolveBearerToken(ctx, apiSettings, apiType, baseURL, bearerTokenSource)
+	if err != nil {
+		return chatStreamConfig{}, err
+	}
 	return chatStreamConfig{
 		baseURL:    baseURL,
 		endpoint:   endpoint,
 		apiKey:     apiKey,
 		httpClient: httpClient,
 	}, nil
+}
+
+func resolveBearerToken(
+	ctx context.Context,
+	apiSettings *settings.APISettings,
+	apiType ai_types.ApiType,
+	baseURL string,
+	bearerTokenSource credentials.BearerTokenSource,
+) (string, error) {
+	if bearerTokenSource != nil {
+		token, err := bearerTokenSource.BearerToken(ctx, credentials.Request{Provider: string(apiType), BaseURL: baseURL})
+		if err != nil {
+			return "", errors.Errorf("resolve bearer credential for %s", apiType)
+		}
+		if strings.TrimSpace(token) == "" {
+			return "", errors.Errorf("bearer credential source returned an empty token for %s", apiType)
+		}
+		return token, nil
+	}
+	apiKey, ok := apiSettings.APIKeys[string(apiType)+"-api-key"]
+	if !ok || strings.TrimSpace(apiKey) == "" {
+		return "", errors.Errorf("no API key for %s", apiType)
+	}
+	return apiKey, nil
 }
 
 func openChatCompletionStream(

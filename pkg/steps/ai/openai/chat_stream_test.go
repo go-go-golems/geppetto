@@ -2,6 +2,7 @@ package openai
 
 import (
 	"bufio"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -185,7 +186,7 @@ func TestResolveChatStreamConfigRejectsLocalHTTPByDefault(t *testing.T) {
 	apiSettings.APIKeys["openai-api-key"] = "test-key"
 	apiSettings.BaseUrls["openai-base-url"] = "http://127.0.0.1:9999/v1"
 
-	_, err := resolveChatStreamConfig(apiSettings, nil, ai_types.ApiTypeOpenAI)
+	_, err := resolveChatStreamConfig(context.Background(), apiSettings, nil, ai_types.ApiTypeOpenAI, nil)
 	if err == nil {
 		t.Fatal("expected local HTTP base URL to be rejected by default")
 	}
@@ -201,7 +202,7 @@ func TestResolveChatStreamConfigAllowsLocalHTTPWhenProfileOptsIn(t *testing.T) {
 	apiSettings.AllowHTTP["openai"] = true
 	apiSettings.AllowLocalNetworks["openai"] = true
 
-	cfg, err := resolveChatStreamConfig(apiSettings, nil, ai_types.ApiTypeOpenAI)
+	cfg, err := resolveChatStreamConfig(context.Background(), apiSettings, nil, ai_types.ApiTypeOpenAI, nil)
 	if err != nil {
 		t.Fatalf("resolveChatStreamConfig: %v", err)
 	}

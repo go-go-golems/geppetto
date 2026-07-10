@@ -1,12 +1,30 @@
 package openai_responses
 
 import (
+	"fmt"
 	"strings"
 
+	"context"
+
 	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 )
+
+func resolveResponsesBearerToken(ctx context.Context, api *settings.APISettings, apiType types.ApiType, source credentials.BearerTokenSource) (string, error) {
+	if source != nil {
+		token, err := source.BearerToken(ctx, credentials.Request{Provider: string(apiType), BaseURL: responsesBaseURL(api)})
+		if err != nil {
+			return "", fmt.Errorf("resolve bearer credential for OpenAI Responses")
+		}
+		if strings.TrimSpace(token) == "" {
+			return "", fmt.Errorf("bearer credential source returned an empty token for OpenAI Responses")
+		}
+		return token, nil
+	}
+	return responsesAPIKey(api), nil
+}
 
 func responsesAPIKey(api *settings.APISettings) string {
 	if api == nil {

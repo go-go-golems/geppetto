@@ -1,11 +1,46 @@
 package openai_responses
 
 import (
+	"context"
+	"errors"
+	"strings"
 	"testing"
 
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 )
+
+type bearerTokenSourceFunc func(context.Context, credentials.Request) (string, error)
+
+func (f bearerTokenSourceFunc) BearerToken(ctx context.Context, request credentials.Request) (string, error) {
+	return f(ctx, request)
+}
+
+func TestResolveResponsesBearerTokenUsesSourceAndRedactsSourceErrors(t *testing.T) {
+	api := &settings.APISettings{BaseUrls: map[string]string{"open-responses-base-url": "https://responses.example/v1"}}
+	var seen credentials.Request
+	source := bearerTokenSourceFunc(func(_ context.Context, request credentials.Request) (string, error) {
+		seen = request
+		return "refreshed-token", nil
+	})
+	token, err := resolveResponsesBearerToken(context.Background(), api, types.ApiTypeOpenResponses, source)
+	if err != nil || token != "refreshed-token" {
+		t.Fatalf("resolveResponsesBearerToken() = %q, %v", token, err)
+	}
+	if seen.Provider != "open-responses" || seen.BaseURL != "https://responses.example/v1" {
+		t.Fatalf("credential request = %#v", seen)
+	}
+
+	_, err = resolveResponsesBearerToken(context.Background(), api, types.ApiTypeOpenResponses,
+		bearerTokenSourceFunc(func(context.Context, credentials.Request) (string, error) {
+			return "", errors.New("refresh token is sensitive")
+		}),
+	)
+	if err == nil || strings.Contains(err.Error(), "sensitive") {
+		t.Fatalf("source error leaked: %v", err)
+	}
+}
 
 func TestResponsesAPIKeyPrefersOpenResponsesKey(t *testing.T) {
 	api := &settings.APISettings{
