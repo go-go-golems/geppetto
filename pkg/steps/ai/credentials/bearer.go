@@ -5,6 +5,7 @@ package credentials
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
 	"fmt"
@@ -162,8 +163,8 @@ func NewRenewableBearerTokenSource(store Store, refresher Refresher, opts ...Ren
 // replaces or revokes it in the host store. It never touches persistent state.
 // BearerTokenAfterUnauthorized forces one refreshed credential when rejected
 // matches the current credential. If another request already replaced it, the
-// usable replacement is returned instead. Concurrent 401 handlers for one key
-// share the forced refresh.
+// usable replacement is returned instead. Concurrent 401 handlers for the same
+// rejected bearer share the forced refresh; distinct rejected bearers never do.
 func (s *RenewableBearerTokenSource) BearerTokenAfterUnauthorized(ctx context.Context, request Request, rejected string) (string, error) {
 	if s == nil {
 		return "", &ErrUnavailable{Provider: request.Provider, Operation: "unauthorized source lookup"}
@@ -176,8 +177,8 @@ func (s *RenewableBearerTokenSource) BearerTokenAfterUnauthorized(ctx context.Co
 		return "", &ErrUnavailable{Provider: request.Provider, Operation: "unauthorized credential validation"}
 	}
 
-	result := s.refreshGroup.DoChan(key+"\x00unauthorized", func() (any, error) {
-		return s.refreshAfterUnauthorized(ctx, key, request, rejected)
+	result := s.refreshGroup.DoChan(unauthorizedRefreshKey(key, rejected), func() (any, error) {
+		return s.refreshAfterUnauthorized(context.WithoutCancel(ctx), key, request, rejected)
 	})
 	select {
 	case <-ctx.Done():
@@ -229,6 +230,11 @@ func tokensEqual(left, right string) bool {
 	return subtle.ConstantTimeCompare([]byte(left), []byte(right)) == 1
 }
 
+func unauthorizedRefreshKey(key, rejected string) string {
+	fingerprint := sha256.Sum256([]byte(rejected))
+	return key + "\x00unauthorized\x00" + string(fingerprint[:])
+}
+
 func (s *RenewableBearerTokenSource) Invalidate(request Request) error {
 	if s == nil {
 		return errors.New("nil renewable bearer token source")
@@ -244,7 +250,8 @@ func (s *RenewableBearerTokenSource) Invalidate(request Request) error {
 }
 
 // BearerToken returns a cache hit immediately when it remains usable. On an
-// expired/missing credential it joins one refresh operation per request key;
+// expired/missing credential it joins one refresh operation per request key.
+// Shared load/refresh/save work ignores an initiating caller's cancellation;
 // waiters can still abandon their own wait when their contexts are cancelled.
 func (s *RenewableBearerTokenSource) BearerToken(ctx context.Context, request Request) (string, error) {
 	if s == nil {
@@ -259,7 +266,7 @@ func (s *RenewableBearerTokenSource) BearerToken(ctx context.Context, request Re
 	}
 
 	result := s.refreshGroup.DoChan(key, func() (any, error) {
-		return s.loadOrRefresh(ctx, key, request)
+		return s.loadOrRefresh(context.WithoutCancel(ctx), key, request)
 	})
 	select {
 	case <-ctx.Done():

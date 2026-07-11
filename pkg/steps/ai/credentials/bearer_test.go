@@ -71,7 +71,30 @@ func (r *refresher) callCount() int {
 	return r.calls
 }
 
-func newSource(t *testing.T, store *memoryStore, refresher *refresher, now time.Time) *credentials.RenewableBearerTokenSource {
+type multiBlockingRefresher struct {
+	mu      sync.Mutex
+	calls   int
+	started chan struct{}
+	release <-chan struct{}
+	result  credentials.Credential
+}
+
+func (r *multiBlockingRefresher) Refresh(context.Context, credentials.Request, credentials.Credential) (credentials.Credential, error) {
+	r.mu.Lock()
+	r.calls++
+	r.mu.Unlock()
+	r.started <- struct{}{}
+	<-r.release
+	return r.result, nil
+}
+
+func (r *multiBlockingRefresher) callCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.calls
+}
+
+func newSource(t *testing.T, store *memoryStore, refresher credentials.Refresher, now time.Time) *credentials.RenewableBearerTokenSource {
 	t.Helper()
 	source, err := credentials.NewRenewableBearerTokenSource(store, refresher,
 		credentials.WithClock(func() time.Time { return now }),
@@ -187,6 +210,97 @@ func TestRenewableBearerTokenSourceCollapsesConcurrentRefreshesAndAllowsWaitingC
 	}
 	if refresher.callCount() != 1 || store.saveCalls != 1 {
 		t.Fatalf("refresh=%d save=%d, want one refresh/persist", refresher.callCount(), store.saveCalls)
+	}
+}
+
+func TestRenewableBearerTokenSourceKeepsSharedRefreshAliveAfterInitiatorCancellation(t *testing.T) {
+	now := time.Date(2026, 7, 10, 20, 0, 0, 0, time.UTC)
+	store := &memoryStore{credential: credentials.Credential{AccessToken: "expired-access", RefreshToken: "refresh", ExpiresAt: now.Add(-time.Minute)}}
+	refresher := &refresher{
+		result:          credentials.Credential{AccessToken: "fresh-access", ExpiresAt: now.Add(time.Hour)},
+		started:         make(chan struct{}),
+		continueRefresh: make(chan struct{}),
+	}
+	source := newSource(t, store, refresher, now)
+
+	initiatorCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	initiatorDone := make(chan error, 1)
+	go func() {
+		_, err := source.BearerToken(initiatorCtx, request())
+		initiatorDone <- err
+	}()
+	<-refresher.started
+
+	waiterDone := make(chan error, 1)
+	go func() {
+		token, err := source.BearerToken(context.Background(), request())
+		if err == nil && token != "fresh-access" {
+			err = errors.New("unexpected refreshed token")
+		}
+		waiterDone <- err
+	}()
+
+	cancel()
+	if err := <-initiatorDone; !errors.Is(err, context.Canceled) {
+		t.Fatalf("initiator error = %v, want context.Canceled", err)
+	}
+	close(refresher.continueRefresh)
+	if err := <-waiterDone; err != nil {
+		t.Fatal(err)
+	}
+	if refresher.callCount() != 1 || store.saveCalls != 1 {
+		t.Fatalf("refresh=%d save=%d, want one refresh/persist", refresher.callCount(), store.saveCalls)
+	}
+}
+
+func TestRenewableBearerTokenSourceSeparatesForcedRefreshesByRejectedBearer(t *testing.T) {
+	now := time.Date(2026, 7, 10, 20, 0, 0, 0, time.UTC)
+	store := &memoryStore{credential: credentials.Credential{AccessToken: "first-rejected", RefreshToken: "refresh", ExpiresAt: now.Add(time.Hour)}}
+	release := make(chan struct{})
+	refresher := &multiBlockingRefresher{
+		started: make(chan struct{}, 2),
+		release: release,
+		result:  credentials.Credential{AccessToken: "replacement", ExpiresAt: now.Add(time.Hour)},
+	}
+	source := newSource(t, store, refresher, now)
+
+	if _, err := source.BearerToken(context.Background(), request()); err != nil {
+		t.Fatal(err)
+	}
+	firstDone := make(chan error, 1)
+	go func() {
+		_, err := source.BearerTokenAfterUnauthorized(context.Background(), request(), "first-rejected")
+		firstDone <- err
+	}()
+	<-refresher.started
+
+	store.mu.Lock()
+	store.credential = credentials.Credential{AccessToken: "second-rejected", RefreshToken: "refresh", ExpiresAt: now.Add(time.Hour)}
+	store.mu.Unlock()
+	if err := source.Invalidate(request()); err != nil {
+		t.Fatal(err)
+	}
+	secondDone := make(chan error, 1)
+	go func() {
+		_, err := source.BearerTokenAfterUnauthorized(context.Background(), request(), "second-rejected")
+		secondDone <- err
+	}()
+	select {
+	case <-refresher.started:
+	case <-time.After(time.Second):
+		t.Fatal("second rejected bearer joined the first forced refresh")
+	}
+
+	close(release)
+	if err := <-firstDone; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-secondDone; err != nil {
+		t.Fatal(err)
+	}
+	if refresher.callCount() != 2 {
+		t.Fatalf("refresh=%d, want two independent forced refreshes", refresher.callCount())
 	}
 }
 
