@@ -141,6 +141,8 @@ topics:
       description: OAuth access and refresh credential flows
     - slug: credentials
       description: Credential lifecycle, storage, and provider authentication
+    - slug: javascript
+      description: JavaScript runtimes, bindings, APIs, and scripting workflows
 docTypes:
     - slug: index
       description: Ticket index
