@@ -98,6 +98,9 @@ func resolveBearerToken(
 	if bearerTokenSource != nil {
 		token, err := bearerTokenSource.BearerToken(ctx, credentials.Request{Provider: string(apiType), BaseURL: baseURL})
 		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return "", err
+			}
 			return "", errors.Errorf("resolve bearer credential for %s", apiType)
 		}
 		if strings.TrimSpace(token) == "" {

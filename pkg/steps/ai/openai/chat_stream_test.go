@@ -28,6 +28,28 @@ func (f unauthorizedBearerTokenSourceFunc) BearerTokenAfterUnauthorized(ctx cont
 	return f.unauthorized(ctx, request, rejected)
 }
 
+func TestResolveBearerTokenPreservesContextCancellation(t *testing.T) {
+	for name, sourceErr := range map[string]error{
+		"canceled": context.Canceled,
+		"deadline": context.DeadlineExceeded,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := resolveBearerToken(
+				context.Background(),
+				&settings.APISettings{},
+				ai_types.ApiTypeOpenAI,
+				"https://provider.example.test/v1",
+				bearerTokenSourceFunc(func(context.Context, credentials.Request) (string, error) {
+					return "", sourceErr
+				}),
+			)
+			if !errors.Is(err, sourceErr) {
+				t.Fatalf("expected %v to be preserved, got %v", sourceErr, err)
+			}
+		})
+	}
+}
+
 func TestOpenChatCompletionStreamRetriesOneProvider401WithReplacementBearer(t *testing.T) {
 	var requests int
 	var refreshes int

@@ -1,10 +1,10 @@
 package openai_responses
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
-
-	"context"
 
 	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
@@ -16,6 +16,9 @@ func resolveResponsesBearerToken(ctx context.Context, api *settings.APISettings,
 	if source != nil {
 		token, err := source.BearerToken(ctx, credentials.Request{Provider: string(apiType), BaseURL: responsesBaseURL(api)})
 		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return "", err
+			}
 			return "", fmt.Errorf("resolve bearer credential for OpenAI Responses")
 		}
 		if strings.TrimSpace(token) == "" {

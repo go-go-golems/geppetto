@@ -95,6 +95,27 @@ func TestOpenResponsesStreamDoesNotRetrySecondProvider401(t *testing.T) {
 	}
 }
 
+func TestResolveResponsesBearerTokenPreservesContextCancellation(t *testing.T) {
+	for name, sourceErr := range map[string]error{
+		"canceled": context.Canceled,
+		"deadline": context.DeadlineExceeded,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := resolveResponsesBearerToken(
+				context.Background(),
+				&settings.APISettings{},
+				types.ApiTypeOpenResponses,
+				bearerTokenSourceFunc(func(context.Context, credentials.Request) (string, error) {
+					return "", sourceErr
+				}),
+			)
+			if !errors.Is(err, sourceErr) {
+				t.Fatalf("expected %v to be preserved, got %v", sourceErr, err)
+			}
+		})
+	}
+}
+
 func TestResolveResponsesBearerTokenUsesSourceAndRedactsSourceErrors(t *testing.T) {
 	api := &settings.APISettings{BaseUrls: map[string]string{"open-responses-base-url": "https://responses.example/v1"}}
 	var seen credentials.Request
