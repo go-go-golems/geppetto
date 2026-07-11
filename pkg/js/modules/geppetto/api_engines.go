@@ -94,6 +94,9 @@ func ensureInferenceSettingsProviderDefaults(ss *aistepssettings.InferenceSettin
 		if _, ok := ss.API.BaseUrls["claude-base-url"]; !ok {
 			ss.API.BaseUrls["claude-base-url"] = "https://api.anthropic.com"
 		}
+		if *ss.Chat.ApiType == aitypes.ApiType("anthropic") {
+			populateAnthropicAliasSettings(ss.API)
+		}
 	case aitypes.ApiTypeGemini:
 		if ss.Gemini == nil {
 			settings, err := geminisettings.NewSettings()
@@ -110,6 +113,42 @@ func ensureInferenceSettingsProviderDefaults(ss *aistepssettings.InferenceSettin
 	}
 
 	return nil
+}
+
+// populateAnthropicAliasSettings makes the "anthropic" factory alias usable by
+// the Claude runtime. The factory intentionally validates canonical claude-*
+// keys, while ClaudeEngine derives its lookup keys from Chat.ApiType. Copying
+// missing canonical entries to their alias names keeps both stages aligned
+// without replacing an explicitly supplied anthropic-* value.
+func populateAnthropicAliasSettings(api *aistepssettings.APISettings) {
+	if api == nil {
+		return
+	}
+
+	populateStringAlias(api.APIKeys, "claude-api-key", "anthropic-api-key")
+	populateStringAlias(api.BaseUrls, "claude-base-url", "anthropic-base-url")
+	populateBoolAlias(api.AllowHTTP, "claude", "anthropic")
+	populateBoolAlias(api.AllowHTTP, "claude-allow-http", "anthropic-allow-http")
+	populateBoolAlias(api.AllowLocalNetworks, "claude", "anthropic")
+	populateBoolAlias(api.AllowLocalNetworks, "claude-allow-local-networks", "anthropic-allow-local-networks")
+}
+
+func populateStringAlias(values map[string]string, source, target string) {
+	if _, exists := values[target]; exists {
+		return
+	}
+	if value, exists := values[source]; exists {
+		values[target] = value
+	}
+}
+
+func populateBoolAlias(values map[string]bool, source, target string) {
+	if _, exists := values[target]; exists {
+		return
+	}
+	if value, exists := values[source]; exists {
+		values[target] = value
+	}
 }
 
 func (m *moduleRuntime) effectiveInferenceSettingsForResolvedProfile(resolved *profiles.ResolvedEngineProfile) (*aistepssettings.InferenceSettings, error) {

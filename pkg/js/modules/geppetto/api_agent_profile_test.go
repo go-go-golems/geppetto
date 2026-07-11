@@ -87,6 +87,43 @@ func TestEnsureInferenceSettingsProviderDefaultsPreservesExplicitValues(t *testi
 	}
 }
 
+func TestEnsureInferenceSettingsProviderDefaultsPopulatesAnthropicAliasKeys(t *testing.T) {
+	apiType := aitypes.ApiType("anthropic")
+	settings := &aistepssettings.InferenceSettings{
+		Chat: &aistepssettings.ChatSettings{ApiType: &apiType},
+		API: &aistepssettings.APISettings{
+			APIKeys:            map[string]string{"claude-api-key": "canonical-key"},
+			BaseUrls:           map[string]string{"claude-base-url": "https://claude.example.test"},
+			AllowHTTP:          map[string]bool{"claude": true},
+			AllowLocalNetworks: map[string]bool{"claude-allow-local-networks": true},
+		},
+	}
+	if err := ensureInferenceSettingsProviderDefaults(settings); err != nil {
+		t.Fatalf("ensure defaults: %v", err)
+	}
+
+	if got := settings.API.APIKeys["anthropic-api-key"]; got != "canonical-key" {
+		t.Fatalf("anthropic API key = %q, want canonical-key", got)
+	}
+	if got := settings.API.BaseUrls["anthropic-base-url"]; got != "https://claude.example.test" {
+		t.Fatalf("anthropic base URL = %q, want canonical Claude URL", got)
+	}
+	if !settings.API.AllowHTTP["anthropic"] {
+		t.Fatal("anthropic allow_http was not populated from claude")
+	}
+	if !settings.API.AllowLocalNetworks["anthropic-allow-local-networks"] {
+		t.Fatal("anthropic allow_local_networks was not populated from claude")
+	}
+
+	settings.API.APIKeys["anthropic-api-key"] = "explicit-alias-key"
+	if err := ensureInferenceSettingsProviderDefaults(settings); err != nil {
+		t.Fatalf("ensure defaults with explicit alias: %v", err)
+	}
+	if got := settings.API.APIKeys["anthropic-api-key"]; got != "explicit-alias-key" {
+		t.Fatalf("explicit anthropic API key = %q, want explicit-alias-key", got)
+	}
+}
+
 func TestNormalizedSparseSettingsReachProviderFactories(t *testing.T) {
 	tests := []struct {
 		name    string
