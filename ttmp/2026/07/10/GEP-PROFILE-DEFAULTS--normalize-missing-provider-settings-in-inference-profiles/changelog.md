@@ -27,3 +27,12 @@ Step 2: implemented provider-aware API/client/provider defaults, preserved expli
 
 All implementation tasks complete; provider-aware normalization and regression tests validated in commit d0557f7f
 
+
+## 2026-07-10
+
+Step 3: normalized canonical Claude credential, URL, and outbound-policy settings into missing `anthropic` alias keys so factory validation and Claude runtime lookup agree (commit 643d5313)
+
+### Related Files
+
+- /home/manuel/workspaces/2026-07-10/fix-geppetto-inference-profiles/geppetto/pkg/js/modules/geppetto/api_engines.go — Alias runtime-key normalization
+- /home/manuel/workspaces/2026-07-10/fix-geppetto-inference-profiles/geppetto/pkg/js/modules/geppetto/api_agent_profile_test.go — Alias propagation regression coverage

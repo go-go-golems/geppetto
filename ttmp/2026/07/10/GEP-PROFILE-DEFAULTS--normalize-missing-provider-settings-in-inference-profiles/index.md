@@ -36,7 +36,7 @@ The concrete failure originated in a local Ollama experiment using Geppetto's Op
 
 ## Status
 
-Current status: **active**
+Current status: **complete**
 
 ## Topics
 

@@ -14,19 +14,23 @@ RelatedFiles:
     - Path: repo://pkg/js/modules/geppetto/api_agent.go
       Note: Agent builder propagates default-constructor errors (commit d0557f7f)
     - Path: repo://pkg/js/modules/geppetto/api_agent_profile_test.go
-      Note: Offline JavaScript sparse-profile request-construction regression coverage (commit d0557f7f)
+      Note: |-
+        Offline JavaScript sparse-profile request-construction regression coverage (commit d0557f7f)
+        Anthropic alias propagation regression coverage (commit 643d5313)
     - Path: repo://pkg/js/modules/geppetto/api_engine_builder.go
       Note: Engine builder propagates default-constructor errors (commit d0557f7f)
     - Path: repo://pkg/js/modules/geppetto/api_engines.go
       Note: |-
         Normalization defect and planned provider-aware repair
         Provider-aware default normalization implementation (commit d0557f7f)
+        Anthropic alias runtime-key normalization (commit 643d5313)
 ExternalSources: []
 Summary: Chronological evidence, commands, design decisions, failures, validation, and commits for provider-profile default normalization.
 LastUpdated: 2026-07-10T19:04:30.981617688-04:00
 WhatFor: Record every research, implementation, validation, and commit checkpoint for provider-aware profile default normalization.
 WhenToUse: Read before resuming this ticket and update after each completed task or diagnostic result.
 ---
+
 
 
 
@@ -226,3 +230,89 @@ Unsupported API types still fail in the engine factory.
 
 - [Provider-aware default-normalization guide](../design-doc/01-provider-aware-inference-profile-default-normalization-guide.md)
 - [Ticket index](../index.md)
+
+## Step 3: Align the Anthropic alias with Claude runtime key lookup
+
+PR review identified a mismatch in the alias path: the engine factory deliberately accepts `anthropic` but validates canonical `claude-*` credentials, whereas `ClaudeEngine.RunInference` derives its keys directly from `chat.api_type`. A profile can therefore pass construction but fail before its first request. The normalizer now completes the bridge-specific alias mapping after it has ensured the canonical Claude defaults.
+
+The repair copies only missing canonical Claude API keys, base URLs, and outbound-security settings into the corresponding `anthropic` names. It never overwrites an explicit alias value, so a profile remains the source of truth when it has deliberately supplied one.
+
+### Prompt Context
+
+**User prompt (verbatim):** "translate / populate the alias keys consistently"
+
+**Assistant interpretation:** Retain the existing `anthropic` provider alias and make the settings consumed by the engine factory and by `ClaudeEngine.RunInference` internally consistent.
+
+**Inferred user intent:** A JavaScript profile using `chat.api_type: anthropic` must reach the Claude runtime with the credentials, endpoint, and outbound URL policy that successful factory validation already established.
+
+**Commit (code):** `643d53132e186c3e8cae241eb41784b300b6e0a1` — "Normalize anthropic alias runtime settings"
+
+### What I did
+
+- Read the unresolved PR thread through GitHub's thread-aware API and confirmed it applies to `pkg/js/modules/geppetto/api_engines.go`.
+- Added `populateAnthropicAliasSettings` after canonical Claude defaults are initialized for `chat.api_type: anthropic`.
+- Copied missing `claude-api-key` to `anthropic-api-key` and `claude-base-url` to `anthropic-base-url`.
+- Copied both accepted outbound-policy forms: the provider name (`claude`) and the suffix form (`claude-allow-http` or `claude-allow-local-networks`).
+- Added regression coverage for credential, base URL, HTTP, loopback-network policy propagation, and explicit alias-key preservation.
+
+### Why
+
+- Factory validation and runtime request construction must observe the same effective provider configuration.
+- `ClaudeEngine.RunInference` uses `string(apiType)` for both credential lookup and `OutboundURLOptions`; the alias therefore needs matching names in every runtime-consumed API map.
+
+### What worked
+
+- Focused validation passed:
+
+  ```text
+  GOWORK=off go test ./pkg/js/modules/geppetto ./pkg/inference/engine/factory ./pkg/steps/ai/claude -count=1
+  ```
+
+- `make lintmax` passed with zero lint findings.
+- The commit's pre-commit hook passed the complete `go test ./...` suite and lint gates.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- An API-type alias is not complete merely because the engine factory accepts it. Every subsequent consumer that derives map keys from the literal API type needs either canonicalization or explicit alias population.
+- Outbound URL policy maps are runtime configuration too: copying credentials and endpoints alone would still silently drop an explicit local-network or HTTP opt-in.
+
+### What was tricky to build
+
+- Two key shapes are accepted for outbound policy: `claude` and `claude-allow-http` (and the local-network equivalent). The normalizer must mirror both shapes so existing YAML and generated-map callers retain equivalent behavior under the alias.
+- The ticket's prior invariant preserves explicit configuration. The copy helper consequently writes only absent alias entries; it does not replace a deliberately supplied `anthropic-*` value.
+
+### What warrants a second pair of eyes
+
+- If a future configuration supplies both canonical and alias values that intentionally disagree, factory validation uses the canonical entry while the runtime uses the alias entry. This change preserves that explicit configuration rather than choosing a hidden precedence rule.
+
+### What should be done in the future
+
+- Consider a broader provider-alias canonicalization contract only if more aliases are introduced or a product decision defines precedence for conflicting explicit canonical and alias values.
+
+### Code review instructions
+
+- Start with `populateAnthropicAliasSettings` in `pkg/js/modules/geppetto/api_engines.go`.
+- Review `TestEnsureInferenceSettingsProviderDefaultsPopulatesAnthropicAliasKeys` in `pkg/js/modules/geppetto/api_agent_profile_test.go`.
+- Validate with the focused command above or `go test ./...`.
+
+### Technical details
+
+```text
+chat.api_type: anthropic
+factory validation: claude-api-key / claude-base-url
+runtime lookup:     anthropic-api-key / anthropic-base-url
+```
+
+After normalization, a missing alias entry is populated from the canonical entry:
+
+```text
+claude-api-key                 -> anthropic-api-key
+claude-base-url                -> anthropic-base-url
+claude                         -> anthropic
+claude-allow-http              -> anthropic-allow-http
+claude-allow-local-networks    -> anthropic-allow-local-networks
+```
