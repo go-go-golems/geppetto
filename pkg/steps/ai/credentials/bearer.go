@@ -5,6 +5,8 @@ package credentials
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
@@ -123,13 +125,14 @@ func WithClock(now func() time.Time) RenewableOption {
 // once per provider/base-URL pair when they are expired or inside refresh skew.
 // It never writes credentials to settings, events, or logs.
 type RenewableBearerTokenSource struct {
-	store        Store
-	refresher    Refresher
-	refreshSkew  time.Duration
-	now          func() time.Time
-	mu           sync.Mutex
-	cache        map[string]Credential
-	refreshGroup singleflight.Group
+	store                      Store
+	refresher                  Refresher
+	refreshSkew                time.Duration
+	now                        func() time.Time
+	mu                         sync.Mutex
+	cache                      map[string]Credential
+	unauthorizedFingerprintKey [32]byte
+	refreshGroup               singleflight.Group
 }
 
 var _ BearerTokenSource = (*RenewableBearerTokenSource)(nil)
@@ -144,12 +147,17 @@ func NewRenewableBearerTokenSource(store Store, refresher Refresher, opts ...Ren
 	if refresher == nil {
 		return nil, errors.New("bearer credential refresher is required")
 	}
+	var unauthorizedFingerprintKey [32]byte
+	if _, err := rand.Read(unauthorizedFingerprintKey[:]); err != nil {
+		return nil, errors.New("generate bearer refresh fingerprint key")
+	}
 	source := &RenewableBearerTokenSource{
-		store:       store,
-		refresher:   refresher,
-		refreshSkew: 30 * time.Second,
-		now:         time.Now,
-		cache:       map[string]Credential{},
+		store:                      store,
+		refresher:                  refresher,
+		refreshSkew:                30 * time.Second,
+		now:                        time.Now,
+		cache:                      map[string]Credential{},
+		unauthorizedFingerprintKey: unauthorizedFingerprintKey,
 	}
 	for _, option := range opts {
 		if option != nil {
@@ -177,7 +185,7 @@ func (s *RenewableBearerTokenSource) BearerTokenAfterUnauthorized(ctx context.Co
 		return "", &ErrUnavailable{Provider: request.Provider, Operation: "unauthorized credential validation"}
 	}
 
-	result := s.refreshGroup.DoChan(unauthorizedRefreshKey(key, rejected), func() (any, error) {
+	result := s.refreshGroup.DoChan(s.unauthorizedRefreshKey(key, rejected), func() (any, error) {
 		return s.refreshAfterUnauthorized(context.WithoutCancel(ctx), key, request, rejected)
 	})
 	select {
@@ -230,9 +238,14 @@ func tokensEqual(left, right string) bool {
 	return subtle.ConstantTimeCompare([]byte(left), []byte(right)) == 1
 }
 
-func unauthorizedRefreshKey(key, rejected string) string {
-	fingerprint := sha256.Sum256([]byte(rejected))
-	return key + "\x00unauthorized\x00" + string(fingerprint[:])
+// unauthorizedRefreshKey derives an ephemeral, keyed token fingerprint for
+// singleflight coordination. The token is not persisted, logged, or used as a
+// password verifier; the random process-local key prevents reuse across source
+// instances.
+func (s *RenewableBearerTokenSource) unauthorizedRefreshKey(key, rejected string) string {
+	fingerprint := hmac.New(sha256.New, s.unauthorizedFingerprintKey[:])
+	_, _ = fingerprint.Write([]byte(rejected))
+	return key + "\x00unauthorized\x00" + string(fingerprint.Sum(nil))
 }
 
 func (s *RenewableBearerTokenSource) Invalidate(request Request) error {
