@@ -1,0 +1,639 @@
+---
+Title: 'Pi subscription credentials in Geppetto: analysis, adapter design, and implementation guide'
+Ticket: GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS
+Status: active
+Topics:
+    - geppetto
+    - oauth
+    - credentials
+    - security
+DocType: design-doc
+Intent: long-term
+Owners:
+    - manuel
+RelatedFiles:
+    - Path: repo://pkg/inference/engine/factory/factory.go
+      Note: Current engine-specific source propagation and validation
+    - Path: repo://pkg/js/modules/geppetto/api_engine_builder.go
+      Note: Go-only JavaScript source injection boundary
+    - Path: repo://pkg/steps/ai/claude/api/completion.go
+      Note: Claude static x-api-key request headers
+    - Path: repo://pkg/steps/ai/claude/engine_claude.go
+      Note: Current static Claude credential construction
+    - Path: repo://pkg/steps/ai/credentials/bearer.go
+      Note: Existing host-owned renewable bearer contract and invariants
+    - Path: repo://pkg/steps/ai/openai_responses/streaming.go
+      Note: Current bearer-only Responses request/replay behavior
+    - Path: repo://ttmp/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS--provider-specific-adapters-for-pi-subscription-credentials/sources/01-local-pi-and-geppetto-source-map.md
+      Note: Redacted local Pi provider and Geppetto evidence index
+ExternalSources: []
+Summary: Evidence-backed design for safely supporting provider-specific Pi subscription credential transports without making Geppetto own Pi storage or exposing credentials to JavaScript.
+LastUpdated: 2026-07-14T21:52:00-04:00
+WhatFor: Orient an engineer implementing provider-specific renewable credential adapters and transports in and around Geppetto.
+WhenToUse: Use when evaluating Pi-originated subscription credentials, custom OAuth transports, or a future Geppetto request authentication capability.
+---
+
+
+# Pi subscription credentials in Geppetto
+
+## Executive summary
+
+Geppetto already has a secure, host-injected renewable bearer mechanism. A host owns persistence and refresh protocol; Geppetto asks for a bearer immediately before a supported OpenAI Chat or Responses request. This boundary is deliberately narrow and correct for ordinary OpenAI-compatible services, where `Authorization: Bearer <access-token>` is the whole authentication contract.
+
+Installed Pi code shows that the three providers initially described as “OAuth” are not the same integration problem. OpenAI Codex is a genuine refreshable ChatGPT subscription flow, but its inference transport is the ChatGPT backend with a Codex-specific path and additional account, originator, beta, and request-ID headers. Anthropic Claude Pro/Max is also a genuine refreshable OAuth flow, but it targets the Anthropic Messages protocol while Geppetto’s Claude engine currently owns a static `x-api-key` client. Umans is not renewable OAuth in the Pi extension at all: `/login` persists an API key in OAuth-shaped fields, and its refresh function returns the same value.
+
+Therefore this work must **not** copy Pi credentials into Geppetto profiles, make Geppetto parse `~/.pi/agent/auth.json`, or add “generic OAuth” claims based only on a token shape. The recommended path is a two-layer design:
+
+1. **Geppetto adds narrowly-scoped, Go-only request-authentication and transport seams only where a real engine needs them.** It remains storage-, browser-, and Pi-agnostic.
+2. **A host-owned adapter (initially Pinocchio, not Geppetto) understands a selected provider and any local Pi storage contract.** It loads, refreshes, and supplies credentials without making token material, refresh callbacks, account identity, or source-selection metadata visible to profiles or JavaScript.
+
+OpenAI Codex should be a dedicated experimental adapter/engine effort, not a configuration tweak to the existing OpenAI Responses engine. Claude should be investigated through the existing Claude engine, but only after its OAuth request-header semantics are captured in a fake-server contract. Umans belongs in a separate Anthropic Messages/API-key compatibility effort, not the renewable OAuth feature.
+
+## 1. Problem statement and scope
+
+### 1.1 The question
+
+A machine running Pi already has local provider records for several login-based providers. Can a Geppetto host reuse a selected subscription credential safely and renew it at request time, while retaining the security invariants established by Geppetto’s renewable bearer work?
+
+The answer is **potentially, provider by provider**. A record containing fields named `access`, `refresh`, and `expires` only establishes that Pi stores a credential in a common shape. It does not establish the inference endpoint, request framing, required companion headers, token audience, service terms, or compatibility with an existing Geppetto engine.
+
+### 1.2 Goals
+
+This design defines how to:
+
+- classify the actual provider/transport contracts evidenced by installed Pi code;
+- preserve Geppetto’s host-owned credential ownership model;
+- add only the runtime seams required by a validated provider transport;
+- keep all secret and credential-adjacent state out of profile YAML, settings dumps, events, logs, JavaScript, and CLI output;
+- produce a phased implementation plan that an intern can execute with fake-server tests before any account-backed smoke.
+
+### 1.3 Non-goals
+
+This ticket does **not** authorize implementation of a provider adapter, a real account request, or a new browser-login command. It also does not:
+
+- read, copy, print, hash, upload, or commit a value from Pi’s auth file;
+- make Geppetto own Pi’s file format, file locking, browser callbacks, or refresh protocol;
+- claim the ChatGPT backend is a stable public OpenAI API contract;
+- treat the Umans API-key shim as OAuth;
+- expose a bearer, refresh callback, account identifier, raw headers, or credential-source selector to JavaScript;
+- add a broad arbitrary HTTP-request mutator that could override validated URLs or security headers.
+
+### 1.4 Terminology
+
+| Term | Meaning in this guide |
+|---|---|
+| **host** | The embedding application, such as Pinocchio, that constructs Geppetto engines. |
+| **credential store** | The host’s secret-bearing persistence owner. Pi’s auth file is one possible external source, not a Geppetto data format. |
+| **renewable bearer** | An access token plus an optional refresh token and expiry, acquired at request time through a host source. |
+| **transport contract** | The full endpoint, path, HTTP method, payload, headers, response stream, and retry behavior expected by a provider. |
+| **adapter** | Host-side code that turns an external credential contract into a safe Geppetto runtime capability. |
+| **engine** | Geppetto’s provider protocol implementation, such as OpenAI Chat, OpenAI Responses, or Claude Messages. |
+| **metadata** | Non-token companion values such as an account identifier. It is still private runtime state and must not be shown to JavaScript or diagnostics. |
+
+## 2. Current-state architecture
+
+### 2.1 Geppetto credential boundary
+
+`pkg/steps/ai/credentials/bearer.go:21-83` defines `credentials.Request`, `Credential`, `Store`, `Refresher`, and `BearerTokenSource`. The public source interface returns exactly one string:
+
+```go
+// pkg/steps/ai/credentials/bearer.go
+type BearerTokenSource interface {
+    BearerToken(context.Context, Request) (string, error)
+}
+```
+
+The narrowness is intentional. The generic `RenewableBearerTokenSource` loads credentials through a host `Store`, refreshes through a host `Refresher`, saves a rotation before caching it, and emits redacted availability errors. It does not parse profile YAML or know provider token endpoints. Its request identity is the non-secret pair `{Provider, BaseURL}`.
+
+```text
+             host owns secrets and provider protocol
+
+  +----------------+       +------------------+       +----------------+
+  | host Store     |<----->| host Refresher   |<----->| provider OAuth |
+  +--------+-------+       +------------------+       +----------------+
+           |                         ^
+           v                         |
+  +-------------------------------+  |
+  | RenewableBearerTokenSource    |--+
+  | cache + singleflight + redact |
+  +---------------+---------------+
+                  |
+                  | bearer at outbound request time
+                  v
+  +---------------+---------------+
+  | Geppetto engine               |
+  | validated URL -> request      |
+  +-------------------------------+
+```
+
+The existing source is appropriate only if the provider request needs a normal bearer header and the target engine understands the protocol.
+
+### 2.2 Supported engine paths
+
+`pkg/inference/engine/factory/factory.go:134-151` forwards a configured bearer source to OpenAI Chat and OpenAI Responses. `pkg/steps/ai/openai/chat_stream.go:96-105,133-168` and `pkg/steps/ai/openai_responses/streaming.go:148-185` resolve the source after URL validation and set `Authorization: Bearer ...`. Each path permits one opt-in pre-stream 401 refresh/replay using `UnauthorizedBearerTokenSource`.
+
+The factory intentionally does **not** forward the source to Claude. `pkg/steps/ai/claude/engine_claude.go:72-86` looks up a static API key. `pkg/steps/ai/claude/api/completion.go:94-99` sends that value as `x-api-key` and sets the Anthropic version header. This matters: Claude is not merely another OpenAI-compatible bearer path.
+
+### 2.3 JavaScript boundary
+
+`pkg/js/modules/geppetto/api_engine_builder.go:63-73` keeps a host-configured bearer source inside `moduleRuntime` in Go. JavaScript receives an engine builder, not the source. That same boundary remains mandatory for any richer provider-specific capability:
+
+```text
+JavaScript settings/profile -> Go engine construction -> Go-only source/adapter -> HTTP request
+                                 ^
+                                 |
+                    no token, header map, account id,
+                    refresh callback, or selector crosses here
+```
+
+### 2.4 Pi credential behavior
+
+Pi’s `AuthStorage` uses provider registrations to log in, stores OAuth credential records, and locks its backing file while refreshing expired records (`dist/core/auth-storage.js:318-425`). This is useful evidence for the current local client, but it is not a stable Geppetto interface. Geppetto must not import Pi’s JavaScript implementation or directly adopt Pi’s disk format.
+
+## 3. Provider contract classification
+
+### 3.1 OpenAI Codex: renewable OAuth, custom ChatGPT transport
+
+Pi’s OpenAI Codex provider is explicitly bound to `https://chatgpt.com/backend-api` (`dist/providers/openai-codex.js:6-16`). Its OAuth implementation supports PKCE authorization-code login and device-code login, refreshes through the OpenAI OAuth token service, and derives a ChatGPT account identifier from an access-token claim (`dist/utils/oauth/openai-codex.js:22-35,112-125,319-338`).
+
+The inference request is not a normal public OpenAI Responses request. Pi resolves a `/codex/responses` path and adds all of the following in its Codex response implementation (`dist/api/openai-codex-responses.js:402-409,1163-1210`):
+
+- the bearer authorization header;
+- a ChatGPT account header derived from the current access token;
+- an originator header;
+- experimental Responses/SSE headers;
+- request/session identifiers where applicable.
+
+| Required capability | Existing Geppetto OpenAI Responses | Codex requirement | Result |
+|---|---:|---:|---|
+| Request-time bearer | Yes | Yes | Reusable concept |
+| One pre-stream 401 replay | Yes | Likely useful | Must be contract-tested |
+| `/responses` target | Yes | `/codex/responses` | Incompatible without a dedicated target strategy |
+| Account header | No | Required by Pi transport | Missing capability |
+| Originator/beta headers | No | Required by Pi transport | Missing capability |
+| Codex request/stream mapping | Standard Responses | Pi-specific implementation | Must be audited, not assumed identical |
+
+**Conclusion:** do not configure the generic OpenAI Responses engine with a ChatGPT base URL and a Pi bearer. That would route a token to a validated but semantically wrong target and omit companion headers. Treat Codex as a distinct transport adapter.
+
+### 3.2 Anthropic Claude subscription: renewable OAuth, Anthropic Messages transport
+
+Pi’s Anthropic provider implements PKCE authorization-code exchange and refresh-token renewal (`dist/utils/oauth/anthropic.js:159-185,290-315`). The scopes include inference and Claude Code-session capability. This proves a refreshable client flow exists in Pi.
+
+Geppetto already speaks the Anthropic Messages family through the Claude engine, which is promising. However, it currently carries a static key through a client field and sends `x-api-key` (`pkg/steps/ai/claude/engine_claude.go:72-86`, `pkg/steps/ai/claude/api/completion.go:94-99`). It has no request-time source and no validated OAuth-specific header profile.
+
+**Conclusion:** Claude is not blocked by an absent protocol engine; it is blocked by absent dynamic credential plumbing and unverified subscription-auth request semantics. First add a fake-server test that states the exact headers and endpoint expected by the approved provider contract. Only then design `WithBearerTokenSource`-like behavior for Claude. Never assume an access token can be substituted into `x-api-key` because both are strings.
+
+### 3.3 Umans: API-key persistence shim, Anthropic Messages transport
+
+The installed Umans Pi extension asks for an API key, copies it into access/refresh-shaped values, gives it a very long expiry, and returns it unchanged from “refresh” (`pi-provider-umans/index.ts:539-577`). Its own README says the gateway uses Anthropic Messages at `/v1/messages`, with `anthropic-version`, rather than OpenAI Chat Completions (`README.md:39-43`).
+
+**Conclusion:** Umans is not evidence for refresh-token support. It is an API-key configuration use case. It may later be compatible with Geppetto’s Claude/Messages engine after a protocol test, but it belongs to static-key/provider compatibility work and must not drive the renewable OAuth API.
+
+### 3.4 Additional candidate: Kimi Code
+
+The installed Kimi Code extension implements device authorization and refresh token grants and can select an OpenAI-like coding endpoint. It is relevant evidence that Pi extensions can carry extra model/transport metadata beyond `access`, `refresh`, and `expires`. It is deliberately out of the first implementation scope because its custom stream handler and protocol-specific headers require the same evidence-first evaluation as Codex.
+
+## 4. Gap analysis
+
+### 4.1 Why `BearerTokenSource` is insufficient for Codex
+
+A bearer source answers only “what token may I send to this already-decided request?” Codex also needs a specialized request target and companion headers derived from the current credential. The token-only source deliberately cannot express those capabilities.
+
+Adding an arbitrary `func(*http.Request)` callback to settings would be unsafe:
+
+- settings are profile-derived, serializable, cloneable, and inspectable;
+- an arbitrary callback could rewrite a URL after outbound validation and exfiltrate a bearer;
+- a callback could override `Host`, `Authorization`, `Content-Length`, or tracing headers;
+- JavaScript could accidentally gain a way to select or observe private transport behavior.
+
+### 4.2 Why Geppetto must not read Pi’s auth file
+
+Reading Pi’s file from Geppetto would make a reusable library depend on a local tool’s private schema, lock implementation, migration behavior, and provider registrations. It also violates the existing ownership model: the host must choose storage, user interaction, and refresh policy.
+
+The correct dependency direction is:
+
+```text
+Pinocchio or another host
+  ├── chooses whether Pi auth storage is a permitted local source
+  ├── owns safe locking, migration, and user consent
+  ├── constructs a provider-specific adapter
+  └── injects Go-only runtime capability into Geppetto
+
+Geppetto
+  ├── validates outbound target before credential release
+  ├── implements provider protocol and bounded replay behavior
+  └── never reads host credential files or launches a browser
+```
+
+### 4.3 Why no generic “OAuth provider” abstraction
+
+OAuth tells us how to acquire and refresh tokens. It does not define the inference HTTP protocol. The provider needs an adapter when any of these vary:
+
+- endpoint host or path;
+- header names and mandatory metadata;
+- message wire format and streaming events;
+- model discovery or model aliases;
+- request retry/idempotency semantics;
+- refresh behavior after a server-side rejection.
+
+A generic `OAuthProvider` in Geppetto would collapse these concerns and invite unsafe configuration. Keep protocol code explicit.
+
+## 5. Proposed architecture
+
+### 5.1 Architectural decision
+
+Implement provider transports as dedicated engines or dedicated engine modes, and use a restricted Go-only request-auth capability for metadata only where a shared protocol implementation can safely consume it.
+
+Do **not** turn the current generic OpenAI Responses engine into a configurable Codex client by adding profile keys for endpoint suffixes or header maps.
+
+```text
+                     host-owned, secret-bearing layer
+ +----------------------------------------------------------------+
+ | Provider adapter                                                |
+ |  - selected storage owner                                       |
+ |  - locked load/refresh/save                                     |
+ |  - current access token + private runtime metadata             |
+ +-------------------------------+--------------------------------+
+                                 |
+                   Go-only typed capability, never settings/JS
+                                 v
+ +-------------------------------+--------------------------------+
+ | Geppetto provider engine                                        |
+ |  Codex engine: target + request framing + sanctioned headers    |
+ |  Claude engine: Message protocol + tested auth strategy         |
+ |  OpenAI engines: existing bearer-only behavior                  |
+ +-------------------------------+--------------------------------+
+                                 |
+                         validated outbound HTTP request
+                                 v
+                           provider inference API
+```
+
+### Decision: Preserve Geppetto’s host-agnostic ownership
+
+- **Context:** Pi storage and provider logic are local application behavior, while Geppetto is a reusable library.
+- **Options considered:** Parse Pi storage in Geppetto; add a Pi dependency to Geppetto; keep all Pi integration in hosts.
+- **Decision:** Keep Pi storage parsing, browser login, and refresh protocol in a host-owned adapter.
+- **Rationale:** This preserves existing credential ownership, avoids a Node/runtime dependency in Go, and lets non-Pi hosts use the same engines.
+- **Consequences:** The host must perform explicit adapter wiring. Geppetto documentation must show capability injection, not a magic profile flag.
+- **Status:** proposed.
+
+### Decision: Codex is a dedicated transport, not an OpenAI Responses profile
+
+- **Context:** Pi’s Codex transport has a different request path and required companion headers.
+- **Options considered:** Set a custom base URL in OpenAI Responses; add arbitrary profile header maps; implement a dedicated Codex engine/transport.
+- **Decision:** Implement a dedicated Go-only Codex transport after a fake-server contract suite proves payload and stream compatibility.
+- **Rationale:** A dedicated transport makes the nonstandard behavior auditable and avoids allowing profiles to control sensitive request metadata.
+- **Consequences:** Some Responses encoding/streaming code may need extraction into internal reusable helpers. Codex support will be explicitly experimental until a provider contract is reviewed.
+- **Status:** proposed.
+
+### Decision: Add dynamic Claude authentication only after header-contract proof
+
+- **Context:** Geppetto has a Claude Messages engine but assumes static `x-api-key` authentication.
+- **Options considered:** Reuse bearer source blindly as an API key; add dynamic source plus an explicit auth strategy; defer Claude.
+- **Decision:** First write a fake-server contract for the accepted subscription request; then add a typed Claude auth strategy if the server behavior is confirmed.
+- **Rationale:** Header semantics affect authorization and compatibility. A string token’s existence is insufficient evidence.
+- **Consequences:** Claude implementation remains a separate phase from Codex. Token counting and all non-streaming Claude paths must be audited together.
+- **Status:** proposed.
+
+### Decision: Treat Umans as static-key/Messages work
+
+- **Context:** The installed extension performs no token exchange or rotation.
+- **Options considered:** Model it as OAuth because of field names; adapt it through renewable bearer; keep it in API-key protocol work.
+- **Decision:** Keep Umans out of renewable OAuth scope.
+- **Rationale:** The implementation evidence says refresh is a no-op and the API is Anthropic Messages.
+- **Consequences:** Any Umans support should validate the Messages protocol and API-key header behavior, with no refresh tests or lifecycle claims.
+- **Status:** proposed.
+
+### 5.2 Go-only contracts
+
+The existing `BearerTokenSource` stays unchanged for ordinary OpenAI-compatible providers. Do not break every embedding host by replacing it. Add new interfaces only with a concrete consumer and tests.
+
+For a future shared request-header capability, use a typed, restricted result—not a request mutator:
+
+```go
+// Proposed: package credentials
+// This is Go-only runtime state. It is never a profile setting or JS value.
+type RequestAuth struct {
+    BearerToken string
+    // Headers are copied by the engine. The engine applies an allowlist for its
+    // own protocol and rejects Authorization, Host, and transfer framing keys.
+    Headers http.Header
+}
+
+type RequestAuthSource interface {
+    RequestAuth(context.Context, Request) (RequestAuth, error)
+}
+```
+
+This interface is **not** automatically the new default for all engines. Each engine decides whether it supports it, validates the outbound target first, copies permitted headers, and redacts errors. A Codex engine can use a private stricter contract instead:
+
+```go
+// Proposed: package openai_codex
+// Unexported credential fields must never reach profiles or JS.
+type credentialSource interface {
+    CodexCredential(context.Context, credentials.Request) (codexCredential, error)
+}
+
+type codexCredential struct {
+    bearerToken string
+    accountID   string
+}
+```
+
+The host adapter can derive account metadata from its current access token or obtain it from its own record. The Geppetto engine sees it only long enough to create the HTTP headers. No field is logged, emitted, stored in settings, or exported through JavaScript.
+
+### 5.3 Codex request flow pseudocode
+
+```go
+func (e *Engine) stream(ctx context.Context, input request) (*http.Response, error) {
+    target := resolveCodexURL(e.baseURL) // fixed /codex/responses transformation
+    if err := security.ValidateOutboundURL(target, e.outboundOptions); err != nil {
+        return nil, err // source is not called
+    }
+
+    cred, err := e.source.CodexCredential(ctx, credentials.Request{
+        Provider: "openai-codex",
+        BaseURL:  e.baseURL,
+    })
+    if err != nil {
+        return nil, redactCredentialError(err)
+    }
+
+    req := newJSONRequest(ctx, target, encodeCodexRequest(input))
+    req.Header.Set("Authorization", "Bearer "+cred.bearerToken)
+    req.Header.Set("chatgpt-account-id", cred.accountID)
+    req.Header.Set("originator", e.originator) // compile-time/defaulted option
+    req.Header.Set("OpenAI-Beta", codexResponsesBeta)
+    req.Header.Set("Accept", "text/event-stream")
+
+    resp := e.client.Do(req)
+    if resp.StatusCode == 401 && !input.hasObservedOutput && e.source.canForceRefresh() {
+        close(resp.Body)
+        refreshed := e.source.CodexCredentialAfterUnauthorized(ctx, request, cred)
+        return e.replayExactlyOnce(ctx, input, refreshed)
+    }
+    return resp, nil
+}
+```
+
+Key invariants:
+
+1. Validate the resolved final URL before acquiring a token.
+2. Keep Codex URL construction and required headers in the Codex engine, not profiles.
+3. Never include a token, account value, raw provider response, or refresh error in a returned error.
+4. Persist a rotated credential before returning a replacement after refresh.
+5. Retry exactly once, only on a pre-output 401 and only when the source explicitly supports it.
+
+### 5.4 Claude dynamic-auth flow pseudocode
+
+```go
+func (e *ClaudeEngine) newClientForRequest(ctx context.Context) (*api.Client, error) {
+    target := messagesURL(e.settings)
+    if err := security.ValidateOutboundURL(target, e.outboundOptions); err != nil {
+        return nil, err
+    }
+
+    auth, err := e.authStrategy.Resolve(ctx, credentials.Request{
+        Provider: "claude",
+        BaseURL:  baseURL(e.settings),
+    })
+    if err != nil {
+        return nil, redactCredentialError(err)
+    }
+
+    client := api.NewClient(auth.value, baseURL(e.settings))
+    client.SetAuthenticationStrategy(auth.headerName, auth.extraHeaders)
+    return client, nil
+}
+```
+
+The important incomplete part is `SetAuthenticationStrategy`. Do not implement it until a contract test says whether the approved subscription endpoint expects `Authorization`, `x-api-key`, provider beta headers, a client identity, or another mechanism. The strategy must be a typed engine option, must reject unsafe header names, and must apply to streaming, non-streaming, and token-count requests consistently.
+
+## 6. Implementation plan
+
+### Phase 0 — Freeze evidence and define the acceptance gate
+
+**Files to create/update**
+
+- This ticket’s `sources/01-local-pi-and-geppetto-source-map.md`.
+- A provider-contract fixture directory, for example `pkg/steps/ai/openai_codex/testdata/`.
+- A provider decision record in the implementation PR.
+
+**Actions**
+
+1. Pin the exact Pi and extension version used as evidence in test documentation.
+2. Extract only public protocol constants and sanitized fixture shapes; never save a local credential file.
+3. Write acceptance criteria per provider:
+   - target path;
+   - required static and dynamic header names (not values);
+   - request body expectations;
+   - SSE event mapping;
+   - token refresh/replay behavior;
+   - all prohibited logging/serialization paths.
+
+**Exit criterion:** fake-server tests can be written without an account credential.
+
+### Phase 1 — Codex transport contract tests before implementation
+
+**Likely files**
+
+- `pkg/steps/ai/openai_codex/engine_test.go` (new)
+- `pkg/steps/ai/openai_codex/stream_test.go` (new)
+- `pkg/inference/engine/factory/factory_test.go`
+
+**Tests**
+
+- base URL resolves to the Codex response path and cannot escape the configured host;
+- a credential source is not called if URL validation fails;
+- request contains expected protocol header names and no settings-derived secret;
+- a current credential yields one request;
+- an expired credential performs one locked refresh and persistence;
+- first pre-stream 401 refreshes/replays once; second 401 does not;
+- account metadata and bearer never occur in errors, trace events, or JS values;
+- JavaScript builder works only when a host supplies the capability, with no exposure API.
+
+**Exit criterion:** a fake server validates the entire outbound request shape and simulated stream.
+
+### Phase 2 — Implement the isolated Codex engine
+
+**Likely files**
+
+- `pkg/steps/ai/openai_codex/engine.go` (new)
+- `pkg/steps/ai/openai_codex/streaming.go` (new)
+- `pkg/steps/ai/openai_codex/options.go` (new)
+- `pkg/inference/engine/factory/factory.go`
+- `pkg/steps/ai/types/...` only if a new API type is justified
+
+**Implementation notes**
+
+- Prefer extracting non-provider-specific Responses event decoding into an internal package over copying a large parser.
+- Do not reuse `openai_responses` by passing a fake base URL unless the test suite proves every path and header is identical.
+- Keep the Codex credential source an engine option. It must not become `InferenceSettings.API` data.
+- Make model selection explicit and conservative; model aliases change more frequently than the transport boundary.
+
+**Exit criterion:** unit and race tests pass with a fake store/refresher and a fake inference service.
+
+### Phase 3 — Host-owned Pi adapter spike
+
+This phase belongs in Pinocchio or another host repository, not Geppetto.
+
+**Responsibilities**
+
+- require explicit opt-in to use a Pi-owned credential source;
+- implement locking compatible with the chosen storage owner, or delegate all operations to a single authorized helper;
+- map an approved Pi record into a Geppetto Codex source without serializing it into profiles;
+- preserve atomic refresh-token rotation;
+- provide only redacted local status (configured/expired/ready), not credential values;
+- inject the source into both Go and JavaScript engine construction paths in Go.
+
+**Do not do**
+
+- parse the entire auth file as a convenient generic store;
+- make an `auth.json` path configurable in profile YAML;
+- use JavaScript to choose the local credential record;
+- automatically reuse a current user’s login without an explicit host policy and user-facing documentation.
+
+**Exit criterion:** an integration test uses an in-memory or temporary fake store; it never uses the real local credential file.
+
+### Phase 4 — Claude audit and dynamic-auth design
+
+**Likely files**
+
+- `pkg/steps/ai/claude/engine_claude.go`
+- `pkg/steps/ai/claude/api/completion.go`
+- `pkg/steps/ai/claude/api/messages.go`
+- `pkg/steps/ai/claude/token_count.go`
+- `pkg/inference/engine/factory/factory.go`
+
+Audit every outbound Claude path before adding source support. The token-count path is independently static today, so changing only streaming inference would create inconsistent authentication behavior.
+
+**Exit criterion:** an approved, evidence-backed Claude request-auth strategy passes fake-server coverage for Messages, streaming, and token counting. If no stable contract is available, defer rather than guessing.
+
+### Phase 5 — Optional controlled live smoke
+
+A real smoke is permitted only after a reviewer accepts the provider’s current contract and the host owner explicitly approves use of a selected account. The smoke must:
+
+- use a non-destructive minimal request;
+- send no credentials to terminal output, test logs, source files, ticket documents, or reMarkable PDFs;
+- record only success/failure class, HTTP status category, provider version, and redacted timing;
+- avoid persistent profile modifications;
+- include a clear rollback/logout/removal plan.
+
+## 7. Testing and validation strategy
+
+### 7.1 Unit tests
+
+| Area | Assertions |
+|---|---|
+| Credential source | cache hit, expiry, refresh skew, rotated refresh persistence, cancellation isolation, no token-bearing errors |
+| Codex path builder | normalized base URL produces only approved Codex target path |
+| Headers | required keys present; forbidden override keys rejected; no source headers in event/debug data |
+| 401 handling | exactly one replay before output; never replay static credentials or a second 401 |
+| Claude strategy | request-time resolution applies identically to Messages and token count |
+| Factory | source presence authorizes only engines that explicitly support it |
+| JavaScript | builder succeeds with Go source; script cannot receive source, token, headers, expiry, or account metadata |
+
+### 7.2 Fake-server integration tests
+
+Use `httptest.NewTLSServer` and an injected HTTP client. The handler should capture only request method, path, header **names**, and a sanitized body shape. Never make test failures print full headers.
+
+```go
+func TestCodexFirst401RefreshesOnce(t *testing.T) {
+    server := newTLSServer(func(r *http.Request) response {
+        assertPath(t, r, "/backend-api/codex/responses")
+        assertHeaderPresent(t, r, "Authorization")
+        assertHeaderPresent(t, r, "chatgpt-account-id")
+        assertHeaderPresent(t, r, "originator")
+        return sequence(http.StatusUnauthorized, sseSuccess())
+    })
+
+    source := newFakeCodexSource(/* stale then replacement; values never logged */)
+    engine := newCodexEngine(server.URL, source)
+    _, err := engine.RunInference(context.Background(), userTurn("ping"))
+    require.NoError(t, err)
+    require.Equal(t, 2, server.RequestCount())
+    require.Equal(t, 1, source.ForcedRefreshCount())
+}
+```
+
+### 7.3 Commands
+
+Run from the standalone Geppetto module:
+
+```bash
+cd /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto
+GOWORK=off go test ./... -count=1
+GOWORK=off go test -race ./pkg/steps/ai/credentials ./pkg/steps/ai/openai_codex ./pkg/steps/ai/claude ./pkg/inference/engine/factory ./pkg/js/modules/geppetto -count=1
+GOWORK=off make logcopter-check
+GOWORK=off make gosec
+```
+
+Replace the future `openai_codex` package in the race command with the actual package name once implementation begins. A full repository race run remains useful but may contain unrelated baseline failures; report them separately rather than masking them.
+
+## 8. Risks, alternatives, and open questions
+
+### 8.1 Risks
+
+- **Provider contract drift:** Pi implementation may change before Geppetto implementation. Pin versions and test a captured request shape.
+- **Terms/account policy:** A token that Pi can use is not automatic approval for another application to use it. Require explicit host policy and user consent.
+- **Header leakage:** Account headers and bearer values are both private runtime state. Treat them as sensitive even if they are not cryptographic secrets.
+- **Partial coverage:** A dynamic source added only to streaming inference would leave token counting or non-streaming requests stale.
+- **Unsafe abstraction:** Arbitrary profile header maps or request callbacks create an endpoint-exfiltration path.
+- **Refresh races:** Two processes operating on the same external store need an agreed lock and atomic-write policy.
+
+### 8.2 Alternatives rejected
+
+**Treat every Pi OAuth-shaped record as a `BearerTokenSource`.** Rejected because Umans demonstrates that field names do not establish a renewable OAuth protocol, and Codex needs more than a bearer.
+
+**Embed Pi JavaScript in Geppetto.** Rejected because it violates language/runtime boundaries and turns a library into a Pi-specific credential owner.
+
+**Add `headers` and `path` maps to profiles.** Rejected because settings are serializable and user-controlled; these maps would make it easy to alter security-sensitive request behavior and leak credentials.
+
+**Use the generic OpenAI Responses engine for Codex immediately.** Rejected because the installed Pi code explicitly uses a different endpoint path and required headers.
+
+### 8.3 Open questions for review
+
+1. Is there a supported, stable provider policy for the ChatGPT Codex backend outside Pi/Codex clients?
+2. What exact Claude subscription request headers and endpoint behavior should Geppetto support, if any?
+3. Should a host adapter ever read Pi’s auth file directly, or should it invoke a dedicated local credential broker owned by Pi?
+4. Is Codex support best delivered as a Geppetto experimental engine or as a host-local engine that uses Geppetto primitives?
+5. Which model aliases and request fields are mandatory for a valid Codex request beyond endpoint and headers?
+6. What user consent and audit trail are required before an application reuses a local subscription credential?
+
+## 9. Intern checklist
+
+Before changing a line of production code, an intern should be able to answer all of these:
+
+- Which repository owns the persistent credential? If the answer is “Geppetto profile YAML,” stop: that is wrong.
+- Which engine sends the actual request? Read its URL construction, header setting, retry loop, and tests.
+- Does the provider use an OpenAI protocol, Anthropic Messages, or a custom one? Do not infer this from a model name.
+- Are all required headers known from source or provider documentation? Record the source and write a fake-server assertion.
+- Is the final URL validated before a token source is called?
+- Does refresh persist a rotated refresh token before returning a replacement access token?
+- Can JavaScript inspect any credential-adjacent data? It must not.
+- Does every outbound path use the same dynamic-auth strategy, including token counting?
+- Is a real account smoke explicitly approved and secret-safe? If not, use fixtures only.
+
+## 10. References
+
+### Geppetto source
+
+- `pkg/steps/ai/credentials/bearer.go:21-83,124-167,265-297`
+- `pkg/inference/engine/factory/factory.go:134-151,205-260`
+- `pkg/steps/ai/openai/chat_stream.go:96-105,133-168`
+- `pkg/steps/ai/openai_responses/streaming.go:148-185`
+- `pkg/steps/ai/claude/engine_claude.go:72-86`
+- `pkg/steps/ai/claude/api/completion.go:94-99`
+- `pkg/js/modules/geppetto/api_engine_builder.go:63-73`
+- Existing design: `ttmp/2026/07/10/GEPPETTO-REFRESHABLE-CREDENTIALS-387--refreshable-bearer-credentials-for-openai-compatible-providers/design-doc/01-refreshable-bearer-credential-source-analysis-design-and-implementation-guide.md`
+
+### Local Pi/extension evidence
+
+- `sources/01-local-pi-and-geppetto-source-map.md`
+- `/home/manuel/.nvm/versions/node/v22.22.1/lib/node_modules/@earendil-works/pi-coding-agent/docs/providers.md`
+- `/home/manuel/.nvm/versions/node/v22.22.1/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/utils/oauth/openai-codex.js`
+- `/home/manuel/.nvm/versions/node/v22.22.1/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/api/openai-codex-responses.js`
+- `/home/manuel/.nvm/versions/node/v22.22.1/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/utils/oauth/anthropic.js`
+- `/home/manuel/.pi/agent/npm/node_modules/pi-provider-umans/index.ts`
+- `/home/manuel/.pi/agent/npm/node_modules/pi-provider-umans/README.md`
