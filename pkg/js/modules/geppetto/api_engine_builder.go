@@ -4,7 +4,9 @@ import (
 	"fmt"
 
 	"github.com/dop251/goja"
+	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	enginefactory "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 )
 
 type engineBuilderRef struct {
@@ -43,7 +45,7 @@ func (m *moduleRuntime) newEngineBuilderObject(ref *engineBuilderRef) *goja.Obje
 		if err := ensureInferenceSettingsProviderDefaults(settings); err != nil {
 			panic(m.vm.NewGoError(err))
 		}
-		eng, err := enginefactory.NewEngineFromSettings(settings)
+		eng, err := m.newEngineFromSettings(settings)
 		if err != nil {
 			panic(m.vm.NewGoError(err))
 		}
@@ -56,6 +58,18 @@ func (m *moduleRuntime) newEngineBuilderObject(ref *engineBuilderRef) *goja.Obje
 		})
 	})
 	return o
+}
+
+// newEngineFromSettings preserves the normal factory helper path unless the
+// embedding Go host configured a bearer source. The source remains in Go and is
+// never represented in JavaScript settings, metadata, or exports.
+func (m *moduleRuntime) newEngineFromSettings(settings *aistepssettings.InferenceSettings) (engine.Engine, error) {
+	if m.bearerTokenSource == nil {
+		return enginefactory.NewEngineFromSettings(settings)
+	}
+	return enginefactory.NewStandardEngineFactory(
+		enginefactory.WithBearerTokenSource(m.bearerTokenSource),
+	).CreateEngine(settings)
 }
 
 func (r *engineBuilderRef) cloneFor(api *moduleRuntime) *engineBuilderRef {
