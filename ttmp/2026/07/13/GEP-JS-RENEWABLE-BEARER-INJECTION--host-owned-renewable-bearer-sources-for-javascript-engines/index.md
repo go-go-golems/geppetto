@@ -1,7 +1,7 @@
 ---
 Title: Host-owned renewable bearer sources for JavaScript engines
 Ticket: GEP-JS-RENEWABLE-BEARER-INJECTION
-Status: active
+Status: complete
 Topics:
     - javascript
     - oauth
@@ -13,10 +13,11 @@ Owners:
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-07-13T20:21:51.279332848-04:00
+LastUpdated: 2026-07-13T20:30:09.5896359-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Host-owned renewable bearer sources for JavaScript engines
 
