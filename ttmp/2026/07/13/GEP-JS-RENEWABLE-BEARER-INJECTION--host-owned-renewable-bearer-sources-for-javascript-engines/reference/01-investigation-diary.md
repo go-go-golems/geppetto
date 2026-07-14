@@ -15,6 +15,8 @@ RelatedFiles:
       Note: |-
         Observed engine construction path
         Source-aware factory construction (commit 13621922)
+    - Path: repo://pkg/js/modules/geppetto/api_engine_builder_test.go
+      Note: Host source, static-key fallback, and JavaScript exposure regression coverage (commit f962653d)
     - Path: repo://pkg/js/modules/geppetto/module.go
       Note: Host-only bearer source option (commit 13621922)
     - Path: repo://pkg/js/modules/geppetto/module_hardcut_test.go
@@ -25,6 +27,7 @@ LastUpdated: 2026-07-13T20:21:52.303500037-04:00
 WhatFor: Continue, review, and validate the implementation without exposing credential material.
 WhenToUse: When resuming or reviewing this ticket.
 ---
+
 
 
 
@@ -192,3 +195,69 @@ return factory.CreateEngine(settings)
 ```
 
 When `m.bearerTokenSource == nil`, it calls `enginefactory.NewEngineFromSettings(settings)` unchanged.
+
+## Step 3: Lock the security boundary with behavioral regression tests
+
+The test suite now creates the same OpenAI profile with an explicitly empty static-key map in two native-module runtimes. The host-source runtime successfully builds its JavaScript engine; the zero-value runtime fails with the existing static-key validation error. This verifies the new path is real rather than merely a field copied through the runtime.
+
+The source test double intentionally returns an empty value and is never invoked during engine construction. It proves the source interface is enough for factory validation without putting even a synthetic bearer value into JavaScript, test diagnostics, or ticket artifacts.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Add focused behavioral coverage for both the host-source path and the existing static-key fallback.
+
+**Inferred user intent:** Prevent future regressions that would either break renewable JavaScript engines or expose a credential capability to scripts.
+
+**Commit (code):** `f962653d` — "test: cover JS host bearer source injection"
+
+### What I did
+
+- Added `pkg/js/modules/geppetto/api_engine_builder_test.go`.
+- Added a no-credential `hostOnlyTestBearerSource` that satisfies the Go interface.
+- Added `TestEngineBuilderUsesHostBearerSourceWithoutStaticKey`.
+- Added `TestEngineBuilderWithoutHostBearerSourceRequiresStaticKey`.
+- Ran focused module, factory, and credentials tests, then committed after the full pre-commit test and lint hooks passed.
+
+### Why
+
+A compile-only test would not show whether the standard factory received the source. The factory's validation behavior gives a safe behavioral seam: source presence permits empty static key configuration, while source absence retains the old rejection.
+
+### What worked
+
+- `go test ./pkg/js/modules/geppetto -count=1` passed.
+- `go test ./pkg/inference/engine/factory ./pkg/steps/ai/credentials -count=1` passed.
+- The full pre-commit `go test ./...`, `golangci-lint`, `go vet`, and Glazed checks passed.
+- The JavaScript test asserts the source is absent from module exports, engine properties, and engine metadata.
+
+### What didn't work
+
+No test or build failure occurred in this step.
+
+### What I learned
+
+The engine builder can be tested entirely through the native module and a temporary profile document. This keeps the test representative of JavaScript use while retaining source construction and inspection in Go.
+
+### What was tricky to build
+
+Testing a bearer source normally risks creating a string that could become visible in an assertion or error. The builder does not call `BearerToken`, so the test double returns an empty string and the test instead observes factory validation. This proves the wiring without creating credential-shaped test data.
+
+### What warrants a second pair of eyes
+
+- Consider whether a later HTTP-level integration test should assert request-time source use with a local server. It must keep the authorization value private to Go and should be added only if the existing provider tests do not already cover source propagation.
+- Confirm error matching remains stable enough; the test intentionally checks the established missing-key fragment rather than a full error string.
+
+### What should be done in the future
+
+- Update public renewable-credential help with the now-available Go registration API.
+- Run final ticket validation and upload the completed bundle.
+
+### Code review instructions
+
+- Review `pkg/js/modules/geppetto/api_engine_builder_test.go` alongside `api_engine_builder.go`.
+- Run the two focused commands recorded above, then inspect the pre-commit result for complete repository coverage.
+
+### Technical details
+
+The success case uses `api_keys: {}` and a non-nil `Options.BearerTokenSource`; the failure case uses the same profile with zero-value `Options`. Neither path contains access, refresh, authorization-code, or client-secret data.

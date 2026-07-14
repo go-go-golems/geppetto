@@ -23,3 +23,12 @@ Added the Go-host-only bearer source option to JavaScript engine construction (c
 - /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/js/modules/geppetto/api_engine_builder.go — Factory wiring
 - /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/js/modules/geppetto/module.go — Registration option and private runtime field
 
+
+## 2026-07-13
+
+Added behavioral tests for host source injection, retained static-key validation, and no JavaScript source exposure (commit f962653d).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/js/modules/geppetto/api_engine_builder_test.go — Regression coverage
+
