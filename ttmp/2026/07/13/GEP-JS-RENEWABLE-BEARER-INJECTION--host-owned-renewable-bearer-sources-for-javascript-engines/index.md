@@ -22,7 +22,9 @@ WhenToUse: ""
 
 ## Overview
 
-<!-- Provide a brief overview of the ticket, its goals, and current status -->
+This ticket adds a registration-level, Go-host-only `BearerTokenSource` to the Geppetto JavaScript native module. JavaScript can continue to resolve profile settings and build OpenAI-compatible engines, while the host retains OAuth refresh, persistence, and bearer values outside JavaScript and `InferenceSettings.APIKeys`.
+
+The implementation is complete: source wiring, source/no-source behavioral tests, public guidance, and ticket delivery records are in place. The design document is the onboarding entrypoint for future changes, especially multi-identity requirements.
 
 ## Key Links
 
@@ -31,7 +33,7 @@ WhenToUse: ""
 
 ## Status
 
-Current status: **active**
+Current status: **implemented and validated**
 
 ## Topics
 
@@ -49,9 +51,5 @@ See [changelog.md](./changelog.md) for recent changes and decisions.
 
 ## Structure
 
-- design/ - Architecture and design documents
-- reference/ - Prompt packs, API contracts, context summaries
-- playbooks/ - Command sequences and test procedures
-- scripts/ - Temporary code and tooling
-- various/ - Working notes and research
-- archive/ - Deprecated or reference-only artifacts
+- `design-doc/01-host-owned-renewable-bearer-source-injection-for-javascript-engines.md` — intern-facing architecture, API, pseudocode, diagrams, and review plan.
+- `reference/01-investigation-diary.md` — chronological implementation and validation evidence.

@@ -11,12 +11,16 @@ Intent: long-term
 Owners:
     - manuel
 RelatedFiles:
+    - Path: repo://pkg/doc/playbooks/08-use-renewable-bearer-credentials.md
+      Note: Public host-registration guidance
     - Path: repo://pkg/inference/engine/factory/factory.go
       Note: Existing bearer source factory option and provider propagation
     - Path: repo://pkg/inference/engine/factory/helpers.go
       Note: No-options helper causing the integration gap
     - Path: repo://pkg/js/modules/geppetto/api_engine_builder.go
       Note: JavaScript engine builder calls the no-options helper
+    - Path: repo://pkg/js/modules/geppetto/api_engine_builder_test.go
+      Note: Behavioral regression tests for source injection
     - Path: repo://pkg/js/modules/geppetto/module.go
       Note: Native module registration options and runtime dependency injection
     - Path: repo://pkg/steps/ai/credentials/bearer.go
@@ -27,6 +31,7 @@ LastUpdated: 2026-07-13T20:21:51.782709576-04:00
 WhatFor: Implement and review host-only bearer source injection for JavaScript-created engines.
 WhenToUse: When a Go host embeds the geppetto JavaScript module and needs OAuth-renewed OpenAI-compatible credentials.
 ---
+
 
 
 # Host-owned renewable bearer source injection for JavaScript engines

@@ -11,6 +11,10 @@ Intent: long-term
 Owners:
     - manuel
 RelatedFiles:
+    - Path: repo://pkg/doc/playbooks/07-wire-provider-credentials-for-js-and-go-runner.md
+      Note: Credential wiring guidance (commit 351f5cbb)
+    - Path: repo://pkg/doc/playbooks/08-use-renewable-bearer-credentials.md
+      Note: JavaScript host registration guidance (commit 351f5cbb)
     - Path: repo://pkg/js/modules/geppetto/api_engine_builder.go
       Note: |-
         Observed engine construction path
@@ -27,6 +31,7 @@ LastUpdated: 2026-07-13T20:21:52.303500037-04:00
 WhatFor: Continue, review, and validate the implementation without exposing credential material.
 WhenToUse: When resuming or reviewing this ticket.
 ---
+
 
 
 
@@ -261,3 +266,78 @@ Testing a bearer source normally risks creating a string that could become visib
 ### Technical details
 
 The success case uses `api_keys: {}` and a non-nil `Options.BearerTokenSource`; the failure case uses the same profile with zero-value `Options`. Neither path contains access, refresh, authorization-code, or client-secret data.
+
+## Step 4: Publish operator guidance and complete ticket validation
+
+The public renewable-credential playbook now documents the actual registration API rather than the former JavaScript limitation. It gives hosts a small Go snippet and emphasizes that JavaScript retains its existing fluent builder while never receiving the bearer source or credential values.
+
+The ticket index, tasks, changelog, file relations, and this diary now close the implementation loop. The initial design bundle was uploaded before code work; the final bundle will include the completed diary and guidance after this documentation commit.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Publish the implemented API, validate the full ticket, and deliver the final intern-facing material to reMarkable.
+
+**Inferred user intent:** Leave an intern and reviewer with an accurate guide, a safe public contract, concrete validation evidence, and a readable portable deliverable.
+
+**Commit (code):** `351f5cbb` — "docs: describe JS host bearer source registration"
+
+### What I did
+
+- Updated `pkg/doc/playbooks/08-use-renewable-bearer-credentials.md` with `geppetto.Options.BearerTokenSource` registration and unchanged JavaScript usage.
+- Updated `pkg/doc/playbooks/07-wire-provider-credentials-for-js-and-go-runner.md` to distinguish static profile credentials from host-owned renewable OAuth sources.
+- Updated the ticket index and prepared final task, changelog, and file-relation bookkeeping.
+- Ran `go test ./pkg/doc ./pkg/js/modules/geppetto -count=1`.
+- Ran `go test -race ./pkg/js/modules/geppetto -count=1`.
+- Ran `git diff --check` before committing the public documentation.
+
+### Why
+
+Documentation that says JavaScript has no injection path becomes unsafe once the host-only API exists because it encourages needless Go-prebuilt-engine workarounds. The updated playbook gives the only supported route while explicitly rejecting JavaScript token and callback APIs.
+
+### What worked
+
+- Package documentation and JavaScript module tests passed.
+- The focused JavaScript race test passed.
+- The final public API still has no JavaScript-visible bearer-related export.
+- The initial bundle dry-run and upload succeeded at `/ai/2026/07/13/GEP-JS-RENEWABLE-BEARER-INJECTION`.
+
+### What didn't work
+
+No validation failure occurred in this step. The final bundle must overwrite the initial design-only upload so the device contains the completed implementation diary; this is safe here because no user annotations were created during the current session.
+
+### What I learned
+
+The best JavaScript documentation is not a JavaScript credential API. It documents the registration-time Go capability and makes clear that JavaScript's familiar `engine().inference(...).build()` call remains unchanged.
+
+### What was tricky to build
+
+The guidance needs to be actionable without accidentally encouraging credential copying. The Go example names only an opaque `credentials.BearerTokenSource`; it omits all token fields and places the source at module registration, not in settings or a JavaScript object.
+
+### What warrants a second pair of eyes
+
+- Verify the eventual Pinocchio embedding passes its profile-resolved source into this `Options` field rather than reconstructing a static key.
+- Review any future multi-account API as a host authorization design, not as a script-facing selector.
+
+### What should be done in the future
+
+- Publish the branch and run downstream standalone Pinocchio validation after the Geppetto API is fetchable.
+- Consider a local HTTP integration test only if existing OpenAI provider tests cease to cover source-to-request propagation.
+
+### Code review instructions
+
+- Read the public playbook update first, then compare it with `Options.BearerTokenSource` and `newEngineFromSettings`.
+- Run `go test ./pkg/js/modules/geppetto -count=1` and `go test -race ./pkg/js/modules/geppetto -count=1`.
+- Confirm `docmgr doctor --ticket GEP-JS-RENEWABLE-BEARER-INJECTION --stale-after 30` passes and review the uploaded bundle title and destination.
+
+### Technical details
+
+Validation commands completed successfully:
+
+```bash
+go test ./pkg/doc ./pkg/js/modules/geppetto -count=1
+go test -race ./pkg/js/modules/geppetto -count=1
+```
+
+The complete code commit sequence is `13621922` (wiring), `f962653d` (tests), and `351f5cbb` (public docs). Ticket documentation commits record each phase separately.
