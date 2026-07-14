@@ -13,11 +13,12 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	gepsession "github.com/go-go-golems/geppetto/pkg/inference/session"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpClient *http.Client, url string, body []byte, apiKey string, metadata events.EventMetadata, tap engine.DebugTap, startTime time.Time, reqBody responsesRequest) (*turns.Turn, error) {
-	resp, err := openResponsesStream(ctx, httpClient, url, body, apiKey, tap)
+func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpClient *http.Client, url string, body []byte, apiKey string, bearerTokenSource credentials.BearerTokenSource, credentialRequest credentials.Request, metadata events.EventMetadata, tap engine.DebugTap, startTime time.Time, reqBody responsesRequest) (*turns.Turn, error) {
+	resp, err := openResponsesStream(ctx, httpClient, url, body, apiKey, bearerTokenSource, credentialRequest, tap)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +145,35 @@ func (e *Engine) completeResponsesStream(ctx context.Context, t *turns.Turn, met
 	return t, nil
 }
 
-func openResponsesStream(ctx context.Context, httpClient *http.Client, url string, body []byte, apiKey string, tap engine.DebugTap) (*http.Response, error) {
+func openResponsesStream(ctx context.Context, httpClient *http.Client, url string, body []byte, apiKey string, bearerTokenSource credentials.BearerTokenSource, credentialRequest credentials.Request, tap engine.DebugTap) (*http.Response, error) {
+	for attempt := 0; ; attempt++ {
+		resp, err := openResponsesRequest(ctx, httpClient, url, body, apiKey, tap)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode == http.StatusUnauthorized && attempt == 0 {
+			source, ok := bearerTokenSource.(credentials.UnauthorizedBearerTokenSource)
+			if ok {
+				_ = resp.Body.Close()
+				token, err := source.BearerTokenAfterUnauthorized(ctx, credentialRequest, apiKey)
+				if err != nil {
+					return nil, fmt.Errorf("refresh bearer credential after provider unauthorized")
+				}
+				if strings.TrimSpace(token) == "" {
+					return nil, fmt.Errorf("refreshed bearer credential is empty after provider unauthorized")
+				}
+				apiKey = token
+				continue
+			}
+		}
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return resp, nil
+		}
+		return nil, responsesHTTPError(resp, tap)
+	}
+}
+
+func openResponsesRequest(ctx context.Context, httpClient *http.Client, url string, body []byte, apiKey string, tap engine.DebugTap) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(string(body)))
 	if err != nil {
 		return nil, err
@@ -169,9 +198,10 @@ func openResponsesStream(ctx context.Context, httpClient *http.Client, url strin
 		return nil, err
 	}
 	log.Debug().Int("status", resp.StatusCode).Str("content_type", resp.Header.Get("Content-Type")).Msg("Responses: HTTP response received")
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return resp, nil
-	}
+	return resp, nil
+}
+
+func responsesHTTPError(resp *http.Response, tap engine.DebugTap) error {
 	defer resp.Body.Close()
 	var m map[string]any
 	_ = json.NewDecoder(resp.Body).Decode(&m)
@@ -179,7 +209,7 @@ func openResponsesStream(ctx context.Context, httpClient *http.Client, url strin
 	if tap != nil {
 		tap.OnHTTPResponse(resp, mustMarshalJSON(m))
 	}
-	return nil, fmt.Errorf("responses api error: status=%d body=%v", resp.StatusCode, m)
+	return fmt.Errorf("responses api error: status=%d body=%v", resp.StatusCode, m)
 }
 
 func consumeResponsesSSE(

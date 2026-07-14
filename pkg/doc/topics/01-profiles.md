@@ -301,7 +301,8 @@ Examples that fit well in profiles:
 Examples that fit better in the shared baseline:
 
 - `ai-client.timeout`
-- provider credentials and base URLs
+- static provider credentials and base URLs
+- host-injected renewable bearer sources (the source itself, never its refresh material)
 - proxy configuration
 
 ## See Also

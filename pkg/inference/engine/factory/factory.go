@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/gemini"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	openai_responses "github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
@@ -40,6 +41,7 @@ type StandardEngineFactory struct {
 	openAIOptions          []openai.EngineOption
 	claudeOptions          []claude.EngineOption
 	geminiOptions          []gemini.EngineOption
+	bearerTokenSource      credentials.BearerTokenSource
 }
 
 // StandardEngineFactoryOption configures StandardEngineFactory.
@@ -74,6 +76,14 @@ func WithClaudeOptions(opts ...claude.EngineOption) StandardEngineFactoryOption 
 func WithGeminiOptions(opts ...gemini.EngineOption) StandardEngineFactoryOption {
 	return func(f *StandardEngineFactory) {
 		f.geminiOptions = append(f.geminiOptions, opts...)
+	}
+}
+
+// WithBearerTokenSource supplies OpenAI-compatible engines with a request-time
+// bearer credential source. It is authoritative over static API-key settings.
+func WithBearerTokenSource(source credentials.BearerTokenSource) StandardEngineFactoryOption {
+	return func(f *StandardEngineFactory) {
+		f.bearerTokenSource = source
 	}
 }
 
@@ -124,10 +134,18 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSetting
 	// Create engine based on provider
 	switch provider {
 	case string(types.ApiTypeOpenAI), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
-		return openai.NewOpenAIEngine(settings, f.openAIOptions...)
+		opts := append([]openai.EngineOption(nil), f.openAIOptions...)
+		if f.bearerTokenSource != nil {
+			opts = append(opts, openai.WithBearerTokenSource(f.bearerTokenSource))
+		}
+		return openai.NewOpenAIEngine(settings, opts...)
 
 	case string(types.ApiTypeOpenResponses), string(types.ApiTypeOpenAIResponses):
-		return openai_responses.NewEngine(settings, f.openAIResponsesOptions...)
+		opts := append([]openai_responses.EngineOption(nil), f.openAIResponsesOptions...)
+		if f.bearerTokenSource != nil {
+			opts = append(opts, openai_responses.WithBearerTokenSource(f.bearerTokenSource))
+		}
+		return openai_responses.NewEngine(settings, opts...)
 
 	case string(types.ApiTypeClaude), "anthropic":
 		return claude.NewClaudeEngine(settings, f.claudeOptions...)
@@ -202,21 +220,24 @@ func (f *StandardEngineFactory) validateSettings(settings *settings.InferenceSet
 
 // validateOpenAISettings validates settings required for OpenAI-compatible providers.
 func (f *StandardEngineFactory) validateOpenAISettings(settings *settings.InferenceSettings, provider string) error {
-	// Check for API key
-	apiKeyName := provider + "-api-key"
-	if _, ok := settings.API.APIKeys[apiKeyName]; !ok {
-		if isResponsesProvider(provider) {
-			if _, ok2 := settings.API.APIKeys[string(types.ApiTypeOpenResponses)+"-api-key"]; ok2 {
-				return nil
+	// A request-time bearer source is authoritative; otherwise preserve the
+	// existing static API-key validation and Responses aliases.
+	if f.bearerTokenSource == nil {
+		apiKeyName := provider + "-api-key"
+		if _, ok := settings.API.APIKeys[apiKeyName]; !ok {
+			if isResponsesProvider(provider) {
+				if _, ok2 := settings.API.APIKeys[string(types.ApiTypeOpenResponses)+"-api-key"]; ok2 {
+					return nil
+				}
+				if _, ok2 := settings.API.APIKeys[string(types.ApiTypeOpenAIResponses)+"-api-key"]; ok2 {
+					return nil
+				}
+				if _, ok2 := settings.API.APIKeys[string(types.ApiTypeOpenAI)+"-api-key"]; !ok2 {
+					return errors.Errorf("missing API key %s (or fallback open-responses-api-key, openai-responses-api-key, openai-api-key)", apiKeyName)
+				}
+			} else {
+				return errors.Errorf("missing API key %s", apiKeyName)
 			}
-			if _, ok2 := settings.API.APIKeys[string(types.ApiTypeOpenAIResponses)+"-api-key"]; ok2 {
-				return nil
-			}
-			if _, ok2 := settings.API.APIKeys[string(types.ApiTypeOpenAI)+"-api-key"]; !ok2 {
-				return errors.Errorf("missing API key %s (or fallback open-responses-api-key, openai-responses-api-key, openai-api-key)", apiKeyName)
-			}
-		} else {
-			return errors.Errorf("missing API key %s", apiKeyName)
 		}
 	}
 

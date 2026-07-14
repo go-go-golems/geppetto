@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -22,6 +23,7 @@ type Engine struct {
 	settings            *settings.InferenceSettings
 	observer            geppettoobs.Observer
 	observabilityConfig geppettoobs.Config
+	bearerTokenSource   credentials.BearerTokenSource
 }
 
 func NewEngine(s *settings.InferenceSettings, opts ...EngineOption) (*Engine, error) {
@@ -91,10 +93,6 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		Int("include_len", len(reqBody.Include)).
 		Msg("Responses: built request")
 
-	apiKey := ""
-	if e.settings != nil && e.settings.API != nil {
-		apiKey = responsesAPIKey(e.settings.API)
-	}
 	apiSettings := func() *settings.APISettings {
 		if e.settings == nil {
 			return nil
@@ -104,6 +102,11 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	url := responsesEndpoint(apiSettings, "/responses")
 	if err := security.ValidateOutboundURL(url, responsesOutboundURLOptions(apiSettings)); err != nil {
 		return nil, errors.Wrap(err, "invalid responses URL")
+	}
+	credentialRequest := credentials.Request{Provider: string(responsesAPIType(e.settings)), BaseURL: responsesBaseURL(apiSettings)}
+	apiKey, err := resolveResponsesBearerToken(ctx, apiSettings, responsesAPIType(e.settings), e.bearerTokenSource)
+	if err != nil {
+		return nil, err
 	}
 	httpClient, err := settings.EnsureHTTPClient(func() *settings.ClientSettings {
 		if e.settings == nil {
@@ -157,5 +160,5 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	// Responses always uses streaming internally so provider-to-canonical event
 	// normalization has one lifecycle path. Profiles may still carry chat.stream
 	// for other engines, but this engine forces the request and runtime path.
-	return e.runStreamingInference(ctx, t, httpClient, url, b, apiKey, metadata, tap, startTime, reqBody)
+	return e.runStreamingInference(ctx, t, httpClient, url, b, apiKey, e.bearerTokenSource, credentialRequest, metadata, tap, startTime, reqBody)
 }

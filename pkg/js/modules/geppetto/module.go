@@ -16,6 +16,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/toolloop/enginebuilder"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	gpruntimebridge "github.com/go-go-golems/geppetto/pkg/js/runtimebridge"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	aistepssettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/go-go-goja/pkg/jsevents"
 	gojaruntimebridge "github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
@@ -36,12 +37,16 @@ type MiddlewareFactory func(options map[string]any) (middleware.Middleware, erro
 
 // Options configures module behavior for a specific runtime.
 type Options struct {
-	RuntimeOwner                runtimeowner.RuntimeOwner
-	GoToolRegistry              tools.ToolRegistry
-	GoMiddlewareFactories       map[string]MiddlewareFactory
-	EngineProfileRegistry       profiles.RegistryReader
-	EngineProfileRegistrySpec   []string
-	DefaultInferenceSettings    *aistepssettings.InferenceSettings
+	RuntimeOwner              runtimeowner.RuntimeOwner
+	GoToolRegistry            tools.ToolRegistry
+	GoMiddlewareFactories     map[string]MiddlewareFactory
+	EngineProfileRegistry     profiles.RegistryReader
+	EngineProfileRegistrySpec []string
+	DefaultInferenceSettings  *aistepssettings.InferenceSettings
+	// BearerTokenSource supplies JavaScript-created OpenAI-compatible engines
+	// with a host-owned request-time bearer source. It is intentionally a Go-only
+	// capability: the module never exports it or credential values to JavaScript.
+	BearerTokenSource           credentials.BearerTokenSource
 	UseDefaultProfileResolve    bool
 	DefaultProfileResolve       profiles.ResolveInput
 	MiddlewareSchemas           middlewarecfg.DefinitionRegistry
@@ -87,6 +92,7 @@ type moduleRuntime struct {
 	goToolRegistry                  tools.ToolRegistry
 	goMiddlewareFactories           map[string]MiddlewareFactory
 	defaultInferenceSettings        *aistepssettings.InferenceSettings
+	bearerTokenSource               credentials.BearerTokenSource
 	profileRegistry                 profiles.RegistryReader
 	profileRegistryCloser           io.Closer
 	profileRegistrySpec             []string
@@ -121,6 +127,7 @@ func newRuntime(vm *goja.Runtime, opts Options) *moduleRuntime {
 		goToolRegistry:                opts.GoToolRegistry,
 		goMiddlewareFactories:         map[string]MiddlewareFactory{},
 		defaultInferenceSettings:      cloneInferenceSettings(opts.DefaultInferenceSettings),
+		bearerTokenSource:             opts.BearerTokenSource,
 		profileRegistry:               opts.EngineProfileRegistry,
 		profileRegistrySpec:           append([]string(nil), opts.EngineProfileRegistrySpec...),
 		baseEngineProfileRegistrySpec: append([]string(nil), opts.EngineProfileRegistrySpec...),

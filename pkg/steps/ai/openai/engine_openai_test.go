@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/events"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	aisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	aisettingsopenai "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
@@ -42,6 +43,12 @@ type roundTripperFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return f(r)
+}
+
+type bearerTokenSourceFunc func(context.Context, credentials.Request) (string, error)
+
+func (f bearerTokenSourceFunc) BearerToken(ctx context.Context, request credentials.Request) (string, error) {
+	return f(ctx, request)
 }
 
 func loadChatFixture(t *testing.T, name string) string {
@@ -101,6 +108,45 @@ func withFixtureTransport(t *testing.T, fixtureName string, fn func()) {
 	}
 	defer func() { http.DefaultClient = origClient }()
 	fn()
+}
+
+func TestRunInferenceUsesRequestTimeBearerTokenSource(t *testing.T) {
+	engineName := "gpt-test"
+	apiType := ai_types.ApiTypeOpenAI
+	var seen credentials.Request
+	source := bearerTokenSourceFunc(func(_ context.Context, request credentials.Request) (string, error) {
+		seen = request
+		return "refreshed-token", nil
+	})
+	client := &http.Client{Transport: roundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		if got := request.Header.Get("Authorization"); got != "Bearer refreshed-token" {
+			t.Fatalf("Authorization = %q", got)
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body:       io.NopCloser(strings.NewReader(loadChatFixture(t, "together_reasoning.sse"))),
+			Request:    request,
+		}, nil
+	})}
+	eng, err := NewOpenAIEngine(&aisettings.InferenceSettings{
+		API: &aisettings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "static-token-must-not-be-used"},
+			BaseUrls: map[string]string{"openai-base-url": "https://provider.example.test/v1"},
+		},
+		Client: &aisettings.ClientSettings{HTTPClient: client},
+		OpenAI: &aisettingsopenai.Settings{},
+		Chat:   &aisettings.ChatSettings{ApiType: &apiType, Engine: &engineName},
+	}, WithBearerTokenSource(source))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := eng.RunInference(context.Background(), &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("hello")}}); err != nil {
+		t.Fatal(err)
+	}
+	if seen.Provider != "openai" || seen.BaseURL != "https://provider.example.test/v1" {
+		t.Fatalf("credential request = %#v", seen)
+	}
 }
 
 func TestRunInference_StreamTogetherReasoningPublishesEventsAndPersistsBlock(t *testing.T) {

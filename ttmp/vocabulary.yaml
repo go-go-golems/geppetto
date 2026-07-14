@@ -137,6 +137,10 @@ topics:
       description: 'History report topic: git-history'
     - slug: research
       description: 'History report topic: research'
+    - slug: oauth
+      description: OAuth access and refresh credential flows
+    - slug: credentials
+      description: Credential lifecycle, storage, and provider authentication
     - slug: javascript
       description: JavaScript runtimes, bindings, APIs, and scripting workflows
 docTypes:

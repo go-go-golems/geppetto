@@ -13,6 +13,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
@@ -42,6 +43,12 @@ func (f factoryRoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, err
 	return f(r)
 }
 
+type factoryBearerTokenSourceFunc func(context.Context, credentials.Request) (string, error)
+
+func (f factoryBearerTokenSourceFunc) BearerToken(ctx context.Context, request credentials.Request) (string, error) {
+	return f(ctx, request)
+}
+
 type factoryRewriteTransport struct {
 	base   http.RoundTripper
 	target *url.URL
@@ -54,6 +61,29 @@ func (t *factoryRewriteTransport) RoundTrip(req *http.Request) (*http.Response, 
 	req2.Host = t.target.Host
 	req2.Header = req.Header.Clone()
 	return t.base.RoundTrip(req2)
+}
+
+func TestStandardEngineFactoryBearerSourceAllowsMissingStaticAPIKey(t *testing.T) {
+	settings := createValidOpenAISettings()
+	delete(settings.API.APIKeys, "openai-api-key")
+	engineName := "gpt-test"
+	settings.Chat.Engine = &engineName
+	settings.Client.HTTPClient = &http.Client{Transport: factoryRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		if got := request.Header.Get("Authorization"); got != "Bearer dynamic-token" {
+			t.Fatalf("Authorization = %q", got)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"text/event-stream"}}, Body: io.NopCloser(strings.NewReader("data: [DONE]\n\n")), Request: request}, nil
+	})}
+	factory := NewStandardEngineFactory(WithBearerTokenSource(factoryBearerTokenSourceFunc(func(context.Context, credentials.Request) (string, error) {
+		return "dynamic-token", nil
+	})))
+	engine, err := factory.CreateEngine(settings)
+	if err != nil {
+		t.Fatalf("CreateEngine with bearer source: %v", err)
+	}
+	if _, err := engine.RunInference(context.Background(), &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("hello")}}); err != nil {
+		t.Fatalf("RunInference: %v", err)
+	}
 }
 
 func TestStandardEngineFactory_WithOpenAIOptionsPassesObservabilityOptions(t *testing.T) {
