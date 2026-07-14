@@ -12,7 +12,11 @@ Owners:
     - manuel
 RelatedFiles:
     - Path: repo://pkg/js/modules/geppetto/api_engine_builder.go
-      Note: Observed engine construction path
+      Note: |-
+        Observed engine construction path
+        Source-aware factory construction (commit 13621922)
+    - Path: repo://pkg/js/modules/geppetto/module.go
+      Note: Host-only bearer source option (commit 13621922)
     - Path: repo://pkg/js/modules/geppetto/module_hardcut_test.go
       Note: Existing native module test harness
 ExternalSources: []
@@ -21,6 +25,7 @@ LastUpdated: 2026-07-13T20:21:52.303500037-04:00
 WhatFor: Continue, review, and validate the implementation without exposing credential material.
 WhenToUse: When resuming or reviewing this ticket.
 ---
+
 
 
 # Diary
@@ -109,3 +114,81 @@ The JavaScript API remains unchanged:
 ```javascript
 require("geppetto").engine().inference(settings).build()
 ```
+
+## Step 2: Wire the host source into native engine construction
+
+The native module now accepts a host-configured `credentials.BearerTokenSource` and carries that interface only through Go runtime state. The JavaScript builder calls a private constructor that retains the old helper path when no source exists, or constructs the standard factory with `WithBearerTokenSource` when the host configured one.
+
+This is deliberately capability injection rather than configuration mutation. The cloned `InferenceSettings` remains free of OAuth material, and the existing factory continues to decide which providers consume the source and when static API-key validation is bypassed.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Implement the agreed host-only source path as a focused, independently reviewable commit.
+
+**Inferred user intent:** Enable renewable credentials for JavaScript-created engines without enlarging the JavaScript credential surface.
+
+**Commit (code):** `13621922` — "feat: inject host bearer sources into JS engines"
+
+### What I did
+
+- Added `Options.BearerTokenSource credentials.BearerTokenSource` in `pkg/js/modules/geppetto/module.go`.
+- Copied the interface to the private `moduleRuntime.bearerTokenSource` during native-module runtime initialization.
+- Added `moduleRuntime.newEngineFromSettings` in `pkg/js/modules/geppetto/api_engine_builder.go`.
+- Changed the builder's final construction call to use the private source-aware helper.
+- Ran `gofmt -w pkg/js/modules/geppetto/module.go pkg/js/modules/geppetto/api_engine_builder.go`.
+- Committed the focused code change after the repository pre-commit hook passed full `go test ./...` and lint.
+
+### Why
+
+`factory.NewEngineFromSettings` always creates an unconfigured standard factory. Retaining it for a nil source preserves old behavior; using the existing factory option when configured applies the already-reviewed OpenAI-compatible request-time source path.
+
+### What worked
+
+- `go test ./pkg/js/modules/geppetto -count=1` passed before commit.
+- The pre-commit hook passed `go test ./...`, `golangci-lint`, `go vet`, and Glazed lint checks.
+- The diff contains no JavaScript exports, JavaScript-callable credential methods, profile fields, or static-key mutations.
+
+### What didn't work
+
+No build or test failure occurred in this step.
+
+### What I learned
+
+The existing no-options helper is useful as an explicit compatibility branch. Only the non-nil source branch needs a direct `NewStandardEngineFactory(...).CreateEngine(...)` call; provider capability and credential precedence remain centralized in the factory.
+
+### What was tricky to build
+
+The new field must be public enough for an embedding Go host but never become part of the JavaScript object graph. `Options` is copied into `moduleRuntime`, while `installExports` only attaches explicitly selected functions and namespaces. The implementation therefore stores the source in a private Go field and only passes it as a factory option during `build()`.
+
+### What warrants a second pair of eyes
+
+- Check the `Options` documentation makes the host-only nature unambiguous.
+- Check future metadata/debug features do not reflect private runtime fields.
+- Check OpenAI-compatible source-enabled builds are covered by a behavioral regression test, not only compilation.
+
+### What should be done in the future
+
+- Add source/no-source behavioral tests and an explicit JavaScript public-surface negative assertion.
+- Update final ticket records and upload the completed bundle after tests pass.
+
+### Code review instructions
+
+- Start with `pkg/js/modules/geppetto/module.go` at `Options` and `newRuntime`.
+- Follow `pkg/js/modules/geppetto/api_engine_builder.go` from `build()` to `newEngineFromSettings`.
+- Verify provider-specific handling remains in `pkg/inference/engine/factory/factory.go`.
+- Validate with `go test ./pkg/js/modules/geppetto -count=1` and the repository pre-commit hook output recorded above.
+
+### Technical details
+
+The new source-aware branch is equivalent to:
+
+```go
+factory := enginefactory.NewStandardEngineFactory(
+    enginefactory.WithBearerTokenSource(m.bearerTokenSource),
+)
+return factory.CreateEngine(settings)
+```
+
+When `m.bearerTokenSource == nil`, it calls `enginefactory.NewEngineFromSettings(settings)` unchanged.
