@@ -118,3 +118,70 @@ rg -n 'Authorization|x-api-key|apiKey|NewClaudeEngine' pkg/steps/ai/claude -g '*
 ```
 
 Pi evidence was read from its installed source and summarized only in `sources/01-local-pi-and-geppetto-source-map.md`. No access token, refresh token, authorization code, client secret, account value, or local auth-file value was copied into this ticket.
+
+## Step 2: Validate, commit, and deliver the research bundle
+
+The design, diary, source map, task list, ticket index, and changelog were validated and committed as one focused documentation phase. The finished material was then bundled into a single PDF with a table of contents and uploaded to the ticket-specific reMarkable directory.
+
+The delivery bundle intentionally contains only reviewable prose and the redacted evidence map. It does not include provider configuration files, Pi auth storage, source-code archives, or any credential-bearing test fixture.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Validate the completed research ticket, record the delivery evidence, and publish an accessible review bundle.
+
+**Inferred user intent:** Make the resulting technical design straightforward to review away from the terminal while preserving the credential boundary.
+
+**Commit (docs):** f9b0d2cc — "docs: design Pi subscription credential adapters"
+
+### What I did
+
+- Ran frontmatter validation on the design and diary documents.
+- Ran `docmgr doctor --ticket GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS --stale-after 30`; all checks passed.
+- Committed the ticket documentation, source map, tasks, index, and changelog.
+- Ran the required reMarkable bundle dry run with design, diary, and source map inputs.
+- Uploaded the resulting bundle to `/ai/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS`.
+
+### Why
+
+The deliverable must be auditable before it is published. Bundling the guide with its diary and evidence index gives a reviewer the architectural conclusions, the reasoning trail, and the source references in one navigable artifact without bundling local secret storage.
+
+### What worked
+
+- Both document frontmatters validated successfully.
+- Ticket doctor reported all checks passed.
+- The dry run identified the correct three inputs and target path.
+- The upload completed successfully: `OK: uploaded Geppetto Pi Subscription Credential Adapters.pdf -> /ai/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS`.
+
+### What didn't work
+
+N/A. No credential-bearing artifact was requested or needed for the bundle.
+
+### What I learned
+
+A source map is sufficient for a research deliverable when the original local sources include credential-adjacent behavior. It preserves reproducibility and reviewability without duplicating machine-specific files or secret values into a portable PDF.
+
+### What was tricky to build
+
+The bundle needed to include enough evidence for an intern to verify conclusions without including the installed provider code or local auth storage. The solution was to include a short redacted source map alongside precise paths and line ranges in the design document, then bundle that map with the diary and guide.
+
+### What warrants a second pair of eyes
+
+- Verify that the proposed experimental Codex transport is desirable before opening an implementation ticket.
+- Verify the selected reMarkable directory is the desired long-term location for this Geppetto research packet.
+
+### What should be done in the future
+
+- Create a follow-up implementation ticket only after the Codex/Claude contract and host ownership questions are accepted.
+- Keep a future live-smoke record separate from this research document and redact it to outcome-level evidence.
+
+### Code review instructions
+
+- Review the PDF bundle or the three source Markdown files together.
+- Confirm that the guide names no secret values and that the source map explicitly excludes auth-file contents.
+- Run `docmgr doctor --ticket GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS --stale-after 30` before changing ticket status.
+
+### Technical details
+
+The bundle command used `remarquee upload bundle` with `--toc-depth 2` and `--non-interactive`. The dry run completed before the actual upload, as required by the ticket delivery workflow.

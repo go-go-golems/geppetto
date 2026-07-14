@@ -1,7 +1,7 @@
 ---
 Title: Provider-specific adapters for Pi subscription credentials
 Ticket: GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS
-Status: active
+Status: complete
 Topics:
     - geppetto
     - oauth
@@ -14,10 +14,11 @@ Owners:
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-07-14T17:52:08.685676406-04:00
+LastUpdated: 2026-07-14T17:59:09.371251907-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Provider-specific adapters for Pi subscription credentials
 
