@@ -28,3 +28,27 @@ Validated and delivered the redacted Pi subscription credential adapter guide as
 
 Ticket closed
 
+
+## 2026-07-14
+
+Reframed credential ownership: Geppetto provides reusable provider lifecycle and transport primitives; hosts bind stores, UI, profile selection, and import policy.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/ttmp/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS--provider-specific-adapters-for-pi-subscription-credentials/design-doc/01-pi-subscription-credentials-in-geppetto-analysis-adapter-design-and-implementation-guide.md — Revised lifecycle ownership and implementation plan
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/ttmp/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS--provider-specific-adapters-for-pi-subscription-credentials/reference/01-investigation-diary.md — Architecture correction rationale
+
+
+## 2026-07-14
+
+Validated and re-uploaded the revised Geppetto provider credential lifecycle architecture without overwriting the prior bundle.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/ttmp/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS--provider-specific-adapters-for-pi-subscription-credentials/reference/01-investigation-diary.md — Revision validation and reMarkable delivery evidence
+
+
+## 2026-07-14
+
+Ticket closed
+

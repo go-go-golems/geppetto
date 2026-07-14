@@ -38,16 +38,16 @@ WhenToUse: Use when evaluating Pi-originated subscription credentials, custom OA
 
 ## Executive summary
 
-Geppetto already has a secure, host-injected renewable bearer mechanism. A host owns persistence and refresh protocol; Geppetto asks for a bearer immediately before a supported OpenAI Chat or Responses request. This boundary is deliberately narrow and correct for ordinary OpenAI-compatible services, where `Authorization: Bearer <access-token>` is the whole authentication contract.
+Geppetto already has a secure, host-injected renewable bearer mechanism. Today a host owns persistence and refresh protocol while Geppetto asks for a bearer immediately before a supported OpenAI Chat or Responses request. This boundary is deliberately narrow and correct for ordinary OpenAI-compatible services, where `Authorization: Bearer <access-token>` is the whole authentication contract.
 
 Installed Pi code shows that the three providers initially described as “OAuth” are not the same integration problem. OpenAI Codex is a genuine refreshable ChatGPT subscription flow, but its inference transport is the ChatGPT backend with a Codex-specific path and additional account, originator, beta, and request-ID headers. Anthropic Claude Pro/Max is also a genuine refreshable OAuth flow, but it targets the Anthropic Messages protocol while Geppetto’s Claude engine currently owns a static `x-api-key` client. Umans is not renewable OAuth in the Pi extension at all: `/login` persists an API key in OAuth-shaped fields, and its refresh function returns the same value.
 
 Therefore this work must **not** copy Pi credentials into Geppetto profiles, make Geppetto parse `~/.pi/agent/auth.json`, or add “generic OAuth” claims based only on a token shape. The recommended path is a two-layer design:
 
-1. **Geppetto adds narrowly-scoped, Go-only request-authentication and transport seams only where a real engine needs them.** It remains storage-, browser-, and Pi-agnostic.
-2. **A host-owned adapter (initially Pinocchio, not Geppetto) understands a selected provider and any local Pi storage contract.** It loads, refreshes, and supplies credentials without making token material, refresh callbacks, account identity, or source-selection metadata visible to profiles or JavaScript.
+1. **Geppetto provides reusable, provider-specific lifecycle and transport primitives.** These include PKCE/state/code-exchange and refresh mechanics for supported OAuth providers, typed redacted status and local deletion, store/lock/atomic-rotation helpers, and Go-only request-auth capabilities. It remains storage-location-, CLI-, browser-launch-, and Pi-file-agnostic.
+2. **A host (initially Pinocchio) binds those primitives to its own persistence and user experience.** It selects a provider and profile, supplies its direct-YAML store, launches a browser or presents a device code, formats status, and applies consent/import policy. It never exposes token material, refresh callbacks, account identity, or source-selection metadata to profiles or JavaScript.
 
-OpenAI Codex should be a dedicated experimental adapter/engine effort, not a configuration tweak to the existing OpenAI Responses engine. Claude should be investigated through the existing Claude engine, but only after its OAuth request-header semantics are captured in a fake-server contract. Umans belongs in a separate Anthropic Messages/API-key compatibility effort, not the renewable OAuth feature.
+OpenAI Codex should be a dedicated experimental Geppetto transport/provider package, not a configuration tweak to the existing OpenAI Responses engine. Claude should extend Geppetto’s Anthropic engine only after its OAuth request-header semantics are captured in a fake-server contract. Umans belongs in Geppetto’s provider catalog as an Anthropic Messages/API-key adapter, not a renewable OAuth adapter.
 
 ## 1. Problem statement and scope
 
@@ -62,8 +62,8 @@ The answer is **potentially, provider by provider**. A record containing fields 
 This design defines how to:
 
 - classify the actual provider/transport contracts evidenced by installed Pi code;
-- preserve Geppetto’s host-owned credential ownership model;
-- add only the runtime seams required by a validated provider transport;
+- separate reusable Geppetto provider/lifecycle mechanics from host-owned credential placement and UX;
+- add only the lifecycle and runtime seams required by a validated provider transport;
 - keep all secret and credential-adjacent state out of profile YAML, settings dumps, events, logs, JavaScript, and CLI output;
 - produce a phased implementation plan that an intern can execute with fake-server tests before any account-backed smoke.
 
@@ -72,7 +72,7 @@ This design defines how to:
 This ticket does **not** authorize implementation of a provider adapter, a real account request, or a new browser-login command. It also does not:
 
 - read, copy, print, hash, upload, or commit a value from Pi’s auth file;
-- make Geppetto own Pi’s file format, file locking, browser callbacks, or refresh protocol;
+- make Geppetto own Pi’s file format, profile path, browser-launch policy, or local CLI;
 - claim the ChatGPT backend is a stable public OpenAI API contract;
 - treat the Umans API-key shim as OAuth;
 - expose a bearer, refresh callback, account identifier, raw headers, or credential-source selector to JavaScript;
@@ -83,7 +83,7 @@ This ticket does **not** authorize implementation of a provider adapter, a real 
 | Term | Meaning in this guide |
 |---|---|
 | **host** | The embedding application, such as Pinocchio, that constructs Geppetto engines. |
-| **credential store** | The host’s secret-bearing persistence owner. Pi’s auth file is one possible external source, not a Geppetto data format. |
+| **credential store** | A host-selected secret-bearing persistence implementation. Geppetto supplies store contracts and safe lifecycle helpers; Pinocchio binds its direct-YAML profile extension. Pi’s auth file is one optional external import source, not a Geppetto data format. |
 | **renewable bearer** | An access token plus an optional refresh token and expiry, acquired at request time through a host source. |
 | **transport contract** | The full endpoint, path, HTTP method, payload, headers, response stream, and retry behavior expected by a provider. |
 | **adapter** | Host-side code that turns an external credential contract into a safe Geppetto runtime capability. |
@@ -208,21 +208,22 @@ Adding an arbitrary `func(*http.Request)` callback to settings would be unsafe:
 
 ### 4.2 Why Geppetto must not read Pi’s auth file
 
-Reading Pi’s file from Geppetto would make a reusable library depend on a local tool’s private schema, lock implementation, migration behavior, and provider registrations. It also violates the existing ownership model: the host must choose storage, user interaction, and refresh policy.
+Reading Pi’s file from Geppetto would make a reusable library depend on a local tool’s private schema, lock implementation, migration behavior, and provider registrations. Geppetto should instead provide the reusable provider protocol and lifecycle mechanics while the host chooses credential placement, user interaction, and consent policy.
 
 The correct dependency direction is:
 
 ```text
 Pinocchio or another host
-  ├── chooses whether Pi auth storage is a permitted local source
-  ├── owns safe locking, migration, and user consent
-  ├── constructs a provider-specific adapter
-  └── injects Go-only runtime capability into Geppetto
+  ├── binds a Geppetto store to its direct-YAML/profile location
+  ├── launches browser or presents device code and renders CLI status
+  ├── decides whether a Pi record may be explicitly imported/migrated
+  └── injects Go-only runtime capability into Go and JavaScript engine builders
 
 Geppetto
+  ├── owns supported provider PKCE, exchange, refresh, status, and local-delete primitives
   ├── validates outbound target before credential release
   ├── implements provider protocol and bounded replay behavior
-  └── never reads host credential files or launches a browser
+  └── never discovers host credential files, chooses a profile, or launches a browser
 ```
 
 ### 4.3 Why no generic “OAuth provider” abstraction
@@ -242,17 +243,26 @@ A generic `OAuthProvider` in Geppetto would collapse these concerns and invite u
 
 ### 5.1 Architectural decision
 
-Implement provider transports as dedicated engines or dedicated engine modes, and use a restricted Go-only request-auth capability for metadata only where a shared protocol implementation can safely consume it.
+Implement reusable provider lifecycle packages and provider transports in Geppetto, then bind them to host-selected stores and UI. Each lifecycle package owns its supported provider’s OAuth/API-key protocol behavior; each host owns where credentials live, how a login is presented, and whether another application’s record may be imported.
 
 Do **not** turn the current generic OpenAI Responses engine into a configurable Codex client by adding profile keys for endpoint suffixes or header maps.
 
 ```text
-                     host-owned, secret-bearing layer
+                     host-owned binding and interaction policy
  +----------------------------------------------------------------+
- | Provider adapter                                                |
- |  - selected storage owner                                       |
- |  - locked load/refresh/save                                     |
- |  - current access token + private runtime metadata             |
+ | Pinocchio or another application                                |
+ |  - direct-YAML, keychain, database, or in-memory Store binding  |
+ |  - profile/provider selection, consent, CLI/browser UI          |
+ |  - optional explicit Pi migration                               |
+ +-------------------------------+--------------------------------+
+                                 |
+             typed Store + browser/device-code callbacks; no settings/JS secrets
+                                 v
+ +-------------------------------+--------------------------------+
+ | Geppetto credentials/providers                                  |
+ |  - PKCE/state, authorization URL, code exchange, refresh        |
+ |  - locking/atomic rotation helpers, redacted Status, Delete     |
+ |  - typed private runtime credential metadata                     |
  +-------------------------------+--------------------------------+
                                  |
                    Go-only typed capability, never settings/JS
@@ -260,7 +270,8 @@ Do **not** turn the current generic OpenAI Responses engine into a configurable 
  +-------------------------------+--------------------------------+
  | Geppetto provider engine                                        |
  |  Codex engine: target + request framing + sanctioned headers    |
- |  Claude engine: Message protocol + tested auth strategy         |
+ |  Claude engine: Messages protocol + tested auth strategy        |
+ |  Umans adapter: Messages protocol + static API-key strategy     |
  |  OpenAI engines: existing bearer-only behavior                  |
  +-------------------------------+--------------------------------+
                                  |
@@ -269,13 +280,13 @@ Do **not** turn the current generic OpenAI Responses engine into a configurable 
                            provider inference API
 ```
 
-### Decision: Preserve Geppetto’s host-agnostic ownership
+### Decision: Geppetto owns reusable lifecycle; hosts own binding and policy
 
-- **Context:** Pi storage and provider logic are local application behavior, while Geppetto is a reusable library.
-- **Options considered:** Parse Pi storage in Geppetto; add a Pi dependency to Geppetto; keep all Pi integration in hosts.
-- **Decision:** Keep Pi storage parsing, browser login, and refresh protocol in a host-owned adapter.
-- **Rationale:** This preserves existing credential ownership, avoids a Node/runtime dependency in Go, and lets non-Pi hosts use the same engines.
-- **Consequences:** The host must perform explicit adapter wiring. Geppetto documentation must show capability injection, not a magic profile flag.
+- **Context:** OAuth exchange/refresh and request contracts are provider behavior worth sharing, while disk location, profile schema, browser launch, and consent are application behavior.
+- **Options considered:** Put all lifecycle protocol in every host; parse Pi storage in Geppetto; provide provider lifecycle packages plus host-injected storage/UI bindings.
+- **Decision:** Geppetto provides provider-specific lifecycle packages, generic lifecycle/store helpers, and provider engines. Hosts supply a selected `Store`, browser/device-code presentation, selected identity, and import policy.
+- **Rationale:** This avoids duplicating PKCE/refresh/status/delete mechanics in every Go application without coupling Geppetto to Pi or Pinocchio storage.
+- **Consequences:** Geppetto needs stable, documented interfaces for store operations and interactive login callbacks. Pinocchio can retain its direct-YAML extension as a store adapter and CLI binding. A future host can instead use a keychain or database without reimplementing provider protocol.
 - **Status:** proposed.
 
 ### Decision: Codex is a dedicated transport, not an OpenAI Responses profile
@@ -305,9 +316,43 @@ Do **not** turn the current generic OpenAI Responses engine into a configurable 
 - **Consequences:** Any Umans support should validate the Messages protocol and API-key header behavior, with no refresh tests or lifecycle claims.
 - **Status:** proposed.
 
-### 5.2 Go-only contracts
+### 5.2 Lifecycle, store, and interaction contracts
 
 The existing `BearerTokenSource` stays unchanged for ordinary OpenAI-compatible providers. Do not break every embedding host by replacing it. Add new interfaces only with a concrete consumer and tests.
+
+Geppetto should expose a small provider-lifecycle surface that hosts can compose instead of reimplementing token handling:
+
+```go
+// Proposed: package credentials
+// Values are never formatted by these APIs and must remain out of settings/JS.
+type Store interface {
+    Load(context.Context, Key) (Credential, error)
+    Save(context.Context, Key, Credential) error // atomically replaces rotations
+    Delete(context.Context, Key) error
+}
+
+type Status struct {
+    State     State // Missing, Ready, Expiring, Expired, RefreshFailed
+    ExpiresAt time.Time
+    Renewable bool
+}
+
+type ProviderFlow interface {
+    BeginLogin(context.Context, LoginRequest) (AuthorizationRequest, error)
+    CompleteLogin(context.Context, LoginCompletion) (Credential, error)
+    Refresh(context.Context, Credential) (Credential, error)
+}
+
+func Login(ctx context.Context, store Store, key Key, flow ProviderFlow, presenter Presenter) (Status, error)
+func StatusOf(ctx context.Context, store Store, key Key, now time.Time) (Status, error)
+func Logout(ctx context.Context, store Store, key Key) error
+```
+
+`Presenter` is deliberately host-controlled: it can open a browser, display a URL/device code, or integrate with another UI. The flow validates PKCE state and the exact callback redirect; it does not launch a browser. `Logout` is local deletion. A separately named, provider-specific `Revoke` operation may be added only after client-authentication and endpoint semantics are documented.
+
+`Store` describes persistence semantics, not a required serialization format. Geppetto should provide an in-memory implementation and reusable locking/atomic-update helpers. A filesystem implementation, if added, must require an explicit caller-owned path and codec; it must never discover a profile file or default to Pi storage. Pinocchio’s direct YAML extension remains a host adapter over this contract.
+
+### 5.3 Go-only request-auth contracts
 
 For a future shared request-header capability, use a typed, restricted result—not a request mutator:
 
@@ -341,9 +386,9 @@ type codexCredential struct {
 }
 ```
 
-The host adapter can derive account metadata from its current access token or obtain it from its own record. The Geppetto engine sees it only long enough to create the HTTP headers. No field is logged, emitted, stored in settings, or exported through JavaScript.
+A Geppetto provider lifecycle package derives account metadata from its current credential or provider result. The engine sees it only long enough to create the HTTP headers. The host store persists it only if the typed provider record requires it; no field is logged, emitted, stored in settings, or exported through JavaScript.
 
-### 5.3 Codex request flow pseudocode
+### 5.4 Codex request flow pseudocode
 
 ```go
 func (e *Engine) stream(ctx context.Context, input request) (*http.Response, error) {
@@ -385,7 +430,7 @@ Key invariants:
 4. Persist a rotated credential before returning a replacement after refresh.
 5. Retry exactly once, only on a pre-output 401 and only when the source explicitly supports it.
 
-### 5.4 Claude dynamic-auth flow pseudocode
+### 5.5 Claude dynamic-auth flow pseudocode
 
 ```go
 func (e *ClaudeEngine) newClientForRequest(ctx context.Context) (*api.Client, error) {
@@ -412,7 +457,7 @@ The important incomplete part is `SetAuthenticationStrategy`. Do not implement i
 
 ## 6. Implementation plan
 
-### Phase 0 — Freeze evidence and define the acceptance gate
+### Phase 0 — Define the reusable lifecycle API and freeze provider evidence
 
 **Files to create/update**
 
@@ -431,8 +476,9 @@ The important incomplete part is `SetAuthenticationStrategy`. Do not implement i
    - SSE event mapping;
    - token refresh/replay behavior;
    - all prohibited logging/serialization paths.
+4. Write lifecycle-contract tests for `Store`, `Login`, `StatusOf`, local `Logout`, and a fake `Presenter`; verify that provider flow code never selects a file path or writes UI output.
 
-**Exit criterion:** fake-server tests can be written without an account credential.
+**Exit criterion:** fake-server tests and lifecycle tests can be written without an account credential or a Pinocchio profile.
 
 ### Phase 1 — Codex transport contract tests before implementation
 
@@ -474,29 +520,44 @@ The important incomplete part is `SetAuthenticationStrategy`. Do not implement i
 
 **Exit criterion:** unit and race tests pass with a fake store/refresher and a fake inference service.
 
-### Phase 3 — Host-owned Pi adapter spike
+### Phase 3 — Implement Geppetto lifecycle/provider packages
 
-This phase belongs in Pinocchio or another host repository, not Geppetto.
+This phase belongs in Geppetto. It turns the current generic renewable-bearer mechanics into composable lifecycle primitives and adds supported provider protocol modules.
 
 **Responsibilities**
 
-- require explicit opt-in to use a Pi-owned credential source;
-- implement locking compatible with the chosen storage owner, or delegate all operations to a single authorized helper;
-- map an approved Pi record into a Geppetto Codex source without serializing it into profiles;
-- preserve atomic refresh-token rotation;
-- provide only redacted local status (configured/expired/ready), not credential values;
+- provide `Store` semantics, in-memory/fake stores, and locking/atomic-rotation helpers;
+- provide redacted `StatusOf` and idempotent local `Logout`/delete;
+- provide typed PKCE/state/authorization-code flow support with host-provided presentation;
+- implement only verified provider modules: OpenAI/Codex, Anthropic, and Umans API-key configuration;
+- map a provider lifecycle result into a Go-only engine source without serializing it into profiles;
+- preserve rotated credential persistence before returning refreshed access;
 - inject the source into both Go and JavaScript engine construction paths in Go.
 
 **Do not do**
 
-- parse the entire auth file as a convenient generic store;
+- parse the entire Pi auth file as a convenient generic store;
 - make an `auth.json` path configurable in profile YAML;
+- have Geppetto choose a host’s credential path, profile, browser behavior, or consent policy;
 - use JavaScript to choose the local credential record;
-- automatically reuse a current user’s login without an explicit host policy and user-facing documentation.
+- automatically reuse a current user’s Pi login without an explicit host import/migration policy.
 
-**Exit criterion:** an integration test uses an in-memory or temporary fake store; it never uses the real local credential file.
+**Exit criterion:** provider and lifecycle integration tests use an in-memory or temporary fake store and fake presenter; they never use the real local credential file.
 
-### Phase 4 — Claude audit and dynamic-auth design
+### Phase 4 — Bind Pinocchio’s direct-YAML lifecycle and optional Pi migration
+
+This phase belongs in Pinocchio or another host repository.
+
+**Responsibilities**
+
+- adapt the existing `extensions."pinocchio.oauth@v1"` direct-YAML persistence to Geppetto’s `Store` contract while retaining Pinocchio’s locking and atomic write guarantees;
+- implement the existing Glazed login/status/logout commands by calling Geppetto lifecycle APIs and formatting only redacted status;
+- select profile/provider and browser presentation in Pinocchio, never in Geppetto;
+- make any Pi import an explicit user-directed migration into Pinocchio-owned storage, with no silent linking or shared mutable ownership.
+
+**Exit criterion:** Pinocchio tests prove the selected profile receives a host-owned store binding and neither Go nor JavaScript exposes credential capability.
+
+### Phase 5 — Claude audit and dynamic-auth design
 
 **Likely files**
 
@@ -510,7 +571,7 @@ Audit every outbound Claude path before adding source support. The token-count p
 
 **Exit criterion:** an approved, evidence-backed Claude request-auth strategy passes fake-server coverage for Messages, streaming, and token counting. If no stable contract is available, defer rather than guessing.
 
-### Phase 5 — Optional controlled live smoke
+### Phase 6 — Optional controlled live smoke
 
 A real smoke is permitted only after a reviewer accepts the provider’s current contract and the host owner explicitly approves use of a selected account. The smoke must:
 
@@ -526,6 +587,7 @@ A real smoke is permitted only after a reviewer accepts the provider’s current
 
 | Area | Assertions |
 |---|---|
+| Lifecycle/store | login state/PKCE validation, atomic rotation-before-return, idempotent local delete, redacted status, cancellation isolation, no token-bearing errors |
 | Credential source | cache hit, expiry, refresh skew, rotated refresh persistence, cancellation isolation, no token-bearing errors |
 | Codex path builder | normalized base URL produces only approved Codex target path |
 | Headers | required keys present; forbidden override keys rejected; no source headers in event/debug data |
@@ -581,12 +643,13 @@ Replace the future `openai_codex` package in the race command with the actual pa
 - **Partial coverage:** A dynamic source added only to streaming inference would leave token counting or non-streaming requests stale.
 - **Unsafe abstraction:** Arbitrary profile header maps or request callbacks create an endpoint-exfiltration path.
 - **Refresh races:** Two processes operating on the same external store need an agreed lock and atomic-write policy.
+- **Overreaching lifecycle API:** A Geppetto file store that silently selects paths or a login helper that launches browsers would erase the necessary application-policy boundary.
 
 ### 8.2 Alternatives rejected
 
 **Treat every Pi OAuth-shaped record as a `BearerTokenSource`.** Rejected because Umans demonstrates that field names do not establish a renewable OAuth protocol, and Codex needs more than a bearer.
 
-**Embed Pi JavaScript in Geppetto.** Rejected because it violates language/runtime boundaries and turns a library into a Pi-specific credential owner.
+**Embed Pi JavaScript or parse Pi storage in Geppetto.** Rejected because it violates language/runtime boundaries and turns a reusable provider-lifecycle library into a Pi-specific credential owner.
 
 **Add `headers` and `path` maps to profiles.** Rejected because settings are serializable and user-controlled; these maps would make it easy to alter security-sensitive request behavior and leak credentials.
 
@@ -596,8 +659,8 @@ Replace the future `openai_codex` package in the race command with the actual pa
 
 1. Is there a supported, stable provider policy for the ChatGPT Codex backend outside Pi/Codex clients?
 2. What exact Claude subscription request headers and endpoint behavior should Geppetto support, if any?
-3. Should a host adapter ever read Pi’s auth file directly, or should it invoke a dedicated local credential broker owned by Pi?
-4. Is Codex support best delivered as a Geppetto experimental engine or as a host-local engine that uses Geppetto primitives?
+3. Should Pinocchio offer an explicit one-time Pi import, or should Pi use require a dedicated local credential broker?
+4. Is Codex support best delivered as a Geppetto experimental engine or as a host-local engine composed from Geppetto primitives?
 5. Which model aliases and request fields are mandatory for a valid Codex request beyond endpoint and headers?
 6. What user consent and audit trail are required before an application reuses a local subscription credential?
 
@@ -605,7 +668,7 @@ Replace the future `openai_codex` package in the race command with the actual pa
 
 Before changing a line of production code, an intern should be able to answer all of these:
 
-- Which repository owns the persistent credential? If the answer is “Geppetto profile YAML,” stop: that is wrong.
+- Which host-selected store owns the persistent credential? If the answer is “Geppetto discovers profile YAML,” stop: that is wrong.
 - Which engine sends the actual request? Read its URL construction, header setting, retry loop, and tests.
 - Does the provider use an OpenAI protocol, Anthropic Messages, or a custom one? Do not infer this from a model name.
 - Are all required headers known from source or provider documentation? Record the source and write a fake-server assertion.

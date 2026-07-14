@@ -1,5 +1,5 @@
 ---
-Title: Provider-specific adapters for Pi subscription credentials
+Title: Reusable provider credential lifecycle and transport adapters
 Ticket: GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS
 Status: complete
 Topics:
@@ -13,18 +13,19 @@ Owners:
     - manuel
 RelatedFiles: []
 ExternalSources: []
-Summary: ""
-LastUpdated: 2026-07-14T17:59:09.371251907-04:00
-WhatFor: ""
-WhenToUse: ""
+Summary: Geppetto supplies reusable provider lifecycle and transport primitives; hosts such as Pinocchio supply storage binding, user experience, and import policy.
+LastUpdated: 2026-07-14T18:13:08.341362052-04:00
+WhatFor: Define provider credential lifecycle ownership between Geppetto and embedding applications.
+WhenToUse: Use when implementing reusable login, refresh, status, logout, storage, or provider transport support.
 ---
 
 
-# Provider-specific adapters for Pi subscription credentials
+
+# Reusable provider credential lifecycle and transport adapters
 
 ## Overview
 
-<!-- Provide a brief overview of the ticket, its goals, and current status -->
+This ticket defines a reusable provider-credential architecture: Geppetto supplies provider protocol, lifecycle, and transport primitives; hosts such as Pinocchio bind those primitives to their selected storage, browser/CLI experience, and consent policy. Pi is evidence and a possible explicit migration source, never Geppetto’s storage contract.
 
 ## Key Links
 

@@ -185,3 +185,130 @@ The bundle needed to include enough evidence for an intern to verify conclusions
 ### Technical details
 
 The bundle command used `remarquee upload bundle` with `--toc-depth 2` and `--non-interactive`. The dry run completed before the actual upload, as required by the ticket delivery workflow.
+
+## Step 3: Reframe lifecycle ownership for reuse beyond Pinocchio
+
+The first design correctly kept Pi storage out of Geppetto, but assigned too much provider login and refresh behavior to every host. The requested architecture instead makes Geppetto a reusable provider-credential library: it supplies supported provider protocol mechanics and secure lifecycle building blocks, while Pinocchio remains one concrete application binding those building blocks to direct YAML and its CLI.
+
+The revised guide now distinguishes provider mechanics from application policy. Geppetto may implement PKCE/state, exchange, refresh, redacted status, local delete, typed request authentication, and provider transports. Pinocchio decides where the credential is stored, which profile is selected, how a browser is presented, whether a Pi record may be migrated, and how output is rendered.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Ok, update the design, reupload to remarkable"
+
+**Assistant interpretation:** Amend the research ticket to make reusable Geppetto lifecycle/provider primitives the primary architecture, then deliver the revised documentation bundle.
+
+**Inferred user intent:** Ensure package users besides Pinocchio can safely reuse provider login, refresh, status, logout, and transport functionality without taking a dependency on Pi or Pinocchio storage.
+
+### What I did
+
+- Rewrote the executive architecture, decisions, diagrams, contracts, implementation phases, risks, and intern checklist in the design guide.
+- Added a proposed Geppetto lifecycle surface consisting of `Store`, `ProviderFlow`, `Login`, `StatusOf`, `Logout`, and a host-provided `Presenter`.
+- Documented Pinocchio’s role as a direct-YAML store adapter and Glazed CLI/UI binding, with optional explicit Pi migration.
+- Reopened the ticket documentation status and added follow-up delivery bookkeeping before publishing the revised bundle.
+
+### Why
+
+Provider PKCE, code exchange, refresh rotation, redacted status, and typed provider transport behavior are reusable Go functionality. Reimplementing them in each host would create duplicate security-sensitive code. Conversely, allowing Geppetto to discover local files or make browser/consent choices would make the library application-specific and unsafe.
+
+### What worked
+
+- The existing design already separated Pi’s private file format from Geppetto, so the revision could preserve all secret-boundary and transport-contract safeguards.
+- The new split maps cleanly onto existing Pinocchio components: its direct YAML store remains host-owned, while the future provider protocol implementation can be shared.
+
+### What didn't work
+
+The first version’s statement that the host should own the provider refresh protocol was too restrictive for the intended reusable package API. It would require every Geppetto host to recreate OAuth-sensitive behavior and did not match the desired relationship between Geppetto and Pinocchio.
+
+### What I learned
+
+The correct stable abstraction boundary is not “host owns all credentials” versus “library owns all credentials.” It is: Geppetto owns reusable provider and lifecycle mechanics; hosts own credential placement, identity selection, interaction, and consent policy.
+
+### What was tricky to build
+
+The key design challenge was preserving the security reason for host ownership while moving reusable protocol code into Geppetto. The resolved boundary uses host-injected `Store` and `Presenter` interfaces. That lets the library perform a provider flow without selecting a filesystem path or launching a browser, and lets Pinocchio reuse the flow without exposing a credential capability to profiles or JavaScript.
+
+### What warrants a second pair of eyes
+
+- Review the proposed lifecycle API for correct error/redaction and concurrency semantics before public API commitment.
+- Review whether a generic explicit-path file-store helper belongs in Geppetto or should remain a host implementation.
+- Review each provider’s terms and transport stability before a provider package is shipped.
+
+### What should be done in the future
+
+- Turn the proposed lifecycle interfaces into a focused Geppetto implementation ticket with fake flow/store tests.
+- Follow with a Pinocchio binding ticket that replaces duplicated lifecycle protocol code without changing its direct-YAML ownership model.
+- Design any Pi migration separately, with explicit consent and no shared mutable credential ownership.
+
+### Code review instructions
+
+- Start at the revised Executive summary and Section 5 of the design guide.
+- Verify that `ProviderFlow` is provider-specific but `Store` and `Presenter` remain host-injected.
+- Verify that no filesystem discovery, browser launch, profile selection, or JavaScript secret capability is moved into Geppetto.
+- Run `docmgr doctor --ticket GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS --stale-after 30` after the delivery updates.
+
+### Technical details
+
+The revised architecture retains the existing exact-loopback/PKCE-S256, state-validation, locking, atomic rotation, URL-before-token, bounded-401-replay, and no-JavaScript-credential invariants. It moves only reusable provider/lifecycle mechanics into Geppetto.
+
+## Step 4: Validate and publish the revised architecture
+
+The amended guide passed frontmatter and ticket health validation, then was rendered as a new reMarkable bundle. It uses a distinct bundle name so the prior research artifact is preserved rather than force-overwriting a potentially annotated document.
+
+The new bundle presents the corrected reusable-lifecycle architecture alongside the diary and redacted source map. The reMarkable output remains free of credentials and provider auth-file contents.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 3)
+
+**Assistant interpretation:** Complete the revised design’s validation and make the corrected architecture available on reMarkable.
+
+**Inferred user intent:** Ensure the portable review artifact reflects the intended relationship: Geppetto is reusable provider/lifecycle infrastructure and Pinocchio is one storage/UI client.
+
+### What I did
+
+- Ran `docmgr doctor --ticket GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS --stale-after 30`; all checks passed.
+- Ran the required dry run for the revised three-document bundle.
+- Uploaded `Geppetto Provider Credential Lifecycle Adapters.pdf` to the ticket directory without force-overwriting the prior bundle.
+
+### Why
+
+A different document name avoids silently deleting annotations on the earlier upload while making the architectural revision independently reviewable.
+
+### What worked
+
+- Ticket doctor passed cleanly.
+- The dry run listed the design, diary, and redacted source map with the expected target.
+- Upload completed successfully: `OK: uploaded Geppetto Provider Credential Lifecycle Adapters.pdf -> /ai/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS`.
+
+### What didn't work
+
+N/A. The replacement bundle was uploaded under a new clear name rather than using `--force`, because a force overwrite can discard existing annotations.
+
+### What I learned
+
+Reuploading a revised review packet does not require destructive replacement. Naming the corrected bundle after its actual architectural content preserves both the original research record and the corrected decision.
+
+### What was tricky to build
+
+The desired behavior was a reupload, but the upload tool’s `--force` option deletes an existing document and annotations. The solution was to retain the same ticket directory while choosing a distinct bundle name; this provides the updated material without making an irreversible assumption about annotations.
+
+### What warrants a second pair of eyes
+
+- Confirm whether the earlier Pi-focused bundle should eventually be archived or kept alongside the revised lifecycle-focused packet.
+- Review the public API proposal before any Geppetto implementation starts.
+
+### What should be done in the future
+
+- Open a focused implementation ticket for Geppetto lifecycle primitives and provider modules when the API direction is accepted.
+- Open a separate Pinocchio adapter/migration ticket afterward.
+
+### Code review instructions
+
+- Read the reMarkable bundle named `Geppetto Provider Credential Lifecycle Adapters` or its three Markdown inputs.
+- Confirm the guide assigns provider flow mechanics to Geppetto and storage/UI policy to hosts.
+- Verify no secret-bearing file was included in the bundle.
+
+### Technical details
+
+The upload used `remarquee upload bundle` with `--toc-depth 2` and `--non-interactive`, targeting `/ai/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS`.
