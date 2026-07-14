@@ -36,3 +36,11 @@ Regenerated required logcopter package declarations after check drift; logcopter
 
 - /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/js/modules/geppetto/provider/hostservicesexample/logcopter.go — Generated package logger required by logcopter-check
 - /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/steps/ai/imageparts/logcopter.go — Generated package logger required by logcopter-check
+
+## 2026-07-13
+
+Documented reviewed cancellation/forced-refresh hardening, keyed bearer fingerprints, and the host-only JavaScript injection boundary.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/doc/playbooks/08-use-renewable-bearer-credentials.md — Renewable credential operator guide

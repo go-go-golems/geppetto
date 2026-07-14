@@ -249,7 +249,9 @@ The most important fields for basic usage:
 - `Chat.ApiType` — which provider to use: `"openai"`, `"openai-responses"`, `"claude"`, `"gemini"` (see `types.ApiType*` constants)
 - `Chat.Engine` — the model name, e.g. `"gpt-4o-mini"`, `"claude-sonnet-4-20250514"`, `"gemini-pro"`
 - `Chat.Temperature` — sampling temperature
-- `Chat.APIKeys` — map of API keys, keyed by provider prefix: `"openai-api-key"`, `"claude-api-key"`, `"gemini-api-key"`
+- `Chat.APIKeys` — map of static API keys, keyed by provider prefix: `"openai-api-key"`, `"claude-api-key"`, `"gemini-api-key"`
+
+For renewable OpenAI-compatible credentials, keep access and refresh material out of `APIKeys`. The host supplies `factory.WithBearerTokenSource`; the source takes precedence over a static key, refreshes through host-owned storage, and can perform one bounded pre-stream 401 replay.
 
 You can also load settings from YAML:
 

@@ -539,3 +539,61 @@ Verify both generated files have only the standard generated package logger decl
 ### Technical details
 
 No credential or provider behavior changed in this step.
+
+## Step 6: Harden reviewed refresh coordination and publish operator guidance
+
+PR review identified that cancellation from a first caller could abort shared credential work and that distinct rejected bearers could share one forced-refresh result. The final implementation gives each caller its own cancellable wait, runs shared persistence work without inheriting that cancellation, and separates forced refreshes with a process-local keyed fingerprint.
+
+The Glazed help now documents the host-owned credential contract, the static-key boundary, bounded 401 behavior, and the JavaScript-builder limitation without exposing credential material.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, go ahead. Also, how is the geppetto JS support for the bearer, do we need to change something there?"
+
+**Assistant interpretation:** Update the documentation and assess whether JavaScript-created engines can receive the renewable bearer source.
+
+**Inferred user intent:** Make the completed API safe and discoverable, including clear host/JavaScript ownership boundaries.
+
+**Commit (code):** `54425ed5`, `669a193e`, `8e674e9f` — cancellation preservation, forced-refresh isolation, and keyed fingerprint hardening.
+
+### What I did
+
+- Added a renewable-bearer Glazed playbook and linked it from the documentation index.
+- Corrected static-key wording in the profiles, engine, and provider-wiring help.
+- Recorded that the JavaScript engine builder currently does not accept a host bearer source.
+
+### Why
+
+Renewable credentials are not static profile API keys. Host code owns their persistence and refresh policy, so documentation must prevent accidental token transfer into settings or JavaScript.
+
+### What worked
+
+Focused credential normal/race tests and full repository hooks passed for the reviewed changes.
+
+### What didn't work
+
+The JavaScript builder still calls `enginefactory.NewEngineFromSettings(settings)` without `factory.WithBearerTokenSource`; JavaScript-created engines therefore cannot use renewable credentials today.
+
+### What I learned
+
+A JavaScript token callback would violate the host-owned credential boundary. The safe future API is a Go host injection point that attaches a source before exposing an engine to JavaScript.
+
+### What was tricky to build
+
+The forced-refresh discriminator needs to distinguish rejected bearers without making a bearer visible in a map key or log. A random process-local HMAC key creates an opaque coordination value instead.
+
+### What warrants a second pair of eyes
+
+- Review a Go-only bearer-source option for `require("geppetto").engine()` before exposing any JavaScript API.
+
+### What should be done in the future
+
+- Add and document a host-only JavaScript-engine injection API.
+
+### Code review instructions
+
+Read `pkg/steps/ai/credentials/bearer.go`, then `pkg/js/modules/geppetto/api_engine_builder.go`; review `pkg/doc/playbooks/08-use-renewable-bearer-credentials.md` for the operator contract.
+
+### Technical details
+
+The keyed fingerprint is process-local, opaque, and never persisted or logged.

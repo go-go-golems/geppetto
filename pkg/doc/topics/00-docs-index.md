@@ -60,6 +60,7 @@ After that, explore based on what you need:
 |-----|----------------|
 | [Profiles](01-profiles.md) | Registry-first profile model, read-only resolution flow, and migration from legacy profile maps. |
 | [Embeddings](06-embeddings.md) | Vector embeddings for semantic search, including caching. |
+| [Renewable bearer credentials](../playbooks/08-use-renewable-bearer-credentials.md) | Host-owned OAuth-style bearer renewal for OpenAI-compatible engines. |
 | [Linting (turnsdatalint)](12-turnsdatalint.md) | Custom linter for Turn data key hygiene. |
 
 ## Tutorials
