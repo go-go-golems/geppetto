@@ -39,7 +39,28 @@ Forced refreshes are separated by an opaque, process-local keyed fingerprint of 
 
 ## JavaScript hosts
 
-`require("geppetto").engine().inference(...).build()` currently creates an engine without a bearer-source injection point. Do not expose refresh tokens or a JavaScript token callback as a workaround. A host embedding JavaScript must create the engine in Go with `factory.WithBearerTokenSource` and pass the resulting engine into the runtime until a dedicated host-only injection API exists.
+A Go host can configure a source when it registers the native module. JavaScript continues to build engines from its resolved settings, but it receives neither the source nor any credential values.
+
+```go
+source := /* host-owned credentials.BearerTokenSource */
+registry := require.NewRegistry()
+geppetto.Register(registry, geppetto.Options{
+    BearerTokenSource: source,
+    // Other host-owned module options.
+})
+registry.Enable(vm)
+```
+
+The JavaScript API is unchanged:
+
+```javascript
+const engine = require("geppetto")
+  .engine()
+  .inference(resolvedSettings)
+  .build();
+```
+
+The source is authoritative for supported OpenAI-compatible engines, so this path does not require an `APIKeys` entry. Do not expose refresh tokens, bearer strings, source selectors, or a JavaScript refresh callback as a workaround. Hosts that need multiple identities must make that authorization decision in Go.
 
 ## Troubleshooting
 
@@ -48,7 +69,7 @@ Forced refreshes are separated by an opaque, process-local keyed fingerprint of 
 | Factory requires a static key | No bearer source was supplied | Construct the factory with `factory.WithBearerTokenSource(source)`. |
 | Refresh material appears in settings | Host put OAuth state in `APIKeys` | Keep access/refresh state exclusively in the host store. |
 | A request retries repeatedly after 401 | Caller implements its own replay loop | Rely on the provider path's single bounded replay. |
-| JavaScript-built engine uses a static key | JS builder has no bearer-source option | Inject a Go-created engine; do not pass tokens through JS. |
+| JavaScript-built engine requires a static key | The Go host did not configure `Options.BearerTokenSource` | Register the module with the host-owned source; do not pass tokens through JS. |
 
 ## See Also
 

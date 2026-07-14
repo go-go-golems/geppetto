@@ -48,4 +48,4 @@ JS applications should use profile-aware APIs or runtime settings produced from 
 
 Do not read provider keys directly in application code. Keep static keys in profile base layers, such as an OpenAI base profile, and stack model-specific chat or embedding profiles on top.
 
-Renewable OAuth-style credentials are different: the host owns their store and refresher, injects `factory.WithBearerTokenSource`, and must not serialize refresh material into inference settings or profile API-key maps. See [Use renewable bearer credentials with OpenAI-compatible engines](08-use-renewable-bearer-credentials.md).
+Renewable OAuth-style credentials are different: the host owns their store and refresher and must not serialize refresh material into inference settings or profile API-key maps. A Go host embedding `require("geppetto")` registers its `credentials.BearerTokenSource` through `geppetto.Options.BearerTokenSource`; JavaScript-created OpenAI-compatible engines then receive it through the native factory path without receiving credential values. See [Use renewable bearer credentials with OpenAI-compatible engines](08-use-renewable-bearer-credentials.md).
