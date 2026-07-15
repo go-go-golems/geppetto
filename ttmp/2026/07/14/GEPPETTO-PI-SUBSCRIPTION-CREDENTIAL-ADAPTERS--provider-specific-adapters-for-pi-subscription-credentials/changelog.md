@@ -52,3 +52,18 @@ Validated and re-uploaded the revised Geppetto provider credential lifecycle arc
 
 Ticket closed
 
+
+## 2026-07-14
+
+Replaced the dedicated Codex engine proposal with a shared Responses core plus validated route resolver and restricted provider request/response middleware.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/ttmp/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS--provider-specific-adapters-for-pi-subscription-credentials/design-doc/01-pi-subscription-credentials-in-geppetto-analysis-adapter-design-and-implementation-guide.md — Middleware architecture and security ordering
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/ttmp/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS--provider-specific-adapters-for-pi-subscription-credentials/reference/01-investigation-diary.md — Decision rationale and review guidance
+
+
+## 2026-07-14
+
+Ticket closed
+

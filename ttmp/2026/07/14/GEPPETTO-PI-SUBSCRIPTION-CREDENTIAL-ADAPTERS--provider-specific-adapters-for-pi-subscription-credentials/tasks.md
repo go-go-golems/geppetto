@@ -8,3 +8,4 @@
 - [x] Bundle the guide and diary for reMarkable delivery <!-- t:7zsw -->
 - [x] Revise the design: Geppetto owns reusable provider lifecycle mechanics; hosts own storage binding and interaction policy <!-- t:up03 -->
 - [x] Validate and re-upload the revised design bundle to reMarkable <!-- t:xkc2 -->
+- [x] Replace the isolated Codex engine proposal with restricted shared-core route and request/response middleware <!-- t:2c83 -->

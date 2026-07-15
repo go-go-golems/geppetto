@@ -312,3 +312,68 @@ The desired behavior was a reupload, but the upload tool’s `--force` option de
 ### Technical details
 
 The upload used `remarquee upload bundle` with `--toc-depth 2` and `--non-interactive`, targeting `/ai/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS`.
+
+## Step 5: Replace the isolated Codex engine with restricted shared-core middleware
+
+The previous revision placed reusable lifecycle behavior in Geppetto but still proposed a dedicated Codex engine. The architecture now instead treats Codex as a trusted route resolver and request/response middleware installed on Geppetto’s shared OpenAI Responses core. This preserves the core’s request construction, URL validation, retry orchestration, and stream ownership while containing Codex-only credential headers in one small provider component.
+
+The middleware is deliberately narrower than an arbitrary request hook. It receives a read-only post-validation request context and a header writer constrained by engine-declared names; it cannot rewrite URLs, bodies, host/framing headers, or streaming response bodies. The response hook can classify a response and request one bounded retry, but the engine core remains responsible for closing, replaying, and decoding the stream.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, update the design ticket with this"
+
+**Assistant interpretation:** Record the shared engine core plus restricted provider route/middleware architecture as the ticket’s proposed implementation direction.
+
+**Inferred user intent:** Avoid a large duplicated Codex engine while keeping provider-specific credential header injection secure, explicit, and reusable by OpenAI and Anthropic engine paths.
+
+### What I did
+
+- Replaced the dedicated-Codex-engine decision with a trusted Codex route resolver and request/response middleware over the shared Responses core.
+- Added proposed `RouteResolver`, `Middleware`, `HeaderWriter`, request context, response metadata, and bounded response-decision contracts.
+- Replaced Codex and Claude pseudocode with middleware ordering and security invariants.
+- Reworked implementation phases, fake-server tests, test matrix, and review questions around shared core behavior and optional stream codecs.
+
+### Why
+
+Codex credential handling needs only a few provider-specific headers, a fixed route, and a 401 refresh classification. Duplicating the entire OpenAI Responses engine would duplicate cancellation, request construction, retry, and stream logic that should remain consistent across providers.
+
+### What worked
+
+- The current design’s strict Go-only credential boundary maps directly to middleware installed through typed engine options.
+- Separating route resolution, header injection, and stream decoding makes the security order explicit: final URL validation precedes credential acquisition, and response-body ownership remains with the core.
+
+### What didn't work
+
+The earlier dedicated-engine proposal would likely duplicate hundreds or thousands of existing OpenAI Responses lines solely to carry Codex route and header behavior. A fully mutable `func(*http.Request)` middleware alternative was also rejected because it could bypass URL validation or mutate framing/body behavior.
+
+### What I learned
+
+A reusable middleware seam is safe only when it is not a generic request mutator. The appropriate abstraction exposes a read-only request context, a header-only writer with a static allowlist, and structured response decisions; it never hands middleware the raw stream body or settings-derived configuration.
+
+### What was tricky to build
+
+The difficult part was retaining a shared core without making Codex credential behavior invisible or overly powerful. The solution is a two-stage pipeline: the route resolver runs before final URL validation, then the credential middleware runs only after validation. This prevents a token-bearing middleware from selecting its destination, while still avoiding a duplicated engine.
+
+### What warrants a second pair of eyes
+
+- Review the final public/internal package boundary for the middleware seam before implementation.
+- Review header-conflict precedence when multiple trusted middlewares are installed.
+- Review the exact response-decision API so middleware cannot cause unbounded retries or consume a stream.
+
+### What should be done in the future
+
+- Build middleware ordering and header-writer fake tests before extracting production code.
+- Prove Codex request/SSE compatibility with the existing Responses core; add a provider stream codec only if evidence requires it.
+- Apply the same constrained middleware model to Anthropic only after its contract tests are complete.
+
+### Code review instructions
+
+- Start with Sections 5.1, 5.3, and 5.4 of the design guide.
+- Verify that `RouteResolver` executes before final URL validation and `Middleware.BeforeRequest` after it.
+- Verify middleware cannot alter URL/body/stream and that only core-owned code performs retries and decoding.
+- Run `docmgr doctor --ticket GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS --stale-after 30` after ticket bookkeeping.
+
+### Technical details
+
+The proposed Codex adapter consists of a fixed route resolver, a typed `CodexCredentialSource`, an allowlisted `HeaderWriter`, and `AfterResponse` classification. The shared Responses core creates and validates the request, calls middleware, and performs at most one pre-output replay.

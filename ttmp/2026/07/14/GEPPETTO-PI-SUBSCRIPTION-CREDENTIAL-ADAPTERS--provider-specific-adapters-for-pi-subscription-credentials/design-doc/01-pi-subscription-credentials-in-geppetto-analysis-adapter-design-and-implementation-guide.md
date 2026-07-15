@@ -47,7 +47,7 @@ Therefore this work must **not** copy Pi credentials into Geppetto profiles, mak
 1. **Geppetto provides reusable, provider-specific lifecycle and transport primitives.** These include PKCE/state/code-exchange and refresh mechanics for supported OAuth providers, typed redacted status and local deletion, store/lock/atomic-rotation helpers, and Go-only request-auth capabilities. It remains storage-location-, CLI-, browser-launch-, and Pi-file-agnostic.
 2. **A host (initially Pinocchio) binds those primitives to its own persistence and user experience.** It selects a provider and profile, supplies its direct-YAML store, launches a browser or presents a device code, formats status, and applies consent/import policy. It never exposes token material, refresh callbacks, account identity, or source-selection metadata to profiles or JavaScript.
 
-OpenAI Codex should be a dedicated experimental Geppetto transport/provider package, not a configuration tweak to the existing OpenAI Responses engine. Claude should extend Geppetto’s Anthropic engine only after its OAuth request-header semantics are captured in a fake-server contract. Umans belongs in Geppetto’s provider catalog as an Anthropic Messages/API-key adapter, not a renewable OAuth adapter.
+OpenAI Codex should use the existing OpenAI Responses core through a trusted Codex route resolver and request/response middleware, not through profile-configured paths or header maps. Claude should gain the same restricted middleware seam only after its OAuth request-header semantics are captured in a fake-server contract. Umans belongs in Geppetto’s provider catalog as an Anthropic Messages/API-key middleware/adapter, not a renewable OAuth adapter.
 
 ## 1. Problem statement and scope
 
@@ -86,8 +86,8 @@ This ticket does **not** authorize implementation of a provider adapter, a real 
 | **credential store** | A host-selected secret-bearing persistence implementation. Geppetto supplies store contracts and safe lifecycle helpers; Pinocchio binds its direct-YAML profile extension. Pi’s auth file is one optional external import source, not a Geppetto data format. |
 | **renewable bearer** | An access token plus an optional refresh token and expiry, acquired at request time through a host source. |
 | **transport contract** | The full endpoint, path, HTTP method, payload, headers, response stream, and retry behavior expected by a provider. |
-| **adapter** | Host-side code that turns an external credential contract into a safe Geppetto runtime capability. |
-| **engine** | Geppetto’s provider protocol implementation, such as OpenAI Chat, OpenAI Responses, or Claude Messages. |
+| **provider adapter** | Trusted Go-only code that binds a provider route resolver, restricted request/response middleware, credential source, and optional stream codec to a shared Geppetto engine core. |
+| **engine core** | Geppetto’s shared provider-protocol implementation, such as OpenAI Responses or Anthropic Messages, which owns request construction, URL validation, send/retry orchestration, and stream consumption. |
 | **metadata** | Non-token companion values such as an account identifier. It is still private runtime state and must not be shown to JavaScript or diagnostics. |
 
 ## 2. Current-state architecture
@@ -268,11 +268,11 @@ Do **not** turn the current generic OpenAI Responses engine into a configurable 
                    Go-only typed capability, never settings/JS
                                  v
  +-------------------------------+--------------------------------+
- | Geppetto provider engine                                        |
- |  Codex engine: target + request framing + sanctioned headers    |
- |  Claude engine: Messages protocol + tested auth strategy        |
- |  Umans adapter: Messages protocol + static API-key strategy     |
- |  OpenAI engines: existing bearer-only behavior                  |
+ | Geppetto shared engine cores + provider adapters                |
+ |  OpenAI Responses core + Codex route/middleware                 |
+ |  Anthropic Messages core + Claude auth middleware               |
+ |  Anthropic Messages core + Umans API-key middleware             |
+ |  OpenAI engines + ordinary bearer middleware                    |
  +-------------------------------+--------------------------------+
                                  |
                          validated outbound HTTP request
@@ -289,13 +289,13 @@ Do **not** turn the current generic OpenAI Responses engine into a configurable 
 - **Consequences:** Geppetto needs stable, documented interfaces for store operations and interactive login callbacks. Pinocchio can retain its direct-YAML extension as a store adapter and CLI binding. A future host can instead use a keychain or database without reimplementing provider protocol.
 - **Status:** proposed.
 
-### Decision: Codex is a dedicated transport, not an OpenAI Responses profile
+### Decision: Codex is a trusted middleware adapter over the Responses core
 
-- **Context:** Pi’s Codex transport has a different request path and required companion headers.
-- **Options considered:** Set a custom base URL in OpenAI Responses; add arbitrary profile header maps; implement a dedicated Codex engine/transport.
-- **Decision:** Implement a dedicated Go-only Codex transport after a fake-server contract suite proves payload and stream compatibility.
-- **Rationale:** A dedicated transport makes the nonstandard behavior auditable and avoids allowing profiles to control sensitive request metadata.
-- **Consequences:** Some Responses encoding/streaming code may need extraction into internal reusable helpers. Codex support will be explicitly experimental until a provider contract is reviewed.
+- **Context:** Pi’s Codex transport has a different request path and required companion headers, but may share request framing and streaming semantics with OpenAI Responses.
+- **Options considered:** Set a custom base URL in OpenAI Responses; add arbitrary profile header maps; copy a dedicated Codex engine; add a restricted provider route/middleware adapter to the shared Responses core.
+- **Decision:** Add a Go-only Codex route resolver and restricted request/response middleware to the Responses core after fake-server tests prove which request and SSE behavior is shared.
+- **Rationale:** The core retains URL validation, request send/retry orchestration, cancellation, and stream ownership. The Codex middleware contains the few Codex-only headers and typed credential behavior, avoiding both hundreds of duplicated lines and an unsafe public request-mutator API.
+- **Consequences:** The middleware seam must be intentionally constrained and provider-installed; profile settings and JavaScript cannot configure it. A provider-specific stream codec remains available if Codex events differ.
 - **Status:** proposed.
 
 ### Decision: Add dynamic Claude authentication only after header-contract proof
@@ -352,108 +352,91 @@ func Logout(ctx context.Context, store Store, key Key) error
 
 `Store` describes persistence semantics, not a required serialization format. Geppetto should provide an in-memory implementation and reusable locking/atomic-update helpers. A filesystem implementation, if added, must require an explicit caller-owned path and codec; it must never discover a profile file or default to Pi storage. Pinocchio’s direct YAML extension remains a host adapter over this contract.
 
-### 5.3 Go-only request-auth contracts
+### 5.3 Go-only route and request/response middleware contracts
 
-For a future shared request-header capability, use a typed, restricted result—not a request mutator:
+The engine core owns the HTTP request and response body. A provider adapter receives neither a mutable request URL/body nor a stream body. This avoids a general `func(*http.Request)` escape hatch while allowing a few credential-dependent headers to be injected consistently across OpenAI and Anthropic engines.
 
 ```go
-// Proposed: package credentials
-// This is Go-only runtime state. It is never a profile setting or JS value.
-type RequestAuth struct {
-    BearerToken string
-    // Headers are copied by the engine. The engine applies an allowlist for its
-    // own protocol and rejects Authorization, Host, and transfer framing keys.
-    Headers http.Header
+// Proposed: package transport
+// RequestContext is read-only and contains the already validated final URL.
+type RequestContext struct {
+    Provider  string
+    Operation string
+    URL       url.URL
 }
 
-type RequestAuthSource interface {
-    RequestAuth(context.Context, Request) (RequestAuth, error)
+type HeaderWriter interface {
+    Set(name, value string) error // permits only engine-declared header names
+}
+
+type Middleware interface {
+    BeforeRequest(context.Context, RequestContext, HeaderWriter) (Attempt, error)
+    AfterResponse(context.Context, RequestContext, Attempt, ResponseMetadata) (ResponseDecision, error)
+}
+
+type RouteResolver interface {
+    Resolve(baseURL *url.URL, operation string) (*url.URL, error)
 }
 ```
 
-This interface is **not** automatically the new default for all engines. Each engine decides whether it supports it, validates the outbound target first, copies permitted headers, and redacts errors. A Codex engine can use a private stricter contract instead:
+The core calls `RouteResolver.Resolve`, validates the resulting final URL, builds the request, then runs `BeforeRequest`. `AfterResponse` receives status and safe response metadata before any stream output is emitted; it can request a single bounded retry but cannot consume, replace, or rewrite the response body. The engine owns close/retry/decode behavior.
+
+`HeaderWriter` is configured with a static allowlist supplied by the engine/provider adapter. It rejects `Host`, transfer/framing headers, and undeclared names; values are never formatted into errors, trace events, or JavaScript values. Middleware is installed only through typed Go engine options, never from profile settings or JavaScript.
+
+A Codex middleware is constructed only from a typed `CodexCredentialSource`. It resolves the current bearer and private account metadata, sets the sanctioned Codex header names, and requests a forced credential refresh only for the first pre-stream 401. The source and opaque `Attempt` state never cross the engine boundary. A Geppetto provider lifecycle package derives needed metadata from its current credential or provider result; the host store persists it only if the typed provider record requires it.
+
+### 5.4 Codex middleware flow pseudocode
 
 ```go
-// Proposed: package openai_codex
-// Unexported credential fields must never reach profiles or JS.
-type credentialSource interface {
-    CodexCredential(context.Context, credentials.Request) (codexCredential, error)
-}
-
-type codexCredential struct {
-    bearerToken string
-    accountID   string
-}
-```
-
-A Geppetto provider lifecycle package derives account metadata from its current credential or provider result. The engine sees it only long enough to create the HTTP headers. The host store persists it only if the typed provider record requires it; no field is logged, emitted, stored in settings, or exported through JavaScript.
-
-### 5.4 Codex request flow pseudocode
-
-```go
-func (e *Engine) stream(ctx context.Context, input request) (*http.Response, error) {
-    target := resolveCodexURL(e.baseURL) // fixed /codex/responses transformation
-    if err := security.ValidateOutboundURL(target, e.outboundOptions); err != nil {
-        return nil, err // source is not called
-    }
-
-    cred, err := e.source.CodexCredential(ctx, credentials.Request{
-        Provider: "openai-codex",
-        BaseURL:  e.baseURL,
+// Proposed: package providers/openaicodex
+func (m *CredentialMiddleware) BeforeRequest(
+    ctx context.Context, req transport.RequestContext, headers transport.HeaderWriter,
+) (transport.Attempt, error) {
+    credential, err := m.source.CodexCredential(ctx, credentials.Request{
+        Provider: "openai-codex", BaseURL: req.URL.Scheme + "://" + req.URL.Host,
     })
     if err != nil {
-        return nil, redactCredentialError(err)
+        return nil, credentials.RedactError(err)
     }
-
-    req := newJSONRequest(ctx, target, encodeCodexRequest(input))
-    req.Header.Set("Authorization", "Bearer "+cred.bearerToken)
-    req.Header.Set("chatgpt-account-id", cred.accountID)
-    req.Header.Set("originator", e.originator) // compile-time/defaulted option
-    req.Header.Set("OpenAI-Beta", codexResponsesBeta)
-    req.Header.Set("Accept", "text/event-stream")
-
-    resp := e.client.Do(req)
-    if resp.StatusCode == 401 && !input.hasObservedOutput && e.source.canForceRefresh() {
-        close(resp.Body)
-        refreshed := e.source.CodexCredentialAfterUnauthorized(ctx, request, cred)
-        return e.replayExactlyOnce(ctx, input, refreshed)
-    }
-    return resp, nil
+    if err := headers.Set("Authorization", "Bearer "+credential.bearerToken); err != nil { return nil, err }
+    if err := headers.Set("chatgpt-account-id", credential.accountID); err != nil { return nil, err }
+    if err := headers.Set("originator", codexOriginator); err != nil { return nil, err }
+    if err := headers.Set("OpenAI-Beta", codexResponsesBeta); err != nil { return nil, err }
+    return newAttempt(credential), nil // opaque and never logged
 }
+
+func (m *CredentialMiddleware) AfterResponse(
+    ctx context.Context, req transport.RequestContext, attempt transport.Attempt, response transport.ResponseMetadata,
+) (transport.ResponseDecision, error) {
+    if response.StatusCode != http.StatusUnauthorized || response.StreamStarted {
+        return transport.Continue, nil
+    }
+    return m.source.ForceRefreshAfterUnauthorized(ctx, attempt) // core permits one retry total
+}
+
+// Inside the shared Responses core:
+target := adapter.Route.Resolve(baseURL, "responses")
+validateOutboundURL(target)                 // before BeforeRequest
+request := buildResponsesRequest(ctx, target, input)
+attempt := middleware.BeforeRequest(ctx, requestContext(target), request.headers)
+response := client.Do(request)
+decision := middleware.AfterResponse(ctx, requestContext(target), attempt, responseMetadata(response))
+return core.retryOnceOrDecodeResponsesStream(response, decision)
 ```
 
 Key invariants:
 
-1. Validate the resolved final URL before acquiring a token.
-2. Keep Codex URL construction and required headers in the Codex engine, not profiles.
-3. Never include a token, account value, raw provider response, or refresh error in a returned error.
-4. Persist a rotated credential before returning a replacement after refresh.
-5. Retry exactly once, only on a pre-output 401 and only when the source explicitly supports it.
+1. The route resolver produces the Codex target and the core validates the final URL before credential middleware runs.
+2. Codex header injection is in trusted middleware installed only for the Codex provider adapter, never in profiles or JavaScript.
+3. `HeaderWriter` allowlists the Codex header names; no middleware can alter URL, host, framing, request body, or stream body.
+4. Never include a token, account value, raw provider response, or refresh error in a returned error.
+5. The core, not middleware, closes/replays the request exactly once on a pre-output 401.
 
-### 5.5 Claude dynamic-auth flow pseudocode
+### 5.5 Claude and Umans middleware flow
 
-```go
-func (e *ClaudeEngine) newClientForRequest(ctx context.Context) (*api.Client, error) {
-    target := messagesURL(e.settings)
-    if err := security.ValidateOutboundURL(target, e.outboundOptions); err != nil {
-        return nil, err
-    }
+Claude and Umans use the same engine-level middleware seam after their request contracts are proven. Claude’s future OAuth middleware resolves only the approved dynamic authentication form and requests refresh after an eligible 401. Umans’ static API-key middleware resolves its host-provided key and sets only its approved Anthropic Messages header form; it never advertises refresh support.
 
-    auth, err := e.authStrategy.Resolve(ctx, credentials.Request{
-        Provider: "claude",
-        BaseURL:  baseURL(e.settings),
-    })
-    if err != nil {
-        return nil, redactCredentialError(err)
-    }
-
-    client := api.NewClient(auth.value, baseURL(e.settings))
-    client.SetAuthenticationStrategy(auth.headerName, auth.extraHeaders)
-    return client, nil
-}
-```
-
-The important incomplete part is `SetAuthenticationStrategy`. Do not implement it until a contract test says whether the approved subscription endpoint expects `Authorization`, `x-api-key`, provider beta headers, a client identity, or another mechanism. The strategy must be a typed engine option, must reject unsafe header names, and must apply to streaming, non-streaming, and token-count requests consistently.
+The Anthropic Messages core must invoke the middleware on streaming, non-streaming, and token-count requests. Do not implement the middleware until a fake-server contract establishes the exact allowed header names, required beta/client headers, and retry semantics. As with Codex, it is a typed Go engine option and cannot be supplied by settings or JavaScript.
 
 ## 6. Implementation plan
 
@@ -480,45 +463,47 @@ The important incomplete part is `SetAuthenticationStrategy`. Do not implement i
 
 **Exit criterion:** fake-server tests and lifecycle tests can be written without an account credential or a Pinocchio profile.
 
-### Phase 1 — Codex transport contract tests before implementation
+### Phase 1 — Middleware and Codex contract tests before implementation
 
 **Likely files**
 
-- `pkg/steps/ai/openai_codex/engine_test.go` (new)
-- `pkg/steps/ai/openai_codex/stream_test.go` (new)
+- `pkg/steps/ai/transport/middleware.go` (new, or an existing internal transport package)
+- `pkg/steps/ai/openai_responses/*_test.go`
+- `pkg/steps/ai/providers/openaicodex/*_test.go` (new)
 - `pkg/inference/engine/factory/factory_test.go`
 
 **Tests**
 
-- base URL resolves to the Codex response path and cannot escape the configured host;
-- a credential source is not called if URL validation fails;
-- request contains expected protocol header names and no settings-derived secret;
-- a current credential yields one request;
-- an expired credential performs one locked refresh and persistence;
-- first pre-stream 401 refreshes/replays once; second 401 does not;
+- a route resolver resolves the Codex response path and cannot escape the configured host;
+- the core validates the final URL before it calls middleware;
+- `HeaderWriter` permits declared names and rejects URL/host/framing/undeclared-header mutation;
+- a Codex middleware cannot be installed for ordinary OpenAI and an ordinary bearer source cannot construct Codex middleware;
+- a current credential yields one request; an expired credential performs one locked refresh and persistence;
+- first pre-stream 401 requests one retry; a second 401 or post-output error does not;
 - account metadata and bearer never occur in errors, trace events, or JS values;
-- JavaScript builder works only when a host supplies the capability, with no exposure API.
+- JavaScript builder works only when the host installs the provider adapter in Go, with no exposure API.
 
-**Exit criterion:** a fake server validates the entire outbound request shape and simulated stream.
+**Exit criterion:** fake servers validate middleware ordering, the complete outbound request shape, and simulated stream behavior without an account credential.
 
-### Phase 2 — Implement the isolated Codex engine
+### Phase 2 — Implement the shared engine middleware seam and Codex adapter
 
 **Likely files**
 
-- `pkg/steps/ai/openai_codex/engine.go` (new)
-- `pkg/steps/ai/openai_codex/streaming.go` (new)
-- `pkg/steps/ai/openai_codex/options.go` (new)
+- `pkg/steps/ai/transport/middleware.go` (new)
+- `pkg/steps/ai/openai_responses/streaming.go`
+- `pkg/steps/ai/openai_responses/engine.go`
+- `pkg/steps/ai/providers/openaicodex/route.go` (new)
+- `pkg/steps/ai/providers/openaicodex/middleware.go` (new)
 - `pkg/inference/engine/factory/factory.go`
-- `pkg/steps/ai/types/...` only if a new API type is justified
 
 **Implementation notes**
 
-- Prefer extracting non-provider-specific Responses event decoding into an internal package over copying a large parser.
-- Do not reuse `openai_responses` by passing a fake base URL unless the test suite proves every path and header is identical.
-- Keep the Codex credential source an engine option. It must not become `InferenceSettings.API` data.
+- The Responses core owns final URL validation, request construction, HTTP execution, retry bounds, response-body close, and stream decode.
+- Codex owns only the route resolver, typed credential/header middleware, and an optional stream codec if tests prove Responses SSE is not compatible.
+- Keep middleware a typed Go engine option. It must not become `InferenceSettings.API` data, a profile header map, or a JavaScript value.
 - Make model selection explicit and conservative; model aliases change more frequently than the transport boundary.
 
-**Exit criterion:** unit and race tests pass with a fake store/refresher and a fake inference service.
+**Exit criterion:** unit and race tests pass with fake stores/refreshers, a fake middleware, and a fake inference service.
 
 ### Phase 3 — Implement Geppetto lifecycle/provider packages
 
@@ -589,10 +574,10 @@ A real smoke is permitted only after a reviewer accepts the provider’s current
 |---|---|
 | Lifecycle/store | login state/PKCE validation, atomic rotation-before-return, idempotent local delete, redacted status, cancellation isolation, no token-bearing errors |
 | Credential source | cache hit, expiry, refresh skew, rotated refresh persistence, cancellation isolation, no token-bearing errors |
-| Codex path builder | normalized base URL produces only approved Codex target path |
-| Headers | required keys present; forbidden override keys rejected; no source headers in event/debug data |
-| 401 handling | exactly one replay before output; never replay static credentials or a second 401 |
-| Claude strategy | request-time resolution applies identically to Messages and token count |
+| Route resolver | normalized base URL produces only approved provider target path before validation |
+| Middleware headers | required keys present; undeclared, host, URL, framing, and body mutation rejected; no source headers in event/debug data |
+| Middleware response | exactly one core-owned replay before output; middleware cannot consume stream bodies or request a second replay |
+| Claude/Umans middleware | request-time resolution applies identically to Messages and token count |
 | Factory | source presence authorizes only engines that explicitly support it |
 | JavaScript | builder succeeds with Go source; script cannot receive source, token, headers, expiry, or account metadata |
 
@@ -611,7 +596,10 @@ func TestCodexFirst401RefreshesOnce(t *testing.T) {
     })
 
     source := newFakeCodexSource(/* stale then replacement; values never logged */)
-    engine := newCodexEngine(server.URL, source)
+    engine := newResponsesEngine(server.URL,
+        withRoute(codexRoute{}),
+        withMiddleware(newCodexMiddleware(source)),
+    )
     _, err := engine.RunInference(context.Background(), userTurn("ping"))
     require.NoError(t, err)
     require.Equal(t, 2, server.RequestCount())
@@ -626,12 +614,12 @@ Run from the standalone Geppetto module:
 ```bash
 cd /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto
 GOWORK=off go test ./... -count=1
-GOWORK=off go test -race ./pkg/steps/ai/credentials ./pkg/steps/ai/openai_codex ./pkg/steps/ai/claude ./pkg/inference/engine/factory ./pkg/js/modules/geppetto -count=1
+GOWORK=off go test -race ./pkg/steps/ai/credentials ./pkg/steps/ai/transport ./pkg/steps/ai/openai_responses ./pkg/steps/ai/providers/openaicodex ./pkg/steps/ai/claude ./pkg/inference/engine/factory ./pkg/js/modules/geppetto -count=1
 GOWORK=off make logcopter-check
 GOWORK=off make gosec
 ```
 
-Replace the future `openai_codex` package in the race command with the actual package name once implementation begins. A full repository race run remains useful but may contain unrelated baseline failures; report them separately rather than masking them.
+Replace the proposed `transport` and `providers/openaicodex` packages in the race command with their actual locations once implementation begins. A full repository race run remains useful but may contain unrelated baseline failures; report them separately rather than masking them.
 
 ## 8. Risks, alternatives, and open questions
 
@@ -641,7 +629,7 @@ Replace the future `openai_codex` package in the race command with the actual pa
 - **Terms/account policy:** A token that Pi can use is not automatic approval for another application to use it. Require explicit host policy and user consent.
 - **Header leakage:** Account headers and bearer values are both private runtime state. Treat them as sensitive even if they are not cryptographic secrets.
 - **Partial coverage:** A dynamic source added only to streaming inference would leave token counting or non-streaming requests stale.
-- **Unsafe abstraction:** Arbitrary profile header maps or request callbacks create an endpoint-exfiltration path.
+- **Unsafe abstraction:** Arbitrary profile header maps or mutable request callbacks create an endpoint-exfiltration path. The middleware must remain header-restricted, trusted, and Go-only.
 - **Refresh races:** Two processes operating on the same external store need an agreed lock and atomic-write policy.
 - **Overreaching lifecycle API:** A Geppetto file store that silently selects paths or a login helper that launches browsers would erase the necessary application-policy boundary.
 
@@ -653,14 +641,14 @@ Replace the future `openai_codex` package in the race command with the actual pa
 
 **Add `headers` and `path` maps to profiles.** Rejected because settings are serializable and user-controlled; these maps would make it easy to alter security-sensitive request behavior and leak credentials.
 
-**Use the generic OpenAI Responses engine for Codex immediately.** Rejected because the installed Pi code explicitly uses a different endpoint path and required headers.
+**Use the generic OpenAI Responses engine for Codex immediately through base-URL/profile configuration.** Rejected because the installed Pi code explicitly uses a different endpoint path and required headers. The revised proposal instead adds a tested trusted route/middleware adapter to the shared core.
 
 ### 8.3 Open questions for review
 
 1. Is there a supported, stable provider policy for the ChatGPT Codex backend outside Pi/Codex clients?
 2. What exact Claude subscription request headers and endpoint behavior should Geppetto support, if any?
 3. Should Pinocchio offer an explicit one-time Pi import, or should Pi use require a dedicated local credential broker?
-4. Is Codex support best delivered as a Geppetto experimental engine or as a host-local engine composed from Geppetto primitives?
+4. Does Codex share enough request/SSE behavior to use the Responses core with a route/middleware adapter, or does it require an optional provider stream codec?
 5. Which model aliases and request fields are mandatory for a valid Codex request beyond endpoint and headers?
 6. What user consent and audit trail are required before an application reuses a local subscription credential?
 
@@ -669,7 +657,7 @@ Replace the future `openai_codex` package in the race command with the actual pa
 Before changing a line of production code, an intern should be able to answer all of these:
 
 - Which host-selected store owns the persistent credential? If the answer is “Geppetto discovers profile YAML,” stop: that is wrong.
-- Which engine sends the actual request? Read its URL construction, header setting, retry loop, and tests.
+- Which shared engine core sends the actual request, and which trusted provider route/middleware adapter is installed? Read URL construction, header allowlists, retry loop, and tests.
 - Does the provider use an OpenAI protocol, Anthropic Messages, or a custom one? Do not infer this from a model name.
 - Are all required headers known from source or provider documentation? Record the source and write a fake-server assertion.
 - Is the final URL validated before a token source is called?
