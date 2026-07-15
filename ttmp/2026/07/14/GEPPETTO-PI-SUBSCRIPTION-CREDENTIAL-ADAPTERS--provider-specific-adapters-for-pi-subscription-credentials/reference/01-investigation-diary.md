@@ -439,3 +439,61 @@ The task plan spans Geppetto and Pinocchio without making their ownership ambigu
 ### Technical details
 
 The active task IDs are `79md`, `idw2`, `4rvt`, `ml0f`, `acua`, `m1dp`, and `kd0z`. The last task explicitly gates any live smoke on prior validation and approval.
+
+## Step 7: Publish a clean middleware-architecture review PDF
+
+The earlier reMarkable bundles predated the shared-core middleware decision or included supporting diary and source-map material. A design-only PDF was therefore rendered and uploaded so review can focus on the current middleware architecture without the historical investigation narrative.
+
+The PDF uses a distinct name in the same ticket directory. It preserves earlier artifacts and their possible annotations while making the revised design immediately discoverable.
+
+### Prompt Context
+
+**User prompt (verbatim):** "haveyou uploaded a clean updated design doc for the new approach with middleware for me to review?"
+
+**Assistant interpretation:** Verify whether the final middleware design has been delivered in a clean review format and publish it if it has not.
+
+**Inferred user intent:** Review the current proposed architecture independently from prior design versions and research history.
+
+### What I did
+
+- Confirmed the prior reMarkable upload predated the middleware revision.
+- Ran a dry run for a design-only bundle.
+- Uploaded `Geppetto Provider Middleware Architecture.pdf` containing only the current design guide.
+
+### Why
+
+A clean design-only artifact makes architectural review faster and avoids requiring a reviewer to distinguish superseded diary discussion from the current proposal.
+
+### What worked
+
+- The dry run selected only the design guide and the intended ticket directory.
+- Upload completed successfully: `OK: uploaded Geppetto Provider Middleware Architecture.pdf -> /ai/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS`.
+
+### What didn't work
+
+N/A. The upload emitted a non-fatal remote-tree refresh warning before succeeding; no further cloud listing was needed because the command returned success.
+
+### What I learned
+
+A separately named design-only PDF is preferable to overwriting a previous review bundle when the architecture changes substantially and previous files may hold annotations.
+
+### What was tricky to build
+
+The review artifact needed to be current without deleting prior material. The upload used a new descriptive name rather than `--force`, preserving previous bundles while targeting the same ticket directory.
+
+### What warrants a second pair of eyes
+
+- Confirm that the design-only packet is the preferred review artifact before future implementation updates are bundled.
+
+### What should be done in the future
+
+- Re-upload a new clean design-only PDF when implementation changes require a material architecture revision; otherwise keep the existing review artifact stable.
+
+### Code review instructions
+
+- Review `Geppetto Provider Middleware Architecture.pdf` in the ticket’s reMarkable directory.
+- Focus on Sections 5.1, 5.3, 5.4, and Phase 1–2 of the design guide.
+
+### Technical details
+
+The upload used `remarquee upload bundle` with a single Markdown input, `--toc-depth 2`, and `--non-interactive`; it did not use `--force`.
