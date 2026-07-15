@@ -67,3 +67,13 @@ Replaced the dedicated Codex engine proposal with a shared Responses core plus v
 
 Ticket closed
 
+
+## 2026-07-14
+
+Reopened the ticket as the implementation tracker; added phased tasks for restricted middleware, provider adapters, reusable lifecycle primitives, and Pinocchio binding.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/ttmp/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS--provider-specific-adapters-for-pi-subscription-credentials/design-doc/01-pi-subscription-credentials-in-geppetto-analysis-adapter-design-and-implementation-guide.md — Implementation phases and acceptance criteria
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/ttmp/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS--provider-specific-adapters-for-pi-subscription-credentials/tasks.md — Phased implementation task plan
+

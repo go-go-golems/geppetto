@@ -377,3 +377,65 @@ The difficult part was retaining a shared core without making Codex credential b
 ### Technical details
 
 The proposed Codex adapter consists of a fixed route resolver, a typed `CodexCredentialSource`, an allowlisted `HeaderWriter`, and `AfterResponse` classification. The shared Responses core creates and validates the request, calls middleware, and performs at most one pre-output replay.
+
+## Step 6: Keep the research ticket as the implementation tracker
+
+The ticket was initially closed after documenting the architecture, but the work now has a coherent phased plan and should remain the active tracker. A separate ticket would be useful only if the implementation becomes too large for one reviewable workstream; it is not required by the architecture or by docmgr.
+
+The ticket is now active with seven implementation tasks. They sequence the shared middleware foundation before provider-specific work, preserve lifecycle work as reusable Geppetto functionality, and keep the Pinocchio direct-YAML binding and any Pi migration explicitly separate from core protocol work.
+
+### Prompt Context
+
+**User prompt (verbatim):** "cam we add the tasks to the current ticket, or why do you want a separate one?"
+
+**Assistant interpretation:** Use the existing research/design ticket as the active implementation tracker rather than splitting the planned work into a new ticket.
+
+**Inferred user intent:** Preserve continuity between the technical rationale, decisions, task plan, and eventual implementation evidence.
+
+### What I did
+
+- Reopened the ticket status to active.
+- Added seven ordered tasks for middleware contracts, Responses-core wiring, Codex, lifecycle primitives, Anthropic/Umans, Pinocchio binding, and final validation/live-smoke gating.
+- Updated the changelog to record the ticket’s role as the active implementation tracker.
+- Ran ticket health validation successfully.
+
+### Why
+
+The design, source evidence, and future implementation tasks all concern the same credential-lifecycle architecture. Keeping them together improves traceability for an implementer and avoids splitting decisions from the task checklist that realizes them.
+
+### What worked
+
+- The existing ticket already contained phased implementation guidance and a diary, so it could become the tracker without restructuring documentation.
+- The added task ordering makes the dependencies explicit: no Codex adapter before the restricted middleware security foundation, and no live smoke before provider-specific validation.
+
+### What didn't work
+
+N/A. The earlier suggestion of a separate implementation ticket was organizational caution, not a technical requirement.
+
+### What I learned
+
+A ticket should be split when independent delivery/review streams need separate ownership or timelines, not merely because a design transitions into implementation. Here, one active ticket provides a clearer continuity record.
+
+### What was tricky to build
+
+The task plan spans Geppetto and Pinocchio without making their ownership ambiguous. The sequence solves this by placing reusable middleware/lifecycle/provider work first, then treating Pinocchio direct-YAML storage and CLI integration as an explicit host binding task, not as part of Geppetto core.
+
+### What warrants a second pair of eyes
+
+- Confirm the seven-task order matches desired implementation priority.
+- Confirm whether the Pinocchio binding task should stay in this cross-repository ticket or move later if it needs an independent release timeline.
+
+### What should be done in the future
+
+- Start task `79md` before provider-specific implementation.
+- Keep each completed task accompanied by focused tests, diary evidence, file relations, and a changelog update.
+
+### Code review instructions
+
+- Review `tasks.md` against Sections 5–7 of the design guide.
+- Begin implementation with task `79md`; do not begin Codex header work before the route/middleware ordering and allowlist tests exist.
+- Run `docmgr doctor --ticket GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS --stale-after 30` after task updates.
+
+### Technical details
+
+The active task IDs are `79md`, `idw2`, `4rvt`, `ml0f`, `acua`, `m1dp`, and `kd0z`. The last task explicitly gates any live smoke on prior validation and approval.

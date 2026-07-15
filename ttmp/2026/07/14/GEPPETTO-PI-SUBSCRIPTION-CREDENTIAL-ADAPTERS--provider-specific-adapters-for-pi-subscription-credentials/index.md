@@ -1,7 +1,7 @@
 ---
 Title: Reusable provider credential lifecycle and transport adapters
 Ticket: GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS
-Status: complete
+Status: active
 Topics:
     - geppetto
     - oauth
