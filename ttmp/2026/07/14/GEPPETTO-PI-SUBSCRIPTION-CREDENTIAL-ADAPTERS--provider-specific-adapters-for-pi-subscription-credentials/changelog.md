@@ -86,3 +86,13 @@ Published a clean design-only PDF for the shared-core provider middleware archit
 
 - /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/ttmp/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS--provider-specific-adapters-for-pi-subscription-credentials/reference/01-investigation-diary.md — Clean reMarkable delivery evidence
 
+
+## 2026-07-16
+
+Implemented and race-tested restricted provider transport contracts with validated route resolution, allowlisted header injection, opaque attempts, and core-governed retry decisions.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/steps/ai/transport/transport.go — New provider transport contracts
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/steps/ai/transport/transport_test.go — Security and ordering tests
+

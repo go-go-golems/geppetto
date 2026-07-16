@@ -12,6 +12,10 @@ Intent: long-term
 Owners:
     - manuel
 RelatedFiles:
+    - Path: repo://pkg/steps/ai/transport/transport.go
+      Note: Restricted Go-only provider route and request-response middleware contracts
+    - Path: repo://pkg/steps/ai/transport/transport_test.go
+      Note: Security and ordering regression coverage for transport contracts
     - Path: repo://ttmp/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS--provider-specific-adapters-for-pi-subscription-credentials/design-doc/01-pi-subscription-credentials-in-geppetto-analysis-adapter-design-and-implementation-guide.md
       Note: Primary evidence-backed architecture and plan
     - Path: repo://ttmp/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS--provider-specific-adapters-for-pi-subscription-credentials/sources/01-local-pi-and-geppetto-source-map.md
@@ -22,6 +26,7 @@ LastUpdated: 2026-07-14T21:52:00-04:00
 WhatFor: Record the research, design decisions, validation, and delivery of the Pi subscription credential adapter guide.
 WhenToUse: Read before resuming implementation or assessing whether a provider contract is safe to support.
 ---
+
 
 
 # Diary
@@ -497,3 +502,85 @@ The review artifact needed to be current without deleting prior material. The up
 ### Technical details
 
 The upload used `remarquee upload bundle` with a single Markdown input, `--toc-depth 2`, and `--non-interactive`; it did not use `--force`.
+
+## Step 8: Implement restricted provider transport contracts
+
+The first implementation task established a dedicated `pkg/steps/ai/transport` package for trusted provider route resolution and credential middleware. It deliberately does not reuse Geppetto’s existing inference-turn middleware: this package operates inside a selected provider engine after that engine has chosen its protocol, and it has stricter security boundaries.
+
+The new contracts separate three concerns. A route resolver produces a provider endpoint before core URL validation; request middleware receives only a validated read-only context plus an allowlisted header writer; response middleware sees body-free response metadata and can ask the engine for a bounded retry. The engine will retain ownership of request bodies, response bodies, stream decoding, and retry execution when task `idw2` wires these contracts into OpenAI Responses.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, continue"
+
+**Assistant interpretation:** Begin the active implementation plan with the restricted middleware foundation before adding provider-specific behavior.
+
+**Inferred user intent:** Turn the reviewed middleware design into safe, tested Geppetto primitives that can later avoid duplicated Codex, OpenAI, and Anthropic engine code.
+
+**Commit (code):** a5ab5f80 — "feat: add restricted provider transport contracts"
+
+### What I did
+
+- Added `pkg/steps/ai/transport/transport.go` with `RouteResolver`, URL-validation ordering helper, read-only `RequestContext`, `HeaderWriter`, `HeaderSet`, `Middleware`, response decisions, and ordered `Chain`.
+- Added security-focused tests in `pkg/steps/ai/transport/transport_test.go` covering route validation, immutable URL copies, header allowlists, framing/host prohibition, sensitive-header redaction, conflict rejection, response ordering, and invalid decisions.
+- Ran focused package tests, focused race tests, Responses regression tests, and full `make gosec`.
+
+### Why
+
+A full mutable HTTP-request hook would let provider code change a validated destination or request body after the security gate. The restricted transport package permits the actual need—provider-specific credential headers and 401 classification—without exposing that escape hatch.
+
+### What worked
+
+- `HeaderSet` allows only provider-declared header names and redacts declared sensitive values in diagnostic copies.
+- Middleware executes request hooks in registration order and response hooks in reverse order, while the response decision remains only a request to the core rather than an executed retry.
+- `GOWORK=off go test ./pkg/steps/ai/transport ./pkg/steps/ai/openai_responses -count=1`, `GOWORK=off go test -race ./pkg/steps/ai/transport -count=1`, and `GOWORK=off make gosec` passed.
+
+### What didn't work
+
+The first focused test run failed because Go canonicalizes `TE` as `Te`, while the prohibited-header map used the uncanonicalized spelling:
+
+```text
+--- FAIL: TestNewHeaderSet_RejectsUnsafeRules (0.00s)
+    transport_test.go:162: NewHeaderSet("TE") unexpectedly succeeded
+FAIL
+FAIL github.com/go-go-golems/geppetto/pkg/steps/ai/transport 0.003s
+```
+
+I changed the prohibited map key to the canonical `Te` spelling, ran `gofmt`, and reran the normal and race tests successfully.
+
+### What I learned
+
+Header-name policy must use the same canonicalization as `net/http`; otherwise a policy can accidentally leave a variant spelling unblocked. Declaring rules and checking writes through `http.CanonicalHeaderKey` centralizes this behavior.
+
+### What was tricky to build
+
+The main sharp edge was making request context genuinely read-only enough for middleware. An exported `*url.URL` would permit later mutation of a core-selected destination. The implementation keeps URL fields private and returns copies; route resolution also copies its input and copies its output before validation. Middleware can therefore not mutate the engine’s configured base URL or the validated target through the exposed API.
+
+A second sharp edge is header precedence. Multiple trusted middlewares could otherwise silently override one another’s values. `HeaderSet` tracks writes and rejects a distinct second value while permitting an idempotent repeat.
+
+### What warrants a second pair of eyes
+
+- Review whether the public `transport` package should remain public or become an internal package before external consumers depend on it.
+- Review the exact set of prohibited HTTP headers and whether any provider requires a safe exception.
+- Review debug-tap integration in task `idw2` so sensitive middleware headers are redacted before a request is observed.
+
+### What should be done in the future
+
+- Complete task `idw2`: wire the Responses core through these contracts and preserve existing bearer semantics.
+- Add Codex only after the shared core ordering and debug redaction behavior are covered by integration tests.
+
+### Code review instructions
+
+- Start with `pkg/steps/ai/transport/transport.go`, especially `ResolveAndValidate`, `HeaderSet.Set`, and `Chain`.
+- Read `pkg/steps/ai/transport/transport_test.go` to verify the security invariants.
+- Validate with:
+
+```bash
+GOWORK=off go test -race ./pkg/steps/ai/transport -count=1
+GOWORK=off go test ./pkg/steps/ai/transport ./pkg/steps/ai/openai_responses -count=1
+GOWORK=off make gosec
+```
+
+### Technical details
+
+The current package is intentionally not wired into an engine yet. Task `idw2` must call `ResolveAndValidate` before `Chain.BeforeRequest`, create `HeaderSet` from engine-approved rules, invoke `Chain.AfterResponse` before stream consumption, and let the core enforce the one-replay limit.
