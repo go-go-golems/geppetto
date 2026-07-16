@@ -1,7 +1,7 @@
 ---
 Title: Reusable provider credential lifecycle and transport adapters
 Ticket: GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS
-Status: active
+Status: complete
 Topics:
     - geppetto
     - oauth
@@ -14,10 +14,11 @@ Owners:
 RelatedFiles: []
 ExternalSources: []
 Summary: Geppetto supplies reusable provider lifecycle and transport primitives; hosts such as Pinocchio supply storage binding, user experience, and import policy.
-LastUpdated: 2026-07-14T20:29:03.036021202-04:00
+LastUpdated: 2026-07-16T18:25:12.677236034-04:00
 WhatFor: Define provider credential lifecycle ownership between Geppetto and embedding applications.
 WhenToUse: Use when implementing reusable login, refresh, status, logout, storage, or provider transport support.
 ---
+
 
 
 
