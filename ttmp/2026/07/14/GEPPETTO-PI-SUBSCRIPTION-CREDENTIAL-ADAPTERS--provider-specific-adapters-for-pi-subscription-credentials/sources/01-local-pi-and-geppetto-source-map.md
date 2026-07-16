@@ -34,6 +34,10 @@ This is an evidence index, not a credential export. It was created without readi
 
 - `~/.pi/agent/npm/node_modules/pi-provider-umans/index.ts:539-577`
   - `/login umans` prompts for an API key, stores it in access/refresh-shaped fields, and performs a no-op “refresh”.
+- `~/.pi/agent/npm/node_modules/pi-provider-umans/index.ts:340-377,410-447`
+  - direct extension side-calls use `POST /v1/messages` with the Anthropic version header and both `x-api-key` and bearer authorization header names; request bodies use Anthropic Messages blocks.
+- `~/.pi/agent/npm/node_modules/pi-provider-umans/index.ts:564-569`
+  - registers Pi inference as `api: "anthropic-messages"` with `authHeader: true`.
 - `~/.pi/agent/npm/node_modules/pi-provider-umans/README.md:23-47`
   - identifies the gateway as Anthropic Messages compatible at `/v1/messages`, not OpenAI Chat/Responses compatible.
 
