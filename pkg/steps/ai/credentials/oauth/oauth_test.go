@@ -156,6 +156,19 @@ func newClient(t *testing.T, authorizationURL, tokenURL string) *oauth.Client {
 	return client
 }
 
+func TestStateGenerationAndValidation(t *testing.T) {
+	state, err := oauth.NewState()
+	if err != nil || state == "" {
+		t.Fatalf("NewState = %q, %v", state, err)
+	}
+	if err := oauth.ValidateState(state, state); err != nil {
+		t.Fatalf("ValidateState = %v", err)
+	}
+	if err := oauth.ValidateState(state, "other"); err == nil || strings.Contains(err.Error(), state) {
+		t.Fatalf("invalid state error = %v", err)
+	}
+}
+
 func writeToken(t *testing.T, writer http.ResponseWriter, payload map[string]any) {
 	t.Helper()
 	writer.Header().Set("Content-Type", "application/json")
