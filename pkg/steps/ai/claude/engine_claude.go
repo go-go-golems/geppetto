@@ -31,6 +31,7 @@ type ClaudeEngine struct {
 	observabilityConfig geppettoobs.Config
 	bearerAuthorization string
 	bearerTokenSource   credentials.BearerTokenSource
+	oauthBearerMode     bool
 }
 
 // NewClaudeEngine creates a new Claude inference engine with the given settings and options.
@@ -100,7 +101,11 @@ func (e *ClaudeEngine) RunInference(
 	if e.bearerTokenSource != nil && bearerAuthorization == "" {
 		bearerAuthorization = apiKey
 	}
-	client.SetBearerAuthorization(bearerAuthorization)
+	if e.oauthBearerMode {
+		client.SetOAuthBearerAuthorization(bearerAuthorization)
+	} else {
+		client.SetBearerAuthorization(bearerAuthorization)
+	}
 	client.SetOutboundURLOptions(settings.OutboundURLOptions(apiSettings, string(apiType)))
 	httpClient, err := settings.EnsureHTTPClient(clientSettings)
 	if err != nil {

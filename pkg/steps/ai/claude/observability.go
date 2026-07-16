@@ -38,10 +38,19 @@ func WithBearerAuthorization(value string) EngineOption {
 
 // WithBearerTokenSource resolves an Anthropic-compatible gateway credential at
 // request time. The resolved value is used for the verified dual-auth gateway
-// form and remains in Go-only runtime state.
+// form and remains in Go-only runtime state. Use this for Umans-style API keys.
 func WithBearerTokenSource(source credentials.BearerTokenSource) EngineOption {
 	return func(e *ClaudeEngine) {
 		e.bearerTokenSource = source
+	}
+}
+
+// WithOAuthBearerTokenSource resolves an Anthropic subscription token at
+// request time and uses the provider's bearer-plus-Claude-Code identity form.
+func WithOAuthBearerTokenSource(source credentials.BearerTokenSource) EngineOption {
+	return func(e *ClaudeEngine) {
+		e.bearerTokenSource = source
+		e.oauthBearerMode = true
 	}
 }
 

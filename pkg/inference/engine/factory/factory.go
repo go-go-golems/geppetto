@@ -150,7 +150,7 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSetting
 	case string(types.ApiTypeClaude), "anthropic":
 		opts := append([]claude.EngineOption(nil), f.claudeOptions...)
 		if f.bearerTokenSource != nil {
-			opts = append(opts, claude.WithBearerTokenSource(f.bearerTokenSource))
+			opts = append(opts, claude.WithOAuthBearerTokenSource(f.bearerTokenSource))
 		}
 		return claude.NewClaudeEngine(settings, opts...)
 

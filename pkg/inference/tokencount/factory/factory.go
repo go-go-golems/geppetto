@@ -36,7 +36,7 @@ func NewFromSettingsWithBearerTokenSource(ss *settings.InferenceSettings, source
 		return openai_responses.NewTokenCounter(ss), nil
 	case string(types.ApiTypeClaude), "anthropic":
 		if source != nil {
-			return claude.NewTokenCounter(ss, claude.WithTokenCountBearerTokenSource(source)), nil
+			return claude.NewTokenCounter(ss, claude.WithTokenCountOAuthBearerTokenSource(source)), nil
 		}
 		return claude.NewTokenCounter(ss), nil
 	default:

@@ -53,6 +53,7 @@ type Client struct {
 	httpClient          *http.Client
 	apiKey              string
 	bearerAuthorization string
+	oauthMode           bool
 	APIVersion          string
 	BaseURL             string
 	outboundURLOptions  security.OutboundURLOptions
@@ -83,6 +84,16 @@ func (c *Client) SetBearerAuthorization(value string) {
 	}
 }
 
+// SetOAuthBearerAuthorization configures Anthropic subscription OAuth mode:
+// bearer authorization plus the Claude Code identity/beta headers observed in
+// the provider implementation. It deliberately does not send x-api-key.
+func (c *Client) SetOAuthBearerAuthorization(value string) {
+	if c != nil {
+		c.bearerAuthorization = value
+		c.oauthMode = true
+	}
+}
+
 func (c *Client) SetHTTPClient(httpClient *http.Client) {
 	if httpClient == nil {
 		return
@@ -103,9 +114,16 @@ func (c *Client) outboundOptions() security.OutboundURLOptions {
 
 // Helper function to set necessary headers
 func (c *Client) setHeaders(req *http.Request) {
-	req.Header.Set("x-api-key", c.apiKey)
-	if c.bearerAuthorization != "" {
+	if c.oauthMode {
 		req.Header.Set("Authorization", "Bearer "+c.bearerAuthorization)
+		req.Header.Set("anthropic-beta", "claude-code-20250219,oauth-2025-04-20")
+		req.Header.Set("user-agent", "claude-cli/geppetto")
+		req.Header.Set("x-app", "cli")
+	} else {
+		req.Header.Set("x-api-key", c.apiKey)
+		if c.bearerAuthorization != "" {
+			req.Header.Set("Authorization", "Bearer "+c.bearerAuthorization)
+		}
 	}
 	req.Header.Set("anthropic-version", c.APIVersion)
 	req.Header.Set("Content-Type", "application/json")

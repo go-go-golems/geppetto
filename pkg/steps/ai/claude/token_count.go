@@ -17,6 +17,7 @@ import (
 type TokenCounter struct {
 	settings          *settings.InferenceSettings
 	bearerTokenSource credentials.BearerTokenSource
+	oauthBearerMode   bool
 }
 
 // TokenCounterOption configures request-time authentication for token counting.
@@ -25,6 +26,15 @@ type TokenCounterOption func(*TokenCounter)
 // WithTokenCountBearerTokenSource supplies a Go-only request-time credential source.
 func WithTokenCountBearerTokenSource(source credentials.BearerTokenSource) TokenCounterOption {
 	return func(counter *TokenCounter) { counter.bearerTokenSource = source }
+}
+
+// WithTokenCountOAuthBearerTokenSource selects Anthropic subscription OAuth
+// header semantics for token counting.
+func WithTokenCountOAuthBearerTokenSource(source credentials.BearerTokenSource) TokenCounterOption {
+	return func(counter *TokenCounter) {
+		counter.bearerTokenSource = source
+		counter.oauthBearerMode = true
+	}
 }
 
 func NewTokenCounter(s *settings.InferenceSettings, opts ...TokenCounterOption) *TokenCounter {
@@ -75,7 +85,11 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 	}
 
 	client := api.NewClient(apiKey, baseURL)
-	client.SetBearerAuthorization(bearerAuthorization)
+	if tc.oauthBearerMode {
+		client.SetOAuthBearerAuthorization(bearerAuthorization)
+	} else {
+		client.SetBearerAuthorization(bearerAuthorization)
+	}
 	client.SetOutboundURLOptions(settings.OutboundURLOptions(tc.settings.API, "claude"))
 	if tc.settings.Client != nil && tc.settings.Client.HTTPClient != nil {
 		client.SetHTTPClient(tc.settings.Client.HTTPClient)
