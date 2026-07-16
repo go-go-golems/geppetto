@@ -1,0 +1,739 @@
+---
+Title: Investigation diary
+Ticket: GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS
+Status: active
+Topics:
+    - geppetto
+    - oauth
+    - credentials
+    - security
+DocType: reference
+Intent: long-term
+Owners:
+    - manuel
+RelatedFiles:
+    - Path: repo://pkg/steps/ai/credentials/lifecycle.go
+      Note: Reusable redacted status and local logout primitives
+    - Path: repo://pkg/steps/ai/credentials/oauth/state.go
+      Note: Reusable OAuth state generation and validation
+    - Path: repo://pkg/steps/ai/openai_responses/request_transport.go
+      Note: Responses core route middleware and debug redaction integration
+    - Path: repo://pkg/steps/ai/providers/openaicodex/codex.go
+      Note: Typed Codex route and credential middleware
+    - Path: repo://pkg/steps/ai/providers/openaicodex/codex_test.go
+      Note: Fake transport Codex contract coverage
+    - Path: repo://pkg/steps/ai/providers/umans/umans.go
+      Note: Explicit Umans API-key Claude binding
+    - Path: repo://pkg/steps/ai/transport/transport.go
+      Note: Restricted Go-only provider route and request-response middleware contracts
+    - Path: repo://pkg/steps/ai/transport/transport_test.go
+      Note: Security and ordering regression coverage for transport contracts
+    - Path: repo://ttmp/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS--provider-specific-adapters-for-pi-subscription-credentials/design-doc/01-pi-subscription-credentials-in-geppetto-analysis-adapter-design-and-implementation-guide.md
+      Note: Primary evidence-backed architecture and plan
+    - Path: repo://ttmp/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS--provider-specific-adapters-for-pi-subscription-credentials/sources/01-local-pi-and-geppetto-source-map.md
+      Note: Provider source evidence summary
+    - Path: ws://pinocchio/pkg/cmds/profilebootstrap/oauth.go
+      Note: Pinocchio Claude OAuth profile binding
+ExternalSources: []
+Summary: Chronological evidence for designing provider-specific Pi subscription credential support without exposing credential material.
+LastUpdated: 2026-07-14T21:52:00-04:00
+WhatFor: Record the research, design decisions, validation, and delivery of the Pi subscription credential adapter guide.
+WhenToUse: Read before resuming implementation or assessing whether a provider contract is safe to support.
+---
+
+
+
+
+
+# Diary
+
+## Goal
+
+Capture the evidence and design required to evaluate Pi-managed provider credentials in Geppetto without turning a token-shaped local record into an assumed inference contract.
+
+## Step 1: Establish provider contracts and Geppetto boundaries
+
+The investigation began after recognizing that public marketing/API documentation was not sufficient evidence for the locally installed Pi providers. I examined Pi’s installed authentication and provider implementations using a redacted structural view of the auth store and source-code references, then compared those behaviors against Geppetto’s existing renewable bearer, OpenAI, Responses, Claude, factory, and JavaScript seams.
+
+The result is a deliberately provider-specific design. OpenAI Codex and Claude have real renewable flows in Pi, but their transports do not fit the existing bearer-only OpenAI injection path unchanged. Umans’ Pi record looks OAuth-shaped but is an API key persisted through a no-op refresh shim. The guide makes these distinctions explicit and requires fake-server contracts before any real account request.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Ok, create a new docmgr ticket (in geppetto) and analyze and research and design and document and plan this.
+
+Create  a detailed analysis / design / implementation guide that is for a new intern, explaining all the parts of the system needed to understand what it is, with prose paragraphs and bullet point sand pseudocode and diagrams and api references and file references. It should be very clear and technical. Store in the ticket and the nupload to remarkable."
+
+**Assistant interpretation:** Create a new Geppetto ticket containing an evidence-backed, intern-oriented analysis and implementation plan for safely supporting Pi-originated provider credentials, then publish the documentation as a reMarkable bundle.
+
+**Inferred user intent:** Replace assumption-based provider triage with a clear technical roadmap that explains the current architecture, security boundaries, protocol differences, and a safe path to implementation.
+
+### What I did
+
+- Created `GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS` with a design document, this diary, tasks, and a local source map.
+- Inspected Pi `AuthStorage` refresh locking and provider registration behavior without printing any credential values.
+- Inspected Pi’s installed OpenAI Codex OAuth and transport code, including PKCE/device login, refresh behavior, Codex response path construction, and required header names.
+- Inspected Pi’s Anthropic OAuth flow and Umans extension behavior.
+- Inspected Geppetto’s renewable bearer interfaces, factory propagation, OpenAI/Responses request construction, Claude static-key request construction, and Go-only JavaScript source injection boundary.
+- Wrote an implementation guide with diagrams, typed API sketches, pseudocode, decisions, phased plan, tests, risks, and review questions.
+
+### Why
+
+The existing Geppetto renewable bearer abstraction intentionally models only a token returned at request time. That is enough for OpenAI-compatible services but not automatically enough for a provider that requires a special endpoint, account metadata, extra headers, or a separate message protocol. The design needed to distinguish credential acquisition from the complete inference transport.
+
+### What worked
+
+- Pi source gives concrete evidence that its auth store serializes login results and performs locked refreshes for expired OAuth records.
+- Pi source establishes that OpenAI Codex uses a ChatGPT backend and Codex-specific request mechanics rather than a generic OpenAI Responses endpoint.
+- Pi source establishes that Claude uses renewable OAuth while Geppetto’s Claude engine currently uses static `x-api-key` behavior.
+- Pi’s Umans extension explicitly documents API-key prompting and a no-op refresh, resolving the earlier ambiguity.
+- Geppetto’s existing host-injected bearer and Go-only JavaScript design provide a strong boundary to preserve.
+
+### What didn't work
+
+The earlier public-document-only provider triage was incomplete: it did not inspect the installed Pi provider implementations, so it incorrectly treated the absence of a public generic contract as evidence that no local provider flow existed. The correction is documented as an evidence distinction: Pi implements usable flows, but those flows still do not prove compatibility with Geppetto’s existing generic engines.
+
+No real provider request was attempted. This was intentional: no selected provider has yet passed a fake-server contract suite, host ownership review, and explicit account-use approval.
+
+### What I learned
+
+- OAuth-shaped storage fields do not define an inference transport or even prove a real refresh protocol.
+- The OpenAI Codex case requires more than bearer renewal: the target path and companion headers are part of the protocol contract.
+- A provider-specific adapter can be secure only when URL validation happens before it releases credential material and no runtime capability becomes profile or JavaScript data.
+- Umans should be designed as an Anthropic Messages/API-key compatibility case, not a renewable OAuth integration.
+
+### What was tricky to build
+
+The main difficulty was separating what source evidence proves from what it merely suggests. Pi’s source proves how Pi currently logs in, refreshes, and sends requests; it does not guarantee that the upstream endpoint is a stable external contract or that Geppetto can safely send the same requests. The design resolves this by requiring provider-specific fake-server tests before code and explicit user approval before any live smoke.
+
+A second sharp edge is interface design. Extending `BearerTokenSource` into a general arbitrary request callback would let credential logic alter a request after URL validation, creating an exfiltration risk. The proposed approach instead uses a dedicated engine for Codex and only typed, copied, engine-controlled authentication data where a shared seam is justified.
+
+### What warrants a second pair of eyes
+
+- Review whether ChatGPT Codex transport support is appropriate in Geppetto at all given endpoint stability and account policy.
+- Review whether a host should ever directly read Pi’s private auth storage rather than using a broker owned by Pi.
+- Review the eventual Claude subscription request-header contract against an approved provider source before dynamic Claude authentication is implemented.
+- Review all token-count and non-streaming paths together; partial renewable support would produce inconsistent behavior.
+
+### What should be done in the future
+
+- Implement Phase 0 and Phase 1 fake-server contract tests before adding a Codex transport.
+- Design any Pi storage bridge in Pinocchio or another host, never in Geppetto core.
+- Audit Claude request semantics and all Claude outbound paths before adding a dynamic source.
+- Run a secret-safe, explicitly authorized live smoke only after the corresponding provider contract is accepted.
+
+### Code review instructions
+
+- Start with `sources/01-local-pi-and-geppetto-source-map.md` and Sections 2–5 of the design document.
+- Compare `pkg/steps/ai/credentials/bearer.go` with the Codex and Claude source maps to understand why a bearer string is not the complete solution.
+- Verify the proposed API remains Go-only and that no profile or JavaScript API is proposed for tokens, headers, account metadata, or refresh callbacks.
+- Validate documentation metadata with `docmgr doctor --ticket GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS --stale-after 30`.
+
+### Technical details
+
+Evidence commands included:
+
+```bash
+nl -ba pkg/steps/ai/credentials/bearer.go | sed -n '1,300p'
+rg -n 'BearerTokenSource|NewEngineFromSettings' pkg/inference/engine/factory/factory.go -C 5
+rg -n 'Authorization|x-api-key|apiKey|NewClaudeEngine' pkg/steps/ai/claude -g '*.go' -C 3
+```
+
+Pi evidence was read from its installed source and summarized only in `sources/01-local-pi-and-geppetto-source-map.md`. No access token, refresh token, authorization code, client secret, account value, or local auth-file value was copied into this ticket.
+
+## Step 2: Validate, commit, and deliver the research bundle
+
+The design, diary, source map, task list, ticket index, and changelog were validated and committed as one focused documentation phase. The finished material was then bundled into a single PDF with a table of contents and uploaded to the ticket-specific reMarkable directory.
+
+The delivery bundle intentionally contains only reviewable prose and the redacted evidence map. It does not include provider configuration files, Pi auth storage, source-code archives, or any credential-bearing test fixture.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Validate the completed research ticket, record the delivery evidence, and publish an accessible review bundle.
+
+**Inferred user intent:** Make the resulting technical design straightforward to review away from the terminal while preserving the credential boundary.
+
+**Commit (docs):** f9b0d2cc — "docs: design Pi subscription credential adapters"
+
+### What I did
+
+- Ran frontmatter validation on the design and diary documents.
+- Ran `docmgr doctor --ticket GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS --stale-after 30`; all checks passed.
+- Committed the ticket documentation, source map, tasks, index, and changelog.
+- Ran the required reMarkable bundle dry run with design, diary, and source map inputs.
+- Uploaded the resulting bundle to `/ai/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS`.
+
+### Why
+
+The deliverable must be auditable before it is published. Bundling the guide with its diary and evidence index gives a reviewer the architectural conclusions, the reasoning trail, and the source references in one navigable artifact without bundling local secret storage.
+
+### What worked
+
+- Both document frontmatters validated successfully.
+- Ticket doctor reported all checks passed.
+- The dry run identified the correct three inputs and target path.
+- The upload completed successfully: `OK: uploaded Geppetto Pi Subscription Credential Adapters.pdf -> /ai/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS`.
+
+### What didn't work
+
+N/A. No credential-bearing artifact was requested or needed for the bundle.
+
+### What I learned
+
+A source map is sufficient for a research deliverable when the original local sources include credential-adjacent behavior. It preserves reproducibility and reviewability without duplicating machine-specific files or secret values into a portable PDF.
+
+### What was tricky to build
+
+The bundle needed to include enough evidence for an intern to verify conclusions without including the installed provider code or local auth storage. The solution was to include a short redacted source map alongside precise paths and line ranges in the design document, then bundle that map with the diary and guide.
+
+### What warrants a second pair of eyes
+
+- Verify that the proposed experimental Codex transport is desirable before opening an implementation ticket.
+- Verify the selected reMarkable directory is the desired long-term location for this Geppetto research packet.
+
+### What should be done in the future
+
+- Create a follow-up implementation ticket only after the Codex/Claude contract and host ownership questions are accepted.
+- Keep a future live-smoke record separate from this research document and redact it to outcome-level evidence.
+
+### Code review instructions
+
+- Review the PDF bundle or the three source Markdown files together.
+- Confirm that the guide names no secret values and that the source map explicitly excludes auth-file contents.
+- Run `docmgr doctor --ticket GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS --stale-after 30` before changing ticket status.
+
+### Technical details
+
+The bundle command used `remarquee upload bundle` with `--toc-depth 2` and `--non-interactive`. The dry run completed before the actual upload, as required by the ticket delivery workflow.
+
+## Step 3: Reframe lifecycle ownership for reuse beyond Pinocchio
+
+The first design correctly kept Pi storage out of Geppetto, but assigned too much provider login and refresh behavior to every host. The requested architecture instead makes Geppetto a reusable provider-credential library: it supplies supported provider protocol mechanics and secure lifecycle building blocks, while Pinocchio remains one concrete application binding those building blocks to direct YAML and its CLI.
+
+The revised guide now distinguishes provider mechanics from application policy. Geppetto may implement PKCE/state, exchange, refresh, redacted status, local delete, typed request authentication, and provider transports. Pinocchio decides where the credential is stored, which profile is selected, how a browser is presented, whether a Pi record may be migrated, and how output is rendered.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Ok, update the design, reupload to remarkable"
+
+**Assistant interpretation:** Amend the research ticket to make reusable Geppetto lifecycle/provider primitives the primary architecture, then deliver the revised documentation bundle.
+
+**Inferred user intent:** Ensure package users besides Pinocchio can safely reuse provider login, refresh, status, logout, and transport functionality without taking a dependency on Pi or Pinocchio storage.
+
+### What I did
+
+- Rewrote the executive architecture, decisions, diagrams, contracts, implementation phases, risks, and intern checklist in the design guide.
+- Added a proposed Geppetto lifecycle surface consisting of `Store`, `ProviderFlow`, `Login`, `StatusOf`, `Logout`, and a host-provided `Presenter`.
+- Documented Pinocchio’s role as a direct-YAML store adapter and Glazed CLI/UI binding, with optional explicit Pi migration.
+- Reopened the ticket documentation status and added follow-up delivery bookkeeping before publishing the revised bundle.
+
+### Why
+
+Provider PKCE, code exchange, refresh rotation, redacted status, and typed provider transport behavior are reusable Go functionality. Reimplementing them in each host would create duplicate security-sensitive code. Conversely, allowing Geppetto to discover local files or make browser/consent choices would make the library application-specific and unsafe.
+
+### What worked
+
+- The existing design already separated Pi’s private file format from Geppetto, so the revision could preserve all secret-boundary and transport-contract safeguards.
+- The new split maps cleanly onto existing Pinocchio components: its direct YAML store remains host-owned, while the future provider protocol implementation can be shared.
+
+### What didn't work
+
+The first version’s statement that the host should own the provider refresh protocol was too restrictive for the intended reusable package API. It would require every Geppetto host to recreate OAuth-sensitive behavior and did not match the desired relationship between Geppetto and Pinocchio.
+
+### What I learned
+
+The correct stable abstraction boundary is not “host owns all credentials” versus “library owns all credentials.” It is: Geppetto owns reusable provider and lifecycle mechanics; hosts own credential placement, identity selection, interaction, and consent policy.
+
+### What was tricky to build
+
+The key design challenge was preserving the security reason for host ownership while moving reusable protocol code into Geppetto. The resolved boundary uses host-injected `Store` and `Presenter` interfaces. That lets the library perform a provider flow without selecting a filesystem path or launching a browser, and lets Pinocchio reuse the flow without exposing a credential capability to profiles or JavaScript.
+
+### What warrants a second pair of eyes
+
+- Review the proposed lifecycle API for correct error/redaction and concurrency semantics before public API commitment.
+- Review whether a generic explicit-path file-store helper belongs in Geppetto or should remain a host implementation.
+- Review each provider’s terms and transport stability before a provider package is shipped.
+
+### What should be done in the future
+
+- Turn the proposed lifecycle interfaces into a focused Geppetto implementation ticket with fake flow/store tests.
+- Follow with a Pinocchio binding ticket that replaces duplicated lifecycle protocol code without changing its direct-YAML ownership model.
+- Design any Pi migration separately, with explicit consent and no shared mutable credential ownership.
+
+### Code review instructions
+
+- Start at the revised Executive summary and Section 5 of the design guide.
+- Verify that `ProviderFlow` is provider-specific but `Store` and `Presenter` remain host-injected.
+- Verify that no filesystem discovery, browser launch, profile selection, or JavaScript secret capability is moved into Geppetto.
+- Run `docmgr doctor --ticket GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS --stale-after 30` after the delivery updates.
+
+### Technical details
+
+The revised architecture retains the existing exact-loopback/PKCE-S256, state-validation, locking, atomic rotation, URL-before-token, bounded-401-replay, and no-JavaScript-credential invariants. It moves only reusable provider/lifecycle mechanics into Geppetto.
+
+## Step 4: Validate and publish the revised architecture
+
+The amended guide passed frontmatter and ticket health validation, then was rendered as a new reMarkable bundle. It uses a distinct bundle name so the prior research artifact is preserved rather than force-overwriting a potentially annotated document.
+
+The new bundle presents the corrected reusable-lifecycle architecture alongside the diary and redacted source map. The reMarkable output remains free of credentials and provider auth-file contents.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 3)
+
+**Assistant interpretation:** Complete the revised design’s validation and make the corrected architecture available on reMarkable.
+
+**Inferred user intent:** Ensure the portable review artifact reflects the intended relationship: Geppetto is reusable provider/lifecycle infrastructure and Pinocchio is one storage/UI client.
+
+### What I did
+
+- Ran `docmgr doctor --ticket GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS --stale-after 30`; all checks passed.
+- Ran the required dry run for the revised three-document bundle.
+- Uploaded `Geppetto Provider Credential Lifecycle Adapters.pdf` to the ticket directory without force-overwriting the prior bundle.
+
+### Why
+
+A different document name avoids silently deleting annotations on the earlier upload while making the architectural revision independently reviewable.
+
+### What worked
+
+- Ticket doctor passed cleanly.
+- The dry run listed the design, diary, and redacted source map with the expected target.
+- Upload completed successfully: `OK: uploaded Geppetto Provider Credential Lifecycle Adapters.pdf -> /ai/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS`.
+
+### What didn't work
+
+N/A. The replacement bundle was uploaded under a new clear name rather than using `--force`, because a force overwrite can discard existing annotations.
+
+### What I learned
+
+Reuploading a revised review packet does not require destructive replacement. Naming the corrected bundle after its actual architectural content preserves both the original research record and the corrected decision.
+
+### What was tricky to build
+
+The desired behavior was a reupload, but the upload tool’s `--force` option deletes an existing document and annotations. The solution was to retain the same ticket directory while choosing a distinct bundle name; this provides the updated material without making an irreversible assumption about annotations.
+
+### What warrants a second pair of eyes
+
+- Confirm whether the earlier Pi-focused bundle should eventually be archived or kept alongside the revised lifecycle-focused packet.
+- Review the public API proposal before any Geppetto implementation starts.
+
+### What should be done in the future
+
+- Open a focused implementation ticket for Geppetto lifecycle primitives and provider modules when the API direction is accepted.
+- Open a separate Pinocchio adapter/migration ticket afterward.
+
+### Code review instructions
+
+- Read the reMarkable bundle named `Geppetto Provider Credential Lifecycle Adapters` or its three Markdown inputs.
+- Confirm the guide assigns provider flow mechanics to Geppetto and storage/UI policy to hosts.
+- Verify no secret-bearing file was included in the bundle.
+
+### Technical details
+
+The upload used `remarquee upload bundle` with `--toc-depth 2` and `--non-interactive`, targeting `/ai/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS`.
+
+## Step 5: Replace the isolated Codex engine with restricted shared-core middleware
+
+The previous revision placed reusable lifecycle behavior in Geppetto but still proposed a dedicated Codex engine. The architecture now instead treats Codex as a trusted route resolver and request/response middleware installed on Geppetto’s shared OpenAI Responses core. This preserves the core’s request construction, URL validation, retry orchestration, and stream ownership while containing Codex-only credential headers in one small provider component.
+
+The middleware is deliberately narrower than an arbitrary request hook. It receives a read-only post-validation request context and a header writer constrained by engine-declared names; it cannot rewrite URLs, bodies, host/framing headers, or streaming response bodies. The response hook can classify a response and request one bounded retry, but the engine core remains responsible for closing, replaying, and decoding the stream.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, update the design ticket with this"
+
+**Assistant interpretation:** Record the shared engine core plus restricted provider route/middleware architecture as the ticket’s proposed implementation direction.
+
+**Inferred user intent:** Avoid a large duplicated Codex engine while keeping provider-specific credential header injection secure, explicit, and reusable by OpenAI and Anthropic engine paths.
+
+### What I did
+
+- Replaced the dedicated-Codex-engine decision with a trusted Codex route resolver and request/response middleware over the shared Responses core.
+- Added proposed `RouteResolver`, `Middleware`, `HeaderWriter`, request context, response metadata, and bounded response-decision contracts.
+- Replaced Codex and Claude pseudocode with middleware ordering and security invariants.
+- Reworked implementation phases, fake-server tests, test matrix, and review questions around shared core behavior and optional stream codecs.
+
+### Why
+
+Codex credential handling needs only a few provider-specific headers, a fixed route, and a 401 refresh classification. Duplicating the entire OpenAI Responses engine would duplicate cancellation, request construction, retry, and stream logic that should remain consistent across providers.
+
+### What worked
+
+- The current design’s strict Go-only credential boundary maps directly to middleware installed through typed engine options.
+- Separating route resolution, header injection, and stream decoding makes the security order explicit: final URL validation precedes credential acquisition, and response-body ownership remains with the core.
+
+### What didn't work
+
+The earlier dedicated-engine proposal would likely duplicate hundreds or thousands of existing OpenAI Responses lines solely to carry Codex route and header behavior. A fully mutable `func(*http.Request)` middleware alternative was also rejected because it could bypass URL validation or mutate framing/body behavior.
+
+### What I learned
+
+A reusable middleware seam is safe only when it is not a generic request mutator. The appropriate abstraction exposes a read-only request context, a header-only writer with a static allowlist, and structured response decisions; it never hands middleware the raw stream body or settings-derived configuration.
+
+### What was tricky to build
+
+The difficult part was retaining a shared core without making Codex credential behavior invisible or overly powerful. The solution is a two-stage pipeline: the route resolver runs before final URL validation, then the credential middleware runs only after validation. This prevents a token-bearing middleware from selecting its destination, while still avoiding a duplicated engine.
+
+### What warrants a second pair of eyes
+
+- Review the final public/internal package boundary for the middleware seam before implementation.
+- Review header-conflict precedence when multiple trusted middlewares are installed.
+- Review the exact response-decision API so middleware cannot cause unbounded retries or consume a stream.
+
+### What should be done in the future
+
+- Build middleware ordering and header-writer fake tests before extracting production code.
+- Prove Codex request/SSE compatibility with the existing Responses core; add a provider stream codec only if evidence requires it.
+- Apply the same constrained middleware model to Anthropic only after its contract tests are complete.
+
+### Code review instructions
+
+- Start with Sections 5.1, 5.3, and 5.4 of the design guide.
+- Verify that `RouteResolver` executes before final URL validation and `Middleware.BeforeRequest` after it.
+- Verify middleware cannot alter URL/body/stream and that only core-owned code performs retries and decoding.
+- Run `docmgr doctor --ticket GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS --stale-after 30` after ticket bookkeeping.
+
+### Technical details
+
+The proposed Codex adapter consists of a fixed route resolver, a typed `CodexCredentialSource`, an allowlisted `HeaderWriter`, and `AfterResponse` classification. The shared Responses core creates and validates the request, calls middleware, and performs at most one pre-output replay.
+
+## Step 6: Keep the research ticket as the implementation tracker
+
+The ticket was initially closed after documenting the architecture, but the work now has a coherent phased plan and should remain the active tracker. A separate ticket would be useful only if the implementation becomes too large for one reviewable workstream; it is not required by the architecture or by docmgr.
+
+The ticket is now active with seven implementation tasks. They sequence the shared middleware foundation before provider-specific work, preserve lifecycle work as reusable Geppetto functionality, and keep the Pinocchio direct-YAML binding and any Pi migration explicitly separate from core protocol work.
+
+### Prompt Context
+
+**User prompt (verbatim):** "cam we add the tasks to the current ticket, or why do you want a separate one?"
+
+**Assistant interpretation:** Use the existing research/design ticket as the active implementation tracker rather than splitting the planned work into a new ticket.
+
+**Inferred user intent:** Preserve continuity between the technical rationale, decisions, task plan, and eventual implementation evidence.
+
+### What I did
+
+- Reopened the ticket status to active.
+- Added seven ordered tasks for middleware contracts, Responses-core wiring, Codex, lifecycle primitives, Anthropic/Umans, Pinocchio binding, and final validation/live-smoke gating.
+- Updated the changelog to record the ticket’s role as the active implementation tracker.
+- Ran ticket health validation successfully.
+
+### Why
+
+The design, source evidence, and future implementation tasks all concern the same credential-lifecycle architecture. Keeping them together improves traceability for an implementer and avoids splitting decisions from the task checklist that realizes them.
+
+### What worked
+
+- The existing ticket already contained phased implementation guidance and a diary, so it could become the tracker without restructuring documentation.
+- The added task ordering makes the dependencies explicit: no Codex adapter before the restricted middleware security foundation, and no live smoke before provider-specific validation.
+
+### What didn't work
+
+N/A. The earlier suggestion of a separate implementation ticket was organizational caution, not a technical requirement.
+
+### What I learned
+
+A ticket should be split when independent delivery/review streams need separate ownership or timelines, not merely because a design transitions into implementation. Here, one active ticket provides a clearer continuity record.
+
+### What was tricky to build
+
+The task plan spans Geppetto and Pinocchio without making their ownership ambiguous. The sequence solves this by placing reusable middleware/lifecycle/provider work first, then treating Pinocchio direct-YAML storage and CLI integration as an explicit host binding task, not as part of Geppetto core.
+
+### What warrants a second pair of eyes
+
+- Confirm the seven-task order matches desired implementation priority.
+- Confirm whether the Pinocchio binding task should stay in this cross-repository ticket or move later if it needs an independent release timeline.
+
+### What should be done in the future
+
+- Start task `79md` before provider-specific implementation.
+- Keep each completed task accompanied by focused tests, diary evidence, file relations, and a changelog update.
+
+### Code review instructions
+
+- Review `tasks.md` against Sections 5–7 of the design guide.
+- Begin implementation with task `79md`; do not begin Codex header work before the route/middleware ordering and allowlist tests exist.
+- Run `docmgr doctor --ticket GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS --stale-after 30` after task updates.
+
+### Technical details
+
+The active task IDs are `79md`, `idw2`, `4rvt`, `ml0f`, `acua`, `m1dp`, and `kd0z`. The last task explicitly gates any live smoke on prior validation and approval.
+
+## Step 7: Publish a clean middleware-architecture review PDF
+
+The earlier reMarkable bundles predated the shared-core middleware decision or included supporting diary and source-map material. A design-only PDF was therefore rendered and uploaded so review can focus on the current middleware architecture without the historical investigation narrative.
+
+The PDF uses a distinct name in the same ticket directory. It preserves earlier artifacts and their possible annotations while making the revised design immediately discoverable.
+
+### Prompt Context
+
+**User prompt (verbatim):** "haveyou uploaded a clean updated design doc for the new approach with middleware for me to review?"
+
+**Assistant interpretation:** Verify whether the final middleware design has been delivered in a clean review format and publish it if it has not.
+
+**Inferred user intent:** Review the current proposed architecture independently from prior design versions and research history.
+
+### What I did
+
+- Confirmed the prior reMarkable upload predated the middleware revision.
+- Ran a dry run for a design-only bundle.
+- Uploaded `Geppetto Provider Middleware Architecture.pdf` containing only the current design guide.
+
+### Why
+
+A clean design-only artifact makes architectural review faster and avoids requiring a reviewer to distinguish superseded diary discussion from the current proposal.
+
+### What worked
+
+- The dry run selected only the design guide and the intended ticket directory.
+- Upload completed successfully: `OK: uploaded Geppetto Provider Middleware Architecture.pdf -> /ai/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS`.
+
+### What didn't work
+
+N/A. The upload emitted a non-fatal remote-tree refresh warning before succeeding; no further cloud listing was needed because the command returned success.
+
+### What I learned
+
+A separately named design-only PDF is preferable to overwriting a previous review bundle when the architecture changes substantially and previous files may hold annotations.
+
+### What was tricky to build
+
+The review artifact needed to be current without deleting prior material. The upload used a new descriptive name rather than `--force`, preserving previous bundles while targeting the same ticket directory.
+
+### What warrants a second pair of eyes
+
+- Confirm that the design-only packet is the preferred review artifact before future implementation updates are bundled.
+
+### What should be done in the future
+
+- Re-upload a new clean design-only PDF when implementation changes require a material architecture revision; otherwise keep the existing review artifact stable.
+
+### Code review instructions
+
+- Review `Geppetto Provider Middleware Architecture.pdf` in the ticket’s reMarkable directory.
+- Focus on Sections 5.1, 5.3, 5.4, and Phase 1–2 of the design guide.
+
+### Technical details
+
+The upload used `remarquee upload bundle` with a single Markdown input, `--toc-depth 2`, and `--non-interactive`; it did not use `--force`.
+
+## Step 8: Implement restricted provider transport contracts
+
+The first implementation task established a dedicated `pkg/steps/ai/transport` package for trusted provider route resolution and credential middleware. It deliberately does not reuse Geppetto’s existing inference-turn middleware: this package operates inside a selected provider engine after that engine has chosen its protocol, and it has stricter security boundaries.
+
+The new contracts separate three concerns. A route resolver produces a provider endpoint before core URL validation; request middleware receives only a validated read-only context plus an allowlisted header writer; response middleware sees body-free response metadata and can ask the engine for a bounded retry. The engine will retain ownership of request bodies, response bodies, stream decoding, and retry execution when task `idw2` wires these contracts into OpenAI Responses.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, continue"
+
+**Assistant interpretation:** Begin the active implementation plan with the restricted middleware foundation before adding provider-specific behavior.
+
+**Inferred user intent:** Turn the reviewed middleware design into safe, tested Geppetto primitives that can later avoid duplicated Codex, OpenAI, and Anthropic engine code.
+
+**Commit (code):** a5ab5f80 — "feat: add restricted provider transport contracts"
+
+### What I did
+
+- Added `pkg/steps/ai/transport/transport.go` with `RouteResolver`, URL-validation ordering helper, read-only `RequestContext`, `HeaderWriter`, `HeaderSet`, `Middleware`, response decisions, and ordered `Chain`.
+- Added security-focused tests in `pkg/steps/ai/transport/transport_test.go` covering route validation, immutable URL copies, header allowlists, framing/host prohibition, sensitive-header redaction, conflict rejection, response ordering, and invalid decisions.
+- Ran focused package tests, focused race tests, Responses regression tests, and full `make gosec`.
+
+### Why
+
+A full mutable HTTP-request hook would let provider code change a validated destination or request body after the security gate. The restricted transport package permits the actual need—provider-specific credential headers and 401 classification—without exposing that escape hatch.
+
+### What worked
+
+- `HeaderSet` allows only provider-declared header names and redacts declared sensitive values in diagnostic copies.
+- Middleware executes request hooks in registration order and response hooks in reverse order, while the response decision remains only a request to the core rather than an executed retry.
+- `GOWORK=off go test ./pkg/steps/ai/transport ./pkg/steps/ai/openai_responses -count=1`, `GOWORK=off go test -race ./pkg/steps/ai/transport -count=1`, and `GOWORK=off make gosec` passed.
+
+### What didn't work
+
+The first focused test run failed because Go canonicalizes `TE` as `Te`, while the prohibited-header map used the uncanonicalized spelling:
+
+```text
+--- FAIL: TestNewHeaderSet_RejectsUnsafeRules (0.00s)
+    transport_test.go:162: NewHeaderSet("TE") unexpectedly succeeded
+FAIL
+FAIL github.com/go-go-golems/geppetto/pkg/steps/ai/transport 0.003s
+```
+
+I changed the prohibited map key to the canonical `Te` spelling, ran `gofmt`, and reran the normal and race tests successfully.
+
+### What I learned
+
+Header-name policy must use the same canonicalization as `net/http`; otherwise a policy can accidentally leave a variant spelling unblocked. Declaring rules and checking writes through `http.CanonicalHeaderKey` centralizes this behavior.
+
+### What was tricky to build
+
+The main sharp edge was making request context genuinely read-only enough for middleware. An exported `*url.URL` would permit later mutation of a core-selected destination. The implementation keeps URL fields private and returns copies; route resolution also copies its input and copies its output before validation. Middleware can therefore not mutate the engine’s configured base URL or the validated target through the exposed API.
+
+A second sharp edge is header precedence. Multiple trusted middlewares could otherwise silently override one another’s values. `HeaderSet` tracks writes and rejects a distinct second value while permitting an idempotent repeat.
+
+### What warrants a second pair of eyes
+
+- Review whether the public `transport` package should remain public or become an internal package before external consumers depend on it.
+- Review the exact set of prohibited HTTP headers and whether any provider requires a safe exception.
+- Review debug-tap integration in task `idw2` so sensitive middleware headers are redacted before a request is observed.
+
+### What should be done in the future
+
+- Complete task `idw2`: wire the Responses core through these contracts and preserve existing bearer semantics.
+- Add Codex only after the shared core ordering and debug redaction behavior are covered by integration tests.
+
+### Code review instructions
+
+- Start with `pkg/steps/ai/transport/transport.go`, especially `ResolveAndValidate`, `HeaderSet.Set`, and `Chain`.
+- Read `pkg/steps/ai/transport/transport_test.go` to verify the security invariants.
+- Validate with:
+
+```bash
+GOWORK=off go test -race ./pkg/steps/ai/transport -count=1
+GOWORK=off go test ./pkg/steps/ai/transport ./pkg/steps/ai/openai_responses -count=1
+GOWORK=off make gosec
+```
+
+### Technical details
+
+The current package is intentionally not wired into an engine yet. Task `idw2` must call `ResolveAndValidate` before `Chain.BeforeRequest`, create `HeaderSet` from engine-approved rules, invoke `Chain.AfterResponse` before stream consumption, and let the core enforce the one-replay limit.
+
+## Step 9: Wire Responses and add the typed Codex adapter
+
+The shared Responses core now resolves and validates a provider route before credential middleware executes, applies a restricted header set, redacts sensitive middleware headers from the debug tap, and owns the one-replay loop. Existing bearer-source behavior was migrated into an internal middleware without changing its pre-stream-401 semantics.
+
+A new `providers/openaicodex` adapter supplies the fixed Codex route and typed bearer/account header middleware. Its fake transport test proves the shared Responses core sends the Codex path and headers, refreshes once after the first 401, and uses the replacement only on the replay.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 8)
+
+**Assistant interpretation:** Continue through the Responses wiring and Codex implementation tasks without stopping after the middleware foundation.
+
+**Inferred user intent:** Deliver usable shared-core provider behavior rather than a standalone abstraction.
+
+**Commit (code):** d53716f6 — "feat: route Responses through provider middleware"
+
+**Commit (code):** 759635d3 — "feat: add Codex Responses middleware"
+
+### What I did
+
+- Added `openai_responses.RequestTransport` and routed request creation through validated routes, `HeaderSet`, and `Chain`.
+- Preserved static/dynamic bearer and exactly-once 401 behavior with replay-local opaque attempt state.
+- Redacted middleware-sensitive request headers before `DebugTap.OnHTTP`.
+- Added `pkg/steps/ai/providers/openaicodex` with typed source, fixed route, sanctioned headers, and fake transport tests.
+
+### Why
+
+This makes the shared engine core reusable without allowing profiles or JavaScript to mutate provider headers or paths.
+
+### What worked
+
+Focused normal/race tests passed for transport, Responses, and Codex. `make lint` passed after correcting lint violations; full `go test ./...` passed before the Responses commit.
+
+### What didn't work
+
+The initial pre-commit lint run was terminated while rebuilding tooling, then a direct `make lint` exposed lowercase-error-string and predeclared-name violations. Renaming those identifiers and errors made lint pass; no gate was bypassed.
+
+### What I learned
+
+A response middleware needs replay-local prior-attempt state to preserve the legacy contract where `BearerTokenAfterUnauthorized` returns a replacement that a later `BearerToken` call might not repeat.
+
+### What was tricky to build
+
+The retry replacement cannot live on an engine-global middleware because concurrent requests would race. The transport chain now passes each middleware its own prior opaque attempt only on a replay, so the replacement remains request-local.
+
+### What warrants a second pair of eyes
+
+- Review Codex `originator`/user-agent policy against an approved provider contract before live use.
+- Review whether `RequestTransport` should become a stable public API before release.
+
+### What should be done in the future
+
+- Continue with lifecycle primitives, then Anthropic/Umans and Pinocchio binding tasks; no live smoke is authorized yet.
+
+### Code review instructions
+
+- Start with `pkg/steps/ai/openai_responses/request_transport.go` and `pkg/steps/ai/providers/openaicodex/codex.go`.
+- Run `GOWORK=off go test -race ./pkg/steps/ai/transport ./pkg/steps/ai/openai_responses ./pkg/steps/ai/providers/openaicodex -count=1` and `make lint`.
+
+### Technical details
+
+Codex is selected only by installing its typed Go `RequestTransport`; it disables the ordinary bearer middleware and no Codex source or header selector appears in settings or JavaScript.
+
+## Step 10: Complete lifecycle, Umans, Anthropic OAuth, and host binding
+
+The remaining implementation batch is now complete at the library/fixture level. Geppetto exposes redacted credential status, local logout/delete, static-key adaptation, OAuth state generation/validation, Umans dual-auth Claude options, and Anthropic subscription bearer mode. Claude engine and token-count construction can resolve a host-injected source at request time; the factory uses OAuth-specific Anthropic headers when its source is attached. Pinocchio accepts Claude OAuth profiles and routes status/logout through Geppetto lifecycle primitives.
+
+No real provider account was used. The installed Pi and Umans sources were sufficient to capture the structural contracts needed for fake-server tests: Umans uses Anthropic Messages with dual auth; Anthropic subscription OAuth uses bearer auth plus Claude Code identity/beta headers. Live provider smoke remains an explicit approval-gated operational step, not a missing implementation task.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go ahead, do both"
+
+**Assistant interpretation:** Implement both the Umans fake contract/auth binding and Anthropic request-time OAuth support, then validate the combined Geppetto/Pinocchio changes.
+
+**Inferred user intent:** Finish the provider-specific runtime path rather than leaving the discovered contracts as documentation only.
+
+**Commit (code):** 5d67aab6 — "feat: add Anthropic OAuth and Umans auth modes"
+
+**Commit (code):** bbc8597b — "feat: add reusable OAuth state primitives"
+
+**Commit (host):** f8bc772 — "feat: allow Claude OAuth profile binding"
+
+### What I did
+
+- Added `credentials.StaticBearerTokenSource` for explicit API-key provider bindings.
+- Added `providers/umans.ClaudeOptions` and fake-server coverage for `/v1/messages`, Anthropic request shape, dual auth headers, and version header.
+- Added Claude OAuth bearer mode with `Authorization`, Claude Code beta headers, `x-app`, and user-agent identity; suppressed `x-api-key` in OAuth mode.
+- Added request-time source options to Claude inference and token counting, and factory propagation for OAuth profiles.
+- Added reusable cryptographic OAuth `NewState` and constant-time `ValidateState`.
+- Extended Pinocchio OAuth request resolution to support Claude profiles.
+
+### Why
+
+The Umans and Anthropic contracts are not interchangeable. Umans’ API-key shim requires the gateway’s dual-auth form, while Anthropic subscription OAuth uses bearer/Claude-Code identity semantics. Explicit modes prevent one credential string from silently selecting the wrong header contract.
+
+### What worked
+
+- Geppetto focused normal/race tests, lint, and gosec passed.
+- Pinocchio focused profilebootstrap/oauthprofiles/auth tests passed.
+- Pinocchio’s full pre-commit build, generated frontend, lint, vet, and test suite passed for the Claude profile binding commit.
+- No credential value, account ID, authorization code, or client secret entered source, docs, logs, or test fixtures.
+
+### What didn't work
+
+N/A for the implementation and fake-contract validation. A live provider request was intentionally not performed because the ticket’s safety policy requires explicit operational approval and a non-destructive smoke plan.
+
+### What I learned
+
+The same Anthropic Messages wire protocol can require different authentication contracts. Umans accepts an API key in both `x-api-key` and bearer form, while Pi’s Anthropic OAuth path switches to bearer-only plus Claude Code identity headers. Authentication mode must therefore be explicit, not inferred from the endpoint or model name.
+
+### What was tricky to build
+
+The factory’s existing bearer source option was originally documented for OpenAI-compatible engines. Reusing it for Claude required a distinct OAuth mode so host-injected Anthropic subscription tokens do not get emitted as `x-api-key`. The Umans adapter remains an explicit Claude option and is not silently activated by ordinary profile settings.
+
+### What warrants a second pair of eyes
+
+- Review the exact Anthropic OAuth beta/header set against the installed provider version before a release.
+- Review whether the shared factory should expose separate named options for OAuth versus static gateway auth rather than the current provider-specific option composition.
+- Review live-smoke approval, account policy, and endpoint stability independently of these offline tests.
+
+### What should be done in the future
+
+- Run a redacted, explicitly approved live smoke for each provider mode.
+- Publish/release the Geppetto API changes and update Pinocchio’s dependency to the released version rather than relying on the workspace during development.
+- Implement explicit Pi-to-Pinocchio migration only after consent and storage ownership review.
+
+### Code review instructions
+
+- Start with `pkg/steps/ai/claude/api/completion.go`, `pkg/steps/ai/claude/engine_claude.go`, `pkg/steps/ai/providers/umans/umans.go`, `pkg/steps/ai/credentials/oauth/state.go`, and Pinocchio `pkg/cmds/profilebootstrap/oauth.go`.
+- Run Geppetto `GOWORK=off go test ./... -count=1`, `GOWORK=off make gosec`, and `make lint`.
+- Run Pinocchio `go test ./... -count=1` and its pre-commit lint/build hooks.
+
+### Technical details
+
+The completed offline path has three explicit authentication modes: ordinary OpenAI bearer, Umans dual-auth Anthropic API key, and Anthropic subscription OAuth bearer/Claude-Code headers. All remain Go-only runtime capabilities.

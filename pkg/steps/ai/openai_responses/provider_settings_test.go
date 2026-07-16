@@ -5,12 +5,15 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	aitransport "github.com/go-go-golems/geppetto/pkg/steps/ai/transport"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
+	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 type bearerTokenSourceFunc func(context.Context, credentials.Request) (string, error)
@@ -30,6 +33,59 @@ func (f unauthorizedBearerTokenSourceFunc) BearerToken(ctx context.Context, requ
 
 func (f unauthorizedBearerTokenSourceFunc) BearerTokenAfterUnauthorized(ctx context.Context, request credentials.Request, rejected string) (string, error) {
 	return f.unauthorized(ctx, request, rejected)
+}
+
+type fixedResponsesRoute struct {
+	target *url.URL
+}
+
+func (r fixedResponsesRoute) Resolve(aitransport.RouteRequest) (*url.URL, error) {
+	target := *r.target
+	return &target, nil
+}
+
+type capturingResponsesDebugTap struct {
+	header http.Header
+}
+
+func (t *capturingResponsesDebugTap) OnHTTP(request *http.Request, _ []byte) {
+	t.header = request.Header.Clone()
+}
+func (*capturingResponsesDebugTap) OnHTTPResponse(*http.Response, []byte) {}
+func (*capturingResponsesDebugTap) OnSSE(string, []byte)                  {}
+func (*capturingResponsesDebugTap) OnProviderObject(string, any)          {}
+func (*capturingResponsesDebugTap) OnTurnBeforeConversion([]byte)         {}
+
+func testResponsesRequestTransport(t *testing.T, rawURL, apiKey string, source credentials.BearerTokenSource, request credentials.Request) responsesRequestTransport {
+	t.Helper()
+	target, err := url.Parse(rawURL)
+	if err != nil {
+		t.Fatalf("parse target URL: %v", err)
+	}
+	context, err := aitransport.ResolveAndValidate(
+		request.Provider,
+		responsesOperation,
+		target,
+		fixedResponsesRoute{target: target},
+		func(*url.URL) error { return nil },
+	)
+	if err != nil {
+		t.Fatalf("ResolveAndValidate: %v", err)
+	}
+	chain, err := aitransport.NewChain(&responsesBearerMiddleware{
+		api:               &settings.APISettings{APIKeys: map[string]string{"open-responses-api-key": apiKey}},
+		apiType:           types.ApiTypeOpenResponses,
+		source:            source,
+		credentialRequest: request,
+	})
+	if err != nil {
+		t.Fatalf("NewChain: %v", err)
+	}
+	return responsesRequestTransport{
+		request:     context,
+		chain:       chain,
+		headerRules: []aitransport.HeaderRule{{Name: "Authorization", Sensitive: true}},
+	}
 }
 
 func TestOpenResponsesStreamRetriesOneProvider401WithReplacementBearer(t *testing.T) {
@@ -61,13 +117,66 @@ func TestOpenResponsesStreamRetriesOneProvider401WithReplacementBearer(t *testin
 		return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)), Request: request}, nil
 	})}
 
-	response, err := openResponsesStream(context.Background(), client, "https://provider.example.test/v1/responses", []byte(`{"model":"test"}`), "stale-token", source, credentials.Request{Provider: "open-responses", BaseURL: "https://provider.example.test/v1"}, nil)
+	credentialRequest := credentials.Request{Provider: "open-responses", BaseURL: "https://provider.example.test/v1"}
+	response, err := openResponsesStream(context.Background(), client, testResponsesRequestTransport(t, "https://provider.example.test/v1/responses", "stale-token", source, credentialRequest), []byte(`{"model":"test"}`), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer response.Body.Close()
 	if requests != 2 || refreshes != 1 {
 		t.Fatalf("requests=%d refreshes=%d, want 2/1", requests, refreshes)
+	}
+}
+
+func TestOpenResponsesRequestRedactsMiddlewareCredentialsFromDebugTap(t *testing.T) {
+	const secret = "Bearer middleware-secret"
+	source := bearerTokenSourceFunc(func(context.Context, credentials.Request) (string, error) {
+		return "middleware-secret", nil
+	})
+	credentialRequest := credentials.Request{Provider: "open-responses", BaseURL: "https://provider.example.test/v1"}
+	client := &http.Client{Transport: roundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		if got := request.Header.Get("Authorization"); got != secret {
+			t.Fatalf("outbound Authorization = %q, want secret", got)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("data: [DONE]\\n\\n")), Request: request}, nil
+	})}
+	tap := &capturingResponsesDebugTap{}
+	response, err := openResponsesStream(context.Background(), client, testResponsesRequestTransport(t, "https://provider.example.test/v1/responses", "", source, credentialRequest), []byte(`{"model":"test"}`), tap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if tap.header == nil {
+		t.Fatal("debug tap did not receive request")
+	}
+	if got := tap.header.Get("Authorization"); got != "<redacted>" {
+		t.Fatalf("debug Authorization = %q", got)
+	}
+	if strings.Contains(tap.header.Get("Authorization"), "middleware-secret") {
+		t.Fatalf("debug Authorization leaked credential: %q", tap.header.Get("Authorization"))
+	}
+}
+
+func TestResponsesRunInferenceDoesNotResolveBearerBeforeInvalidRoute(t *testing.T) {
+	calls := 0
+	source := bearerTokenSourceFunc(func(context.Context, credentials.Request) (string, error) {
+		calls++
+		return "must-not-be-requested", nil
+	})
+	model := "test-model"
+	engine, err := NewEngine(&settings.InferenceSettings{
+		API:  &settings.APISettings{BaseUrls: map[string]string{"open-responses-base-url": "http://provider.example.test/v1"}},
+		Chat: &settings.ChatSettings{Engine: &model},
+	}, WithBearerTokenSource(source))
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+	_, err = engine.RunInference(context.Background(), &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("hello")}})
+	if err == nil || !strings.Contains(err.Error(), "http scheme is not allowed") {
+		t.Fatalf("RunInference error = %v", err)
+	}
+	if calls != 0 {
+		t.Fatalf("bearer source calls = %d, want 0", calls)
 	}
 }
 
@@ -86,7 +195,8 @@ func TestOpenResponsesStreamDoesNotRetrySecondProvider401(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusUnauthorized, Body: io.NopCloser(strings.NewReader(`{"error":"still unauthorized"}`)), Request: request}, nil
 	})}
 
-	_, err := openResponsesStream(context.Background(), client, "https://provider.example.test/v1/responses", []byte(`{"model":"test"}`), "stale-token", source, credentials.Request{Provider: "open-responses", BaseURL: "https://provider.example.test/v1"}, nil)
+	credentialRequest := credentials.Request{Provider: "open-responses", BaseURL: "https://provider.example.test/v1"}
+	_, err := openResponsesStream(context.Background(), client, testResponsesRequestTransport(t, "https://provider.example.test/v1/responses", "stale-token", source, credentialRequest), []byte(`{"model":"test"}`), nil)
 	if err == nil || !strings.Contains(err.Error(), "status=401") {
 		t.Fatalf("expected second 401 error, got %v", err)
 	}

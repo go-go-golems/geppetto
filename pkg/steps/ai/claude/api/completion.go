@@ -50,11 +50,13 @@ type ErrorDetail struct {
 
 // Client represents the Claude API client.
 type Client struct {
-	httpClient         *http.Client
-	apiKey             string
-	APIVersion         string
-	BaseURL            string
-	outboundURLOptions security.OutboundURLOptions
+	httpClient          *http.Client
+	apiKey              string
+	bearerAuthorization string
+	oauthMode           bool
+	APIVersion          string
+	BaseURL             string
+	outboundURLOptions  security.OutboundURLOptions
 }
 
 const defaultAPIVersion = "2023-06-01"
@@ -70,6 +72,25 @@ func NewClient(apiKey string, baseURL string, apiVersion ...string) *Client {
 		apiKey:     apiKey,
 		BaseURL:    baseURL,
 		APIVersion: version,
+	}
+}
+
+// SetBearerAuthorization adds the verified bearer form for gateways which
+// require it in addition to the Anthropic x-api-key header. It is a Go-only
+// runtime option and is never read from inference settings.
+func (c *Client) SetBearerAuthorization(value string) {
+	if c != nil {
+		c.bearerAuthorization = value
+	}
+}
+
+// SetOAuthBearerAuthorization configures Anthropic subscription OAuth mode:
+// bearer authorization plus the Claude Code identity/beta headers observed in
+// the provider implementation. It deliberately does not send x-api-key.
+func (c *Client) SetOAuthBearerAuthorization(value string) {
+	if c != nil {
+		c.bearerAuthorization = value
+		c.oauthMode = true
 	}
 }
 
@@ -93,7 +114,17 @@ func (c *Client) outboundOptions() security.OutboundURLOptions {
 
 // Helper function to set necessary headers
 func (c *Client) setHeaders(req *http.Request) {
-	req.Header.Set("x-api-key", c.apiKey)
+	if c.oauthMode {
+		req.Header.Set("Authorization", "Bearer "+c.bearerAuthorization)
+		req.Header.Set("anthropic-beta", "claude-code-20250219,oauth-2025-04-20")
+		req.Header.Set("user-agent", "claude-cli/geppetto")
+		req.Header.Set("x-app", "cli")
+	} else {
+		req.Header.Set("x-api-key", c.apiKey)
+		if c.bearerAuthorization != "" {
+			req.Header.Set("Authorization", "Bearer "+c.bearerAuthorization)
+		}
+	}
 	req.Header.Set("anthropic-version", c.APIVersion)
 	req.Header.Set("Content-Type", "application/json")
 }

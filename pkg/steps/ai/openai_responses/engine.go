@@ -8,7 +8,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
-	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -24,6 +23,7 @@ type Engine struct {
 	observer            geppettoobs.Observer
 	observabilityConfig geppettoobs.Config
 	bearerTokenSource   credentials.BearerTokenSource
+	requestTransport    *RequestTransport
 }
 
 func NewEngine(s *settings.InferenceSettings, opts ...EngineOption) (*Engine, error) {
@@ -99,12 +99,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		}
 		return e.settings.API
 	}()
-	url := responsesEndpoint(apiSettings, "/responses")
-	if err := security.ValidateOutboundURL(url, responsesOutboundURLOptions(apiSettings)); err != nil {
-		return nil, errors.Wrap(err, "invalid responses URL")
-	}
-	credentialRequest := credentials.Request{Provider: string(responsesAPIType(e.settings)), BaseURL: responsesBaseURL(apiSettings)}
-	apiKey, err := resolveResponsesBearerToken(ctx, apiSettings, responsesAPIType(e.settings), e.bearerTokenSource)
+	requestTransport, err := e.newRequestTransport(apiSettings)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +144,8 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
 	}
 	runtimeattrib.AddRuntimeAttributionToExtra(metadata.Extra, t)
-	log.Debug().Str("url", url).Int("body_len", len(b)).Msg("Responses: sending request")
+	resolvedURL := requestTransport.request.URL()
+	log.Debug().Str("url", resolvedURL.String()).Int("body_len", len(b)).Msg("Responses: sending request")
 
 	// Attach DebugTap if present on context
 	var tap engine.DebugTap
@@ -160,5 +156,5 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	// Responses always uses streaming internally so provider-to-canonical event
 	// normalization has one lifecycle path. Profiles may still carry chat.stream
 	// for other engines, but this engine forces the request and runtime path.
-	return e.runStreamingInference(ctx, t, httpClient, url, b, apiKey, e.bearerTokenSource, credentialRequest, metadata, tap, startTime, reqBody)
+	return e.runStreamingInference(ctx, t, httpClient, requestTransport, b, metadata, tap, startTime, reqBody)
 }
