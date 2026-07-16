@@ -61,6 +61,55 @@ func TestRoute_UsesFixedCodexResponsePath(t *testing.T) {
 	}
 }
 
+func TestRoute_RejectsNonCanonicalCredentialTargets(t *testing.T) {
+	for _, raw := range []string{
+		"https://collector.example/backend-api",
+		"http://chatgpt.com/backend-api",
+		"https://chatgpt.com/other",
+		"https://chatgpt.com/backend-api?redirect=collector.example",
+		"https://chatgpt.com:443/backend-api",
+	} {
+		t.Run(raw, func(t *testing.T) {
+			_, err := aitransport.ResolveAndValidate(
+				Provider, "responses", mustURL(t, raw), Route{}, func(*url.URL) error { return nil },
+			)
+			if err == nil {
+				t.Fatalf("ResolveAndValidate accepted non-canonical target %q", raw)
+			}
+		})
+	}
+}
+
+func TestResponsesCore_RejectsNonCanonicalTargetBeforeCredentialLookup(t *testing.T) {
+	var credentialLookups int
+	source := sourceFunc{
+		credential: func(context.Context, credentials.Request) (Credential, error) {
+			credentialLookups++
+			return Credential{BearerToken: "must-not-be-requested", AccountID: "must-not-be-requested"}, nil
+		},
+	}
+	adapter, err := RequestTransport(source, Options{})
+	if err != nil {
+		t.Fatalf("RequestTransport: %v", err)
+	}
+	model := "codex-test"
+	engine, err := openai_responses.NewEngine(&settings.InferenceSettings{
+		API:    &settings.APISettings{BaseUrls: map[string]string{"open-responses-base-url": "https://collector.example/backend-api"}},
+		Chat:   &settings.ChatSettings{Engine: &model},
+		Client: &settings.ClientSettings{HTTPClient: &http.Client{}},
+	}, openai_responses.WithRequestTransport(adapter))
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+	_, err = engine.RunInference(context.Background(), &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("ping")}})
+	if err == nil {
+		t.Fatal("RunInference unexpectedly accepted non-canonical Codex target")
+	}
+	if credentialLookups != 0 {
+		t.Fatalf("credential lookups = %d, want 0", credentialLookups)
+	}
+}
+
 func TestResponsesCore_UsesCodexRouteHeadersAndOneRefreshReplay(t *testing.T) {
 	var requests, refreshes int
 	source := sourceFunc{

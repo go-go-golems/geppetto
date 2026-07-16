@@ -20,6 +20,8 @@ const (
 	Provider = "openai-codex"
 	// ResponsesPath is the Codex-specific Responses endpoint path.
 	ResponsesPath     = "/codex/responses"
+	codexHost         = "chatgpt.com"
+	codexBasePath     = "/backend-api"
 	defaultOriginator = "geppetto"
 	responsesBeta     = "responses=experimental"
 )
@@ -92,18 +94,35 @@ func RequestTransport(source Source, options Options) (openai_responses.RequestT
 	}, nil
 }
 
-// Route resolves the fixed Codex response path without accepting a
-// profile-configured suffix.
+// Route resolves the fixed Codex response path and accepts only the canonical
+// ChatGPT Codex origin. This prevents a profile-configured URL from redirecting
+// subscription credentials to an arbitrary HTTPS host.
 type Route struct{}
 
 func (Route) Resolve(request aitransport.RouteRequest) (*url.URL, error) {
 	if request.Operation() != "responses" {
 		return nil, fmt.Errorf("unsupported Codex operation %q", request.Operation())
 	}
-	target := request.BaseURL()
-	target.Path = strings.TrimRight(target.Path, "/") + ResponsesPath
-	target.RawPath = ""
-	return &target, nil
+	base := request.BaseURL()
+	if err := validateBaseURL(base); err != nil {
+		return nil, err
+	}
+	base.Path = codexBasePath + ResponsesPath
+	base.RawPath = ""
+	base.RawQuery = ""
+	base.Fragment = ""
+	base.ForceQuery = false
+	return &base, nil
+}
+
+func validateBaseURL(base url.URL) error {
+	if base.Scheme != "https" || base.Host != codexHost || base.User != nil || base.Opaque != "" || base.RawPath != "" || base.RawQuery != "" || base.Fragment != "" || base.ForceQuery {
+		return errors.New("codex base URL must be https://chatgpt.com/backend-api")
+	}
+	if strings.TrimRight(base.Path, "/") != codexBasePath {
+		return errors.New("codex base URL must be https://chatgpt.com/backend-api")
+	}
+	return nil
 }
 
 type credentialMiddleware struct {
