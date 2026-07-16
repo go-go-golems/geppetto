@@ -29,6 +29,12 @@ This is an evidence index, not a credential export. It was created without readi
 - `.../pi-ai/dist/utils/oauth/anthropic.js:20-20,159-185,290-315`
   - implements authorization-code + PKCE and refresh-token grant handling;
   - requests scopes including inference and Claude Code session capability.
+- `.../pi-ai/dist/providers/anthropic.js:1-20`
+  - registers Anthropic subscription OAuth on the Anthropic Messages API at `https://api.anthropic.com`.
+- `.../pi-ai/dist/api/anthropic-messages.js:600-670`
+  - detects OAuth access tokens by provider token shape and uses bearer authorization rather than `x-api-key`;
+  - adds Claude Code OAuth beta headers, `user-agent`, and `x-app` identity headers;
+  - accepts authorization/header-owned credentials without requiring a static API key.
 
 ## Umans
 
