@@ -197,7 +197,7 @@ func (s *HeaderSet) RedactedCopy() http.Header {
 
 // Attempt is provider-private state paired with one middleware invocation. The
 // transport core stores it opaquely and must never log or serialize it.
-type Attempt any
+type Attempt = any
 
 // AttemptState is an opaque collection of middleware attempt values.
 type AttemptState struct {
@@ -209,6 +209,7 @@ type AttemptState struct {
 type ResponseMetadata struct {
 	StatusCode    int
 	StreamStarted bool
+	RetryEligible bool
 }
 
 // ResponseDecision directs the engine's response handling. The engine, not
@@ -224,9 +225,11 @@ const (
 
 // Middleware is a trusted Go-only provider extension. It may inject declared
 // headers and classify a body-free response; it cannot mutate the final URL or
-// request body, consume a stream, or perform the retry itself.
+// request body, consume a stream, or perform the retry itself. On a replay,
+// BeforeRequest receives its own prior opaque attempt so a source that returned
+// an explicit replacement credential can apply it without shared mutable state.
 type Middleware interface {
-	BeforeRequest(context.Context, RequestContext, HeaderWriter) (Attempt, error)
+	BeforeRequest(context.Context, RequestContext, Attempt, HeaderWriter) (Attempt, error)
 	AfterResponse(context.Context, RequestContext, Attempt, ResponseMetadata) (ResponseDecision, error)
 }
 
@@ -252,17 +255,25 @@ func NewChain(middlewares ...Middleware) (*Chain, error) {
 }
 
 // BeforeRequest applies middleware in registration order and returns opaque
-// values for the matching AfterResponse call.
-func (c *Chain) BeforeRequest(ctx context.Context, request RequestContext, headers HeaderWriter) (AttemptState, error) {
+// values for the matching AfterResponse call. previous must be empty for an
+// initial request or have exactly one attempt per middleware for a replay.
+func (c *Chain) BeforeRequest(ctx context.Context, request RequestContext, previous AttemptState, headers HeaderWriter) (AttemptState, error) {
 	if c == nil {
 		return AttemptState{}, errors.New("nil transport middleware chain")
 	}
 	if headers == nil {
 		return AttemptState{}, errors.New("transport header writer is required")
 	}
+	if len(previous.attempts) != 0 && len(previous.attempts) != len(c.middlewares) {
+		return AttemptState{}, errors.New("transport middleware previous attempt state does not match chain")
+	}
 	attempts := make([]Attempt, 0, len(c.middlewares))
-	for _, middleware := range c.middlewares {
-		attempt, err := middleware.BeforeRequest(ctx, request, headers)
+	for i, middleware := range c.middlewares {
+		var prior Attempt
+		if len(previous.attempts) != 0 {
+			prior = previous.attempts[i]
+		}
+		attempt, err := middleware.BeforeRequest(ctx, request, prior, headers)
 		if err != nil {
 			return AttemptState{}, err
 		}

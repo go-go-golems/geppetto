@@ -169,12 +169,12 @@ func TestNewHeaderSet_RejectsUnsafeRules(t *testing.T) {
 }
 
 type middlewareFunc struct {
-	before func(context.Context, RequestContext, HeaderWriter) (Attempt, error)
+	before func(context.Context, RequestContext, Attempt, HeaderWriter) (Attempt, error)
 	after  func(context.Context, RequestContext, Attempt, ResponseMetadata) (ResponseDecision, error)
 }
 
-func (m middlewareFunc) BeforeRequest(ctx context.Context, request RequestContext, headers HeaderWriter) (Attempt, error) {
-	return m.before(ctx, request, headers)
+func (m middlewareFunc) BeforeRequest(ctx context.Context, request RequestContext, previous Attempt, headers HeaderWriter) (Attempt, error) {
+	return m.before(ctx, request, previous, headers)
 }
 
 func (m middlewareFunc) AfterResponse(ctx context.Context, request RequestContext, attempt Attempt, response ResponseMetadata) (ResponseDecision, error) {
@@ -192,7 +192,10 @@ func TestChain_AppliesRequestForwardAndResponseReverse(t *testing.T) {
 	}
 	var calls []string
 	first := middlewareFunc{
-		before: func(_ context.Context, _ RequestContext, headers HeaderWriter) (Attempt, error) {
+		before: func(_ context.Context, _ RequestContext, previous Attempt, headers HeaderWriter) (Attempt, error) {
+			if previous != nil {
+				t.Fatalf("first middleware received unexpected prior attempt: %#v", previous)
+			}
 			calls = append(calls, "before-first")
 			return "first", headers.Set("X-First", "one")
 		},
@@ -202,7 +205,10 @@ func TestChain_AppliesRequestForwardAndResponseReverse(t *testing.T) {
 		},
 	}
 	second := middlewareFunc{
-		before: func(_ context.Context, _ RequestContext, headers HeaderWriter) (Attempt, error) {
+		before: func(_ context.Context, _ RequestContext, previous Attempt, headers HeaderWriter) (Attempt, error) {
+			if previous != nil {
+				t.Fatalf("second middleware received unexpected prior attempt: %#v", previous)
+			}
 			calls = append(calls, "before-second")
 			return "second", headers.Set("X-Second", "two")
 		},
@@ -219,7 +225,7 @@ func TestChain_AppliesRequestForwardAndResponseReverse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHeaderSet: %v", err)
 	}
-	attempts, err := chain.BeforeRequest(context.Background(), request, headers)
+	attempts, err := chain.BeforeRequest(context.Background(), request, AttemptState{}, headers)
 	if err != nil {
 		t.Fatalf("BeforeRequest: %v", err)
 	}
@@ -246,7 +252,7 @@ func TestChain_RejectsUnknownDecisionAndMismatchedAttemptState(t *testing.T) {
 		t.Fatalf("ResolveAndValidate: %v", err)
 	}
 	middleware := middlewareFunc{
-		before: func(context.Context, RequestContext, HeaderWriter) (Attempt, error) { return nil, nil },
+		before: func(context.Context, RequestContext, Attempt, HeaderWriter) (Attempt, error) { return nil, nil },
 		after: func(context.Context, RequestContext, Attempt, ResponseMetadata) (ResponseDecision, error) {
 			return ResponseDecision(99), nil
 		},
@@ -262,7 +268,7 @@ func TestChain_RejectsUnknownDecisionAndMismatchedAttemptState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHeaderSet: %v", err)
 	}
-	attempts, err := chain.BeforeRequest(context.Background(), request, headers)
+	attempts, err := chain.BeforeRequest(context.Background(), request, AttemptState{}, headers)
 	if err != nil {
 		t.Fatalf("BeforeRequest: %v", err)
 	}
