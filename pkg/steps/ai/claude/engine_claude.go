@@ -28,6 +28,7 @@ type ClaudeEngine struct {
 	toolAdapter         *tools.ClaudeToolAdapter
 	observer            geppettoobs.Observer
 	observabilityConfig geppettoobs.Config
+	bearerAuthorization string
 }
 
 // NewClaudeEngine creates a new Claude inference engine with the given settings and options.
@@ -82,6 +83,7 @@ func (e *ClaudeEngine) RunInference(
 	}
 
 	client := api.NewClient(apiKey, baseURL)
+	client.SetBearerAuthorization(e.bearerAuthorization)
 	client.SetOutboundURLOptions(settings.OutboundURLOptions(apiSettings, string(apiType)))
 	httpClient, err := settings.EnsureHTTPClient(clientSettings)
 	if err != nil {

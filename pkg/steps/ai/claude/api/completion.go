@@ -50,11 +50,12 @@ type ErrorDetail struct {
 
 // Client represents the Claude API client.
 type Client struct {
-	httpClient         *http.Client
-	apiKey             string
-	APIVersion         string
-	BaseURL            string
-	outboundURLOptions security.OutboundURLOptions
+	httpClient          *http.Client
+	apiKey              string
+	bearerAuthorization string
+	APIVersion          string
+	BaseURL             string
+	outboundURLOptions  security.OutboundURLOptions
 }
 
 const defaultAPIVersion = "2023-06-01"
@@ -70,6 +71,15 @@ func NewClient(apiKey string, baseURL string, apiVersion ...string) *Client {
 		apiKey:     apiKey,
 		BaseURL:    baseURL,
 		APIVersion: version,
+	}
+}
+
+// SetBearerAuthorization adds the verified bearer form for gateways which
+// require it in addition to the Anthropic x-api-key header. It is a Go-only
+// runtime option and is never read from inference settings.
+func (c *Client) SetBearerAuthorization(value string) {
+	if c != nil {
+		c.bearerAuthorization = value
 	}
 }
 
@@ -94,6 +104,9 @@ func (c *Client) outboundOptions() security.OutboundURLOptions {
 // Helper function to set necessary headers
 func (c *Client) setHeaders(req *http.Request) {
 	req.Header.Set("x-api-key", c.apiKey)
+	if c.bearerAuthorization != "" {
+		req.Header.Set("Authorization", "Bearer "+c.bearerAuthorization)
+	}
 	req.Header.Set("anthropic-version", c.APIVersion)
 	req.Header.Set("Content-Type", "application/json")
 }

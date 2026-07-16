@@ -27,6 +27,14 @@ func WithObservabilityConfig(cfg geppettoobs.Config) EngineOption {
 	}
 }
 
+// WithBearerAuthorization enables the verified bearer header form for an
+// Anthropic-compatible gateway. It is a Go-only runtime injection point.
+func WithBearerAuthorization(value string) EngineOption {
+	return func(e *ClaudeEngine) {
+		e.bearerAuthorization = value
+	}
+}
+
 func (e *ClaudeEngine) observe(ctx context.Context, rec geppettoobs.Record) {
 	if e == nil || !e.observabilityConfig.Enabled() {
 		return
