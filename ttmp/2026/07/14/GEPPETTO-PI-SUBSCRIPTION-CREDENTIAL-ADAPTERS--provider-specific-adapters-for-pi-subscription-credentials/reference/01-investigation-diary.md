@@ -12,6 +12,12 @@ Intent: long-term
 Owners:
     - manuel
 RelatedFiles:
+    - Path: repo://pkg/steps/ai/openai_responses/request_transport.go
+      Note: Responses core route middleware and debug redaction integration
+    - Path: repo://pkg/steps/ai/providers/openaicodex/codex.go
+      Note: Typed Codex route and credential middleware
+    - Path: repo://pkg/steps/ai/providers/openaicodex/codex_test.go
+      Note: Fake transport Codex contract coverage
     - Path: repo://pkg/steps/ai/transport/transport.go
       Note: Restricted Go-only provider route and request-response middleware contracts
     - Path: repo://pkg/steps/ai/transport/transport_test.go
@@ -26,6 +32,7 @@ LastUpdated: 2026-07-14T21:52:00-04:00
 WhatFor: Record the research, design decisions, validation, and delivery of the Pi subscription credential adapter guide.
 WhenToUse: Read before resuming implementation or assessing whether a provider contract is safe to support.
 ---
+
 
 
 
@@ -584,3 +591,66 @@ GOWORK=off make gosec
 ### Technical details
 
 The current package is intentionally not wired into an engine yet. Task `idw2` must call `ResolveAndValidate` before `Chain.BeforeRequest`, create `HeaderSet` from engine-approved rules, invoke `Chain.AfterResponse` before stream consumption, and let the core enforce the one-replay limit.
+
+## Step 9: Wire Responses and add the typed Codex adapter
+
+The shared Responses core now resolves and validates a provider route before credential middleware executes, applies a restricted header set, redacts sensitive middleware headers from the debug tap, and owns the one-replay loop. Existing bearer-source behavior was migrated into an internal middleware without changing its pre-stream-401 semantics.
+
+A new `providers/openaicodex` adapter supplies the fixed Codex route and typed bearer/account header middleware. Its fake transport test proves the shared Responses core sends the Codex path and headers, refreshes once after the first 401, and uses the replacement only on the replay.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 8)
+
+**Assistant interpretation:** Continue through the Responses wiring and Codex implementation tasks without stopping after the middleware foundation.
+
+**Inferred user intent:** Deliver usable shared-core provider behavior rather than a standalone abstraction.
+
+**Commit (code):** d53716f6 — "feat: route Responses through provider middleware"
+
+**Commit (code):** 759635d3 — "feat: add Codex Responses middleware"
+
+### What I did
+
+- Added `openai_responses.RequestTransport` and routed request creation through validated routes, `HeaderSet`, and `Chain`.
+- Preserved static/dynamic bearer and exactly-once 401 behavior with replay-local opaque attempt state.
+- Redacted middleware-sensitive request headers before `DebugTap.OnHTTP`.
+- Added `pkg/steps/ai/providers/openaicodex` with typed source, fixed route, sanctioned headers, and fake transport tests.
+
+### Why
+
+This makes the shared engine core reusable without allowing profiles or JavaScript to mutate provider headers or paths.
+
+### What worked
+
+Focused normal/race tests passed for transport, Responses, and Codex. `make lint` passed after correcting lint violations; full `go test ./...` passed before the Responses commit.
+
+### What didn't work
+
+The initial pre-commit lint run was terminated while rebuilding tooling, then a direct `make lint` exposed lowercase-error-string and predeclared-name violations. Renaming those identifiers and errors made lint pass; no gate was bypassed.
+
+### What I learned
+
+A response middleware needs replay-local prior-attempt state to preserve the legacy contract where `BearerTokenAfterUnauthorized` returns a replacement that a later `BearerToken` call might not repeat.
+
+### What was tricky to build
+
+The retry replacement cannot live on an engine-global middleware because concurrent requests would race. The transport chain now passes each middleware its own prior opaque attempt only on a replay, so the replacement remains request-local.
+
+### What warrants a second pair of eyes
+
+- Review Codex `originator`/user-agent policy against an approved provider contract before live use.
+- Review whether `RequestTransport` should become a stable public API before release.
+
+### What should be done in the future
+
+- Continue with lifecycle primitives, then Anthropic/Umans and Pinocchio binding tasks; no live smoke is authorized yet.
+
+### Code review instructions
+
+- Start with `pkg/steps/ai/openai_responses/request_transport.go` and `pkg/steps/ai/providers/openaicodex/codex.go`.
+- Run `GOWORK=off go test -race ./pkg/steps/ai/transport ./pkg/steps/ai/openai_responses ./pkg/steps/ai/providers/openaicodex -count=1` and `make lint`.
+
+### Technical details
+
+Codex is selected only by installing its typed Go `RequestTransport`; it disables the ordinary bearer middleware and no Codex source or header selector appears in settings or JavaScript.

@@ -96,3 +96,13 @@ Implemented and race-tested restricted provider transport contracts with validat
 - /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/steps/ai/transport/transport.go — New provider transport contracts
 - /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/steps/ai/transport/transport_test.go — Security and ordering tests
 
+
+## 2026-07-16
+
+Wired OpenAI Responses through the restricted provider transport pipeline and added a fake-server-tested typed Codex route and credential middleware.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/steps/ai/openai_responses/request_transport.go — Shared core integration
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/steps/ai/providers/openaicodex/codex.go — Codex adapter
+
