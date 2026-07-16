@@ -12,6 +12,7 @@ import (
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -29,6 +30,7 @@ type ClaudeEngine struct {
 	observer            geppettoobs.Observer
 	observabilityConfig geppettoobs.Config
 	bearerAuthorization string
+	bearerTokenSource   credentials.BearerTokenSource
 }
 
 // NewClaudeEngine creates a new Claude inference engine with the given settings and options.
@@ -73,17 +75,32 @@ func (e *ClaudeEngine) RunInference(
 	apiType := *apiType_
 	apiSettings := e.settings.API
 
-	apiKey, ok := apiSettings.APIKeys[string(apiType)+"-api-key"]
-	if !ok {
-		return nil, errors.Errorf("no API key for %s", apiType)
-	}
 	baseURL, ok := apiSettings.BaseUrls[string(apiType)+"-base-url"]
 	if !ok {
 		return nil, errors.Errorf("no base URL for %s", apiType)
 	}
-
+	apiKey, ok := apiSettings.APIKeys[string(apiType)+"-api-key"]
+	if e.bearerTokenSource != nil {
+		request := credentials.Request{Provider: string(apiType), BaseURL: strings.TrimRight(baseURL, "/")}
+		resolvedToken, resolveErr := e.bearerTokenSource.BearerToken(ctx, request)
+		if resolveErr != nil {
+			return nil, errors.New("resolve Anthropic gateway credential")
+		}
+		apiKey = resolvedToken
+		if strings.TrimSpace(apiKey) == "" {
+			return nil, errors.New("Anthropic gateway credential is empty")
+		}
+		ok = true
+	}
+	if !ok {
+		return nil, errors.Errorf("no API key for %s", apiType)
+	}
 	client := api.NewClient(apiKey, baseURL)
-	client.SetBearerAuthorization(e.bearerAuthorization)
+	bearerAuthorization := e.bearerAuthorization
+	if e.bearerTokenSource != nil && bearerAuthorization == "" {
+		bearerAuthorization = apiKey
+	}
+	client.SetBearerAuthorization(bearerAuthorization)
 	client.SetOutboundURLOptions(settings.OutboundURLOptions(apiSettings, string(apiType)))
 	httpClient, err := settings.EnsureHTTPClient(clientSettings)
 	if err != nil {

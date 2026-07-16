@@ -148,7 +148,11 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSetting
 		return openai_responses.NewEngine(settings, opts...)
 
 	case string(types.ApiTypeClaude), "anthropic":
-		return claude.NewClaudeEngine(settings, f.claudeOptions...)
+		opts := append([]claude.EngineOption(nil), f.claudeOptions...)
+		if f.bearerTokenSource != nil {
+			opts = append(opts, claude.WithBearerTokenSource(f.bearerTokenSource))
+		}
+		return claude.NewClaudeEngine(settings, opts...)
 
 	case string(types.ApiTypeGemini):
 		return gemini.NewGeminiEngine(settings, f.geminiOptions...)
@@ -258,10 +262,12 @@ func (f *StandardEngineFactory) validateClaudeSettings(settings *settings.Infere
 	// Claude uses "claude" as the key regardless of "anthropic" alias
 	actualProvider := string(types.ApiTypeClaude)
 
-	// Check for API key
+	// A request-time source is authoritative over static API-key settings.
 	apiKeyName := actualProvider + "-api-key"
-	if _, ok := settings.API.APIKeys[apiKeyName]; !ok {
-		return errors.Errorf("missing API key %s", apiKeyName)
+	if f.bearerTokenSource == nil {
+		if _, ok := settings.API.APIKeys[apiKeyName]; !ok {
+			return errors.Errorf("missing API key %s", apiKeyName)
+		}
 	}
 
 	// Check for base URL

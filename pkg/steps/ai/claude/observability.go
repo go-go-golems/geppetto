@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 )
 
 // EngineOption configures optional Claude engine behavior.
@@ -32,6 +33,15 @@ func WithObservabilityConfig(cfg geppettoobs.Config) EngineOption {
 func WithBearerAuthorization(value string) EngineOption {
 	return func(e *ClaudeEngine) {
 		e.bearerAuthorization = value
+	}
+}
+
+// WithBearerTokenSource resolves an Anthropic-compatible gateway credential at
+// request time. The resolved value is used for the verified dual-auth gateway
+// form and remains in Go-only runtime state.
+func WithBearerTokenSource(source credentials.BearerTokenSource) EngineOption {
+	return func(e *ClaudeEngine) {
+		e.bearerTokenSource = source
 	}
 }
 

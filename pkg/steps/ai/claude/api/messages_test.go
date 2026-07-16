@@ -1,8 +1,13 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/security"
@@ -111,6 +116,44 @@ func TestMessageDeserialization(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestUmansMessagesContractUsesAnthropicPathAndDualAuthHeaders(t *testing.T) {
+	var gotPath string
+	var gotAPIKey string
+	var gotAuthorization string
+	var gotVersion string
+	var gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotAPIKey = r.Header.Get("x-api-key")
+		gotAuthorization = r.Header.Get("Authorization")
+		gotVersion = r.Header.Get("anthropic-version")
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"id":"msg_test","type":"message","role":"assistant","content":[{"type":"text","text":"ok"}],"model":"umans-test","stop_reason":"end_turn"}`)
+	}))
+	defer server.Close()
+
+	client := NewClient("umans-key", server.URL)
+	client.SetBearerAuthorization("umans-key")
+	client.SetOutboundURLOptions(security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true})
+	response, err := client.SendMessage(context.Background(), &MessageRequest{
+		Model: "umans-test", Messages: []Message{{Role: "user", Content: []Content{NewTextContent("hello")}}}, MaxTokens: 16,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response == nil || response.Model != "umans-test" {
+		t.Fatalf("response = %#v", response)
+	}
+	if gotPath != "/v1/messages" || gotAPIKey != "umans-key" || gotAuthorization != "Bearer umans-key" || gotVersion != defaultAPIVersion {
+		t.Fatalf("path=%q x-api-key=%q authorization=%q version=%q", gotPath, gotAPIKey, gotAuthorization, gotVersion)
+	}
+	if !strings.Contains(gotBody, `"messages"`) || !strings.Contains(gotBody, `"model":"umans-test"`) {
+		t.Fatalf("unexpected request body shape: %s", gotBody)
 	}
 }
 
