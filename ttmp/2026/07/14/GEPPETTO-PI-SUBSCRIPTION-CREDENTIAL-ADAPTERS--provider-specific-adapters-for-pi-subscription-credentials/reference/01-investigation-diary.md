@@ -12,12 +12,18 @@ Intent: long-term
 Owners:
     - manuel
 RelatedFiles:
+    - Path: repo://pkg/steps/ai/credentials/lifecycle.go
+      Note: Reusable redacted status and local logout primitives
+    - Path: repo://pkg/steps/ai/credentials/oauth/state.go
+      Note: Reusable OAuth state generation and validation
     - Path: repo://pkg/steps/ai/openai_responses/request_transport.go
       Note: Responses core route middleware and debug redaction integration
     - Path: repo://pkg/steps/ai/providers/openaicodex/codex.go
       Note: Typed Codex route and credential middleware
     - Path: repo://pkg/steps/ai/providers/openaicodex/codex_test.go
       Note: Fake transport Codex contract coverage
+    - Path: repo://pkg/steps/ai/providers/umans/umans.go
+      Note: Explicit Umans API-key Claude binding
     - Path: repo://pkg/steps/ai/transport/transport.go
       Note: Restricted Go-only provider route and request-response middleware contracts
     - Path: repo://pkg/steps/ai/transport/transport_test.go
@@ -26,12 +32,15 @@ RelatedFiles:
       Note: Primary evidence-backed architecture and plan
     - Path: repo://ttmp/2026/07/14/GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS--provider-specific-adapters-for-pi-subscription-credentials/sources/01-local-pi-and-geppetto-source-map.md
       Note: Provider source evidence summary
+    - Path: ws://pinocchio/pkg/cmds/profilebootstrap/oauth.go
+      Note: Pinocchio Claude OAuth profile binding
 ExternalSources: []
 Summary: Chronological evidence for designing provider-specific Pi subscription credential support without exposing credential material.
 LastUpdated: 2026-07-14T21:52:00-04:00
 WhatFor: Record the research, design decisions, validation, and delivery of the Pi subscription credential adapter guide.
 WhenToUse: Read before resuming implementation or assessing whether a provider contract is safe to support.
 ---
+
 
 
 
@@ -654,3 +663,77 @@ The retry replacement cannot live on an engine-global middleware because concurr
 ### Technical details
 
 Codex is selected only by installing its typed Go `RequestTransport`; it disables the ordinary bearer middleware and no Codex source or header selector appears in settings or JavaScript.
+
+## Step 10: Complete lifecycle, Umans, Anthropic OAuth, and host binding
+
+The remaining implementation batch is now complete at the library/fixture level. Geppetto exposes redacted credential status, local logout/delete, static-key adaptation, OAuth state generation/validation, Umans dual-auth Claude options, and Anthropic subscription bearer mode. Claude engine and token-count construction can resolve a host-injected source at request time; the factory uses OAuth-specific Anthropic headers when its source is attached. Pinocchio accepts Claude OAuth profiles and routes status/logout through Geppetto lifecycle primitives.
+
+No real provider account was used. The installed Pi and Umans sources were sufficient to capture the structural contracts needed for fake-server tests: Umans uses Anthropic Messages with dual auth; Anthropic subscription OAuth uses bearer auth plus Claude Code identity/beta headers. Live provider smoke remains an explicit approval-gated operational step, not a missing implementation task.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go ahead, do both"
+
+**Assistant interpretation:** Implement both the Umans fake contract/auth binding and Anthropic request-time OAuth support, then validate the combined Geppetto/Pinocchio changes.
+
+**Inferred user intent:** Finish the provider-specific runtime path rather than leaving the discovered contracts as documentation only.
+
+**Commit (code):** 5d67aab6 — "feat: add Anthropic OAuth and Umans auth modes"
+
+**Commit (code):** bbc8597b — "feat: add reusable OAuth state primitives"
+
+**Commit (host):** f8bc772 — "feat: allow Claude OAuth profile binding"
+
+### What I did
+
+- Added `credentials.StaticBearerTokenSource` for explicit API-key provider bindings.
+- Added `providers/umans.ClaudeOptions` and fake-server coverage for `/v1/messages`, Anthropic request shape, dual auth headers, and version header.
+- Added Claude OAuth bearer mode with `Authorization`, Claude Code beta headers, `x-app`, and user-agent identity; suppressed `x-api-key` in OAuth mode.
+- Added request-time source options to Claude inference and token counting, and factory propagation for OAuth profiles.
+- Added reusable cryptographic OAuth `NewState` and constant-time `ValidateState`.
+- Extended Pinocchio OAuth request resolution to support Claude profiles.
+
+### Why
+
+The Umans and Anthropic contracts are not interchangeable. Umans’ API-key shim requires the gateway’s dual-auth form, while Anthropic subscription OAuth uses bearer/Claude-Code identity semantics. Explicit modes prevent one credential string from silently selecting the wrong header contract.
+
+### What worked
+
+- Geppetto focused normal/race tests, lint, and gosec passed.
+- Pinocchio focused profilebootstrap/oauthprofiles/auth tests passed.
+- Pinocchio’s full pre-commit build, generated frontend, lint, vet, and test suite passed for the Claude profile binding commit.
+- No credential value, account ID, authorization code, or client secret entered source, docs, logs, or test fixtures.
+
+### What didn't work
+
+N/A for the implementation and fake-contract validation. A live provider request was intentionally not performed because the ticket’s safety policy requires explicit operational approval and a non-destructive smoke plan.
+
+### What I learned
+
+The same Anthropic Messages wire protocol can require different authentication contracts. Umans accepts an API key in both `x-api-key` and bearer form, while Pi’s Anthropic OAuth path switches to bearer-only plus Claude Code identity headers. Authentication mode must therefore be explicit, not inferred from the endpoint or model name.
+
+### What was tricky to build
+
+The factory’s existing bearer source option was originally documented for OpenAI-compatible engines. Reusing it for Claude required a distinct OAuth mode so host-injected Anthropic subscription tokens do not get emitted as `x-api-key`. The Umans adapter remains an explicit Claude option and is not silently activated by ordinary profile settings.
+
+### What warrants a second pair of eyes
+
+- Review the exact Anthropic OAuth beta/header set against the installed provider version before a release.
+- Review whether the shared factory should expose separate named options for OAuth versus static gateway auth rather than the current provider-specific option composition.
+- Review live-smoke approval, account policy, and endpoint stability independently of these offline tests.
+
+### What should be done in the future
+
+- Run a redacted, explicitly approved live smoke for each provider mode.
+- Publish/release the Geppetto API changes and update Pinocchio’s dependency to the released version rather than relying on the workspace during development.
+- Implement explicit Pi-to-Pinocchio migration only after consent and storage ownership review.
+
+### Code review instructions
+
+- Start with `pkg/steps/ai/claude/api/completion.go`, `pkg/steps/ai/claude/engine_claude.go`, `pkg/steps/ai/providers/umans/umans.go`, `pkg/steps/ai/credentials/oauth/state.go`, and Pinocchio `pkg/cmds/profilebootstrap/oauth.go`.
+- Run Geppetto `GOWORK=off go test ./... -count=1`, `GOWORK=off make gosec`, and `make lint`.
+- Run Pinocchio `go test ./... -count=1` and its pre-commit lint/build hooks.
+
+### Technical details
+
+The completed offline path has three explicit authentication modes: ordinary OpenAI bearer, Umans dual-auth Anthropic API key, and Anthropic subscription OAuth bearer/Claude-Code headers. All remain Go-only runtime capabilities.

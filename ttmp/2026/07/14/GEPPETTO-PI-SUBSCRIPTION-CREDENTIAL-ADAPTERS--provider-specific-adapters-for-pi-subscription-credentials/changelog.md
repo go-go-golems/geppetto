@@ -106,3 +106,14 @@ Wired OpenAI Responses through the restricted provider transport pipeline and ad
 - /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/steps/ai/openai_responses/request_transport.go — Shared core integration
 - /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/steps/ai/providers/openaicodex/codex.go — Codex adapter
 
+
+## 2026-07-16
+
+Completed reusable lifecycle state/logout, Umans dual-auth binding, Anthropic OAuth header mode, token-count source propagation, OAuth state primitives, and Pinocchio Claude profile binding; live smoke remains approval-gated.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/steps/ai/claude/api/completion.go — Explicit Umans and Anthropic OAuth header modes
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/geppetto/pkg/steps/ai/credentials/oauth/state.go — OAuth state primitive
+- /home/manuel/workspaces/2026-07-10/refresh-oauth-token-geppetto/pinocchio/pkg/cmds/profilebootstrap/oauth.go — Host binding
+
