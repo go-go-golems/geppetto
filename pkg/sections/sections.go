@@ -2,6 +2,7 @@ package sections
 
 import (
 	embeddingsconfig "github.com/go-go-golems/geppetto/pkg/embeddings/config"
+	rerankconfig "github.com/go-go-golems/geppetto/pkg/rerank/config"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/gemini"
@@ -91,6 +92,14 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 		return nil, err
 	}
 
+	rerankSection, err := rerankconfig.NewRerankValueSection()
+	if err != nil {
+		return nil, err
+	}
+	if err := rerankSection.InitializeDefaultsFromStruct(ss.Rerank); err != nil {
+		return nil, err
+	}
+
 	inferenceSection, err := settings.NewInferenceValueSection()
 	if err != nil {
 		return nil, err
@@ -112,6 +121,7 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 		geminiSection,
 		openaiSection,
 		embeddingsSection,
+		rerankSection,
 		inferenceSection,
 		profileSettingsSection,
 	}

@@ -1,0 +1,21 @@
+# Glazed/YAML flags section for rerank provider configuration.
+slug: rerank
+name: Rerank provider settings
+description: Settings for cross-encoder reranking providers
+flags:
+  - name: rerank-type
+    type: choice
+    choices:
+      - "llamacpp"
+    help: The provider type to use for reranking (currently only llamacpp is supported)
+  - name: rerank-engine
+    type: string
+    help: The model to use for reranking (e.g. qllama/bge-reranker-v2-m3:q4_k_m)
+  - name: rerank-max-request-bytes
+    type: int
+    help: Maximum encoded request body size in bytes
+    default: 2097152
+  - name: rerank-max-response-bytes
+    type: int
+    help: Maximum response body size in bytes
+    default: 1048576

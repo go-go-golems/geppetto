@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	gepprofiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	rerankconfig "github.com/go-go-golems/geppetto/pkg/rerank/config"
 	aisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/gemini"
@@ -60,6 +61,7 @@ var inferenceSectionFieldPathMap = map[string]map[string]string{
 	"gemini-chat":              buildStructFieldPathMap(reflect.TypeOf(gemini.Settings{})),
 	"ollama-chat":              buildStructFieldPathMap(reflect.TypeOf(ollama.Settings{})),
 	config.EmbeddingsSlug:      buildStructFieldPathMap(reflect.TypeOf(config.EmbeddingsConfig{})),
+	rerankconfig.RerankSlug:    buildStructFieldPathMap(reflect.TypeOf(rerankconfig.RerankConfig{})),
 	aisettings.AiInferenceSlug: buildStructFieldPathMap(reflect.TypeOf(engine.InferenceConfig{})),
 }
 
@@ -421,6 +423,8 @@ func inferencePathForParsedField(sectionSlug, fieldName string) (string, bool) {
 		return "ollama." + path, true
 	case config.EmbeddingsSlug:
 		return "embeddings." + path, true
+	case rerankconfig.RerankSlug:
+		return "rerank." + path, true
 	case aisettings.AiInferenceSlug:
 		return "inference." + path, true
 	default:

@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	rerankconfig "github.com/go-go-golems/geppetto/pkg/rerank/config"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/gemini"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings/ollama"
@@ -81,6 +82,10 @@ type InferenceSettings struct {
 	// - Embeddings settings (Embeddings)
 	Embeddings *config.EmbeddingsConfig `yaml:"embeddings,omitempty" glazed:"embeddings"`
 
+	// Rerank provides cross-encoder reranker provider configuration. It is
+	// optional; chat and embedding-only profiles remain valid without it.
+	Rerank *rerankconfig.RerankConfig `yaml:"rerank,omitempty" glazed:"rerank"`
+
 	// Inference provides engine-level defaults for per-turn inference parameters
 	// (thinking budget, reasoning effort, temperature overrides, etc.).
 	// These can be further overridden per-turn via Turn.Data KeyInferenceConfig.
@@ -116,6 +121,10 @@ func NewInferenceSettings() (*InferenceSettings, error) {
 	if err != nil {
 		return nil, err
 	}
+	rerankSettings, err := rerankconfig.NewRerankConfig()
+	if err != nil {
+		return nil, err
+	}
 	return &InferenceSettings{
 		Chat:       chatSettings,
 		OpenAI:     openaiSettings,
@@ -125,6 +134,7 @@ func NewInferenceSettings() (*InferenceSettings, error) {
 		Ollama:     ollamaSettings,
 		API:        NewAPISettings(),
 		Embeddings: embeddingsSettings,
+		Rerank:     rerankSettings,
 	}, nil
 }
 
@@ -339,6 +349,21 @@ func (ss *InferenceSettings) GetMetadata() map[string]interface{} {
 		}
 	}
 
+	if ss.Rerank != nil {
+		if ss.Rerank.Engine != "" {
+			metadata["rerank-engine"] = ss.Rerank.Engine
+		}
+		if ss.Rerank.Type != "" {
+			metadata["rerank-type"] = ss.Rerank.Type
+		}
+		if ss.Rerank.MaxRequestBytes != 0 {
+			metadata["rerank-max-request-bytes"] = ss.Rerank.MaxRequestBytes
+		}
+		if ss.Rerank.MaxResponseBytes != 0 {
+			metadata["rerank-max-response-bytes"] = ss.Rerank.MaxResponseBytes
+		}
+	}
+
 	return metadata
 }
 
@@ -370,6 +395,9 @@ func (s *InferenceSettings) Clone() *InferenceSettings {
 	}
 	if s.Embeddings != nil {
 		ret.Embeddings = s.Embeddings.Clone()
+	}
+	if s.Rerank != nil {
+		ret.Rerank = s.Rerank.Clone()
 	}
 	if s.Inference != nil {
 		ret.Inference = clone.Clone(s.Inference).(*engine.InferenceConfig)
@@ -411,11 +439,17 @@ func (ss *InferenceSettings) UpdateFromParsedValues(parsedValues *values.Values)
 		return err
 	}
 
+	err = parsedValues.DecodeSectionInto(rerankconfig.RerankSlug, ss.Rerank)
+	if err != nil {
+		return err
+	}
+
 	apiSlugs := []string{
 		openai.OpenAiChatSlug,
 		claude.ClaudeChatSlug,
 		gemini.GeminiChatSlug,
 		config.EmbeddingsSlug,
+		rerankconfig.RerankSlug,
 	}
 	for _, slug := range apiSlugs {
 		err = parsedValues.DecodeSectionInto(slug, ss.API)
@@ -625,6 +659,23 @@ func (ss *InferenceSettings) GetSummary(verbose bool) string {
 		}
 		if ss.Embeddings.CacheDirectory != "" {
 			fmt.Fprintf(&summary, "  - Cache Directory: %s\n", ss.Embeddings.CacheDirectory)
+		}
+	}
+
+	// Rerank Settings
+	if ss.Rerank != nil {
+		summary.WriteString("\nRerank Settings:\n")
+		if ss.Rerank.Engine != "" {
+			fmt.Fprintf(&summary, "  - Engine: %s\n", ss.Rerank.Engine)
+		}
+		if ss.Rerank.Type != "" {
+			fmt.Fprintf(&summary, "  - Type: %s\n", ss.Rerank.Type)
+		}
+		if ss.Rerank.MaxRequestBytes != 0 {
+			fmt.Fprintf(&summary, "  - Max Request Bytes: %d\n", ss.Rerank.MaxRequestBytes)
+		}
+		if ss.Rerank.MaxResponseBytes != 0 {
+			fmt.Fprintf(&summary, "  - Max Response Bytes: %d\n", ss.Rerank.MaxResponseBytes)
 		}
 	}
 
