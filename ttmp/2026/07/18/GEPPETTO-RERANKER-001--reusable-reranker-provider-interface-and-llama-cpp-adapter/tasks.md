@@ -9,17 +9,17 @@
 - [x] D0.5 Upload the design bundle to reMarkable <!-- t:14hq -->
 - [x] D0.6 Extend the design with the profile-resolved Goja sync/async API and republish the bundle <!-- t:m05r -->
 - [ ] P0.1 Review and freeze pkg/rerank public request, response, usage, model, provider, and error APIs <!-- t:xuf0 -->
-- [ ] P0.2 Save sanitized llama.cpp request and response protocol fixtures tied to the tested server revision <!-- t:20br -->
+- [x] P0.2 Save sanitized llama.cpp request and response protocol fixtures tied to the tested server revision <!-- t:20br -->
 - [ ] P0.3 Confirm package naming, profile key, route aliases, and first adapter version <!-- t:sb7k -->
 - [x] P1.1 Implement pkg/rerank public types and Provider interface <!-- t:62lw -->
 - [x] P1.2 Implement request validation and stable sentinel error categories <!-- t:ssa5 -->
 - [x] P1.3 Implement response index mapping, finite-score validation, deterministic ordering, and ranks <!-- t:odwu -->
 - [x] P1.4 Add core API, malformed input, ordering, JSON, and YAML tests <!-- t:2cz9 -->
-- [ ] P2.1 Implement pkg/rerank/llamacpp options and constructor validation <!-- t:8xdd -->
-- [ ] P2.2 Implement bounded request encoding and strict bounded response decoding <!-- t:cqd8 -->
-- [ ] P2.3 Implement outbound URL policy, injected client handling, and redirect rejection <!-- t:4tae -->
-- [ ] P2.4 Implement model, usage, duration, optional cost, and safe error mapping <!-- t:7vru -->
-- [ ] P2.5 Add llama.cpp conformance, security, cancellation, timeout, and body-limit tests <!-- t:ty0v -->
+- [x] P2.1 Implement pkg/rerank/llamacpp options and constructor validation <!-- t:8xdd -->
+- [x] P2.2 Implement bounded request encoding and strict bounded response decoding <!-- t:cqd8 -->
+- [x] P2.3 Implement outbound URL policy, injected client handling, and redirect rejection <!-- t:4tae -->
+- [x] P2.4 Implement model, usage, duration, optional cost, and safe error mapping <!-- t:7vru -->
+- [x] P2.5 Add llama.cpp conformance, security, cancellation, timeout, and body-limit tests <!-- t:ty0v -->
 - [ ] P3.1 Add RerankConfig and Glazed rerank fields <!-- t:ahxl -->
 - [ ] P3.2 Add InferenceSettings.Rerank initialization, cloning, and validation <!-- t:oxdo -->
 - [ ] P3.3 Implement settings-backed rerank ProviderFactory with explicit supported providers <!-- t:8gtj -->

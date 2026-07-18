@@ -52,3 +52,11 @@ Step 4: Implemented pkg/rerank core package (Phase 1, P1.1-P1.4): Provider inter
 
 - /home/manuel/code/wesen/go-go-golems/geppetto/pkg/rerank/order.go — Response mapping and deterministic ordering (commit 6c7323b9)
 - /home/manuel/code/wesen/go-go-golems/geppetto/pkg/rerank/rerank.go — Core Provider interface and records (commit 6c7323b9)
+
+## 2026-07-18
+
+Step 5: Implemented strict llama.cpp /v1/rerank adapter (Phase 2, P2.1-P2.5): bounded IO, strict JSON, outbound URL policy, redirect rejection, safe errors, sanitized BGE fixture. Commit 86729b43.
+
+### Related Files
+
+- /home/manuel/code/wesen/go-go-golems/geppetto/pkg/rerank/llamacpp/provider.go — Strict adapter with bounded IO and redirect rejection (commit 86729b43)

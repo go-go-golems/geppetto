@@ -15,6 +15,12 @@ Owners: []
 RelatedFiles:
     - Path: repo://pkg/rerank/errors.go
       Note: Sentinel error categories for safe classification (commit 6c7323b9)
+    - Path: repo://pkg/rerank/llamacpp/protocol.go
+      Note: Wire DTOs with pointer fields for missing-vs-zero distinction (commit 86729b43)
+    - Path: repo://pkg/rerank/llamacpp/provider.go
+      Note: Strict llama.cpp /v1/rerank adapter with bounded IO, redirect rejection, and safe errors (commit 86729b43)
+    - Path: repo://pkg/rerank/llamacpp/testdata/bge-reranker-v2-m3-response.json
+      Note: Sanitized BGE response fixture tied to tested server revision (commit 86729b43)
     - Path: repo://pkg/rerank/order.go
       Note: ValidateAndMapResults index mapping, finite-score validation, deterministic ordering, ranks (commit 6c7323b9)
     - Path: repo://pkg/rerank/rerank.go
@@ -27,6 +33,7 @@ LastUpdated: 2026-07-18T18:20:00-04:00
 WhatFor: Preserve evidence, decisions, commands, failures, and continuation guidance for GEPPETTO-RERANKER-001.
 WhenToUse: Read before implementing or reviewing any task in this ticket.
 ---
+
 
 
 # Diary
@@ -443,3 +450,83 @@ I grounded every type in the design's section 8 and in the real BGE probe eviden
 - Tie-break comparator: score descending, then input index ascending, then document ID ascending.
 - Ranks assigned from 1 after sorting.
 - Real BGE probe scores used as the negative-score design anchor: -3.32784366607666, -9.837879180908203, -11.012685775756836.
+
+## Step 5: Implement the llama.cpp adapter (Phase 2)
+
+Phase 2 builds the one strict HTTP provider the first milestone needs: a llama.cpp `/v1/rerank` adapter. It reuses the Phase 1 core for request validation and response mapping, so the transport is a thin layer concerned only with encoding, HTTP safety, bounded IO, and wire DTO conversion. Every malformed protocol case fails safely, and the sanitized real BGE response loads as a fixture.
+
+The adapter hardens five concerns that the deleted prototype did not: bounded request and response bytes, strict JSON decoding that rejects unknown fields and trailing data, outbound URL policy with local HTTP/local networks denied by default, redirect rejection via a cloned (never in-place-mutated) `CheckRedirect`, and safe errors that never include query/document text, credentials, or response bodies.
+
+**Commit (code):** 86729b4387cab8260ab59046229c6665f8ef41ea — "feat(rerank): add strict llama.cpp /v1/rerank adapter (Phase 2)"
+
+### What I did
+
+- Saved the sanitized BGE reranker response as `pkg/rerank/llamacpp/testdata/bge-reranker-v2-m3-response.json` plus a `testdata/README.md` recording the exact server revision, route, flags, and decoder contract (P0.2).
+- Implemented `pkg/rerank/llamacpp`:
+  - `protocol.go` wire DTOs (`request`, `response`, `usage`, `item`) with pointer fields for `index`/`relevance_score` so a missing zero is distinguishable from a valid zero;
+  - `provider.go` `Options`/`Provider`/`New` with constructor validation (required base URL and model, scheme/host/userinfo/query/fragment checks, positive limits), `url.JoinPath` endpoint construction re-validated under `security.ValidateOutboundURL`, bounded request encoding and bounded response reading, strict `DisallowUnknownFields` decoding with trailing-data rejection, response model-mismatch detection, usage mapping, optional cost (nil-vs-zero preserved), duration, and request ID;
+  - `cloneClientWithRedirectRejection` clones an injected client (never mutating the caller's) and rejects every redirect;
+  - `redactTransportError`/`redactOrigin`/`drainBounded` keep non-2xx bodies out of errors;
+  - `provider_test.go` covering exact request shape and ID mapping, sanitized fixture load, wrong cardinality, missing index/score, out-of-range and duplicate index, trailing JSON, unknown fields, response model mismatch, non-2xx body non-leakage, oversized request/response, context cancellation, redirect rejection, nil-vs-computed cost, injected-client immutability, and `readAtMost` limits.
+- Ran `gofmt`, `go test ./pkg/rerank/llamacpp/... -count=1` (22 tests pass), `go vet`, and `go test -race ./pkg/rerank/...`.
+
+### Why
+
+- Reusing `rerank.ValidateRequest` and `rerank.ValidateAndMapResults` keeps the core invariants authoritative and prevents the adapter from drifting on validation.
+- The five hardening concerns are the difference between a prototype client and a reusable library: bounded IO protects memory, strict decoding catches server-protocol drift, outbound policy prevents SSRF, redirect rejection prevents validated-endpoint escape, and safe errors protect query/document/credential disclosure.
+
+### What worked
+
+- The Phase 1 `RawResult` presence flags mapped cleanly onto the wire DTO's pointer fields via `toRawResults`, so a missing `index` or `relevance_score` is rejected rather than treated as zero.
+- `httptest.Server` made every protocol case (trailing JSON, unknown fields, oversized body, redirect, cancellation) testable without a real server.
+- The sanitized fixture test proves the adapter accepts the real BGE response including negative scores.
+
+### What didn't work
+
+- `assert.Equal` on two nil `http.Client.CheckRedirect` func values failed with `cannot take func type as argument` even when both are nil, because testify's `ObjectsAreEqual` falls back to `==` which Go forbids for func types. I switched to `assert.Nil`/`require.Nil` on the injected client's `CheckRedirect` before and after construction.
+- The first test draft used a helper named `bytes(n int)` that shadowed the `bytes` package name and confused the parser near `[]byte(...)` literals; renamed to `padBytes`.
+- A `newTestServer` helper handler was closed with `}))` (two closers) instead of `})` because `newTestServer` takes an `http.HandlerFunc` directly, not `httptest.NewServer(http.HandlerFunc(...))`.
+
+### What I learned
+
+- `json.Decoder.DisallowUnknownFields` plus `dec.More()` rejection is the right strict pair: the first rejects unknown object fields, the second rejects a second top-level value. Both are needed; either alone is insufficient.
+- `http.Client.CheckRedirect` has signature `func(req *http.Request, via []*http.Request) error`, not the three-arg `func(req, via, err) error` I first wrote (that is the `http.RoundTripper`-adjacent shape some libraries expose).
+- Cloning an injected `*http.Client` with `cloned := *injected; cloned.CheckRedirect = ...` preserves Transport/Jar/Timeout while replacing only redirect policy, satisfying the "do not mutate the caller's client" requirement.
+
+### What was tricky to build
+
+- `readAtMost` reads `limit+1` bytes via `io.LimitedReader` so the caller can detect "more than limit" by comparing `len(out) > limit`. Reading exactly `limit` would make an exactly-at-limit response indistinguishable from an over-limit one.
+- The nil-vs-zero cost distinction flows through `computeInputCost`: it returns nil when either usage or `CostPerMTokens` is absent, and a pointer to zero when both are present and the rate is zero. The test `TestRerank_CostIsComputedWithPricing` pins this with an explicit `rate := 0.0`.
+- Redirect rejection must clone the client, not set `CheckRedirect` on the injected client, otherwise the caller's client is permanently altered — the `TestRerank_InjectedClientIsNotMutated` test guards this.
+
+### What warrants a second pair of eyes
+
+- Confirm `drainBounded` on non-2xx responses is acceptable (it reads up to `maxResponseBytes` to allow connection reuse) versus closing immediately; the body is never surfaced in the error.
+- Confirm the `X-Request-Id` response header is the right request-identity source, or whether llama.cpp uses a different header.
+- Confirm that rejecting redirects outright (rather than revalidating each redirect) is acceptable for the first adapter, as the design decision record states.
+
+### What should be done in the future
+
+- Add a live opt-in test (`TestLive`, Phase 5) that runs against a real llama.cpp server only when `GEPPETTO_LIVE_RERANK=1` is set; never fall back to a fixture.
+- If a hosted reranker (Cohere/Jina) is added later, extract the redirect policy into a shared option rather than hardcoding rejection, since hosted providers may legitimately redirect.
+
+### Code review instructions
+
+- Start in `pkg/rerank/llamacpp/provider.go` (`New` constructor validation, then `Rerank` transport flow), then `protocol.go` (wire DTOs).
+- Validate with:
+
+  ```bash
+  go test ./pkg/rerank/llamacpp/... -count=1 -v
+  go test -race ./pkg/rerank/...
+  go vet ./pkg/rerank/llamacpp/...
+  ```
+
+- Confirm the sanitized fixture matches `testdata/bge-reranker-v2-m3-response.json` and that `TestRerank_LoadsSanitizedFixture` asserts negative scores and usage.
+
+### Technical details
+
+- Defaults: `DefaultMaxRequestBytes = 2 MiB`, `DefaultMaxResponseBytes = 1 MiB`.
+- Endpoint built with `url.JoinPath(baseURL, "v1/rerank")` and re-validated.
+- `CheckRedirect` rejects with `"rerank provider rejects redirects"`.
+- Non-2xx errors report only the status code, never the body.
+- Transport errors report only the redacted origin (`scheme://host`), never userinfo.
