@@ -959,6 +959,7 @@ This cleanup resolves those gaps without changing the RAG boundary or adding com
 
   It passed with `chunk-001` first, scores `-4.0625/-11.0092/-11.0096`, and usage `75/75` tokens.
 - The revised inline example produced a readable table with three distinct result rows against the same live server.
+- The refreshed implementation and cleanup bundle was dry-run and force-republished successfully to `/ai/2026/07/18/GEPPETTO-RERANKER-001/GEPPETTO-RERANKER-001 Interface Design.pdf`.
 
 ### What didn't work
 

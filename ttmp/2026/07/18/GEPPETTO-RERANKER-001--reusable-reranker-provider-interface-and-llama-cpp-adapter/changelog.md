@@ -109,3 +109,11 @@ Step 10: Completed C1-C8 review cleanup: safe errors, URL/read hardening, option
 
 - /home/manuel/code/wesen/go-go-golems/geppetto/cmd/examples/rerank-profile-smoke/main.go — Example cleanup (commit e8a200ab)
 - /home/manuel/code/wesen/go-go-golems/geppetto/pkg/rerank/llamacpp/provider.go — Security and transport hardening (commit e8a200ab)
+
+## 2026-07-18
+
+Republished the cleanup-hardened implementation bundle after C1-C8 validation at /ai/2026/07/18/GEPPETTO-RERANKER-001/GEPPETTO-RERANKER-001 Interface Design.pdf.
+
+### Related Files
+
+- /home/manuel/code/wesen/go-go-golems/geppetto/ttmp/2026/07/18/GEPPETTO-RERANKER-001--reusable-reranker-provider-interface-and-llama-cpp-adapter/reference/01-investigation-diary.md — Recorded cleanup publication evidence
