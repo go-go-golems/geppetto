@@ -100,3 +100,12 @@ Step 10: Added rerank-profile-smoke runnable example CLI; qualified against the 
 ### Related Files
 
 - /home/manuel/code/wesen/go-go-golems/geppetto/cmd/examples/rerank-profile-smoke/main.go — Runnable reranker smoke-test CLI
+
+## 2026-07-18
+
+Step 10: Completed C1-C8 review cleanup: safe errors, URL/read hardening, optional settings, coherent factory API, lifecycle-safe flat-row example, fixture/cancellation/timeout tests, docs, and full validation. Commit e8a200ab.
+
+### Related Files
+
+- /home/manuel/code/wesen/go-go-golems/geppetto/cmd/examples/rerank-profile-smoke/main.go — Example cleanup (commit e8a200ab)
+- /home/manuel/code/wesen/go-go-golems/geppetto/pkg/rerank/llamacpp/provider.go — Security and transport hardening (commit e8a200ab)

@@ -295,19 +295,23 @@ pkg/rerank/
   rerank.go                 public request/response/provider/model API
   validate.go               request and response invariants
   order.go                  deterministic ordering and rank assignment
-  errors.go                 stable sentinel/wrapped errors
-  options.go                shared provider construction options
+  errors.go                 stable sentinel errors
   config/
     settings.go             RerankConfig
     flags/rerank.yaml       Glazed fields
+  factory/
+    settings_factory.go     profile-backed provider construction
+    settings_factory_test.go
   llamacpp/
     provider.go             Provider implementation
     protocol.go             strict wire DTOs
     provider_test.go        httptest conformance/security tests
     live_test.go            opt-in real server probe
-  settings_factory.go       config and InferenceSettings construction
-  settings_factory_test.go
   rerank_test.go
+
+cmd/examples/rerank-profile-smoke/
+  main.go                   profile/direct-config live rerank CLI
+  README.md                 prerequisites and JSON/table usage
 
 pkg/js/modules/geppetto/
   api_reranker.go           profile-resolved provider wrapper and sync API
@@ -438,7 +442,7 @@ var (
 )
 ```
 
-Wrap these with safe context. Never include authorization headers, endpoint userinfo, document text, query text, or an unbounded provider body.
+Wrap these with stable safe context only. Never wrap or render raw `url.Parse`, `url.Error`, redirect, proxy, or provider-decoder errors: those may carry authorization headers, endpoint userinfo, query parameters, document text, or response bodies. Preserve classification through the sentinel error, not the raw operational cause.
 
 ### 8.6 Goja API
 
@@ -534,7 +538,7 @@ func (m *moduleRuntime) rerankerBuilder(call goja.FunctionCall) goja.Value {
     if err != nil {
         panic(m.vm.NewGoError(err))
     }
-    factory, err := rerank.NewSettingsFactoryFromInferenceSettings(settingsRef.settings)
+    factory, err := rerankfactory.NewSettingsFactoryFromInferenceSettings(settingsRef.settings)
     if err != nil {
         panic(m.vm.NewGoError(err))
     }
@@ -768,21 +772,21 @@ Rerank *rerankconfig.RerankConfig `yaml:"rerank,omitempty" glazed:"rerank"`
 
 Update:
 
-- `NewInferenceSettings`;
+- `NewInferenceSettings` (leave `Rerank` nil until configured);
 - `InferenceSettings.Clone`;
-- parsed Glazed sections;
+- parsed Glazed sections (retain `Rerank` only when type or engine is set);
 - YAML normalization where needed;
 - engine-profile clone and stack tests;
 - profile print/summary output;
 - documentation.
 
-Do not make rerank config mandatory for chat or embedding profiles.
+Do not make rerank config mandatory for chat or embedding profiles. `NewInferenceSettings` must leave `Rerank` nil until a profile or parsed values explicitly set a rerank type or engine; byte-limit defaults alone must not serialize an empty rerank section into unrelated profiles.
 
 ### 10.3 Factory
 
 ```go
 type ProviderFactory interface {
-    NewProvider(options ...ProviderOption) (Provider, error)
+    NewProvider() (Provider, error)
     SupportedProviders() []string
 }
 

@@ -37,3 +37,11 @@
 - [x] P6.2 Run full unit, race, module-isolation, lint, vet, vulnerability, and dependency checks <!-- t:67dj -->
 - [x] P6.3 Complete diary, changelog, tasks, doctor validation, and final reMarkable publication <!-- t:tq7v -->
 - [x] P5.1b Add rerank-profile-smoke runnable example CLI for live qualification <!-- t:k307 -->
+- [x] C1 Prevent malformed URLs, redirects, and transport failures from leaking endpoint credentials or query data in reranker errors <!-- t:znrk -->
+- [x] C2 Harden llama.cpp URL normalization, strict trailing JSON decoding, and response-read error classification <!-- t:ncf7 -->
+- [x] C3 Make InferenceSettings.Rerank genuinely optional without serializing default rerank sections into unrelated profiles <!-- t:t4mv -->
+- [x] C4 Remove or honor dead rerank ProviderOption fields; keep the factory public API coherent <!-- t:1b31 -->
+- [x] C5 Fix rerank-profile-smoke registry lifecycle, no-profile inline mode, and tabular result output <!-- t:t5vr -->
+- [x] C6 Replace duplicated inline protocol fixture with the actual sanitized testdata file and expand cancellation/timeout/security coverage <!-- t:rzqq -->
+- [x] C7 Reconcile the intern design guide and topic docs with the implemented factory package and example API <!-- t:416p -->
+- [x] C8 Remove generated rerank-profile-smoke binary, run complete validation, and record cleanup evidence <!-- t:rsnk -->

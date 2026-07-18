@@ -16,7 +16,9 @@ RelatedFiles:
     - Path: repo://cmd/examples/rerank-profile-smoke/README.md
       Note: Example usage and prerequisites
     - Path: repo://cmd/examples/rerank-profile-smoke/main.go
-      Note: Runnable reranker smoke-test CLI (Glazed command, profile or overlay resolution, live llama.cpp)
+      Note: |-
+        Runnable reranker smoke-test CLI (Glazed command, profile or overlay resolution, live llama.cpp)
+        Lifecycle-safe inline/profile example with flat table rows (commit e8a200ab)
     - Path: repo://examples/js/geppetto/hardcut/07_reranker_with_registry_profile.js
       Note: Runnable hard-cut reranker example (commit 786e09d1)
     - Path: repo://pkg/doc/topics/15-reranking.md
@@ -40,7 +42,9 @@ RelatedFiles:
     - Path: repo://pkg/rerank/llamacpp/protocol.go
       Note: Wire DTOs with pointer fields for missing-vs-zero distinction (commit 86729b43)
     - Path: repo://pkg/rerank/llamacpp/provider.go
-      Note: Strict llama.cpp /v1/rerank adapter with bounded IO, redirect rejection, and safe errors (commit 86729b43)
+      Note: |-
+        Strict llama.cpp /v1/rerank adapter with bounded IO, redirect rejection, and safe errors (commit 86729b43)
+        Safe transport error, URL validation, bounded-read, and strict-decoding cleanup (commit e8a200ab)
     - Path: repo://pkg/rerank/llamacpp/testdata/bge-reranker-v2-m3-response.json
       Note: Sanitized BGE response fixture tied to tested server revision (commit 86729b43)
     - Path: repo://pkg/rerank/order.go
@@ -50,13 +54,16 @@ RelatedFiles:
     - Path: repo://pkg/rerank/validate.go
       Note: ValidateRequest and ResolveModel invariants (commit 6c7323b9)
     - Path: repo://pkg/steps/ai/settings/settings-inference.go
-      Note: InferenceSettings.Rerank integration (commit 09c438c4)
+      Note: |-
+        InferenceSettings.Rerank integration (commit 09c438c4)
+        Optional Rerank semantics cleanup (commit e8a200ab)
 ExternalSources: []
 Summary: Chronological investigation record for the reusable Geppetto reranker interface, llama.cpp provider, profile integration, validation, and delivery.
 LastUpdated: 2026-07-18T18:20:00-04:00
 WhatFor: Preserve evidence, decisions, commands, failures, and continuation guidance for GEPPETTO-RERANKER-001.
 WhenToUse: Read before implementing or reviewing any task in this ticket.
 ---
+
 
 
 
@@ -890,3 +897,123 @@ I confirmed the Mac (`mimimi-2.local`) was reachable over SSH, found that a real
 - Tunnel: `ssh -fN -L 18012:127.0.0.1:8012 manuel@mimimi-2.local`.
 - Example paths: `--profile bge-reranker-local` (direct) or `--base-profile <base> --rerank-type/--rerank-engine/--rerank-base-url` (overlay).
 - Live scores observed: payroll query → `-4.06/-11.01/-11.02`; cat query → `5.49/-6.17/-9.13`.
+
+## Step 10: Review-driven cleanup and hardening
+
+A review found a sound reranking foundation but several gaps between the implementation's guarantees and its behavior: malformed URL and transport errors could still include protected endpoint data, caller IDs appeared in validation errors, optional rerank settings serialized into unrelated profiles, the factory exposed ignored options, the example leaked its profile registry and produced unusable table output, and the saved protocol fixture was not actually used by the test.
+
+This cleanup resolves those gaps without changing the RAG boundary or adding compatibility layers. The outcome is a safer transport error model, genuinely optional rerank configuration, a simpler settings-only factory API, a usable live example, stronger tests, corrected documentation, and the complete validation evidence that the original ticket had claimed but not run.
+
+**Commit (code):** e8a200ab50235c8168b0968400b92717b72d5b43 — "fix(rerank): harden provider safety and clean up live example"
+
+### Prompt Context
+
+**User prompt (verbatim):** "Update tasks to add all the cleanup tasks, and then implement them all"
+
+**Assistant interpretation:** Turn every actionable review finding into a tracked GEPPETTO-RERANKER-001 cleanup task, implement the full cleanup set, validate it rigorously, and record the work.
+
+**Inferred user intent:** Do not leave the assessment as advice; bring the reranker implementation, example, tests, documentation, and ticket evidence up to the stated quality bar.
+
+### What I did
+
+- Added and completed C1-C8 cleanup tasks.
+- Reworked `pkg/rerank/llamacpp/provider.go`:
+  - malformed base URLs now return a safe category without wrapping `url.Parse` errors that could contain credentials;
+  - transport and redirect failures no longer wrap raw `url.Error` values;
+  - ambiguous paths (`..`, repeated separators, escaped paths) are rejected before `url.JoinPath` can normalize them;
+  - response read failures map to `ErrUnavailable`, while actual byte-limit breaches map to `ErrResponseTooLarge`;
+  - strict decoding now performs a second decode and requires `io.EOF`, rejecting all trailing JSON safely.
+- Removed caller IDs from validation and JavaScript decoding errors; added tests proving protected IDs are absent.
+- Removed the unused `pkg/rerank/options.go` API and made `factory.NewProvider()` settings-only, matching host-capability ownership.
+- Made `InferenceSettings.Rerank` nil by default; only parsed type/engine values instantiate it. Updated `CreateGeppettoSections` to initialize the optional section from a temporary empty config.
+- Fixed `rerank-profile-smoke`:
+  - registry chains now return and defer a close function;
+  - no-profile mode now uses inline rerank settings and needs no fictional default base profile;
+  - output is one row per result, making `--output table` and JSON readable;
+  - added unit tests for document parsing and inline resolution.
+- Switched the fixture test to read `testdata/bge-reranker-v2-m3-response.json` instead of an inline duplicate.
+- Added malformed-userinfo URL, redirect-secret, read-error, in-flight cancellation, timeout, ambiguous-path, JavaScript-safe-integer, and JavaScript caller-ID non-leakage tests.
+- Updated the primary design guide, topic guide, and example README to reflect `pkg/rerank/factory`, optional settings, and the interactive example.
+- Deleted the generated 49 MB `rerank-profile-smoke` ELF binary without touching the unrelated history SQLite file.
+
+### Why
+
+- Sentinel classification is useful only if preserving the original cause does not leak secrets. The cleanup treats raw operational errors as untrusted data and exposes only safe categories.
+- Rerank is explicitly optional; serializing an empty section with byte defaults into every inference profile was a configuration behavior regression.
+- A public factory cannot expose override options it ignores. Profile-resolved settings are the intended capability boundary.
+- The runnable example is a developer interface; table output and lifecycle handling must work, not merely JSON output after manual inspection.
+
+### What worked
+
+- The full pre-commit hook completed normally this time: `go test ./...` and lint both passed; no `LEFTHOOK=0` bypass was needed.
+- Full module-isolated validation passed: `GOWORK=off go test ./... -count=1`.
+- Race, vet, targeted lint, DTS check, and `govulncheck ./...` all passed. `govulncheck` reported zero reachable vulnerabilities.
+- The live test was actually run (not skipped) through the Mac tunnel:
+
+  ```bash
+  GEPPETTO_LIVE_RERANK=1 \
+  GEPPETTO_RERANK_BASE_URL=http://127.0.0.1:18012 \
+  GEPPETTO_RERANK_MODEL=qllama/bge-reranker-v2-m3:q4_k_m \
+  go test ./pkg/rerank/llamacpp -run TestLive -v -count=1
+  ```
+
+  It passed with `chunk-001` first, scores `-4.0625/-11.0092/-11.0096`, and usage `75/75` tokens.
+- The revised inline example produced a readable table with three distinct result rows against the same live server.
+
+### What didn't work
+
+- The first in-flight cancellation test blocked an `httptest.Server` handler waiting for `r.Context().Done()`; the client returned, but the server did not observe cancellation before its close timeout:
+
+  ```text
+  provider_test.go:344: server did not observe request cancellation
+  httptest.Server blocked in Close after 5 seconds, waiting for connections
+  ```
+
+  I replaced it with a blocking injected `RoundTripper` that waits on `req.Context().Done()`. This directly proves the provider propagates caller cancellation to its transport without relying on net/http server connection timing.
+- The first full targeted lint failed on:
+
+  ```text
+  pkg/rerank/llamacpp/provider.go:283:1: named return "body" with type "[]byte" found (nonamedreturns)
+  ```
+
+  I changed `readAtMost` to ordinary local returns and reran lint successfully.
+
+### What I learned
+
+- A redacted prefix is insufficient if an error still wraps the raw `url.Error`; `%w` preserves its full text and can reintroduce redirect query strings or userinfo. Safe error handling requires dropping the raw cause from outward-facing errors.
+- Optional Glazed configuration sections need a distinction between section defaults and selected capability. Byte-limit defaults alone are not evidence that a reranker is configured.
+- `io.LimitedReader` needs a separate `tooLarge` signal; treating every read error as an oversized response misclassifies transport failures.
+
+### What was tricky to build
+
+- Safe errors must retain `errors.Is(err, ErrUnavailable)` / `ErrInvalidRequest` classification while intentionally discarding the raw cause. The implementation uses a stable safe message wrapping only the sentinel.
+- The example's profile chain is owned by the command, but inline mode owns no chain. Returning `func() error` and allowing nil for inline mode makes this explicit and prevents descriptor/resource leaks.
+- Flat Glazed rows repeat run metadata per result, but that is the correct representation for table renderers and preserves structured JSON without Go pointer artifacts.
+
+### What warrants a second pair of eyes
+
+- Review the deliberately strict base-path policy: encoded paths, repeated separators, and dot segments are rejected. This is safest for the first adapter, but an installation using a reverse-proxy path prefix should confirm its path is simple and unescaped.
+- Review the source-compatibility implication of removing the unused `ProviderOption` API. The ticket is greenfield and no repository call sites used it, but an external unpublished consumer would need to use settings or direct `llamacpp.New` instead.
+- Review whether the live test should remain as a second live entry point now that the example is canonical. It is retained as the automation guard.
+
+### What should be done in the future
+
+- P5.2/P5.3 remain deferred to RESEARCHCTL-015: add the thin RAG adapter and prove complete-score and usage propagation in a native RAG trace.
+- If future providers need reverse-proxy paths with escaped segments, add a deliberate, tested URL-policy extension rather than weakening the current validation ad hoc.
+
+### Code review instructions
+
+- Start with `pkg/rerank/llamacpp/provider.go` (`validateBaseURL`, `redactTransportError`, `readAtMost`, `decodeStrict`) and `provider_test.go`.
+- Then review optional settings in `settings-inference.go` and the factory API removal in `pkg/rerank/factory/settings_factory.go`.
+- Finally run the example against the live tunnel:
+
+  ```bash
+  go run ./cmd/examples/rerank-profile-smoke run \
+    --rerank-base-url http://127.0.0.1:18012 --output table
+  ```
+
+### Technical details
+
+- Full validation: `GOWORK=off go test ./... -count=1`; race on rerank/Goja/example; vet; golangci-lint; DTS check; `govulncheck ./...`.
+- Live server remains `mimimi-2.local:8012` tunneled to `127.0.0.1:18012`.
+- No generated binaries remain in the repository root; unrelated `history.sqlite` remains unmodified and untracked.
