@@ -11,10 +11,10 @@
 - [ ] P0.1 Review and freeze pkg/rerank public request, response, usage, model, provider, and error APIs <!-- t:xuf0 -->
 - [ ] P0.2 Save sanitized llama.cpp request and response protocol fixtures tied to the tested server revision <!-- t:20br -->
 - [ ] P0.3 Confirm package naming, profile key, route aliases, and first adapter version <!-- t:sb7k -->
-- [ ] P1.1 Implement pkg/rerank public types and Provider interface <!-- t:62lw -->
-- [ ] P1.2 Implement request validation and stable sentinel error categories <!-- t:ssa5 -->
-- [ ] P1.3 Implement response index mapping, finite-score validation, deterministic ordering, and ranks <!-- t:odwu -->
-- [ ] P1.4 Add core API, malformed input, ordering, JSON, and YAML tests <!-- t:2cz9 -->
+- [x] P1.1 Implement pkg/rerank public types and Provider interface <!-- t:62lw -->
+- [x] P1.2 Implement request validation and stable sentinel error categories <!-- t:ssa5 -->
+- [x] P1.3 Implement response index mapping, finite-score validation, deterministic ordering, and ranks <!-- t:odwu -->
+- [x] P1.4 Add core API, malformed input, ordering, JSON, and YAML tests <!-- t:2cz9 -->
 - [ ] P2.1 Implement pkg/rerank/llamacpp options and constructor validation <!-- t:8xdd -->
 - [ ] P2.2 Implement bounded request encoding and strict bounded response decoding <!-- t:cqd8 -->
 - [ ] P2.3 Implement outbound URL policy, injected client handling, and redirect rejection <!-- t:4tae -->

@@ -43,3 +43,12 @@ Republished the expanded Goja-aware reranker design bundle at /ai/2026/07/18/GEP
 
 - /home/manuel/code/wesen/go-go-golems/geppetto/ttmp/2026/07/18/GEPPETTO-RERANKER-001--reusable-reranker-provider-interface-and-llama-cpp-adapter/design-doc/01-reusable-reranker-interface-architecture-and-implementation-guide.md — Published expanded Go and Goja API design
 - /home/manuel/code/wesen/go-go-golems/geppetto/ttmp/2026/07/18/GEPPETTO-RERANKER-001--reusable-reranker-provider-interface-and-llama-cpp-adapter/reference/01-investigation-diary.md — Recorded Goja design and republication evidence
+
+## 2026-07-18
+
+Step 4: Implemented pkg/rerank core package (Phase 1, P1.1-P1.4): Provider interface, records, validation, deterministic ordering, sentinel errors, JSON/YAML tests. Commit 6c7323b9.
+
+### Related Files
+
+- /home/manuel/code/wesen/go-go-golems/geppetto/pkg/rerank/order.go — Response mapping and deterministic ordering (commit 6c7323b9)
+- /home/manuel/code/wesen/go-go-golems/geppetto/pkg/rerank/rerank.go — Core Provider interface and records (commit 6c7323b9)

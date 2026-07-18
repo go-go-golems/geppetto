@@ -12,13 +12,22 @@ Topics:
 DocType: reference
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: repo://pkg/rerank/errors.go
+      Note: Sentinel error categories for safe classification (commit 6c7323b9)
+    - Path: repo://pkg/rerank/order.go
+      Note: ValidateAndMapResults index mapping, finite-score validation, deterministic ordering, ranks (commit 6c7323b9)
+    - Path: repo://pkg/rerank/rerank.go
+      Note: Core Provider interface and Request/Response/Result/Usage/Model records (commit 6c7323b9)
+    - Path: repo://pkg/rerank/validate.go
+      Note: ValidateRequest and ResolveModel invariants (commit 6c7323b9)
 ExternalSources: []
 Summary: Chronological investigation record for the reusable Geppetto reranker interface, llama.cpp provider, profile integration, validation, and delivery.
 LastUpdated: 2026-07-18T18:20:00-04:00
 WhatFor: Preserve evidence, decisions, commands, failures, and continuation guidance for GEPPETTO-RERANKER-001.
 WhenToUse: Read before implementing or reviewing any task in this ticket.
 ---
+
 
 # Diary
 
@@ -344,3 +353,93 @@ I updated the architecture so `gp.reranker(settings)` constructs the same profil
 - Type source: `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`.
 - Updated design size: 6,846 words.
 - Publication used `--force` because it replaces the earlier design-only PDF with the Goja-expanded design.
+
+## Step 4: Implement the core pkg/rerank package (Phase 1)
+
+With the design frozen and the Goja API added, I began implementation. Phase 1 establishes the transport-neutral core: public records, the Provider interface, request validation, response mapping and deterministic ordering, sentinel errors, and JSON/YAML round-trip tests. No HTTP and no RAG import belong here; a fake in-process provider proves the deterministic ID-mapped responses.
+
+I grounded every type in the design's section 8 and in the real BGE probe evidence: scores may be negative (the probe returned -3.32, -9.83, -11.01), so validation checks finiteness only, never a `[0,1]` range. The deleted prototype's `mapLlamaCPPResults` informed the index/duplicate/non-finite checks, but the new core is provider-neutral and returns a rich `Response` rather than `[]Result`.
+
+**Commit (code):** 6c7323b91033f65d6ba82b7b96c9c09dc29367da — "feat(rerank): add core pkg/rerank types, validation, and ordering"
+
+### Prompt Context
+
+**User prompt (verbatim):** "Implement the GEPPETTO-RERANKER-001 docmgr ticket. keep a detailed diary as you work, commit at appropriate intervals. Work in the geppetto/ directory (also for docmgr). Read skills to make sure you use the right commands and diary format."
+
+**Assistant interpretation:** Implement the GEPPETTO-RERANKER-001 ticket phase by phase, keeping a detailed diary, committing at appropriate intervals, and using docmgr from the geppetto/ directory with the correct skill commands and diary format.
+
+**Inferred user intent:** Move from design to a working, tested, committed reranker primitive in Geppetto, with diary evidence and ticket bookkeeping at each phase.
+
+### What I did
+
+- Read the `diary` and `docmgr` skill references to confirm the diary step format and docmgr command set.
+- Oriented on the ticket: 6 docs tasks done, 28 implementation tasks open; baseline `go build ./...` and the embeddings/settings/engineprofiles/js-module test suites all green.
+- Read the reference implementations: `pkg/embeddings/embeddings.go`, `settings_factory.go`, `config/settings.go`, `ollama.go` (HTTP+security pattern), `pkg/security/outbound_url.go`, `pkg/steps/ai/settings/settings-inference.go`, `settings-client.go`, `http_client.go`, `model_info.go`, and `pkg/engineprofiles/inference_settings_merge.go`.
+- Read the JS module precedent: `module.go`, `api_embeddings.go`, `api_inference_settings.go`, `api_session.go` async settlement, `api_owner_bridge.go`, `codec.go`, the DTS template, the DTS parity test, and the hard-cut test.
+- Recovered the deleted prototype reranker (`reranker.go`, `reranker_llamacpp.go`) and the real BGE probe results as wire-DTO and validation evidence.
+- Implemented `pkg/rerank`:
+  - `doc.go` package documentation and dependency-direction contract;
+  - `rerank.go` `Document`, `Request`, `Result`, `Usage`, `Response`, `Model`, and `Provider`;
+  - `errors.go` sentinel categories;
+  - `validate.go` `ValidateRequest` and `ResolveModel`;
+  - `order.go` `ValidateAndMapResults`, `SortResults`, `AssignRanks`, `RawResult`;
+  - `options.go` shared `ProviderOption`/`ProviderOptions`;
+  - `rerank_test.go` and `codec_test.go` covering empty query/docs, duplicate IDs, empty text, invalid TopN, model mismatch, index-to-ID mapping, equal-score tie breaks, wrong cardinality, missing index/score, out-of-range and duplicate index, zero/negative scores, and JSON/YAML round trips.
+- Ran `gofmt -w`, `go test ./pkg/rerank/... -count=1 -v` (20 tests pass), and `go vet ./pkg/rerank/...`.
+- Checked for RAG/researchctl imports: none (only a doc-comment reference to the dependency direction).
+- Committed Phase 1 code, then checked off P1.1-P1.4 and related the four core files to the diary.
+
+### Why
+
+- Phase 1 defines the contracts every later phase depends on. Building and testing it in isolation (no HTTP, no settings, no Goja) keeps the core provably provider-neutral and lets the llama.cpp adapter be a thin transport.
+- The fake provider test proves the exit gate of Phase 1: a fake provider can return deterministic, ID-mapped, provider-neutral responses with usage and cost.
+
+### What worked
+
+- The design's section 8 types translated directly into Go with no surprises.
+- The deleted prototype's validation logic was a useful cross-check for index/duplicate/non-finite handling, but the new core returns a rich `Response` and is transport-neutral.
+- JSON/YAML round-trip tests confirmed `omitempty` keeps nil cost and nil usage absent while preserving a non-nil pointer-to-zero cost (the nil-vs-zero distinction the design requires).
+
+### What didn't work
+
+- The first `git commit` exited with code 1 from the parallel lefthook pre-commit (`make lintmax` + `make test`), even though both ultimately passed when run individually. The failure was a hook race, not a code defect; re-running the commit on an already-compiled tree succeeded.
+
+### What I learned
+
+- `RawResult` needs `HasIndex`/`HasScore` bools (pointer-like presence flags) to distinguish a missing provider field from a valid zero index or zero score. Plain `int`/`float64` zero values would silently accept a malformed response.
+- `sort.SliceStable` plus a three-key comparator (score desc, index asc, ID asc) gives deterministic ordering even when the provider returns results out of score order, matching the probe evidence where response order happened to already be score order.
+
+### What was tricky to build
+
+- The nil-vs-zero cost distinction is enforced structurally: `Cost *float64` with `omitempty` serializes a nil cost away entirely and serializes a pointer-to-zero as `0`. The round-trip test `TestResponse_JSONRoundTrip_WithOptionals` pins this so a future change cannot silently collapse them.
+- `ValidateRequest` must not mutate `Request.Model`; it only validates. `ResolveModel` is a separate non-mutating helper so callers can fill the model before encoding without surprising side effects.
+
+### What warrants a second pair of eyes
+
+- Confirm the three-key tie-break order (score desc, index asc, ID asc) matches downstream RAG expectations before the llama.cpp adapter and RAG adapter rely on it.
+- Confirm `ValidateRequest`'s model-mismatch rule (strict equality when both non-empty) is the right first behavior versus allowing the request model to override the provider model.
+
+### What should be done in the future
+
+- Phase 2 (llama.cpp adapter) should reuse `ValidateRequest` and `ValidateAndMapResults` rather than re-implementing validation, so the core invariants stay authoritative.
+- Add a property/fuzz test for `ValidateAndMapResults` once the llama.cpp fixtures exist, to cover arbitrary index permutations.
+
+### Code review instructions
+
+- Start in `pkg/rerank/rerank.go` (types), then `validate.go` (`ValidateRequest`), then `order.go` (`ValidateAndMapResults`, `SortResults`).
+- Validate with:
+
+  ```bash
+  go test ./pkg/rerank/... -count=1 -v
+  go vet ./pkg/rerank/...
+  ```
+
+- Confirm no RAG/researchctl import: `rg -n "rag|researchctl" pkg/rerank/` (only a doc-comment dependency-direction reference is expected).
+
+### Technical details
+
+- Sentinel errors: `ErrInvalidRequest`, `ErrInvalidResponse`, `ErrUnavailable`, `ErrRequestTooLarge`, `ErrResponseTooLarge`.
+- Default request byte bound: `DefaultMaxRequestBytes = 2 << 20` (2 MiB).
+- Tie-break comparator: score descending, then input index ascending, then document ID ascending.
+- Ranks assigned from 1 after sorting.
+- Real BGE probe scores used as the negative-score design anchor: -3.32784366607666, -9.837879180908203, -11.012685775756836.
