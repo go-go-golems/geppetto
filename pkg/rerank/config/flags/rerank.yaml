@@ -4,9 +4,7 @@ name: Rerank provider settings
 description: Settings for cross-encoder reranking providers
 flags:
   - name: rerank-type
-    type: choice
-    choices:
-      - "llamacpp"
+    type: string
     help: The provider type to use for reranking (currently only llamacpp is supported)
   - name: rerank-engine
     type: string
