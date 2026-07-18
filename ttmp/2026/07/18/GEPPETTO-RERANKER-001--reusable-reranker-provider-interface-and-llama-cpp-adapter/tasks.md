@@ -8,7 +8,7 @@
 - [x] D0.4 Relate evidence files, update bookkeeping, and pass docmgr validation <!-- t:xii2 -->
 - [x] D0.5 Upload the design bundle to reMarkable <!-- t:14hq -->
 - [x] D0.6 Extend the design with the profile-resolved Goja sync/async API and republish the bundle <!-- t:m05r -->
-- [ ] P0.1 Review and freeze pkg/rerank public request, response, usage, model, provider, and error APIs <!-- t:xuf0 -->
+- [x] P0.1 Review and freeze pkg/rerank public request, response, usage, model, provider, and error APIs <!-- t:xuf0 -->
 - [x] P0.2 Save sanitized llama.cpp request and response protocol fixtures tied to the tested server revision <!-- t:20br -->
 - [x] P0.3 Confirm package naming, profile key, route aliases, and first adapter version <!-- t:sb7k -->
 - [x] P1.1 Implement pkg/rerank public types and Provider interface <!-- t:62lw -->
