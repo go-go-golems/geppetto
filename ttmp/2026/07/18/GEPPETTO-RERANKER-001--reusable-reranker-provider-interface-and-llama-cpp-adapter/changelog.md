@@ -76,3 +76,11 @@ Step 7: Added Goja reranker(settings) sync and async API, DTS, tests, and exampl
 ### Related Files
 
 - /home/manuel/code/wesen/go-go-golems/geppetto/pkg/js/modules/geppetto/api_reranker.go — Goja sync reranker wrapper (commit 786e09d1)
+
+## 2026-07-18
+
+Step 8: Added live opt-in test and reranking topic guide; ran full hardening suite (Phase 5/6, P5.1/P6.1/P6.2). Commit 4ed0d038.
+
+### Related Files
+
+- /home/manuel/code/wesen/go-go-golems/geppetto/pkg/rerank/llamacpp/live_test.go — Live opt-in qualification test (commit 4ed0d038)

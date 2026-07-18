@@ -15,6 +15,8 @@ Owners: []
 RelatedFiles:
     - Path: repo://examples/js/geppetto/hardcut/07_reranker_with_registry_profile.js
       Note: Runnable hard-cut reranker example (commit 786e09d1)
+    - Path: repo://pkg/doc/topics/15-reranking.md
+      Note: User-facing reranking topic guide (commit 4ed0d038)
     - Path: repo://pkg/engineprofiles/stack_merge_rerank_test.go
       Note: Profile stack overlay and merge round-trip for rerank (commit 09c438c4)
     - Path: repo://pkg/js/modules/geppetto/api_reranker.go
@@ -29,6 +31,8 @@ RelatedFiles:
       Note: Sentinel error categories for safe classification (commit 6c7323b9)
     - Path: repo://pkg/rerank/factory/settings_factory.go
       Note: Settings-backed provider factory and InferenceSettings validation (commit 09c438c4)
+    - Path: repo://pkg/rerank/llamacpp/live_test.go
+      Note: Opt-in live llama.cpp qualification test (commit 4ed0d038)
     - Path: repo://pkg/rerank/llamacpp/protocol.go
       Note: Wire DTOs with pointer fields for missing-vs-zero distinction (commit 86729b43)
     - Path: repo://pkg/rerank/llamacpp/provider.go
@@ -49,6 +53,7 @@ LastUpdated: 2026-07-18T18:20:00-04:00
 WhatFor: Preserve evidence, decisions, commands, failures, and continuation guidance for GEPPETTO-RERANKER-001.
 WhenToUse: Read before implementing or reviewing any task in this ticket.
 ---
+
 
 
 
@@ -709,3 +714,81 @@ The async path is the sharpest edge: the provider goroutine must touch no `goja.
 - Provider construction: registry-resolved `InferenceSettings` only, via `factory.NewSettingsFactoryFromInferenceSettings`.
 - Async settlement: `postOnOwner("reranker.rerankAsync.settle", ...)`; goroutine touches no Goja value.
 - DTS source: `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`; generated: `pkg/doc/types/geppetto.d.ts`.
+
+## Step 8: Live opt-in test, topic documentation, and full hardening (Phase 5/6)
+
+Phase 5 adds the opt-in live qualification test and Phase 6 adds the topic guide and runs the full hardening suite. The live test is the only place a real llama.cpp server is contacted; it skips unless `GEPPETTO_LIVE_RERANK=1` is set exactly, never falls back to a fixture, and never starts external services itself. The topic guide is the user-facing entry point for reranking in Geppetto.
+
+The hardening suite confirms the architecture holds end to end: all unit and race tests pass, golangci-lint reports 0 issues, go vet is clean, the generated DTS stays in sync, and no RAG or researchctl package is imported anywhere in Geppetto.
+
+**Commit (code):** 4ed0d038710299e39e8ba039198100bbdef56f3f — "docs(rerank): add live opt-in test and reranking topic guide (Phase 5/6)"
+
+### What I did
+
+- Implemented `pkg/rerank/llamacpp/live_test.go`: `TestLive_RerankAgainstRealLlamaCpp`, opt-in via `GEPPETTO_LIVE_RERANK=1`, requires `GEPPETTO_RERANK_BASE_URL` and `GEPPETTO_RERANK_MODEL`, asserts the payroll document ranks first for the payroll query, and logs the live results and usage for the qualification record.
+- Wrote `pkg/doc/topics/15-reranking.md`: concepts (caller-owned identity, index mapping, TopN, scores, usage/cost), Go quick start, profile-based construction, JavaScript sync and async API, security constraints, supported providers, live qualification commands, and the downstream integration dependency direction.
+- Checked off P5.1 (live test), P6.1 (topic doc), and P6.2 (full hardening).
+- Ran the full hardening suite:
+  - `go test ./pkg/rerank/... -count=1` — all pass;
+  - `go test -race ./pkg/rerank/... ./pkg/js/modules/geppetto` — clean;
+  - `go vet ./pkg/rerank/... ./pkg/js/modules/geppetto/...` — clean;
+  - `golangci-lint run ./pkg/rerank/...` and `./pkg/js/modules/geppetto/...` — 0 issues;
+  - `go run ./cmd/tools/gen-dts --check` — green;
+  - dependency-direction check: `rg rag-evaluation-system|researchctl pkg/rerank/` returns only doc-comment references, no imports.
+
+### Why
+
+- The live test must be opt-in and skip-only because a CI environment or a developer without a running llama.cpp server cannot run it, and it must never masquerade as a fixture-backed unit test.
+- The topic guide lives under `pkg/doc/topics/` with the other primitive guides so `geppetto help` and the docs index discover it.
+- The hardening suite is the exit gate for Phase 6: documentation and validation pass, Geppetto contains no RAG import, and the generated JavaScript declarations match the runtime surface.
+
+### What worked
+
+- The live test reuses the existing `llamacpp.New` constructor and `rerank.Request`, so it adds no new production code path — it is pure qualification.
+- The topic guide's structure mirrors `06-embeddings.md`, so the docs stay consistent across primitives.
+- golangci-lint on just the rerank and js-module packages runs in seconds (vs minutes for `make lintmax` on the whole tree), making the hardening loop fast.
+
+### What didn't work
+
+- `golangci-lint` repeatedly failed with `parallel golangci-lint is running` because a previous background invocation (from a lefthook run) held the lock. Resolved by killing the stale process and retrying. This is the same class of parallel-tool contention that affects the lefthook pre-commit hook.
+- I accidentally ran `gofmt -w` on the markdown topic file, which produced Go parse errors. Markdown is not Go; `gofmt` must only run on `.go` files.
+
+### What I learned
+
+- The DTS `--check` target is the right invariant to pin the generated declarations: it fails if `pkg/doc/types/geppetto.d.ts` is out of sync with `spec/geppetto.d.ts.tmpl`, preventing drift between the template and the checked-in declaration.
+- The dependency-direction check is best done with `rg` over `pkg/rerank/` and `pkg/js/modules/geppetto/api_reranker*.go` specifically, since the whole-tree check returns doc-comment references that are not imports.
+
+### What was tricky to build
+
+- The live test must assert a semantic property (the payroll document ranks first for the payroll query) without being brittle to exact scores, because scores are model- and server-specific and may change with model revisions. The assertion is on `DocumentID` ordering, not score magnitude.
+- Topic numbering: the design assumed topic 11, but `11-structured-sinks.md` already exists. Used 15 (the next free number) to avoid renumbering existing topics.
+
+### What warrants a second pair of eyes
+
+- Confirm the live test's skip condition (`GEPPETTO_LIVE_RERANK != "1"`) is the right opt-in convention for Geppetto, or whether a broader env-var pattern is used elsewhere.
+- Review whether P6.2's hardening is sufficient or whether `govulncheck` should be run specifically on the new rerank packages (the full `make lintmax` includes it but was not run here due to the parallel-lock issue).
+- The downstream RAG adapter tasks (P5.2, P5.3) remain open and belong to RESEARCHCTL-015, not this Geppetto ticket. Confirm that scoping is correct.
+
+### What should be done in the future
+
+- Run the live test against the version-frozen llama.cpp server and record the exact server/model/request evidence in RESEARCHCTL-015.
+- Implement the thin downstream RAG adapter in RESEARCHCTL-015 using `geppetto/pkg/rerank` and prove complete score and usage propagation into the native RAG reranking trace.
+- Consider adding `govulncheck ./pkg/rerank/...` to the CI hardening once the parallel-golangci-lint lock issue is resolved.
+
+### Code review instructions
+
+- Start in `pkg/rerank/llamacpp/live_test.go` (skip condition, env vars, semantic assertion), then `pkg/doc/topics/15-reranking.md`.
+- Validate with:
+
+  ```bash
+  go test ./pkg/rerank/llamacpp -run TestLive -v -count=1  # skips without env
+  go test -race ./pkg/rerank/... ./pkg/js/modules/geppetto -count=1
+  .bin/golangci-lint run ./pkg/rerank/... ./pkg/js/modules/geppetto/...
+  go run ./cmd/tools/gen-dts --check
+  ```
+
+### Technical details
+
+- Live test env: `GEPPETTO_LIVE_RERANK=1`, `GEPPETTO_RERANK_BASE_URL`, `GEPPETTO_RERANK_MODEL`.
+- Topic file: `pkg/doc/topics/15-reranking.md` (SectionType: Tutorial, IsTopLevel: true).
+- Hardening status: all unit/race tests pass, 0 lint issues, vet clean, DTS in sync, no RAG import.

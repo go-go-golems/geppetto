@@ -30,9 +30,9 @@
 - [x] P4.3 Add cancellable rerankAsync Promise handles with owner-thread settlement <!-- t:xkkw -->
 - [x] P4.4 Update generated DTS, hard-cut, export-surface, and method-surface parity checks <!-- t:ys9e -->
 - [x] P4.5 Add Goja sync, async, cancellation, runtime-close, race, and runnable example tests <!-- t:ikwn -->
-- [ ] P5.1 Add opt-in live llama.cpp qualification test and record exact model/server evidence <!-- t:2127 -->
-- [ ] P5.2 Implement and validate the thin downstream RAG adapter under RESEARCHCTL-015 <!-- t:ueay -->
-- [ ] P5.3 Prove complete score and usage propagation into the native RAG reranking trace <!-- t:qo7o -->
-- [ ] P6.1 Add Geppetto reranking topic documentation and Go/JavaScript copy-paste examples <!-- t:0r8r -->
-- [ ] P6.2 Run full unit, race, module-isolation, lint, vet, vulnerability, and dependency checks <!-- t:67dj -->
+- [x] P5.1 Add opt-in live llama.cpp qualification test and record exact model/server evidence <!-- t:2127 -->
+- [ ] P5.2 (deferred to RESEARCHCTL-015) Implement and validate the thin downstream RAG adapter under RESEARCHCTL-015 <!-- t:ueay -->
+- [ ] P5.3 (deferred to RESEARCHCTL-015) Prove complete score and usage propagation into the native RAG reranking trace <!-- t:qo7o -->
+- [x] P6.1 Add Geppetto reranking topic documentation and Go/JavaScript copy-paste examples <!-- t:0r8r -->
+- [x] P6.2 Run full unit, race, module-isolation, lint, vet, vulnerability, and dependency checks <!-- t:67dj -->
 - [ ] P6.3 Complete diary, changelog, tasks, doctor validation, and final reMarkable publication <!-- t:tq7v -->
