@@ -19,9 +19,9 @@ import (
 type RerankConfig struct {
 	// Type specifies the provider type (e.g. "llamacpp"). Currently only
 	// "llamacpp" is supported.
-	Type string `glazed:"rerank-type"`
+	Type string `yaml:"type,omitempty" glazed:"rerank-type"`
 	// Engine specifies the model to use for reranking.
-	Engine string `glazed:"rerank-engine"`
+	Engine string `yaml:"engine,omitempty" glazed:"rerank-engine"`
 	// MaxRequestBytes bounds the encoded request body. Defaults to 2 MiB.
 	MaxRequestBytes int64 `yaml:"max_request_bytes,omitempty" glazed:"rerank-max-request-bytes"`
 	// MaxResponseBytes bounds the response body. Defaults to 1 MiB.

@@ -75,6 +75,58 @@ func TestResolveEngineProfile_RerankProfileStacksBaseAPI(t *testing.T) {
 	}
 }
 
+func TestRerankConfig_PartialProfileOverlayPreservesInheritedFields(t *testing.T) {
+	tests := []struct {
+		name       string
+		overlay    *rerankconfig.RerankConfig
+		wantType   string
+		wantEngine string
+	}{
+		{
+			name: "engine only",
+			overlay: &rerankconfig.RerankConfig{
+				Engine: "qllama/bge-reranker-v2-m3:q8_0",
+			},
+			wantType:   "llamacpp",
+			wantEngine: "qllama/bge-reranker-v2-m3:q8_0",
+		},
+		{
+			name: "type only",
+			overlay: &rerankconfig.RerankConfig{
+				Type: "llamacpp",
+			},
+			wantType:   "llamacpp",
+			wantEngine: "qllama/bge-reranker-v2-m3:q4_k_m",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			base := &settings.InferenceSettings{
+				Rerank: &rerankconfig.RerankConfig{
+					Type:   "llamacpp",
+					Engine: "qllama/bge-reranker-v2-m3:q4_k_m",
+				},
+			}
+			overlay := &settings.InferenceSettings{Rerank: tt.overlay}
+
+			merged, err := MergeInferenceSettings(base, overlay)
+			if err != nil {
+				t.Fatalf("MergeInferenceSettings failed: %v", err)
+			}
+			if merged.Rerank == nil {
+				t.Fatal("merged settings did not include rerank")
+			}
+			if got := merged.Rerank.Type; got != tt.wantType {
+				t.Errorf("rerank type = %q, want %q", got, tt.wantType)
+			}
+			if got := merged.Rerank.Engine; got != tt.wantEngine {
+				t.Errorf("rerank engine = %q, want %q", got, tt.wantEngine)
+			}
+		})
+	}
+}
+
 func TestRerankConfig_YAMLRoundTripThroughMerge(t *testing.T) {
 	base := &settings.InferenceSettings{
 		API: &settings.APISettings{
