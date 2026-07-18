@@ -121,10 +121,6 @@ func NewInferenceSettings() (*InferenceSettings, error) {
 	if err != nil {
 		return nil, err
 	}
-	rerankSettings, err := rerankconfig.NewRerankConfig()
-	if err != nil {
-		return nil, err
-	}
 	return &InferenceSettings{
 		Chat:       chatSettings,
 		OpenAI:     openaiSettings,
@@ -134,7 +130,10 @@ func NewInferenceSettings() (*InferenceSettings, error) {
 		Ollama:     ollamaSettings,
 		API:        NewAPISettings(),
 		Embeddings: embeddingsSettings,
-		Rerank:     rerankSettings,
+		// Rerank remains nil until a profile or parsed values explicitly set a
+		// provider type or engine. This preserves its optional semantics and
+		// keeps unrelated profile YAML free of an empty rerank section.
+		Rerank: nil,
 	}, nil
 }
 
@@ -439,9 +438,18 @@ func (ss *InferenceSettings) UpdateFromParsedValues(parsedValues *values.Values)
 		return err
 	}
 
-	err = parsedValues.DecodeSectionInto(rerankconfig.RerankSlug, ss.Rerank)
+	// Decode rerank into a temporary value because it is optional. The Glazed
+	// section provides byte-limit defaults even when no rerank capability was
+	// selected; retain the field only once type or engine was supplied.
+	rerankSettings := &rerankconfig.RerankConfig{}
+	err = parsedValues.DecodeSectionInto(rerankconfig.RerankSlug, rerankSettings)
 	if err != nil {
 		return err
+	}
+	if strings.TrimSpace(rerankSettings.Type) != "" || strings.TrimSpace(rerankSettings.Engine) != "" {
+		ss.Rerank = rerankSettings
+	} else {
+		ss.Rerank = nil
 	}
 
 	apiSlugs := []string{

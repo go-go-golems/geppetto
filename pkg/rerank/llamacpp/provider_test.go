@@ -3,8 +3,11 @@ package llamacpp
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -70,6 +73,25 @@ func TestNew_RejectsQueryAndFragment(t *testing.T) {
 	_, err := New(Options{BaseURL: "http://127.0.0.1:18012?x=1", Model: testModel})
 	require.ErrorIs(t, err, rerank.ErrInvalidRequest)
 	assert.Contains(t, err.Error(), "query or fragment")
+}
+
+func TestNew_RejectsAmbiguousPath(t *testing.T) {
+	for _, rawURL := range []string{
+		"http://127.0.0.1:18012/a/../b",
+		"http://127.0.0.1:18012//prefix",
+		"http://127.0.0.1:18012/%2e%2e",
+	} {
+		t.Run(rawURL, func(t *testing.T) {
+			_, err := New(Options{BaseURL: rawURL, Model: testModel})
+			require.ErrorIs(t, err, rerank.ErrInvalidRequest)
+		})
+	}
+}
+
+func TestNew_MalformedURLDoesNotLeakUserinfo(t *testing.T) {
+	_, err := New(Options{BaseURL: "http://user:SUPERSECRET@[", Model: testModel})
+	require.ErrorIs(t, err, rerank.ErrInvalidRequest)
+	assert.NotContains(t, err.Error(), "SUPERSECRET")
 }
 
 func TestNew_DeniesLocalHTTPByDefault(t *testing.T) {
@@ -284,7 +306,40 @@ func TestRerank_RejectsOversizedRequest(t *testing.T) {
 	require.ErrorIs(t, err, rerank.ErrRequestTooLarge)
 }
 
-func TestRerank_ContextCancellation(t *testing.T) {
+func TestRerank_ContextCancellationInterruptsInFlightRequest(t *testing.T) {
+	started := make(chan struct{})
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		close(started)
+		<-req.Context().Done()
+		return nil, req.Context().Err()
+	})}
+	p := mustNewProvider(t, Options{
+		BaseURL:     "http://127.0.0.1:18012",
+		Model:       testModel,
+		HTTPClient:  client,
+		OutboundURL: security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true},
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := p.Rerank(ctx, baseRequest("q", []rerank.Document{{ID: "a", Text: "x"}}, 1))
+		errCh <- err
+	}()
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("provider did not start request")
+	}
+	cancel()
+	select {
+	case err := <-errCh:
+		require.ErrorIs(t, err, rerank.ErrUnavailable)
+	case <-time.After(time.Second):
+		t.Fatal("provider did not return after context cancellation")
+	}
+}
+
+func TestRerank_HonorsInjectedClientTimeout(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(200 * time.Millisecond)
 		_, _ = w.Write([]byte(`{"results":[{"index":0,"relevance_score":1.0}]}`))
@@ -293,14 +348,11 @@ func TestRerank_ContextCancellation(t *testing.T) {
 	p := mustNewProvider(t, Options{
 		BaseURL:     srv.URL,
 		Model:       testModel,
+		HTTPClient:  &http.Client{Timeout: 20 * time.Millisecond},
 		OutboundURL: security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true},
 	})
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	_, err := p.Rerank(ctx, baseRequest("q", []rerank.Document{{ID: "a", Text: "x"}}, 1))
-	require.Error(t, err)
-	// Cancellation surfaces as a transport/unavailable error, never as a
-	// successful response.
+	_, err := p.Rerank(context.Background(), baseRequest("q", []rerank.Document{{ID: "a", Text: "x"}}, 1))
+	require.ErrorIs(t, err, rerank.ErrUnavailable)
 }
 
 func TestRerank_RejectsRedirect(t *testing.T) {
@@ -309,7 +361,7 @@ func TestRerank_RejectsRedirect(t *testing.T) {
 	}))
 	t.Cleanup(target.Close)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, target.URL, http.StatusFound)
+		http.Redirect(w, r, target.URL+"?token=REDIRECTSECRET", http.StatusFound)
 	}))
 	t.Cleanup(srv.Close)
 	p := mustNewProvider(t, Options{
@@ -319,8 +371,8 @@ func TestRerank_RejectsRedirect(t *testing.T) {
 	})
 	docs := []rerank.Document{{ID: "a", Text: "x"}}
 	_, err := p.Rerank(context.Background(), baseRequest("q", docs, 1))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "redirect")
+	require.ErrorIs(t, err, rerank.ErrUnavailable)
+	assert.NotContains(t, err.Error(), "REDIRECTSECRET")
 }
 
 func TestRerank_CostIsNilWithoutPricing(t *testing.T) {
@@ -368,9 +420,41 @@ func TestRerank_InjectedClientIsNotMutated(t *testing.T) {
 }
 
 func TestReadAtMost_Limits(t *testing.T) {
-	out, err := readAtMost(strings.NewReader("hello"), 3)
+	out, tooLarge, err := readAtMost(strings.NewReader("hello"), 3)
 	require.NoError(t, err)
+	assert.True(t, tooLarge)
 	assert.Len(t, out, 4) // limit+1
+}
+
+type failingReader struct{}
+
+func (failingReader) Read([]byte) (int, error) {
+	return 0, errors.New("READSECRET")
+}
+
+func TestRerank_ReadFailureIsUnavailableAndSafe(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(failingReader{}),
+			Header:     make(http.Header),
+		}, nil
+	})}
+	p := mustNewProvider(t, Options{
+		BaseURL:     "http://127.0.0.1:18012",
+		Model:       testModel,
+		HTTPClient:  client,
+		OutboundURL: security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true},
+	})
+	_, err := p.Rerank(context.Background(), baseRequest("q", []rerank.Document{{ID: "a", Text: "x"}}, 1))
+	require.ErrorIs(t, err, rerank.ErrUnavailable)
+	assert.NotContains(t, err.Error(), "READSECRET")
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
 
 // padBytes returns a byte slice of n spaces (helper for oversized-response tests).
@@ -378,21 +462,9 @@ func padBytes(n int) []byte {
 	return []byte(strings.Repeat(" ", n))
 }
 
-// fixtureJSON is the sanitized BGE reranker response (see testdata/
-// bge-reranker-v2-m3-response.json), inlined here so the test does not depend
-// on file IO ordering.
-const fixtureJSON = `{
-  "model": "qllama/bge-reranker-v2-m3:q4_k_m",
-  "object": "list",
-  "usage": {"prompt_tokens": 96, "total_tokens": 96},
-  "results": [
-    {"index": 0, "relevance_score": -3.32784366607666},
-    {"index": 1, "relevance_score": -9.837879180908203},
-    {"index": 2, "relevance_score": -11.012685775756836}
-  ]
-}`
-
 func fixtureBytes(t *testing.T) []byte {
 	t.Helper()
-	return []byte(fixtureJSON)
+	body, err := os.ReadFile("testdata/bge-reranker-v2-m3-response.json")
+	require.NoError(t, err)
+	return body
 }

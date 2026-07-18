@@ -5,12 +5,6 @@ import (
 	"strings"
 )
 
-// DefaultMaxRequestBytes is the conservative default bound on the encoded
-// request body when a provider does not configure an explicit limit. It
-// protects memory and transport but does not prove model context safety; the
-// application must apply exact tokenization/truncation policy before the call.
-const DefaultMaxRequestBytes int64 = 2 << 20 // 2 MiB
-
 // ValidateRequest validates a caller-supplied Request independent of any
 // provider transport. It rejects:
 //   - empty query after trimming;
@@ -49,10 +43,13 @@ func ValidateRequest(in Request, providerModel Model) error {
 			return fmt.Errorf("rerank document %d requires a non-empty id: %w", i, ErrInvalidRequest)
 		}
 		if strings.TrimSpace(doc.Text) == "" {
-			return fmt.Errorf("rerank document %d (%s) requires non-empty text: %w", i, doc.ID, ErrInvalidRequest)
+			// Caller-controlled IDs are protected values. Identify the input
+			// position without echoing the ID into an error, log, trace, or export.
+			return fmt.Errorf("rerank document %d requires non-empty text: %w", i, ErrInvalidRequest)
 		}
 		if _, exists := seen[doc.ID]; exists {
-			return fmt.Errorf("rerank document id %q is duplicated: %w", doc.ID, ErrInvalidRequest)
+			// Do not include the duplicate caller-controlled ID in the error.
+			return fmt.Errorf("rerank documents contain a duplicate id: %w", ErrInvalidRequest)
 		}
 		seen[doc.ID] = struct{}{}
 	}

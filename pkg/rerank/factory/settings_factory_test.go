@@ -195,16 +195,24 @@ func TestRerankConfig_ClonesDeeply(t *testing.T) {
 	assert.Equal(t, "m", cfg.Engine, "original must be unaffected by clone mutation")
 }
 
-func TestInferenceSettings_CloneIncludesRerank(t *testing.T) {
+func TestInferenceSettings_CloneIncludesExplicitRerank(t *testing.T) {
 	in, err := aistepssettings.NewInferenceSettings()
 	require.NoError(t, err)
-	require.NotNil(t, in.Rerank)
-	in.Rerank.Engine = "original-engine"
+	in.Rerank = &rerankconfig.RerankConfig{Type: "llamacpp", Engine: "original-engine"}
 	clone := in.Clone()
 	require.NotNil(t, clone.Rerank)
 	assert.Equal(t, "original-engine", clone.Rerank.Engine)
 	clone.Rerank.Engine = "cloned-engine"
 	assert.Equal(t, "original-engine", in.Rerank.Engine, "clone must not share Rerank with original")
+}
+
+func TestInferenceSettings_DefaultRerankIsNilAndOmittedFromYAML(t *testing.T) {
+	in, err := aistepssettings.NewInferenceSettings()
+	require.NoError(t, err)
+	assert.Nil(t, in.Rerank)
+	encoded, err := yaml.Marshal(in)
+	require.NoError(t, err)
+	assert.NotContains(t, string(encoded), "rerank:")
 }
 
 func TestOutboundURLOptionsResolution(t *testing.T) {

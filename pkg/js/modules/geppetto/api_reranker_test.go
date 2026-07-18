@@ -154,10 +154,14 @@ func TestRerankerSync_RejectsMalformedDocuments(t *testing.T) {
 		try { reranker.rerank("q", [{text: "x"}], {topN: 1}); } catch (err) { ok = String(err).includes("id"); }
 		if (!ok) throw new Error("expected missing id rejection");
 
-		// Missing text.
+		// Missing text. The protected caller ID must not enter the error.
 		ok = false;
-		try { reranker.rerank("q", [{id: "a"}], {topN: 1}); } catch (err) { ok = String(err).includes("text"); }
-		if (!ok) throw new Error("expected missing text rejection");
+		try {
+			reranker.rerank("q", [{id: "CALLER-ID-MUST-NOT-LEAK"}], {topN: 1});
+		} catch (err) {
+			ok = String(err).includes("text") && !String(err).includes("CALLER-ID-MUST-NOT-LEAK");
+		}
+		if (!ok) throw new Error("expected safe missing text rejection");
 
 		// Empty documents.
 		ok = false;
@@ -195,8 +199,13 @@ func TestRerankerSync_RejectsInvalidOptions(t *testing.T) {
 
 		// Non-integral topN.
 		ok = false;
-		try { reranker.rerank("q", docs, {topN: 1.5}); } catch (err) { ok = String(err).includes("integer"); }
+		try { reranker.rerank("q", docs, {topN: 1.5}); } catch (err) { ok = String(err).includes("safe integer"); }
 		if (!ok) throw new Error("expected non-integral topN rejection");
+
+		// Values above JavaScript's exact integer range must not be silently rounded.
+		ok = false;
+		try { reranker.rerank("q", docs, {topN: 9007199254740992}); } catch (err) { ok = String(err).includes("safe integer"); }
+		if (!ok) throw new Error("expected unsafe topN rejection");
 	`)
 }
 

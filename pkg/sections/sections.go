@@ -96,7 +96,11 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := rerankSection.InitializeDefaultsFromStruct(ss.Rerank); err != nil {
+	rerankDefaults := ss.Rerank
+	if rerankDefaults == nil {
+		rerankDefaults = &rerankconfig.RerankConfig{}
+	}
+	if err := rerankSection.InitializeDefaultsFromStruct(rerankDefaults); err != nil {
 		return nil, err
 	}
 

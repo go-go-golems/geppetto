@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,7 +30,6 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/rerank"
 	"github.com/go-go-golems/geppetto/pkg/security"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -93,19 +93,12 @@ func New(options Options) (*Provider, error) {
 	}
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
-		return nil, fmt.Errorf("llamacpp base URL is invalid: %w: %w", err, rerank.ErrInvalidRequest)
+		// url.Parse errors include the original URL. Never wrap them: a malformed
+		// URL can contain endpoint credentials or private topology.
+		return nil, fmt.Errorf("llamacpp base URL is malformed: %w", rerank.ErrInvalidRequest)
 	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return nil, fmt.Errorf("llamacpp base URL scheme must be http or https: %w", rerank.ErrInvalidRequest)
-	}
-	if parsed.Host == "" {
-		return nil, fmt.Errorf("llamacpp base URL host is required: %w", rerank.ErrInvalidRequest)
-	}
-	if parsed.User != nil {
-		return nil, fmt.Errorf("llamacpp base URL must not contain userinfo: %w", rerank.ErrInvalidRequest)
-	}
-	if parsed.RawQuery != "" || parsed.Fragment != "" {
-		return nil, fmt.Errorf("llamacpp base URL must not contain query or fragment: %w", rerank.ErrInvalidRequest)
+	if err := validateBaseURL(parsed); err != nil {
+		return nil, err
 	}
 
 	model := strings.TrimSpace(options.Model)
@@ -150,6 +143,34 @@ func New(options Options) (*Provider, error) {
 	}, nil
 }
 
+// validateBaseURL permits an optional unambiguous path prefix, but rejects
+// encoded paths, repeated separators, and dot segments. url.JoinPath would
+// otherwise normalize those forms after validation, making the configured
+// target ambiguous to reviewers and security policy.
+func validateBaseURL(parsed *url.URL) error {
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("llamacpp base URL scheme must be http or https: %w", rerank.ErrInvalidRequest)
+	}
+	if parsed.Host == "" {
+		return fmt.Errorf("llamacpp base URL host is required: %w", rerank.ErrInvalidRequest)
+	}
+	if parsed.User != nil {
+		return fmt.Errorf("llamacpp base URL must not contain userinfo: %w", rerank.ErrInvalidRequest)
+	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" {
+		return fmt.Errorf("llamacpp base URL must not contain query or fragment: %w", rerank.ErrInvalidRequest)
+	}
+	if parsed.RawPath != "" || strings.Contains(parsed.Path, "//") {
+		return fmt.Errorf("llamacpp base URL path must be unambiguous: %w", rerank.ErrInvalidRequest)
+	}
+	for _, segment := range strings.Split(parsed.Path, "/") {
+		if segment == "." || segment == ".." {
+			return fmt.Errorf("llamacpp base URL path must not contain dot segments: %w", rerank.ErrInvalidRequest)
+		}
+	}
+	return nil
+}
+
 // Model returns the provider's configured provider/model identity.
 func (p *Provider) Model() rerank.Model {
 	return rerank.Model{Provider: ProviderName, Name: p.model}
@@ -186,7 +207,7 @@ func (p *Provider) Rerank(ctx context.Context, in rerank.Request) (rerank.Respon
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.endpoint, bytes.NewReader(payload))
 	if err != nil {
-		return rerank.Response{}, fmt.Errorf("llamacpp create request: %w", err)
+		return rerank.Response{}, fmt.Errorf("llamacpp could not create provider request: %w", rerank.ErrUnavailable)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
@@ -202,11 +223,11 @@ func (p *Provider) Rerank(ctx context.Context, in rerank.Request) (rerank.Respon
 			httpResp.StatusCode, rerank.ErrUnavailable)
 	}
 
-	raw, err := readAtMost(httpResp.Body, p.maxResponseBytes)
+	raw, tooLarge, err := readAtMost(httpResp.Body, p.maxResponseBytes)
 	if err != nil {
-		return rerank.Response{}, fmt.Errorf("llamacpp read response: %w: %w", err, rerank.ErrResponseTooLarge)
+		return rerank.Response{}, fmt.Errorf("llamacpp could not read provider response: %w", rerank.ErrUnavailable)
 	}
-	if int64(len(raw)) > p.maxResponseBytes {
+	if tooLarge {
 		return rerank.Response{}, fmt.Errorf("llamacpp response body exceeds %d bytes: %w",
 			p.maxResponseBytes, rerank.ErrResponseTooLarge)
 	}
@@ -242,58 +263,44 @@ func (p *Provider) Rerank(ctx context.Context, in rerank.Request) (rerank.Respon
 	}, nil
 }
 
-// redactTransportError strips query/document/credential detail from transport
-// errors. url.Error may include the full request URL (which is safe: it is the
-// validated endpoint without query) but the underlying message must not leak
-// body content. We keep the error category and the redacted endpoint origin.
-func redactTransportError(err error) error {
-	var urlErr *url.Error
-	if errors.As(err, &urlErr) {
-		return fmt.Errorf("llamacpp transport error calling %s: %w: %w",
-			redactOrigin(urlErr.URL), rerank.ErrUnavailable, err)
-	}
-	return fmt.Errorf("llamacpp transport error: %w: %w", rerank.ErrUnavailable, err)
-}
-
-// redactOrigin returns scheme://host with any userinfo stripped, for safe
-// inclusion in error diagnostics.
-func redactOrigin(rawURL string) string {
-	if rawURL == "" {
-		return ""
-	}
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return "[unparseable]"
-	}
-	if parsed.User != nil {
-		parsed.User = nil
-	}
-	return parsed.Scheme + "://" + parsed.Host
+// redactTransportError intentionally discards the original transport error.
+// net/url errors can contain a redirect target, proxy URL, userinfo, or query
+// parameters. The stable sentinel is sufficient for callers to classify the
+// failure without serializing protected operational data.
+func redactTransportError(_ error) error {
+	return fmt.Errorf("llamacpp provider transport failed: %w", rerank.ErrUnavailable)
 }
 
 // drainBounded reads and discards a non-2xx body up to the limit so the
 // connection can be reused, without ever surfacing the body in an error.
 func drainBounded(body io.Reader, limit int64) {
-	_, _ = readAtMost(body, limit)
+	_, _, _ = readAtMost(body, limit)
 }
 
-// readAtMost reads up to limit+1 bytes from r. If more than limit bytes are
-// available, the caller treats it as an oversized response.
-func readAtMost(r io.Reader, limit int64) ([]byte, error) {
+// readAtMost reads up to limit+1 bytes from r. tooLarge is true only when the
+// body exceeded the limit; a read error remains distinguishable from a limit
+// violation and is classified by the caller as provider unavailability.
+func readAtMost(r io.Reader, limit int64) ([]byte, bool, error) {
 	lr := &io.LimitedReader{R: r, N: limit + 1}
-	return io.ReadAll(lr)
+	body, err := io.ReadAll(lr)
+	if err != nil {
+		return nil, false, err
+	}
+	return body, int64(len(body)) > limit, nil
 }
 
-// decodeStrict decodes JSON and rejects trailing data after the single
-// top-level value.
+// decodeStrict decodes exactly one JSON value. It rejects unknown fields and
+// every non-whitespace byte after that value without returning provider body
+// content in an error.
 func decodeStrict(raw []byte) (*response, error) {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	var wire response
 	if err := dec.Decode(&wire); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid JSON response")
 	}
-	if dec.More() {
+	var extra any
+	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("trailing data after rerank response")
 	}
 	return &wire, nil

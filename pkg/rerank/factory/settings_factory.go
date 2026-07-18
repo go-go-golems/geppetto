@@ -20,7 +20,10 @@ const (
 
 // ProviderFactory constructs rerank providers from configuration.
 type ProviderFactory interface {
-	NewProvider(opts ...rerank.ProviderOption) (rerank.Provider, error)
+	// NewProvider constructs the provider described by the resolved settings.
+	// Endpoint and credential capability remains in host-owned settings; there
+	// are intentionally no ad-hoc caller overrides.
+	NewProvider() (rerank.Provider, error)
 	SupportedProviders() []string
 }
 
@@ -63,28 +66,22 @@ func (f *SettingsFactory) SupportedProviders() []string {
 	return []string{rerankProviderLlamaCpp}
 }
 
-// NewProvider creates a rerank provider based on the configuration and options.
-func (f *SettingsFactory) NewProvider(opts ...rerank.ProviderOption) (rerank.Provider, error) {
+// NewProvider creates a rerank provider from the resolved configuration.
+func (f *SettingsFactory) NewProvider() (rerank.Provider, error) {
 	if f == nil || f.config == nil {
 		return nil, fmt.Errorf("no rerank configuration provided: %w", rerank.ErrInvalidRequest)
 	}
 
-	options := &rerank.ProviderOptions{
-		ProviderType: f.config.Type,
-		Engine:       f.config.Engine,
-	}
-	for _, opt := range opts {
-		opt(options)
-	}
-
-	if strings.TrimSpace(options.ProviderType) == "" {
+	providerType := strings.TrimSpace(f.config.Type)
+	engine := strings.TrimSpace(f.config.Engine)
+	if providerType == "" {
 		return nil, fmt.Errorf("no rerank type specified: %w", rerank.ErrInvalidRequest)
 	}
-	if strings.TrimSpace(options.Engine) == "" {
+	if engine == "" {
 		return nil, fmt.Errorf("no rerank model specified: %w", rerank.ErrInvalidRequest)
 	}
 
-	switch options.ProviderType {
+	switch providerType {
 	case rerankProviderLlamaCpp:
 		baseURL, err := f.resolveBaseURL()
 		if err != nil {
@@ -97,7 +94,7 @@ func (f *SettingsFactory) NewProvider(opts ...rerank.ProviderOption) (rerank.Pro
 		}
 		return llamacpp.New(llamacpp.Options{
 			BaseURL:          baseURL,
-			Model:            options.Engine,
+			Model:            engine,
 			HTTPClient:       httpClient,
 			OutboundURL:      outbound,
 			MaxRequestBytes:  f.config.MaxRequestBytes,
@@ -106,7 +103,7 @@ func (f *SettingsFactory) NewProvider(opts ...rerank.ProviderOption) (rerank.Pro
 		})
 	default:
 		return nil, fmt.Errorf("unsupported rerank provider type %q; supported values are %v: %w",
-			options.ProviderType, f.SupportedProviders(), rerank.ErrInvalidRequest)
+			providerType, f.SupportedProviders(), rerank.ErrInvalidRequest)
 	}
 }
 

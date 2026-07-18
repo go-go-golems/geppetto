@@ -73,17 +73,31 @@ func TestValidateRequest_RejectsEmptyAndDuplicateIDs(t *testing.T) {
 		TopN:      2,
 	}, Model{})
 	require.ErrorIs(t, err, ErrInvalidRequest)
-	assert.Contains(t, err.Error(), "duplicated")
+	assert.Contains(t, err.Error(), "duplicate id")
 }
 
 func TestValidateRequest_RejectsEmptyText(t *testing.T) {
 	err := ValidateRequest(Request{
 		Query:     "q",
-		Documents: []Document{{ID: "a", Text: "  "}},
+		Documents: []Document{{ID: "CALLER-ID-MUST-NOT-LEAK", Text: "  "}},
 		TopN:      1,
 	}, Model{})
 	require.ErrorIs(t, err, ErrInvalidRequest)
 	assert.Contains(t, err.Error(), "non-empty text")
+	assert.NotContains(t, err.Error(), "CALLER-ID-MUST-NOT-LEAK")
+}
+
+func TestValidateRequest_DuplicateIDDoesNotLeakProtectedValue(t *testing.T) {
+	err := ValidateRequest(Request{
+		Query: "q",
+		Documents: []Document{
+			{ID: "CALLER-ID-MUST-NOT-LEAK", Text: "x"},
+			{ID: "CALLER-ID-MUST-NOT-LEAK", Text: "y"},
+		},
+		TopN: 2,
+	}, Model{})
+	require.ErrorIs(t, err, ErrInvalidRequest)
+	assert.NotContains(t, err.Error(), "CALLER-ID-MUST-NOT-LEAK")
 }
 
 func TestValidateRequest_RejectsInvalidTopN(t *testing.T) {

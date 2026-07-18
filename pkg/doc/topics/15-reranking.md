@@ -195,7 +195,19 @@ Currently only `llamacpp` is supported. The core package is transport-neutral; f
 
 ## Live Qualification
 
-An opt-in live test runs against a real llama.cpp server:
+Use the runnable example for interactive qualification. It accepts either a
+resolved rerank profile or complete inline rerank settings and emits one row
+per ranked document, so both JSON and table output remain readable:
+
+```bash
+go run ./cmd/examples/rerank-profile-smoke run \
+  --rerank-type llamacpp \
+  --rerank-engine qllama/bge-reranker-v2-m3:q4_k_m \
+  --rerank-base-url http://127.0.0.1:18012 \
+  --output json
+```
+
+The opt-in test remains the automation guard:
 
 ```bash
 GEPPETTO_LIVE_RERANK=1 \

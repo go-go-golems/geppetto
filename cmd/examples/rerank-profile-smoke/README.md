@@ -59,11 +59,13 @@ go run ./cmd/examples/rerank-profile-smoke run \
   --output json
 ```
 
-### Base-profile overlay (no rerank profile needed)
+### Inline configuration (no profile needed)
+
+The example needs no base profile when all rerank settings are supplied on the
+command line:
 
 ```bash
 go run ./cmd/examples/rerank-profile-smoke run \
-  --base-profile ollama-openai-base \
   --rerank-type llamacpp \
   --rerank-engine qllama/bge-reranker-v2-m3:q4_k_m \
   --rerank-base-url http://127.0.0.1:18012 \
@@ -97,16 +99,32 @@ go run ./cmd/examples/rerank-profile-smoke run \
     "profile": "bge-reranker-local",
     "provider": "llama.cpp",
     "query": "How does TTC calculate a payroll adjustment?",
-    "results": [
-      {"rank": 1, "document_id": "chunk-001", "index": 0, "score": -4.06},
-      {"rank": 2, "document_id": "chunk-002", "index": 1, "score": -11.01},
-      {"rank": 3, "document_id": "chunk-003", "index": 2, "score": -11.02}
-    ],
+    "rank": 1,
+    "document_id": "chunk-001",
+    "index": 0,
+    "score": -4.06,
+    "usage_input_tokens": 76,
+    "usage_total_tokens": 76
+  },
+  {
+    "document_count": 3,
+    "duration_ms": 76,
+    "model": "qllama/bge-reranker-v2-m3:q4_k_m",
+    "profile": "bge-reranker-local",
+    "provider": "llama.cpp",
+    "query": "How does TTC calculate a payroll adjustment?",
+    "rank": 2,
+    "document_id": "chunk-002",
+    "index": 1,
+    "score": -11.01,
     "usage_input_tokens": 76,
     "usage_total_tokens": 76
   }
 ]
 ```
+
+Each result is one Glazed row, so both `--output json` and `--output table`
+are readable without nested Go values.
 
 Notes:
 - Scores may be negative and are not probabilities; they are sorted descending.

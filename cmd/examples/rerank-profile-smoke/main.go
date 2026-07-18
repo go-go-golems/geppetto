@@ -13,8 +13,8 @@
 //	rerank-profile-smoke run --profile bge-reranker-local \
 //	  --query "How does TTC calculate a payroll adjustment?"
 //
-//	# Or overlay rerank flags onto a base profile:
-//	rerank-profile-smoke run --base-profile llamacpp-base \
+//	# Or run with inline rerank settings (no profile required):
+//	rerank-profile-smoke run \
 //	  --rerank-type llamacpp --rerank-engine qllama/bge-reranker-v2-m3:q4_k_m \
 //	  --rerank-base-url http://127.0.0.1:18012
 //
@@ -98,8 +98,8 @@ Use Glazed output flags for machine-readable output, for example:
   rerank-profile-smoke run --output json --query "..." --document "a|text a"`),
 		cmds.WithFlags(
 			fields.New("base-profile", fields.TypeString,
-				fields.WithDefault("llamacpp-base"),
-				fields.WithHelp("Base profile to stack when --profile is empty"),
+				fields.WithDefault(""),
+				fields.WithHelp("Optional base profile to stack when --profile is empty; leave empty for inline rerank settings"),
 			),
 			fields.New("rerank-type", fields.TypeString,
 				fields.WithDefault("llamacpp"),
@@ -148,9 +148,12 @@ func (c *rerankCommand) RunIntoGlazeProcessor(ctx context.Context, parsedValues 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	resolved, effectiveProfile, err := resolveSettings(ctx, profileSettings.ProfileRegistries, profileSettings.Profile, s)
+	resolved, closeSettings, effectiveProfile, err := resolveSettings(ctx, profileSettings.ProfileRegistries, profileSettings.Profile, s)
 	if err != nil {
 		return err
+	}
+	if closeSettings != nil {
+		defer func() { _ = closeSettings() }()
 	}
 
 	if err := rerankfactory.ValidateInferenceSettingsForRerank(resolved); err != nil {
@@ -184,60 +187,33 @@ func (c *rerankCommand) RunIntoGlazeProcessor(ctx context.Context, parsedValues 
 	}
 
 	model := provider.Model()
-	row := types.NewRow(
-		types.MRP("profile", effectiveProfile),
-		types.MRP("provider", model.Provider),
-		types.MRP("model", model.Name),
-		types.MRP("query", s.Query),
-		types.MRP("document_count", len(docs)),
-		types.MRP("results", resultsToRows(resp.Results)),
-	)
-	if resp.Usage != nil {
-		row.Set("usage_input_tokens", resp.Usage.InputTokens)
-		row.Set("usage_total_tokens", resp.Usage.TotalTokens)
+	for _, result := range resp.Results {
+		row := types.NewRow(
+			types.MRP("profile", effectiveProfile),
+			types.MRP("provider", model.Provider),
+			types.MRP("model", model.Name),
+			types.MRP("query", s.Query),
+			types.MRP("document_count", len(docs)),
+			types.MRP("rank", result.Rank),
+			types.MRP("document_id", result.DocumentID),
+			types.MRP("index", result.Index),
+			types.MRP("score", result.Score),
+		)
+		if resp.Usage != nil {
+			row.Set("usage_input_tokens", resp.Usage.InputTokens)
+			row.Set("usage_total_tokens", resp.Usage.TotalTokens)
+		}
+		if resp.DurationMs != nil {
+			row.Set("duration_ms", *resp.DurationMs)
+		}
+		if err := gp.AddRow(ctx, row); err != nil {
+			return err
+		}
 	}
-	if resp.DurationMs != nil {
-		row.Set("duration_ms", *resp.DurationMs)
-	}
-	return gp.AddRow(ctx, row)
+	return nil
 }
 
-func resolveSettings(ctx context.Context, registryEntries []string, profile string, s *rerankSettings) (*aistepssettings.InferenceSettings, string, error) {
-	specs, err := profiles.ParseRegistrySourceSpecs(registryEntries)
-	if err != nil {
-		return nil, "", err
-	}
-	chain, err := profiles.NewChainedRegistryFromSourceSpecs(ctx, specs)
-	if err != nil {
-		return nil, "", err
-	}
-
-	if strings.TrimSpace(profile) != "" {
-		profileSlug, err := profiles.ParseEngineProfileSlug(profile)
-		if err != nil {
-			_ = chain.Close()
-			return nil, "", err
-		}
-		resolved, err := chain.ResolveEngineProfile(ctx, profiles.ResolveInput{EngineProfileSlug: profileSlug})
-		if err != nil {
-			_ = chain.Close()
-			return nil, "", err
-		}
-		return resolved.InferenceSettings, profile, nil
-	}
-
-	baseProfile := s.BaseProfile
-	baseSlug, err := profiles.ParseEngineProfileSlug(baseProfile)
-	if err != nil {
-		_ = chain.Close()
-		return nil, "", err
-	}
-	baseResolved, err := chain.ResolveEngineProfile(ctx, profiles.ResolveInput{EngineProfileSlug: baseSlug})
-	if err != nil {
-		_ = chain.Close()
-		return nil, "", err
-	}
-
+func resolveSettings(ctx context.Context, registryEntries []string, profile string, s *rerankSettings) (*aistepssettings.InferenceSettings, func() error, string, error) {
 	overlay := &aistepssettings.InferenceSettings{
 		API: &aistepssettings.APISettings{
 			BaseUrls:           map[string]string{"rerank-base-url": s.RerankBaseURL},
@@ -249,12 +225,55 @@ func resolveSettings(ctx context.Context, registryEntries []string, profile stri
 			Engine: s.RerankEngine,
 		},
 	}
+	if strings.TrimSpace(profile) == "" && strings.TrimSpace(s.BaseProfile) == "" {
+		merged, err := profiles.MergeInferenceSettings(&aistepssettings.InferenceSettings{}, overlay)
+		if err != nil {
+			return nil, nil, "", err
+		}
+		return merged, nil, fmt.Sprintf("inline rerank(%s/%s)", s.RerankType, s.RerankEngine), nil
+	}
+
+	specs, err := profiles.ParseRegistrySourceSpecs(registryEntries)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	chain, err := profiles.NewChainedRegistryFromSourceSpecs(ctx, specs)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	closeChain := chain.Close
+
+	if strings.TrimSpace(profile) != "" {
+		profileSlug, err := profiles.ParseEngineProfileSlug(profile)
+		if err != nil {
+			_ = closeChain()
+			return nil, nil, "", err
+		}
+		resolved, err := chain.ResolveEngineProfile(ctx, profiles.ResolveInput{EngineProfileSlug: profileSlug})
+		if err != nil {
+			_ = closeChain()
+			return nil, nil, "", err
+		}
+		return resolved.InferenceSettings, closeChain, profile, nil
+	}
+
+	baseProfile := s.BaseProfile
+	baseSlug, err := profiles.ParseEngineProfileSlug(baseProfile)
+	if err != nil {
+		_ = closeChain()
+		return nil, nil, "", err
+	}
+	baseResolved, err := chain.ResolveEngineProfile(ctx, profiles.ResolveInput{EngineProfileSlug: baseSlug})
+	if err != nil {
+		_ = closeChain()
+		return nil, nil, "", err
+	}
 	merged, err := profiles.MergeInferenceSettings(baseResolved.InferenceSettings, overlay)
 	if err != nil {
-		_ = chain.Close()
-		return nil, "", err
+		_ = closeChain()
+		return nil, nil, "", err
 	}
-	return merged, fmt.Sprintf("%s + rerank(%s/%s)", baseProfile, s.RerankType, s.RerankEngine), nil
+	return merged, closeChain, fmt.Sprintf("%s + rerank(%s/%s)", baseProfile, s.RerankType, s.RerankEngine), nil
 }
 
 func defaultDocuments() []rerank.Document {
@@ -270,29 +289,16 @@ func parseDocuments(raw []string) ([]rerank.Document, error) {
 	for i, d := range raw {
 		idx := strings.Index(d, "|")
 		if idx < 0 {
-			return nil, fmt.Errorf("document %d %q must be 'id|text'", i, d)
+			return nil, fmt.Errorf("document %d must use the id|text format", i)
 		}
 		id := strings.TrimSpace(d[:idx])
 		text := strings.TrimSpace(d[idx+1:])
 		if id == "" || text == "" {
-			return nil, fmt.Errorf("document %d %q requires non-empty id and text", i, d)
+			return nil, fmt.Errorf("document %d requires non-empty id and text", i)
 		}
 		docs = append(docs, rerank.Document{ID: id, Text: text})
 	}
 	return docs, nil
-}
-
-func resultsToRows(results []rerank.Result) []types.Row {
-	rows := make([]types.Row, 0, len(results))
-	for _, r := range results {
-		rows = append(rows, types.NewRow(
-			types.MRP("rank", r.Rank),
-			types.MRP("document_id", r.DocumentID),
-			types.MRP("index", r.Index),
-			types.MRP("score", r.Score),
-		))
-	}
-	return rows
 }
 
 func defaultPinocchioProfilesPath() string {

@@ -3,6 +3,7 @@ package geppetto
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/geppetto/pkg/rerank"
@@ -110,7 +111,8 @@ func decodeRerankRequest(query string, documents []map[string]any, options map[s
 		}
 		text, ok := raw["text"].(string)
 		if !ok || text == "" {
-			return rerank.Request{}, fmt.Errorf("rerank document %d (%s) requires non-empty string text: %w", i, id, rerank.ErrInvalidRequest)
+			// Do not include caller-controlled IDs in JavaScript-visible errors.
+			return rerank.Request{}, fmt.Errorf("rerank document %d requires non-empty string text: %w", i, rerank.ErrInvalidRequest)
 		}
 		docs = append(docs, rerank.Document{ID: id, Text: text})
 	}
@@ -172,21 +174,28 @@ func decodeRerankOptions(options map[string]any, docCount int) (int, string, err
 // values outside the safe integer range. Unlike toInt, it returns an error
 // rather than a default so malformed input fails explicitly.
 func toIntStrict(v any) (int, error) {
-	switch n := v.(type) {
+	const maxSafeInteger = 1<<53 - 1
+
+	var n int64
+	switch x := v.(type) {
 	case int:
-		return n, nil
+		n = int64(x)
 	case int32:
-		return int(n), nil
+		n = int64(x)
 	case int64:
-		return int(n), nil
+		n = x
 	case float64:
-		if n != float64(int(n)) {
-			return 0, fmt.Errorf("value %v is not an integer", n)
+		if math.IsNaN(x) || math.IsInf(x, 0) || math.Trunc(x) != x || math.Abs(x) > maxSafeInteger {
+			return 0, fmt.Errorf("value is not a JavaScript safe integer")
 		}
-		return int(n), nil
+		n = int64(x)
 	default:
 		return 0, fmt.Errorf("value is not a number: %T", v)
 	}
+	if n < -maxSafeInteger || n > maxSafeInteger || int64(int(n)) != n {
+		return 0, fmt.Errorf("value is outside the JavaScript safe integer range")
+	}
+	return int(n), nil
 }
 
 // rerankResponseToJS converts a rerank.Response into a plain camelCase JS
