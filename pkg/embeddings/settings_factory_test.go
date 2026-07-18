@@ -75,6 +75,40 @@ func TestNewSettingsFactoryFromInferenceSettingsOllamaUsesEmbeddingLocalBaseURL(
 	}
 }
 
+func TestNewSettingsFactoryFromInferenceSettingsFileCacheUsesDefaultsForOmittedLimits(t *testing.T) {
+	cacheDirectory := t.TempDir()
+	profile := fmt.Sprintf(`
+inference_settings:
+  embeddings:
+    type: ollama
+    engine: nomic-embed-text
+    dimensions: 768
+    cache_type: file
+    cache_directory: %q
+`, cacheDirectory)
+	var decoded struct {
+		InferenceSettings *settings.InferenceSettings `yaml:"inference_settings"`
+	}
+	if err := yaml.Unmarshal([]byte(profile), &decoded); err != nil {
+		t.Fatalf("unmarshal profile YAML: %v", err)
+	}
+
+	provider, err := NewSettingsFactoryFromInferenceSettings(decoded.InferenceSettings).NewProvider()
+	if err != nil {
+		t.Fatalf("NewProvider returned error: %v", err)
+	}
+	diskCache, ok := provider.(*DiskCacheProvider)
+	if !ok {
+		t.Fatalf("provider = %T, want *DiskCacheProvider", provider)
+	}
+	if got, want := diskCache.maxSize, int64(1<<30); got != want {
+		t.Errorf("cache max size = %d, want default %d", got, want)
+	}
+	if got, want := diskCache.maxEntries, 10000; got != want {
+		t.Errorf("cache max entries = %d, want default %d", got, want)
+	}
+}
+
 func TestNewSettingsFactoryFromInferenceSettingsDecodesFileCacheFromYAML(t *testing.T) {
 	cacheDirectory := t.TempDir()
 	profile := fmt.Sprintf(`
