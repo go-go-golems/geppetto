@@ -68,3 +68,11 @@ Step 6: Integrated RerankConfig, settings factory, and profile stack overlay (Ph
 ### Related Files
 
 - /home/manuel/code/wesen/go-go-golems/geppetto/pkg/rerank/factory/settings_factory.go — Settings factory and InferenceSettings validation (commit 09c438c4)
+
+## 2026-07-18
+
+Step 7: Added Goja reranker(settings) sync and async API, DTS, tests, and example (Phase 4, P4.1-P4.5). Commits 786e09d1, 3ca8716a.
+
+### Related Files
+
+- /home/manuel/code/wesen/go-go-golems/geppetto/pkg/js/modules/geppetto/api_reranker.go — Goja sync reranker wrapper (commit 786e09d1)

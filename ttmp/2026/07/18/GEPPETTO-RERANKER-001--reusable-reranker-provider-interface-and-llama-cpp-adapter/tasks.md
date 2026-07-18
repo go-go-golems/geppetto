@@ -25,11 +25,11 @@
 - [x] P3.3 Implement settings-backed rerank ProviderFactory with explicit supported providers <!-- t:8gtj -->
 - [x] P3.4 Add engine-profile YAML round-trip, stack overlay, clone, API, client, and local-network tests <!-- t:5pu9 -->
 - [x] P3.5 Update inference-settings summaries and profile documentation <!-- t:maiw -->
-- [ ] P4.1 Add the top-level reranker(settings) Goja factory and hidden provider wrapper <!-- t:bc09 -->
-- [ ] P4.2 Add strict JavaScript request decoding and synchronous rerank response conversion <!-- t:i38u -->
-- [ ] P4.3 Add cancellable rerankAsync Promise handles with owner-thread settlement <!-- t:xkkw -->
-- [ ] P4.4 Update generated DTS, hard-cut, export-surface, and method-surface parity checks <!-- t:ys9e -->
-- [ ] P4.5 Add Goja sync, async, cancellation, runtime-close, race, and runnable example tests <!-- t:ikwn -->
+- [x] P4.1 Add the top-level reranker(settings) Goja factory and hidden provider wrapper <!-- t:bc09 -->
+- [x] P4.2 Add strict JavaScript request decoding and synchronous rerank response conversion <!-- t:i38u -->
+- [x] P4.3 Add cancellable rerankAsync Promise handles with owner-thread settlement <!-- t:xkkw -->
+- [x] P4.4 Update generated DTS, hard-cut, export-surface, and method-surface parity checks <!-- t:ys9e -->
+- [x] P4.5 Add Goja sync, async, cancellation, runtime-close, race, and runnable example tests <!-- t:ikwn -->
 - [ ] P5.1 Add opt-in live llama.cpp qualification test and record exact model/server evidence <!-- t:2127 -->
 - [ ] P5.2 Implement and validate the thin downstream RAG adapter under RESEARCHCTL-015 <!-- t:ueay -->
 - [ ] P5.3 Prove complete score and usage propagation into the native RAG reranking trace <!-- t:qo7o -->

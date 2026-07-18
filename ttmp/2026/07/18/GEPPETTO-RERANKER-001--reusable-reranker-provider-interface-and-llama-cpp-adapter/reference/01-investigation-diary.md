@@ -13,8 +13,16 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: repo://examples/js/geppetto/hardcut/07_reranker_with_registry_profile.js
+      Note: Runnable hard-cut reranker example (commit 786e09d1)
     - Path: repo://pkg/engineprofiles/stack_merge_rerank_test.go
       Note: Profile stack overlay and merge round-trip for rerank (commit 09c438c4)
+    - Path: repo://pkg/js/modules/geppetto/api_reranker.go
+      Note: Goja reranker factory, sync rerank, strict decoding, camelCase conversion (commit 786e09d1)
+    - Path: repo://pkg/js/modules/geppetto/api_reranker_async.go
+      Note: Cancellable rerankAsync with owner-thread Promise settlement (commit 786e09d1)
+    - Path: repo://pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl
+      Note: Reranker TypeScript declarations (commit 786e09d1)
     - Path: repo://pkg/rerank/config/settings.go
       Note: RerankConfig and Glazed/YAML flags section (commit 09c438c4)
     - Path: repo://pkg/rerank/errors.go
@@ -41,6 +49,7 @@ LastUpdated: 2026-07-18T18:20:00-04:00
 WhatFor: Preserve evidence, decisions, commands, failures, and continuation guidance for GEPPETTO-RERANKER-001.
 WhenToUse: Read before implementing or reviewing any task in this ticket.
 ---
+
 
 
 
@@ -615,3 +624,88 @@ Adding a typed `Rerank` field to `InferenceSettings` automatically participates 
 - Profile YAML keys: `inference_settings.rerank.{type,engine,max_request_bytes,max_response_bytes}` and `inference_settings.api.base_urls.rerank-base-url` plus `allow_http.rerank` / `allow_local_networks.rerank`.
 - Cost resolution: `ModelInfo.Cost.Input` per million tokens, nil when ModelInfo/Cost absent.
 - Supported providers: `llamacpp` only; unknown types fail with `ErrInvalidRequest`.
+
+## Step 7: Add the Goja API (Phase 4)
+
+Phase 4 exposes the profile-resolved rerank provider to JavaScript through `gp.reranker(settings)`, matching the existing `gp.embeddings(settings)` pattern. The wrapper offers a synchronous `rerank(...)` for bounded scripts and a cancellable `rerankAsync(...)` returning `{promise, cancel, close}` for event-loop applications. JavaScript cannot supply an endpoint, credential, HTTP client, or provider callback — those remain host/profile capabilities.
+
+The async path is the sharpest edge: the provider goroutine must touch no `goja.Value`, Promise resolver, or VM method. The request is fully decoded to plain Go values on the owner thread before launching, and Promise settlement + response conversion are posted back through `postOnOwner`. TypeScript declarations are generated from the template and must stay in sync with the runtime surface.
+
+**Commit (code):** 786e09d156bc0a37b321ad0b2cfc28991cafcc40 — "feat(rerank): add Goja reranker(settings) sync and async API (Phase 4)"
+**Commit (code):** 3ca8716a0118d8edc08b2a372320cf3b99adcc1e — "feat(rerank): regenerate DTS with reranker declarations and fix rerank-type field"
+
+### What I did
+
+- Implemented `api_reranker.go`: `rerankerRef`, `rerankerBuilder` (accepts only a registry-resolved `InferenceSettings` wrapper, constructs via `factory.NewSettingsFactoryFromInferenceSettings`), `newRerankerObject` with `rerank`/`rerankAsync`/`model` methods, `decodeRerankRequest` (strict: rejects unknown option keys, non-object documents, missing id/text, non-integral topN, out-of-range topN), `decodeRerankOptions`, `toIntStrict`, and `rerankResponseToJS` (camelCase, nil-optional-omitting).
+- Implemented `api_reranker_async.go`: `rerankerAsync` returning `{promise, cancel, close}`; the provider goroutine calls only `provider.Rerank(ctx, req)` and posts settlement via `postOnOwner`; `exportDocuments`/`exportOptions` deep-copy JS values to plain Go on the owner thread before launching.
+- Registered `reranker` in `installExports`.
+- Added reranker interfaces to `spec/geppetto.d.ts.tmpl` and regenerated `pkg/doc/types/geppetto.d.ts` via `cmd/tools/gen-dts`; `--check` stays green.
+- Updated `module_hardcut_test.go` to require `reranker` in the public surface and to run the new `07_reranker_with_registry_profile.js` example.
+- Added a `bge-reranker` profile to `50-hardcut-phase123.yaml`.
+- Wrote `api_reranker_test.go` (11 tests): model metadata, sync index-to-ID mapping, negative scores preserved, malformed documents, invalid options (missing/out-of-range/non-integral topN, unknown keys), secret non-leakage in errors, hidden-ref non-enumerability, async Promise resolution, idempotent cancel/close.
+- Ran `go test -race ./pkg/js/modules/geppetto` (clean) and `go run ./cmd/tools/gen-dts --check`.
+
+### Why
+
+- The existing module already exposes `gp.embeddings(settings)`, so omitting reranking would leave the model-service primitives inconsistent in JavaScript.
+- Sync matches bounded command scripts and the embeddings precedent; async matches the session `runAsync` cancellation and runtime-owner settlement precedent, so event-loop applications retain responsiveness.
+- Profile-only construction prevents JavaScript from bypassing endpoint and credential policy, matching the hard-cut wrapper-first API.
+
+### What worked
+
+- `api_embeddings.go` was a direct structural precedent: same hidden-ref wrapper, same `requireInferenceSettingsRef`, same `model()` metadata pattern. The reranker wrapper followed it closely.
+- The session `runAsync` test pattern (run JS inside `runtimeOwner.Call`, then poll `globalThis` for a done flag via `mustEvalExprExport`) made the async Promise settlement testable without a custom event loop.
+- The DTS parity test caught the missing `reranker` export immediately, and regenerating via `gen-dts` kept the template and checked-in declaration synchronized.
+
+### What didn't work
+
+- `toInt` already existed in `api_builder_options.go` with signature `toInt(v any, def int) int` (returns a default, not an error). I added `toIntStrict(v any) (int, error)` for strict validation rather than reusing the lenient helper.
+- The first async test attempted to pump the owner loop via `runtimeOwner.Call` with a `func(_ context.Context, _ interface{}) (any, error)` callback, but `CallFunc` is `func(context.Context, *goja.Runtime) (any, error)`. Rewrote to the session-test pattern.
+- The `rerank-type` Glazed `choice` field (left over from Phase 3's first draft) broke `InitializeDefaultsFromStruct`; the fix to a plain `string` field was committed separately in `3ca8716a`.
+
+### What I learned
+
+- No `goja.Value`, Promise resolver, object, or VM method may cross into the provider goroutine. The request must be deep-copied to ordinary Go values (`[]map[string]any` then decoded to `rerank.Request`) before launching, and `resolve`/`reject` must be called on the owner thread via `postOnOwner`.
+- The DTS template (`spec/geppetto.d.ts.tmpl`) is the source of truth; `pkg/doc/types/geppetto.d.ts` is generated from it via `cmd/tools/gen-dts`. The parity test compares top-level and grouped exports between the generated DTS and the runtime; method-surface parity for `RerankerProvider`/`RerankAsyncHandle` is covered by the explicit Goja tests rather than the generic DTS parser.
+- `Object.keys(reranker)` must not include `__geppetto_ref` because `attachRef` marks it non-enumerable, non-writable, non-configurable — the hidden-ref test pins this.
+
+### What was tricky to build
+
+- The async settlement ordering: `postOnOwner` posts a callback to the owner bridge, but the callback runs on the owner thread where `resolve`/`reject` are valid Goja operations. The provider goroutine must not call them directly. The `rerankerAsync` goroutine captures only `provider`, `ctx`, `req`, `resolve`, `reject` (all Go values or Goja resolver funcs that are safe to call from the owner callback) — but `resolve`/`reject` themselves are only invoked inside the `postOnOwner` callback, never from the goroutine.
+- Strict JS decoding must reject unknown option keys (`unknown: true`) so a typo like `topn` instead of `topN` fails loudly rather than silently defaulting. The `decodeRerankOptions` key whitelist enforces this.
+- The secret-non-leakage test relies on the llama.cpp adapter's safe errors (status code only, never the body), which the Goja wrapper surfaces unchanged via `m.vm.NewGoError(err)`.
+
+### What warrants a second pair of eyes
+
+- Confirm the async Promise settlement is race-safe: the goroutine captures `resolve`/`reject` and calls them only inside `postOnOwner`; `cancel()` cancels the context; `close()` cancels and marks closed. Review whether a settlement in flight when `close()` is called can still resolve (it can, but the caller has signalled they no longer care — is that acceptable?).
+- Confirm `toIntStrict`'s float64-to-int check (`n != float64(int(n))`) correctly rejects `1.5` and accepts `1.0` and large integers within JS's safe-integer range.
+- Review whether the DTS method-surface should be covered by the generic parity parser or whether the explicit Goja tests are sufficient (the design's section 8.6 flagged this as an open question).
+
+### What should be done in the future
+
+- If a hosted provider (Cohere/Jina) is added, the Goja wrapper needs no change (it constructs via the factory), but the DTS may need provider-specific option types.
+- Consider adding a Goja-level fuzz test for `decodeRerankRequest` once the llama.cpp fixtures are stable.
+- The `LEFTHOOK=0` bypass due to the parallel hook race should be revisited as infrastructure work.
+
+### Code review instructions
+
+- Start in `api_reranker.go` (`rerankerBuilder`, `decodeRerankRequest`, `decodeRerankOptions`, `rerankResponseToJS`), then `api_reranker_async.go` (`rerankerAsync` goroutine + `postOnOwner` settlement).
+- Validate with:
+
+  ```bash
+  go test ./pkg/js/modules/geppetto -count=1 -run TestReranker -v
+  go test -race ./pkg/js/modules/geppetto -count=1
+  go run ./cmd/tools/gen-dts --schema pkg/spec/geppetto_codegen.yaml --check
+  ```
+
+- Confirm `Object.keys(gp.reranker(settings))` excludes `__geppetto_ref` (see `TestReranker_HiddenRefIsNotEnumerable`).
+- Confirm the runnable example resolves: `examples/js/geppetto/hardcut/07_reranker_with_registry_profile.js`.
+
+### Technical details
+
+- Top-level factory: `gp.reranker(settings)`.
+- Sync: `rerank(query, documents, {topN, model?})`.
+- Async: `rerankAsync(...) -> {promise, cancel, close}`.
+- Provider construction: registry-resolved `InferenceSettings` only, via `factory.NewSettingsFactoryFromInferenceSettings`.
+- Async settlement: `postOnOwner("reranker.rerankAsync.settle", ...)`; goroutine touches no Goja value.
+- DTS source: `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`; generated: `pkg/doc/types/geppetto.d.ts`.
