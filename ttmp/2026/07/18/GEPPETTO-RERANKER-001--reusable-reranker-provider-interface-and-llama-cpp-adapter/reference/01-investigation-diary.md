@@ -236,3 +236,111 @@ The published bundle contains the ticket overview, 5,482-word design guide, task
 - Bundle: `GEPPETTO-RERANKER-001 Interface Design.pdf`.
 - ToC depth: 2.
 - Validation result: all checks passed.
+
+## Step 3: Extend the design with the Goja API
+
+The user clarified that reranking must be available through Geppetto's JavaScript module as well as its Go API. I inspected the hard-cut `require("geppetto")` surface, profile-resolved embeddings wrapper, hidden-reference mechanism, runtime owner bridge, cancellable session Promise handle, generated TypeScript template, DTS parity test, hard-cut contract, and JavaScript examples.
+
+I updated the architecture so `gp.reranker(settings)` constructs the same profile-resolved Go provider. The wrapper exposes a synchronous method for bounded command scripts and a cancellable asynchronous handle for event-loop applications. JavaScript cannot construct endpoints, credentials, HTTP clients, or provider callbacks; those remain host/profile capabilities.
+
+### Prompt Context
+
+**User prompt (verbatim):**
+
+> Add goja API as well
+>
+> Add goja API as well ,update design doc
+
+**Assistant interpretation:** Extend GEPPETTO-RERANKER-001's design, phases, tasks, tests, and deliverables to include a typed `require("geppetto")` API.
+
+**Inferred user intent:** Make reranking a first-class Geppetto primitive in both Go and JavaScript, consistent with existing inference and embeddings access.
+
+### What I did
+
+- Read:
+  - `pkg/js/modules/geppetto/module.go`;
+  - `api_embeddings.go` and its tests;
+  - `api_session.go`'s asynchronous Promise/cancellation path;
+  - `pkg/js/runtimebridge/bridge.go`;
+  - `dts_parity_test.go`;
+  - `spec/geppetto.d.ts.tmpl`;
+  - `module_hardcut_test.go`.
+- Added a complete Goja design section covering:
+  - `reranker(settings)`;
+  - `rerank(query, documents, {topN})`;
+  - `rerankAsync(...)` and `{promise,cancel,close}`;
+  - precise TypeScript interfaces;
+  - strict JS decoding;
+  - hidden Go references;
+  - runtime-owner-safe Promise settlement;
+  - cancellation and runtime shutdown;
+  - DTS, hard-cut, export, method, race, and example tests.
+- Added a dedicated Goja implementation phase and renumbered qualification and hardening phases.
+- Expanded the package layout, decisions, review checklist, workflow, deliverables, references, and full validation commands.
+- Added six task-tracker entries and renumbered later task phases.
+- Validated the expanded design and force-republished the same reMarkable bundle name after a successful dry run.
+
+### Why
+
+- The existing module already exposes `gp.embeddings(settings)`, so omitting reranking would leave the model-service primitives inconsistent.
+- Network reranking can block the runtime owner thread. Supporting both sync and async lets small scripts remain simple while event-loop applications retain cancellation and responsiveness.
+- Profile-only construction prevents JavaScript from bypassing endpoint and credential policy.
+
+### What worked
+
+- Existing Geppetto patterns directly support the design:
+  - `api_embeddings.go` provides the profile-resolved wrapper precedent;
+  - `session.runAsync` provides the cancellable Promise and owner-thread settlement precedent;
+  - hidden references prevent forged plain objects from becoming provider capability;
+  - DTS parity and hard-cut tests protect the public surface.
+- The updated bundle upload succeeded at `/ai/2026/07/18/GEPPETTO-RERANKER-001/GEPPETTO-RERANKER-001 Interface Design.pdf`.
+
+### What didn't work
+
+- The current DTS parity test checks top-level and selected namespace exports, but it does not prove every method on `RerankerProvider` or `RerankAsyncHandle`. The design therefore requires explicit runtime method-surface assertions or a deliberate extension to the parity tooling.
+- The first post-changelog validation ended with:
+
+  ```text
+  ttmp/2026/07/18/GEPPETTO-RERANKER-001--reusable-reranker-provider-interface-and-llama-cpp-adapter/changelog.md:37: new blank line at EOF.
+
+
+  Command exited with code 2
+  ```
+
+  `docmgr changelog update` appended an extra final blank line. I removed it and reran `git diff --check` before publication and commit.
+
+### What I learned
+
+- No `goja.Value`, Promise resolver, object, or VM conversion may cross into the provider goroutine. The request must be deep-copied to ordinary Go values first, and settlement must be posted back through the runtime owner.
+- The synchronous method can reuse the runtime lifetime context, but long-lived event-loop applications should use the asynchronous method.
+- The JavaScript API must require `{id,text}` documents; accepting strings would discard the identity guarantee established by the Go API.
+
+### What was tricky to build
+
+- Matching the embeddings API alone would have produced a synchronous network method that blocks the owner thread. The design resolves this by retaining sync compatibility while adding the established asynchronous handle pattern.
+- Promise resolution itself is a Goja operation. The background goroutine may call only the provider; conversion, `resolve`, and `reject` must happen on the owner thread.
+
+### What warrants a second pair of eyes
+
+- Review whether both sync and async methods should ship in v1 or whether async should be the primary documented path.
+- Review whether to extend the generic DTS parity parser or keep a reranker-specific method-surface test.
+
+### What should be done in the future
+
+- Implement core Go and settings phases before the Goja wrapper so JavaScript remains a thin adapter over a stable provider API.
+
+### Code review instructions
+
+- Start at design section 8.6, then review Phase 4 and the two new JavaScript decision records.
+- Compare the proposed async flow with `agentSessionRef.startAsync` and `moduleRuntime.postOnOwner`.
+- Confirm the task list contains one coherent P4 Goja phase and renumbered P5/P6 work.
+
+### Technical details
+
+- Top-level factory: `gp.reranker(settings)`.
+- Sync method: `rerank(query, documents, {topN, model?})`.
+- Async method: `rerankAsync(...) -> {promise,cancel,close}`.
+- Provider construction: registry-resolved `InferenceSettings` only.
+- Type source: `pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl`.
+- Updated design size: 6,846 words.
+- Publication used `--force` because it replaces the earlier design-only PDF with the Goja-expanded design.

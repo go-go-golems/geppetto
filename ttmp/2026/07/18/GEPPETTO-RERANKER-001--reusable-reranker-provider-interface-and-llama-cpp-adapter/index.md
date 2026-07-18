@@ -26,7 +26,7 @@ WhenToUse: Use for all implementation, review, qualification, and documentation 
 
 Geppetto currently provides provider-neutral generation through `pkg/inference/engine` and embeddings through `pkg/embeddings`. This ticket adds the missing reranking primitive: one query and an ordered set of caller-identified documents produce validated scores and deterministic ranks.
 
-The first implementation will provide a strict llama.cpp `/v1/rerank` adapter backed by Geppetto's existing client, profile, model metadata, and outbound-security systems. The core package remains portable to future Cohere, Jina, or other adapters. Geppetto will not import RAG types or own retrieval, fusion, hydration, citation, trace, or evaluation semantics.
+The first implementation will provide a strict llama.cpp `/v1/rerank` adapter backed by Geppetto's existing client, profile, model metadata, and outbound-security systems. It will also expose the same profile-resolved provider through `require("geppetto").reranker(settings)`, with synchronous and cancellable asynchronous execution, precise TypeScript declarations, and runtime-owner-safe Promise settlement. The core package remains portable to future Cohere, Jina, or other adapters. Geppetto will not import RAG types or own retrieval, fusion, hydration, citation, trace, or evaluation semantics.
 
 ## Current status
 
@@ -34,7 +34,7 @@ The first implementation will provide a strict llama.cpp `/v1/rerank` adapter ba
 - Geppetto and downstream RAG architecture mapped.
 - Real llama.cpp BGE protocol evidence reviewed.
 - Intern-facing design and implementation guide written.
-- Twenty-eight tasks organized across documentation and Phases 0-5.
+- Thirty-four tasks organized across documentation and Phases 0-6.
 - Implementation has not started.
 
 ## Primary guide
@@ -48,7 +48,8 @@ The guide includes:
 - downstream RAG requirements;
 - official and live protocol evidence;
 - proposed package layout;
-- complete public API sketches;
+- complete Go and JavaScript API sketches;
+- synchronous and cancellable asynchronous Goja execution design;
 - llama.cpp DTO and transport pseudocode;
 - settings, Glazed, and profile integration;
 - HTTP and outbound security policy;
@@ -73,6 +74,8 @@ The ticket is complete when:
 - request and response bodies are bounded;
 - endpoint, local-network, proxy, redirect, timeout, and cancellation policies are tested;
 - `InferenceSettings.Rerank` survives YAML, clone, and profile stack resolution;
+- `reranker(settings)` exposes sync and async execution without exposing endpoint or credential capability;
+- generated TypeScript, hard-cut, export, and method surfaces agree;
 - a rerank-only profile constructs a real llama.cpp provider;
 - the opt-in live BGE test passes;
 - RAG DSL v2 uses a thin adapter and emits a complete native reranking trace;

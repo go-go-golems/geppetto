@@ -21,6 +21,12 @@ RelatedFiles:
       Note: Settings-backed provider selection and construction pattern
     - Path: repo://pkg/engineprofiles/inference_settings_merge.go
       Note: Profile stack overlay and YAML-map round-trip behavior
+    - Path: repo://pkg/js/modules/geppetto/api_embeddings.go
+      Note: Profile-resolved synchronous model-service wrapper precedent
+    - Path: repo://pkg/js/modules/geppetto/api_session.go
+      Note: Cancellable asynchronous Promise handle and owner-thread settlement precedent
+    - Path: repo://pkg/js/modules/geppetto/module.go
+      Note: Goja module runtime, hidden references, runtime owner bridge, and top-level export installation
     - Path: repo://pkg/security/outbound_url.go
       Note: Outbound URL scheme and local-network policy
     - Path: repo://pkg/steps/ai/settings/http_client.go
@@ -30,11 +36,12 @@ RelatedFiles:
 ExternalSources:
     - https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
     - https://docs.cohere.com/reference/rerank
-Summary: Intern-facing architecture and phased implementation guide for a transport-neutral Geppetto reranker API, profile-backed construction, strict llama.cpp adapter, usage reporting, outbound security, and downstream RAG integration.
+Summary: Intern-facing architecture and phased implementation guide for a transport-neutral Geppetto reranker API, profile-backed construction, strict llama.cpp adapter, typed synchronous/asynchronous Goja API, usage reporting, outbound security, and downstream RAG integration.
 LastUpdated: 2026-07-18T18:20:00-04:00
 WhatFor: Define and implement reranking as a reusable Geppetto model-service primitive alongside inference and embeddings rather than embedding provider transport inside a RAG application.
-WhenToUse: Read before adding pkg/rerank, changing InferenceSettings for reranking, implementing a llama.cpp rerank client, or adapting Geppetto reranking into a retrieval system.
+WhenToUse: Read before adding pkg/rerank, changing InferenceSettings for reranking, implementing a llama.cpp rerank client, adding require("geppetto") reranking, or adapting Geppetto reranking into a retrieval system.
 ---
+
 
 
 # Reusable reranker interface architecture and implementation guide
@@ -56,10 +63,12 @@ This ticket will add `pkg/rerank` with:
 - context cancellation, injected HTTP clients, proxy behavior, outbound URL policy, and redirect checks;
 - `InferenceSettings.Rerank` configuration and engine-profile round trips;
 - a settings-backed provider factory;
-- unit, conformance, security, cancellation, profile, and live opt-in tests;
+- a typed `require("geppetto")` API with synchronous and cancellable asynchronous execution;
+- generated TypeScript declarations, export-surface parity, hard-cut tests, and runnable JavaScript examples;
+- unit, conformance, security, cancellation, profile, Goja, and live opt-in tests;
 - documentation and a downstream RAG adapter example.
 
-The initial package is Go-only. It does not add JavaScript exports, a retrieval pipeline, vector search, result persistence, or RAG-specific evidence types.
+The Goja layer is a typed wrapper over the same profile-resolved Go provider. It does not expose credentials, arbitrary endpoint construction, provider callbacks, retrieval pipelines, vector search, result persistence, or RAG-specific evidence types.
 
 ## 1. Problem statement
 
@@ -95,7 +104,10 @@ The design must avoid the opposite error: Geppetto must not absorb retrieval sem
 - Reranker settings under `InferenceSettings`.
 - Engine-profile YAML, clone, stack merge, and round-trip support.
 - Factory construction from direct config and resolved inference settings.
-- Package documentation and examples.
+- A `require("geppetto")` `reranker(settings)` factory.
+- Synchronous `rerank(...)` and cancellable `rerankAsync(...)` methods.
+- Precise TypeScript declarations and runtime/declaration parity tests.
+- Package documentation and Go/JavaScript examples.
 - An adapter sketch for `ragoperators.Reranker`.
 
 ### 2.2 Non-goals
@@ -106,7 +118,8 @@ The design must avoid the opposite error: Geppetto must not absorb retrieval sem
 - No tokenization library in the first package.
 - No implicit fallback to another provider or algorithm.
 - No persistent ranking cache in the first implementation.
-- No JavaScript API in the first implementation.
+- No JavaScript-supplied provider callback, endpoint, credential, or arbitrary transport options.
+- No JavaScript retrieval pipeline, fusion, persistence, or RAG lifecycle API.
 - No generic provider plugin registry.
 - No Cohere or Jina implementation in the first milestone; their APIs inform interface portability.
 - No compatibility wrapper for deleted RAG prototype packages.
@@ -296,8 +309,21 @@ pkg/rerank/
   settings_factory_test.go
   rerank_test.go
 
+pkg/js/modules/geppetto/
+  api_reranker.go           profile-resolved provider wrapper and sync API
+  api_reranker_async.go     Promise handle, cancellation, owner-thread settlement
+  api_reranker_test.go      decoding, mapping, errors, sync behavior
+  api_reranker_async_test.go cancellation, runtime close, Promise settlement
+  module.go                 top-level `reranker` export
+  module_hardcut_test.go    required public surface
+  dts_parity_test.go        generated declaration/runtime export parity
+  spec/geppetto.d.ts.tmpl   precise reranker declarations
+
+examples/js/geppetto/hardcut/
+  07_reranker_with_registry_profile.js
+
 pkg/doc/topics/
-  11-reranking.md           concepts, API, profiles, safety, examples
+  11-reranking.md           Go and JavaScript concepts, profiles, safety, examples
 ```
 
 The numbering of the documentation topic should be adjusted to the existing topic index rather than assumed.
@@ -413,6 +439,166 @@ var (
 ```
 
 Wrap these with safe context. Never include authorization headers, endpoint userinfo, document text, query text, or an unbounded provider body.
+
+### 8.6 Goja API
+
+The module adds one top-level factory consistent with `gp.embeddings(settings)`:
+
+```javascript
+const gp = require("geppetto");
+const settings = gp.inferenceProfiles
+  .load("~/.config/pinocchio/profiles.yaml")
+  .resolve("bge-reranker-local");
+
+const reranker = gp.reranker(settings);
+const response = reranker.rerank(
+  "How does TTC calculate a payroll adjustment?",
+  [
+    {id: "chunk-001", text: "A payroll adjustment corrects wages or deductions."},
+    {id: "chunk-002", text: "Cypress trees tolerate dry conditions."}
+  ],
+  {topN: 2}
+);
+
+for (const result of response.results) {
+  console.log(result.rank, result.documentId, result.score);
+}
+```
+
+The settings argument must be the hidden-reference `InferenceSettings` wrapper returned by `inferenceProfiles.resolve`. JavaScript cannot supply a base URL, API key, HTTP client, local-network exception, or provider implementation directly. Those capabilities remain in host/profile configuration.
+
+#### JavaScript surface
+
+```typescript
+export interface RerankDocument {
+    id: string;
+    text: string;
+}
+
+export interface RerankOptions {
+    topN: number;
+    model?: string;
+}
+
+export interface RerankResult {
+    documentId: string;
+    index: number;
+    score: number;
+    rank: number;
+}
+
+export interface RerankUsage {
+    inputTokens?: number;
+    totalTokens?: number;
+}
+
+export interface RerankResponse {
+    provider: string;
+    model: string;
+    results: RerankResult[];
+    usage?: RerankUsage;
+    cost?: number;
+    requestId?: string;
+    durationMs?: number;
+}
+
+export interface RerankAsyncHandle {
+    promise: Promise<RerankResponse>;
+    cancel(): void;
+    close(): void;
+}
+
+export interface RerankerProvider {
+    rerank(query: string, documents: RerankDocument[], options: RerankOptions): RerankResponse;
+    rerankAsync(query: string, documents: RerankDocument[], options: RerankOptions): RerankAsyncHandle;
+    model(): {provider: string; name: string};
+}
+
+export function reranker(settings: InferenceSettings): RerankerProvider;
+```
+
+`topN` remains required in JavaScript for the same reason it is required in Go: complete-score and partial-score requests must be distinguishable. Documents must be `{id, text}` objects; accepting plain strings would discard durable identity.
+
+#### Wrapper implementation
+
+`api_reranker.go` follows `api_embeddings.go`:
+
+```go
+type rerankerRef struct {
+    api      *moduleRuntime
+    provider rerank.Provider
+}
+
+func (m *moduleRuntime) rerankerBuilder(call goja.FunctionCall) goja.Value {
+    settingsRef, err := m.requireInferenceSettingsRef(call.Argument(0))
+    if err != nil {
+        panic(m.vm.NewGoError(err))
+    }
+    factory, err := rerank.NewSettingsFactoryFromInferenceSettings(settingsRef.settings)
+    if err != nil {
+        panic(m.vm.NewGoError(err))
+    }
+    provider, err := factory.NewProvider()
+    if err != nil {
+        panic(m.vm.NewGoError(err))
+    }
+    return m.newRerankerObject(&rerankerRef{api: m, provider: provider})
+}
+```
+
+The provider wrapper is stored under `hiddenRefKey`; its property remains non-enumerable, non-writable, and non-configurable.
+
+`rerank(...)` strictly decodes JavaScript values into the public Go `rerank.Request`, invokes the provider with the runtime lifetime context, and returns a plain camelCase response object. It rejects unknown option keys, sparse arrays, non-object documents, duplicate IDs, non-string text, non-integral `topN`, and values outside JavaScript's safe integer range.
+
+#### Asynchronous execution
+
+A network request can block the Goja owner thread. The module therefore also exposes `rerankAsync(...)`, modeled on `session.runAsync`:
+
+```javascript
+const handle = reranker.rerankAsync(query, documents, {topN: documents.length});
+try {
+  const response = await handle.promise;
+} finally {
+  handle.close();
+}
+```
+
+Implementation flow:
+
+```text
+owner thread: decode and deep-copy JS request
+  -> create context.WithCancel(runtime lifetime)
+  -> create Promise and {promise,cancel,close} handle
+  -> goroutine: provider.Rerank(ctx, copiedRequest)
+  -> runtime bridge Post: convert response and resolve Promise
+  -> on error: create safe GoError and reject Promise on owner thread
+  -> cancel/close/runtime shutdown: cancel provider context
+```
+
+No `goja.Value`, object, callable, Promise resolver, or VM method may be accessed from the provider goroutine. Request data is converted to ordinary Go values before launching. Promise settlement and response conversion occur through `moduleRuntime.postOnOwner` or the existing runtime bridge.
+
+The synchronous method remains useful for bounded command-style scripts and matches the existing embeddings API. Event-loop applications should use `rerankAsync`.
+
+#### Goja tests
+
+Required coverage includes:
+
+- top-level `reranker` export and hard-cut surface;
+- generated DTS top-level parity;
+- profile-resolved construction;
+- model metadata;
+- exact request decoding and caller ID preservation;
+- malformed documents/options and missing settings;
+- safe error messages without query/document text;
+- synchronous result conversion;
+- Promise resolution and rejection on the owner thread;
+- cancellation reaching the provider;
+- runtime lifetime cancellation;
+- repeated `cancel`/`close` idempotence;
+- no goroutine touching Goja values;
+- runnable hard-cut example.
+
+The existing DTS parity test checks top-level exports but not every interface method. Add explicit runtime method-surface assertions for `RerankerProvider` and `RerankAsyncHandle`, or extend parity tooling deliberately.
 
 ## 9. llama.cpp adapter design
 
@@ -741,7 +927,18 @@ Use `httptest.Server` and an injected client:
 - local-network opt-in propagation;
 - zero versus unknown model cost.
 
-### 13.4 Live opt-in test
+### 13.4 Goja API tests
+
+- `gp.reranker(settings)` accepts only a registry-resolved settings wrapper;
+- sync and async methods produce equivalent response values;
+- strict JS argument decoding rejects malformed values before provider calls;
+- hidden Go references are not enumerable or writable;
+- async work settles only on the runtime owner thread;
+- cancellation, runtime shutdown, rejection, and repeated close are race-safe;
+- module hard-cut and generated DTS checks include `reranker`;
+- the generated declaration template and checked-in `pkg/doc/types/geppetto.d.ts` remain synchronized.
+
+### 13.5 Live opt-in test
 
 ```bash
 GEPPETTO_LIVE_RERANK=1 \
@@ -752,11 +949,11 @@ go test ./pkg/rerank/llamacpp -run TestLive -v -count=1
 
 The test skips unless the opt-in variable is exactly enabled. It never falls back to a fixture and never starts external services itself.
 
-### 13.5 Full validation
+### 13.6 Full validation
 
 ```bash
-go test ./pkg/rerank/... ./pkg/steps/ai/settings ./pkg/engineprofiles -count=1
-go test -race ./pkg/rerank/... ./pkg/engineprofiles -count=1
+go test ./pkg/rerank/... ./pkg/steps/ai/settings ./pkg/engineprofiles ./pkg/js/modules/geppetto -count=1
+go test -race ./pkg/rerank/... ./pkg/engineprofiles ./pkg/js/modules/geppetto -count=1
 go vet ./...
 GOWORK=off go test ./... -count=1
 GOWORK=off go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 run ./...
@@ -807,25 +1004,36 @@ govulncheck ./...
 
 **Exit gate:** a rerank-only YAML profile resolves through the normal engine-profile chain and constructs a provider.
 
-### Phase 4: live qualification and downstream adapter proof
+### Phase 4: add the Goja API
+
+1. Add the top-level `reranker(settings)` export and hidden provider wrapper.
+2. Add strict query/document/options decoding and camelCase response conversion.
+3. Add synchronous `rerank(...)` using the runtime lifetime context.
+4. Add cancellable `rerankAsync(...)` with Promise settlement on the runtime owner thread.
+5. Update the generated DTS template and regenerate `pkg/doc/types/geppetto.d.ts`.
+6. Extend hard-cut, export-surface, method-surface, cancellation, race, and example tests.
+
+**Exit gate:** registry-resolved JavaScript can execute sync and async reranking without receiving endpoint or credential capability; DTS and runtime surfaces agree.
+
+### Phase 5: live qualification and downstream adapter proof
 
 1. Start the version-frozen llama.cpp service outside the test process.
-2. Run the opt-in live test.
+2. Run the Go and JavaScript opt-in live tests.
 3. Record exact server/model/request evidence.
 4. Implement the thin RAG adapter in the RAG ticket.
 5. Prove complete score mapping and usage propagation.
 
 **Exit gate:** a real RAG v2 reranking operator uses `geppetto/pkg/rerank` and emits a complete native reranking trace.
 
-### Phase 5: documentation and hardening
+### Phase 6: documentation and hardening
 
 1. Add the reranking topic guide.
-2. Add API examples and profile examples.
+2. Add Go, synchronous JavaScript, asynchronous JavaScript, and profile examples.
 3. Run full unit, race, lint, vet, vulnerability, and module-isolation checks.
-4. Check dependency direction and secret/body absence.
+4. Check dependency direction, runtime-owner correctness, and secret/body absence.
 5. Update ticket diary, tasks, changelog, relations, and publication.
 
-**Exit gate:** documentation and validation pass; Geppetto contains no RAG import.
+**Exit gate:** documentation and validation pass; Geppetto contains no RAG import and the generated JavaScript declarations match the runtime surface.
 
 ## 15. Decision records
 
@@ -901,6 +1109,24 @@ govulncheck ./...
 - **Consequences:** RAG remains responsible for manifest-matched tokenization and truncation before invocation.
 - **Status:** proposed.
 
+### Decision: expose profile-resolved Goja sync and async APIs
+
+- **Context:** Geppetto's JavaScript module already exposes profile-resolved engines and embeddings; reranking must be available to the same scripting environment without exposing provider construction or unnecessarily blocking event-loop applications.
+- **Options considered:** no JavaScript API; synchronous only; Promise only; synchronous plus cancellable asynchronous methods.
+- **Decision:** Export `reranker(settings)` with `rerank`, `rerankAsync`, and `model`.
+- **Rationale:** Synchronous execution matches embeddings and bounded scripts; the async handle matches established session cancellation and runtime-owner patterns.
+- **Consequences:** The module needs strict decoders, owner-thread Promise settlement, cancellation/race tests, DTS updates, hard-cut updates, and examples.
+- **Status:** proposed.
+
+### Decision: JavaScript cannot construct transport capability
+
+- **Context:** Allowing JavaScript to supply an endpoint, credential, HTTP client, or callback would bypass profile security and make scripts responsible for secret handling.
+- **Options considered:** accept inline provider options; accept arbitrary callbacks; require a resolved `InferenceSettings` wrapper.
+- **Decision:** `reranker` accepts only registry-resolved settings and builds providers through the Go settings factory.
+- **Rationale:** It matches the hard-cut wrapper-first API and keeps credentials and network policy in the host/profile layer.
+- **Consequences:** Hosts must configure profile access; JavaScript may choose only among profiles it is authorized to resolve.
+- **Status:** proposed.
+
 ### Decision: implement llama.cpp first but keep the core portable
 
 - **Context:** A real llama.cpp server and BGE model have already been probed locally.
@@ -944,8 +1170,11 @@ A new intern should proceed in this order:
 6. Implement core records and tests without importing HTTP.
 7. Implement the llama.cpp adapter entirely against `httptest.Server`.
 8. Add settings/profile integration only after the provider constructor is stable.
-9. Run the live opt-in test after every conformance and security test passes.
-10. Implement the RAG adapter in the separate RAG ticket.
+9. Read `module.go`, `api_embeddings.go`, `api_session.go` async settlement, the DTS template, and hard-cut tests.
+10. Implement and test the synchronous Goja wrapper before adding async execution.
+11. Add async execution with no Goja access from provider goroutines.
+12. Run the live opt-in test after every conformance, security, and Goja race test passes.
+13. Implement the RAG adapter in the separate RAG ticket.
 
 Do not begin with a live server. Conformance tests must define behavior before operational testing.
 
@@ -985,6 +1214,16 @@ Do not begin with a live server. Conformance tests must define behavior before o
 - [ ] Stack overlay works.
 - [ ] Missing config fails explicitly.
 - [ ] Chat and embedding-only profiles remain valid.
+
+### Goja
+
+- [ ] `reranker` accepts only resolved settings wrappers.
+- [ ] JavaScript cannot provide endpoints, credentials, clients, or callbacks.
+- [ ] Documents require explicit IDs and text.
+- [ ] Sync and async values are structurally equivalent.
+- [ ] Async provider work touches no Goja value off the owner thread.
+- [ ] Cancellation and runtime close are idempotent and race-safe.
+- [ ] DTS, hard-cut, and runtime method surfaces agree.
 
 ### Downstream
 
@@ -1026,11 +1265,13 @@ Local llama.cpp cost is known zero only under an explicit policy that excludes h
 3. `pkg/rerank/config` and Glazed fields.
 4. Settings-backed provider factory.
 5. `InferenceSettings.Rerank` and profile integration.
-6. Core, conformance, security, cancellation, race, profile, and live tests.
-7. Reranking documentation and examples.
-8. Sanitized protocol fixtures and live qualification record.
-9. Downstream RAG adapter proof in RESEARCHCTL-015.
-10. Ticket tasks, diary, changelog, validation, and reMarkable publication.
+6. `require("geppetto").reranker(settings)` with sync and cancellable async methods.
+7. Generated TypeScript declarations, hard-cut/export/method parity, and JavaScript examples.
+8. Core, conformance, security, cancellation, race, profile, Goja, and live tests.
+9. Reranking documentation and examples.
+10. Sanitized protocol fixtures and live qualification record.
+11. Downstream RAG adapter proof in RESEARCHCTL-015.
+12. Ticket tasks, diary, changelog, validation, and reMarkable publication.
 
 ## 21. References
 
@@ -1046,6 +1287,12 @@ Local llama.cpp cost is known zero only under an explicit policy that excludes h
 - `/home/manuel/code/wesen/go-go-golems/geppetto/pkg/security/outbound_url.go:1-61` — outbound URL policy.
 - `/home/manuel/code/wesen/go-go-golems/geppetto/pkg/engineprofiles/inference_settings_merge.go:1-111` — profile overlay behavior.
 - `/home/manuel/code/wesen/go-go-golems/geppetto/pkg/steps/ai/settings/model_info.go:1-139` — limits, pricing, and nil-versus-zero cost semantics.
+- `/home/manuel/code/wesen/go-go-golems/geppetto/pkg/js/modules/geppetto/module.go:25-214` — module options, runtime owner/bridge, hidden references, and top-level exports.
+- `/home/manuel/code/wesen/go-go-golems/geppetto/pkg/js/modules/geppetto/api_embeddings.go:1-66` — profile-resolved model-service wrapper precedent.
+- `/home/manuel/code/wesen/go-go-golems/geppetto/pkg/js/modules/geppetto/api_session.go:682-746` — cancellable Promise handle and owner-thread settlement precedent.
+- `/home/manuel/code/wesen/go-go-golems/geppetto/pkg/js/modules/geppetto/dts_parity_test.go:1-194` — generated declaration/runtime export parity.
+- `/home/manuel/code/wesen/go-go-golems/geppetto/pkg/js/modules/geppetto/spec/geppetto.d.ts.tmpl:1-280` — declaration source template.
+- `/home/manuel/code/wesen/go-go-golems/geppetto/pkg/js/modules/geppetto/module_hardcut_test.go:65-108` — required public surface and runnable hard-cut examples.
 
 ### RAG integration evidence
 
