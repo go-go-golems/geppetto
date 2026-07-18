@@ -35,7 +35,14 @@ The first implementation will provide a strict llama.cpp `/v1/rerank` adapter ba
 - Real llama.cpp BGE protocol evidence reviewed.
 - Intern-facing design and implementation guide written.
 - Thirty-four tasks organized across documentation and Phases 0-6.
-- Implementation has not started.
+- **Implementation complete (Phases 1-6):**
+  - Phase 1: `pkg/rerank` core types, validation, deterministic ordering, sentinel errors, and tests (commit 6c7323b9).
+  - Phase 2: strict `pkg/rerank/llamacpp` adapter with bounded IO, redirect rejection, outbound URL policy, safe errors, and sanitized BGE fixture (commit 86729b43).
+  - Phase 3: `pkg/rerank/config` RerankConfig, `InferenceSettings.Rerank` integration, `pkg/rerank/factory` settings factory, profile stack overlay, and the Glazed section registered in `pkg/sections` and `pkg/cli/bootstrap` (commit 09c438c4).
+  - Phase 4: `gp.reranker(settings)` Goja sync and cancellable async API, generated TypeScript declarations, hard-cut/DTS parity, 11 Goja tests, and a runnable example (commits 786e09d1, 3ca8716a).
+  - Phase 5/6: opt-in live llama.cpp test, reranking topic guide, and full hardening (unit, race, lint, vet, DTS, dependency-direction) (commit 4ed0d038).
+- **Deferred to RESEARCHCTL-015:** the thin downstream RAG adapter and complete-score/usage propagation into the native RAG reranking trace.
+- Geppetto contains no RAG or researchctl import; dependency direction is `application -> geppetto/pkg/rerank`.
 
 ## Primary guide
 

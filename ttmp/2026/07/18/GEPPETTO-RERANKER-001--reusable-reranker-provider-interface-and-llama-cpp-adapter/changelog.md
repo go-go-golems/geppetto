@@ -84,3 +84,11 @@ Step 8: Added live opt-in test and reranking topic guide; ran full hardening sui
 ### Related Files
 
 - /home/manuel/code/wesen/go-go-golems/geppetto/pkg/rerank/llamacpp/live_test.go — Live opt-in qualification test (commit 4ed0d038)
+
+## 2026-07-18
+
+Step 9 (P6.3): Updated index to implementation-complete, republished reMarkable bundle at /ai/2026/07/18/GEPPETTO-RERANKER-001/GEPPETTO-RERANKER-001 Interface Design.pdf with full implementation evidence.
+
+### Related Files
+
+- /home/manuel/code/wesen/go-go-golems/geppetto/ttmp/2026/07/18/GEPPETTO-RERANKER-001--reusable-reranker-provider-interface-and-llama-cpp-adapter/index.md — Updated to implementation-complete status

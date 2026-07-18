@@ -35,4 +35,4 @@
 - [ ] P5.3 (deferred to RESEARCHCTL-015) Prove complete score and usage propagation into the native RAG reranking trace <!-- t:qo7o -->
 - [x] P6.1 Add Geppetto reranking topic documentation and Go/JavaScript copy-paste examples <!-- t:0r8r -->
 - [x] P6.2 Run full unit, race, module-isolation, lint, vet, vulnerability, and dependency checks <!-- t:67dj -->
-- [ ] P6.3 Complete diary, changelog, tasks, doctor validation, and final reMarkable publication <!-- t:tq7v -->
+- [x] P6.3 Complete diary, changelog, tasks, doctor validation, and final reMarkable publication <!-- t:tq7v -->
