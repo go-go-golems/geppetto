@@ -60,3 +60,11 @@ Step 5: Implemented strict llama.cpp /v1/rerank adapter (Phase 2, P2.1-P2.5): bo
 ### Related Files
 
 - /home/manuel/code/wesen/go-go-golems/geppetto/pkg/rerank/llamacpp/provider.go — Strict adapter with bounded IO and redirect rejection (commit 86729b43)
+
+## 2026-07-18
+
+Step 6: Integrated RerankConfig, settings factory, and profile stack overlay (Phase 3, P3.1-P3.5). Commit 09c438c4.
+
+### Related Files
+
+- /home/manuel/code/wesen/go-go-golems/geppetto/pkg/rerank/factory/settings_factory.go — Settings factory and InferenceSettings validation (commit 09c438c4)
