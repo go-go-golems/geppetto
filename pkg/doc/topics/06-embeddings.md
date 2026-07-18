@@ -369,6 +369,13 @@ profiles:
         cache_directory: ./.geppetto/embeddings-cache/ollama-nomic-embed-text
 ```
 
+The canonical profile cache keys are `cache_type`, `cache_directory`,
+`cache_max_size`, and `cache_max_entries`. `cache_type: file` constructs a
+disk-backed provider when the profile is resolved through
+`NewSettingsFactoryFromInferenceSettings`; repeated embedding requests can then
+reuse entries across process restarts. Use an explicit `cache_directory` for
+reproducible CLI and experiment storage.
+
 Consumer code should validate the resolved final settings before provider construction:
 
 ```go

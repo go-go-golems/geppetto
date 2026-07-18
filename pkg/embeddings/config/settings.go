@@ -22,10 +22,10 @@ type EmbeddingsConfig struct {
 	BaseURLs map[string]string `yaml:"base_urls,omitempty" glazed:"*-base-url"`
 
 	// Caching settings
-	CacheType       string `glazed:"embeddings-cache-type"`
-	CacheMaxSize    int64  `glazed:"embeddings-cache-max-size"`
-	CacheMaxEntries int    `glazed:"embeddings-cache-max-entries"`
-	CacheDirectory  string `glazed:"embeddings-cache-directory"`
+	CacheType       string `yaml:"cache_type,omitempty" glazed:"embeddings-cache-type"`
+	CacheMaxSize    int64  `yaml:"cache_max_size,omitempty" glazed:"embeddings-cache-max-size"`
+	CacheMaxEntries int    `yaml:"cache_max_entries,omitempty" glazed:"embeddings-cache-max-entries"`
+	CacheDirectory  string `yaml:"cache_directory,omitempty" glazed:"embeddings-cache-directory"`
 }
 
 func NewEmbeddingsConfig() (*EmbeddingsConfig, error) {
