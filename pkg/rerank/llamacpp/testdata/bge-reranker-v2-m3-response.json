@@ -1,0 +1,10 @@
+{
+  "model": "qllama/bge-reranker-v2-m3:q4_k_m",
+  "object": "list",
+  "usage": {"prompt_tokens": 96, "total_tokens": 96},
+  "results": [
+    {"index": 0, "relevance_score": -3.32784366607666},
+    {"index": 1, "relevance_score": -9.837879180908203},
+    {"index": 2, "relevance_score": -11.012685775756836}
+  ]
+}
