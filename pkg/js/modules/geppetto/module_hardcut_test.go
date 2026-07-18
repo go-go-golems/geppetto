@@ -69,7 +69,7 @@ func TestHardCutPublicSurface(t *testing.T) {
 		const gp = require("geppetto");
 		function assert(cond, msg) { if (!cond) throw new Error(msg); }
 		function has(obj, key) { return Object.prototype.hasOwnProperty.call(obj, key); }
-		const required = ["version", "consts", "agent", "inferenceProfiles", "turnStores", "engine", "embeddings", "tool", "toolRegistry", "schema"];
+		const required = ["version", "consts", "agent", "inferenceProfiles", "turnStores", "engine", "embeddings", "reranker", "tool", "toolRegistry", "schema"];
 		for (const key of required) assert(has(gp, key), "missing export: " + key);
 		const removed = ["chat", "inferenceSettings", "turn", "createBuilder", "createSession", "runInference", "profiles", "engines", "turns", "runner", "schemas", "middlewares", "tools", "events"];
 		for (const key of removed) assert(!has(gp, key), "legacy export should be absent: " + key);
@@ -92,6 +92,7 @@ func TestHardCutExamples(t *testing.T) {
 		filepath.Join("..", "..", "..", "..", "examples", "js", "geppetto", "hardcut", "04_tools_and_schema.js"),
 		filepath.Join("..", "..", "..", "..", "examples", "js", "geppetto", "hardcut", "05_multimodal_turn.js"),
 		filepath.Join("..", "..", "..", "..", "examples", "js", "geppetto", "hardcut", "06_embeddings_with_registry_profile.js"),
+		filepath.Join("..", "..", "..", "..", "examples", "js", "geppetto", "hardcut", "07_reranker_with_registry_profile.js"),
 	} {
 		scriptRel := scriptRel
 		t.Run(filepath.Base(scriptRel), func(t *testing.T) {

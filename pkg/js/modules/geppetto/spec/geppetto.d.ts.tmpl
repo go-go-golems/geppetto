@@ -132,6 +132,52 @@ declare module "geppetto" {
 
     export function embeddings(settings: InferenceSettings): EmbeddingsProvider;
 
+    export interface RerankDocument {
+        id: string;
+        text: string;
+    }
+
+    export interface RerankOptions {
+        topN: number;
+        model?: string;
+    }
+
+    export interface RerankResult {
+        documentId: string;
+        index: number;
+        score: number;
+        rank: number;
+    }
+
+    export interface RerankUsage {
+        inputTokens?: number;
+        totalTokens?: number;
+    }
+
+    export interface RerankResponse {
+        provider: string;
+        model: string;
+        results: RerankResult[];
+        usage?: RerankUsage;
+        cost?: number;
+        requestId?: string;
+        durationMs?: number;
+    }
+
+    export interface RerankAsyncHandle {
+        promise: Promise<RerankResponse>;
+        cancel(): void;
+        close(): void;
+    }
+
+    export interface RerankerProvider {
+        rerank(query: string, documents: RerankDocument[], options: RerankOptions): RerankResponse;
+        rerankAsync(query: string, documents: RerankDocument[], options: RerankOptions): RerankAsyncHandle;
+        model(): { provider: string; name: string };
+    }
+
+    export function reranker(settings: InferenceSettings): RerankerProvider;
+
     export interface MessageBuilder {
         text(text: string): MessageBuilder;
         imageURL(url: string, options?: Record<string, any>): MessageBuilder;

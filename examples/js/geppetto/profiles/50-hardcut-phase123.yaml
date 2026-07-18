@@ -24,3 +24,18 @@ profiles:
         cost:
           input: 0.15
           output: 0.6
+  bge-reranker:
+    display_name: BGE Reranker (local llama.cpp)
+    inference_settings:
+      api:
+        base_urls:
+          rerank-base-url: http://127.0.0.1:18012
+        allow_http:
+          rerank: true
+        allow_local_networks:
+          rerank: true
+      rerank:
+        type: llamacpp
+        engine: qllama/bge-reranker-v2-m3:q4_k_m
+        max_request_bytes: 2097152
+        max_response_bytes: 1048576
