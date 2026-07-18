@@ -13,6 +13,10 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: repo://cmd/examples/rerank-profile-smoke/README.md
+      Note: Example usage and prerequisites
+    - Path: repo://cmd/examples/rerank-profile-smoke/main.go
+      Note: Runnable reranker smoke-test CLI (Glazed command, profile or overlay resolution, live llama.cpp)
     - Path: repo://examples/js/geppetto/hardcut/07_reranker_with_registry_profile.js
       Note: Runnable hard-cut reranker example (commit 786e09d1)
     - Path: repo://pkg/doc/topics/15-reranking.md
@@ -53,6 +57,7 @@ LastUpdated: 2026-07-18T18:20:00-04:00
 WhatFor: Preserve evidence, decisions, commands, failures, and continuation guidance for GEPPETTO-RERANKER-001.
 WhenToUse: Read before implementing or reviewing any task in this ticket.
 ---
+
 
 
 
@@ -792,3 +797,96 @@ The hardening suite confirms the architecture holds end to end: all unit and rac
 - Live test env: `GEPPETTO_LIVE_RERANK=1`, `GEPPETTO_RERANK_BASE_URL`, `GEPPETTO_RERANK_MODEL`.
 - Topic file: `pkg/doc/topics/15-reranking.md` (SectionType: Tutorial, IsTopLevel: true).
 - Hardening status: all unit/race tests pass, 0 lint issues, vet clean, DTS in sync, no RAG import.
+
+## Step 9: Convert the live test into a runnable example CLI
+
+The live qualification was an opt-in `_test` (`TestLive_RerankAgainstRealLlamaCpp`), which is fine for CI but awkward for interactive exploration: it skips by default, prints via `t.Logf`, and offers no Glazed output. The user asked to turn it into an example and to start the llama.cpp server on the Mac if possible.
+
+I confirmed the Mac (`mimimi-2.local`) was reachable over SSH, found that a real BGE reranker server was **already running** there on `127.0.0.1:8012` (`qllama/bge-reranker-v2-m3:q4_k_m`, exact probe flags), opened an SSH tunnel `127.0.0.1:18012 -> 8012`, and verified the `/v1/rerank` endpoint responds. I then built `cmd/examples/rerank-profile-smoke`, a Glazed CLI mirroring `embedding-profile-smoke`, and ran it successfully against the live server through the tunnel.
+
+**Commit (code):** (this step) — "feat(rerank): add rerank-profile-smoke runnable example CLI"
+
+### Prompt Context
+
+**User prompt (verbatim):** "can you turn it into an example instead of a _test ? you can start the llama.cpp server on the mac (if you know how to do that)?"
+
+**Assistant interpretation:** Replace the opt-in live test with a runnable Go example CLI, and bring up a real llama.cpp reranker server on the Mac to qualify it against.
+
+**Inferred user intent:** Make live reranker qualification an interactive, inspectable CLI rather than a skipped test, and prove it against a real BGE model.
+
+### What I did
+
+- Discovered Mac reachability: `mimimi-2.local` resolves to `192.168.0.24`; SSH as `manuel@` works; `llama-server` present in `/Applications/Ollama.app/Contents/Resources/`.
+- Found a live BGE reranker **already running** on the Mac: `pgrep` showed `llama-server -m .../sha256-10a8e2b5... --embedding --pooling rank --rerank --host 127.0.0.1 --port 8012` (the exact blob and flags from the 2026-07-16 probe). Ollama also runs on `11434`.
+- Opened an SSH tunnel: `ssh -fN -L 18012:127.0.0.1:8012 manuel@mimimi-2.local`.
+- Verified the endpoint: `curl -s -X POST http://127.0.0.1:18012/v1/rerank ...` returned a valid response with `model`, `usage`, and `results` (scores `3.70` and `-10.99` — positive and negative, confirming finite-score handling).
+- Implemented `cmd/examples/rerank-profile-smoke/main.go`: a Glazed command following `embedding-profile-smoke`'s structure — `--profile` (direct rerank profile) or `--base-profile` overlay with `--rerank-type`/`--rerank-engine`/`--rerank-base-url`, `--query`, repeatable `--document id|text`, `--timeout-seconds`, and Glazed output.
+- Wrote `cmd/examples/rerank-profile-smoke/README.md` and added the example to `cmd/examples/README.md`.
+- Ran the example two ways against the live server:
+  - overlay onto `ollama-openai-base`: payroll doc ranked first, score `-4.06`, usage 76 tokens, 165ms;
+  - custom documents for "what is a cat?": cat doc ranked first, score `5.49`.
+- Added a temporary `bge-reranker-local` profile to pinocchio to test the `--profile` path, confirmed it resolved and ran, then removed the temporary profile (it is a host config; the README documents how to add it).
+- Verified `go vet`, `golangci-lint` (0 issues), and `go build` on the example.
+- Kept the opt-in `_test` (`live_test.go`) as a CI guard; the example is the interactive qualification path.
+
+### Why
+
+- An example CLI is inspectable (`--output json`/`table`), scriptable, and usable without setting env vars, making live qualification a first-class developer workflow rather than a hidden test.
+- Reusing the existing BGE server on the Mac avoided starting a new process and matched the version-frozen probe evidence (same blob `10a8e2b5…a9c44cd`, same flags).
+
+### What worked
+
+- The Mac was already serving the exact BGE reranker from the probe — no model download or server start was needed, only an SSH tunnel.
+- The `embedding-profile-smoke` Glazed structure translated directly: same `examplecmd.NewRoot`/`ExecuteSingleCommand`, same `ProfileSettingsSection`, same overlay-merge pattern via `profiles.MergeInferenceSettings`.
+- Both resolution paths worked: `--profile bge-reranker-local` (direct) and `--base-profile ollama-openai-base` (overlay).
+
+### What didn't work
+
+- My first draft defined a `--profile` flag on the command struct, which collided with the `ProfileSettingsSection`'s own `--profile` flag (`Flag 'profile' already exists`). Removed my flag and read `profileSettings.Profile` from the section instead, matching `embedding-profile-smoke`.
+- I first imported only `geppettosections` (`pkg/sections`) for the registry functions, but `ParseRegistrySourceSpecs`/`NewChainedRegistryFromSourceSpecs`/`ResolveEngineProfile` live in `pkg/engineprofiles`. Added the `profiles` alias import alongside `geppettosections`, exactly as `embedding-profile-smoke` does.
+- `NewSettingsFactoryFromInferenceSettings` returns `(factory, error)`, not a single value; my chained `.NewProvider()` call failed. Split into two steps.
+
+### What I learned
+
+- The live BGE server returned **positive** scores (`3.70`, `5.49`) for strongly-relevant docs in some queries and **negative** scores (`-4.06`) in others — score sign and magnitude are query/model-specific, which is exactly why the package validates finiteness only and sorts descending without normalization.
+- `geppettosections.ProfileSettingsSectionSlug` provides `--profile` and `--profile-registries`; example commands should never redefine those flags.
+- The pinocchio profile registry is the canonical place for a `bge-reranker-local` profile; the example README documents it rather than shipping a profile in the repo.
+
+### What was tricky to build
+
+- The flag-name collision was non-obvious because the section's flags are registered implicitly by `cmds.WithSections(profileSettingsSection)`. The error message names the flag but not the conflicting section.
+- The `--document id|text` parsing uses the first `|` as the separator so document text may contain pipes after the first; `strings.Index` (not `strings.Split`) preserves that.
+- The temporary pinocchio profile had to be removed cleanly (Python block-trimming by indent level) so the host config was left exactly as found.
+
+### What warrants a second pair of eyes
+
+- Confirm the example's default `--rerank-base-url http://127.0.0.1:18012` and `--base-profile llamacpp-base` defaults are sensible, or whether they should be empty (forcing the user to specify) to avoid silently hitting a non-existent server.
+- Review whether the opt-in `_test` should be removed now that the example exists, or kept as a CI guard. I kept it; the example is interactive, the test is automated.
+- Confirm the SSH tunnel approach is documented well enough in the README for someone without the Mac already running the server.
+
+### What should be done in the future
+
+- Add a `bge-reranker-local` profile to the canonical pinocchio profiles (separate from this ticket) so `--profile bge-reranker-local` works out of the box.
+- Consider a `--top-n` flag on the example so callers can request partial (top-N) rather than complete scores.
+- Record the exact live scores/usage in RESEARCHCTL-015 once the downstream RAG adapter is wired.
+
+### Code review instructions
+
+- Start in `cmd/examples/rerank-profile-smoke/main.go` (`newRerankCommand` flags, `RunIntoGlazeProcessor`, `resolveSettings`, `parseDocuments`).
+- Validate with:
+
+  ```bash
+  go build ./cmd/examples/rerank-profile-smoke/
+  go vet ./cmd/examples/rerank-profile-smoke/
+  .bin/golangci-lint run ./cmd/examples/rerank-profile-smoke/
+  # Against a live server (tunnel or local):
+  go run ./cmd/examples/rerank-profile-smoke run --base-profile ollama-openai-base --rerank-base-url http://127.0.0.1:18012 --output json
+  ```
+
+### Technical details
+
+- Mac host: `mimimi-2.local` (`192.168.0.24`), SSH user `manuel`.
+- Live server: `127.0.0.1:8012` on Mac, blob `sha256-10a8e2b5…a9c44cd` (`qllama/bge-reranker-v2-m3:q4_k_m`), flags `--embedding --pooling rank --rerank`.
+- Tunnel: `ssh -fN -L 18012:127.0.0.1:8012 manuel@mimimi-2.local`.
+- Example paths: `--profile bge-reranker-local` (direct) or `--base-profile <base> --rerank-type/--rerank-engine/--rerank-base-url` (overlay).
+- Live scores observed: payroll query → `-4.06/-11.01/-11.02`; cat query → `5.49/-6.17/-9.13`.

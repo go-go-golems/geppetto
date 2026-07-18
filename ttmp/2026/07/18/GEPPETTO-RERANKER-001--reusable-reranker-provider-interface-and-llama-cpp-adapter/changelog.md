@@ -92,3 +92,11 @@ Step 9 (P6.3): Updated index to implementation-complete, republished reMarkable 
 ### Related Files
 
 - /home/manuel/code/wesen/go-go-golems/geppetto/ttmp/2026/07/18/GEPPETTO-RERANKER-001--reusable-reranker-provider-interface-and-llama-cpp-adapter/index.md — Updated to implementation-complete status
+
+## 2026-07-18
+
+Step 10: Added rerank-profile-smoke runnable example CLI; qualified against the live BGE reranker on the Mac (mimimi-2.local:8012 via SSH tunnel).
+
+### Related Files
+
+- /home/manuel/code/wesen/go-go-golems/geppetto/cmd/examples/rerank-profile-smoke/main.go — Runnable reranker smoke-test CLI
