@@ -78,6 +78,91 @@ func TestRerankerBuilderFromRegistryProfile_ExposesModel(t *testing.T) {
 	`)
 }
 
+// newCohereRerankerTestServer returns an httptest server speaking the Cohere
+// v2 /rerank wire format (body-carried request id, meta.billed_units), and
+// writes a profile YAML that binds rerank.type=cohere at it. The server
+// asserts the Authorization bearer header on every request.
+func newCohereRerankerTestServer(t *testing.T, model string) (*httptest.Server, string) {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Bearer test-cohere-key", r.Header.Get("Authorization"))
+		assert.Equal(t, "go-go-golems/geppetto", r.Header.Get("X-Client-Name"))
+		var req struct {
+			Model     string   `json:"model"`
+			Query     string   `json:"query"`
+			Documents []string `json:"documents"`
+			TopN      int      `json:"top_n"`
+		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+		results := make([]string, 0, req.TopN)
+		for i := 0; i < req.TopN; i++ {
+			results = append(results, fmt.Sprintf(`{"index":%d,"relevance_score":%d.0}`, i, req.TopN-i))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"id":"req-js-1","results":[%s],"meta":{"api_version":{"version":"2.0","is_experimental":false},"billed_units":{"search_units":1}}}`,
+			strings.Join(results, ","))
+	}))
+	t.Cleanup(srv.Close)
+
+	profilePath := filepath.Join(t.TempDir(), "profiles.yaml")
+	profile := fmt.Sprintf(`slug: rerank-cohere-test
+profiles:
+  cohere-reranker:
+    inference_settings:
+      api:
+        api_keys:
+          cohere-api-key: test-cohere-key
+        base_urls:
+          cohere-base-url: %q
+        allow_http:
+          rerank: true
+        allow_local_networks:
+          rerank: true
+      rerank:
+        type: cohere
+        engine: %q
+        max_request_bytes: 1048576
+        max_response_bytes: 1048576
+`, srv.URL, model)
+	require.NoError(t, os.WriteFile(profilePath, []byte(profile), 0o644))
+	return srv, profilePath
+}
+
+// TestRerankerBuilder_CohereThroughFactoryUnchanged proves the GEPPETTO-RERANKER-002
+// parity claim: gp.reranker(settings) constructs through the factory, so a new
+// provider type needs zero JavaScript changes.
+func TestRerankerBuilder_CohereThroughFactoryUnchanged(t *testing.T) {
+	const model = "rerank-v3.5"
+	_, profilePath := newCohereRerankerTestServer(t, model)
+
+	rt := newJSRuntime(t, Options{})
+	require.NoError(t, rt.vm.Set("profilePath", profilePath))
+	mustRunJS(t, rt, `
+		const gp = require("geppetto");
+		const settings = gp.inferenceProfiles.load(globalThis.profilePath).resolve("cohere-reranker");
+		const reranker = gp.reranker(settings);
+		const model = reranker.model();
+		if (model.provider !== "cohere") throw new Error("wrong provider: " + model.provider);
+		if (model.name !== "`+model+`") throw new Error("wrong model: " + model.name);
+		const response = reranker.rerank(
+			"What is the capital of the United States?",
+			[
+				{id: "doc-nevada", text: "Carson City is the capital of Nevada."},
+				{id: "doc-dc", text: "Washington, D.C. is the capital of the United States."}
+			],
+			{topN: 2}
+		);
+		if (response.provider !== "cohere") throw new Error("wrong response provider: " + response.provider);
+		if (response.requestId !== "req-js-1") throw new Error("wrong requestId: " + response.requestId);
+		if (response.results.length !== 2) throw new Error("expected 2 results");
+		if (response.results[0].documentId !== "doc-nevada") throw new Error("first documentId mismatch");
+		if (response.results[0].rank !== 1) throw new Error("first rank should be 1");
+		// Cohere bills in search units, not tokens: usage stays absent (DR-3).
+		if (response.usage !== undefined && response.usage !== null) throw new Error("usage should be absent for cohere");
+		if (response.durationMs === undefined) throw new Error("durationMs should be present");
+	`)
+}
+
 func TestRerankerBuilder_RejectsMissingSettings(t *testing.T) {
 	rt := newJSRuntime(t, Options{})
 	mustRunJS(t, rt, `
