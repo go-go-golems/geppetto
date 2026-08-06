@@ -113,9 +113,13 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 
 	// Set default dimensions if not specified
 	if options.dimensions == 0 {
-		if options.providerType == "openai" {
+		switch options.providerType {
+		case "openai":
 			options.dimensions = 1536 // Default for OpenAI
-		} else {
+		case "cohere":
+			// 0 means the provider omits output_dimension and the Cohere API
+			// uses the model's native default dimension.
+		default:
 			return nil, fmt.Errorf("no dimensions specified for embeddings")
 		}
 	}
@@ -146,6 +150,30 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 		}
 
 		provider = NewOpenAIProvider(apiKey, openai.EmbeddingModel(options.engine), options.dimensions)
+
+	case "cohere":
+		apiKey := options.apiKey
+		if apiKey == "" && f.config.APIKeys != nil {
+			if key, ok := f.config.APIKeys["cohere-api-key"]; ok {
+				apiKey = key
+			}
+		}
+		if apiKey == "" {
+			return nil, fmt.Errorf("no API key provided for Cohere")
+		}
+
+		providerOpts := []func(*CohereProvider){}
+		baseURL := options.baseURL
+		if baseURL == "" && f.config.BaseURLs != nil {
+			if url, ok := f.config.BaseURLs["cohere-base-url"]; ok {
+				baseURL = url
+			}
+		}
+		if baseURL != "" {
+			providerOpts = append(providerOpts, WithCohereBaseURL(baseURL))
+		}
+
+		provider = NewCohereProvider(apiKey, options.engine, options.dimensions, providerOpts...)
 
 	default:
 		return nil, fmt.Errorf("unsupported provider type for embeddings: %s", options.providerType)

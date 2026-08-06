@@ -49,9 +49,17 @@ func TestValidateInferenceSettingsForEmbeddings(t *testing.T) {
 		{
 			name: "unsupported provider",
 			in: &settings.InferenceSettings{
-				Embeddings: &config.EmbeddingsConfig{Type: "cohere", Engine: "embed-english-v3", Dimensions: 1024},
+				Embeddings: &config.EmbeddingsConfig{Type: "jina", Engine: "jina-embeddings-v3", Dimensions: 1024},
 			},
 			wantErr: "unsupported embeddings provider type",
+		},
+		{
+			name: "cohere missing key",
+			in: &settings.InferenceSettings{
+				API:        &settings.APISettings{APIKeys: map[string]string{}},
+				Embeddings: &config.EmbeddingsConfig{Type: "cohere", Engine: "embed-v4.0"},
+			},
+			wantErr: "has no cohere-api-key",
 		},
 		{
 			name: "ollama missing dimensions",
@@ -82,6 +90,23 @@ func TestValidateInferenceSettingsForEmbeddings(t *testing.T) {
 			name: "ollama complete",
 			in: &settings.InferenceSettings{
 				Embeddings: &config.EmbeddingsConfig{Type: "ollama", Engine: "nomic-embed-text", Dimensions: 768},
+			},
+		},
+		{
+			name: "cohere complete",
+			in: &settings.InferenceSettings{
+				API:        &settings.APISettings{APIKeys: map[string]string{"cohere-api-key": "test-key"}},
+				Embeddings: &config.EmbeddingsConfig{Type: "cohere", Engine: "embed-v4.0"},
+			},
+		},
+		{
+			name: "cohere complete with embedding-local key",
+			in: &settings.InferenceSettings{
+				Embeddings: &config.EmbeddingsConfig{
+					Type:    "cohere",
+					Engine:  "embed-v4.0",
+					APIKeys: map[string]string{"cohere-api-key": "test-key"},
+				},
 			},
 		},
 	}
