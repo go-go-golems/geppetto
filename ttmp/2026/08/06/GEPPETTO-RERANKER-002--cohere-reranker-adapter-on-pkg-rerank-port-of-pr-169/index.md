@@ -1,7 +1,7 @@
 ---
 Title: 'Cohere reranker adapter on pkg/rerank (port of PR #169)'
 Ticket: GEPPETTO-RERANKER-002
-Status: active
+Status: review
 Topics:
     - geppetto
     - inference
@@ -33,9 +33,15 @@ PR #169 (May 2025) attempted Cohere reranking as `pkg/embeddings.CohereReranker`
 ## Current status
 
 - Rebase probe of PR #169 completed (2 trivial conflicts; tests pass; architecturally superseded).
-- Architecture mapped: core (`pkg/rerank`), reference adapter (`pkg/rerank/llamacpp`), config/factory/validation, Goja surface, outbound security.
 - Intern-facing architecture and implementation guide written (see below).
-- Implementation: not started.
+- **Implementation complete (Phases 1–5):**
+  - P1: `pkg/rerank/cohere` adapter core (commit `1a5a9639`).
+  - P2: 30 mock-server unit tests, `-race` clean (commit `163c69be`).
+  - P3: factory + validation wiring, 6 new factory tests (commit `66b4e650`).
+  - P4: Goja parity proof — `gp.reranker(settings)` with `type: cohere`, zero JS changes (commit `f0b0ca69`).
+  - P5: `15-reranking.md` Cohere section + opt-in live test (commit `fb0cba6e`).
+  - P6: final validation sweep — whole-repo build, `-race` across rerank/js/engineprofiles/cli, lint 0 issues, no `embeddings.Reranker` legacy in tree.
+- Remaining follow-ups: live-run the Cohere test with a real key before release; close PR #169 with a pointer here.
 
 ## Primary guide
 

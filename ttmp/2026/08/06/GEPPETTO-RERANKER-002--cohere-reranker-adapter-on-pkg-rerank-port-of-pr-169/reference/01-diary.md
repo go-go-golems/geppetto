@@ -191,3 +191,58 @@ I wired the Cohere provider through the settings factory and profile validation,
 ### Technical details
 - Commits: `66b4e650` (P3), `f0b0ca69` (P4), `fb0cba6e` (P5); each cleared lefthook (whole-repo tests + 4 lint tools, 0 issues).
 - Live test invocation: `GEPPETTO_LIVE_RERANK=1 COHERE_API_KEY=<key> GEPPETTO_RERANK_MODEL=rerank-v3.5 go test ./pkg/rerank/cohere -run TestLive -v -count=1`.
+
+## Step 4: Final validation sweep and ticket close-out (P6)
+
+I ran the complete acceptance checklist from the ticket index: whole-repo build, `-race` across every affected package, the no-legacy grep, the API-key-usage audit, `docmgr doctor`, and a final reMarkable republish. Everything passes; the ticket moves to status `review` with two documented follow-ups (live API run, PR #169 closure).
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Finish the implementation loop: final validation, ticket bookkeeping, and close-out documentation.
+
+**Inferred user intent:** A review-ready branch where every acceptance criterion has evidence, and nothing is left implicitly undone.
+
+**Commit (code):** N/A — docs/bookkeeping only in this step.
+
+### What I did
+- `go build ./...` — clean.
+- `go test ./pkg/rerank/... ./pkg/js/modules/geppetto/ ./pkg/engineprofiles/ ./pkg/cli/... -race -count=1` — all ok.
+- Legacy grep (`embeddings.Reranker|RerankOption|RankResult|CohereReranker|WithMaxTokensPerDoc`): no legacy matches; only the modern `decodeRerankOptions` JS helper and my own new test helper match the pattern.
+- API-key audit: `apiKey` in `pkg/rerank/cohere/provider.go` flows exactly from `Options` → struct field → Authorization header; never into an error, log, or response.
+- Updated `index.md` (status: review, full implementation record), checked task 6, updated the changelog.
+- `docmgr doctor --ticket GEPPETTO-RERANKER-002` — all checks passed.
+
+### Why
+- The acceptance criteria in the index were written before implementation; auditing them one by one keeps close-out honest.
+
+### What worked
+- Every criterion mapped to a concrete command output; no criterion needed relaxing.
+
+### What didn't work
+- Nothing failed.
+
+### What I learned
+- Writing acceptance criteria up front (in the ticket index) makes close-out a mechanical audit instead of a judgment call.
+
+### What was tricky to build
+- N/A (validation step).
+
+### What warrants a second pair of eyes
+- The decision records DR-2 (redirect rejection for a hosted API) and DR-3 (Usage nil for search-unit billing) remain the two judgment calls a reviewer should explicitly approve.
+- The branch `task/add-cohere-reranking` is ready for PR; the rerank work is complete but the PR #169 Cohere *embeddings* provider was deliberately excluded from this ticket's scope.
+
+### What should be done in the future
+- Live-run `TestLive_RerankAgainstRealCohere` with a real `COHERE_API_KEY` before release.
+- Close PR #169 with a comment pointing at this ticket and the merged `pkg/rerank/cohere`.
+- Follow-up ticket: Cohere embeddings provider (salvage `pkg/embeddings/cohere.go` from PR #169; needs `settings_validation.go` whitelisting).
+- Follow-up: ragkit adapter `rag.Reranker` ← `rerank.Provider` (RESEARCHCTL-015 lineage).
+
+### Code review instructions
+- Review order: design doc §6.6 (decision records) → `pkg/rerank/cohere/provider.go` (diff against llamacpp) → `pkg/rerank/factory/settings_factory.go` (cohere case + validation switch) → `api_reranker_test.go` parity test → `15-reranking.md`.
+- Validate: `go build ./... && go test ./pkg/rerank/... ./pkg/js/modules/geppetto/ -race -count=1`.
+
+### Technical details
+- Final commits on `task/add-cohere-reranking`: `c5c6f8dc` (ticket+guide), `1a5a9639` (P1), `163c69be` (P2), `4601eb58` (diary 2), `66b4e650` (P3), `f0b0ca69` (P4), `fb0cba6e` (P5), `8fd87243` (diary 3), plus this close-out commit.
+- Test counts: 30 cohere adapter tests, 28 factory tests (incl. 6 new), 12 Goja rerank tests (incl. 1 new parity test); all `-race` clean.

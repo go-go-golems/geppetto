@@ -34,3 +34,8 @@ Step 3: factory/validation wiring, Goja parity test, topic docs + live test (com
 - /home/manuel/workspaces/2026-08-06/add-cohere-reranking/geppetto/pkg/js/modules/geppetto/api_reranker_test.go — Goja parity proof for type=cohere
 - /home/manuel/workspaces/2026-08-06/add-cohere-reranking/geppetto/pkg/rerank/factory/settings_factory.go — Cohere provider case, API key resolution, per-type validation
 
+
+## 2026-08-06
+
+Step 4: final validation sweep — build + -race green, no legacy API, key audit clean, doctor pass; ticket to review status
+
