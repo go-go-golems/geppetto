@@ -123,3 +123,38 @@ I documented the provider in the embeddings topic guide, added a `cohere-embedde
 
 ### Technical details
 - Live result (2026-08-06): provider cohere, model embed-v4.0, configured 1024 = actual 1024, preview `0.0102, 0.0329, 0.0348, 0.0084, -0.0460`.
+
+## Step 3: Documentation audit follow-up
+
+A user prompt ("Did you update whatever documentation of geppetto was necessary, btw? in pkg/doc") triggered a full doc/config audit, which caught two real gaps the implementation had missed.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Did you update whatever documentation of geppetto was necessary, btw? in pkg/doc"
+
+**Assistant interpretation:** Audit pkg/doc (and adjacent config) for anything that enumerates embedding/rerank providers and could be stale after adding cohere.
+
+**Inferred user intent:** Trust but verify — make sure no provider whitelist or doc index was left behind.
+
+**Commit (code):** `f3ff3a4b` — "fix(embeddings): add cohere to embeddings-type choices; index reranking topic doc (GEPPETTO-COHERE-EMBEDDINGS-001)"
+
+### What I did
+- Grepped pkg/doc for provider enumerations; audited the JS guides, profiles guide, docs index, and the embeddings flags YAML.
+- **Gap 1 (functional):** `pkg/embeddings/config/flags/embeddings.yaml` — `embeddings-type` is a `choice` flag listing only `openai`/`ollama`; CLI/parsed-values construction with `type: cohere` would fail choice validation. Added `cohere` and updated the dimensions help text.
+- **Gap 2 (navigational, predates this ticket):** `pkg/doc/topics/00-docs-index.md` never listed `15-reranking.md` (missing since GEPPETTO-RERANKER-001). Added a Reranking row.
+- Confirmed `13-js-api-reference.md`/`14-js-api-user-guide.md` do not cover the reranker/embeddings JS APIs (DTS + `15-reranking.md` JS section carry that; a pre-existing gap, not made worse).
+
+### What worked / what didn't
+- The audit found real issues the implementation phase missed — the choice-flag whitelist is exactly the same class of omission as `settings_validation.go`, one layer down.
+
+### What I learned
+- Provider additions in geppetto have a checklist shape: factory case → settings validation → **Glazed flag choices** → topic docs → docs index. The flag choices are easy to forget because profile YAML bypasses them.
+
+### What warrants a second pair of eyes
+- Whether `embeddings-type` choice expansion affects any snapshot/golden CLI tests (full suite passed, so none caught it).
+
+### What should be done in the future
+- Add the five-point checklist above to a playbook or AGENT.md note for future provider ports.
+
+### Code review instructions
+- `git show f3ff3a4b` — two files, one choice list, one index row.
