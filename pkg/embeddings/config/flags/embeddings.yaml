@@ -11,11 +11,12 @@ flags:
     choices:
       - "openai"
       - "ollama"
+      - "cohere"
     help: The provider type to use for embeddings
     default: openai
   - name: embeddings-dimensions
     type: int
-    help: The output dimension of the embeddings (384 for Ollama all-minilm, 1536 for OpenAI text-embedding-3-small)
+    help: The output dimension of the embeddings (384 for Ollama all-minilm, 1536 for OpenAI text-embedding-3-small, 0 for Cohere model default)
     default: 1536 
   - name: embeddings-cache-type
     type: choice
