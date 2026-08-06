@@ -39,3 +39,8 @@ Step 3: factory/validation wiring, Goja parity test, topic docs + live test (com
 
 Step 4: final validation sweep — build + -race green, no legacy API, key audit clean, doctor pass; ticket to review status
 
+
+## 2026-08-06
+
+Step 5: cohere-reranker profile added to ~/.pinocchio/config/profiles.yaml; live Cohere qualification passed (dc 0.84 on capital-cities fixture, 221ms)
+

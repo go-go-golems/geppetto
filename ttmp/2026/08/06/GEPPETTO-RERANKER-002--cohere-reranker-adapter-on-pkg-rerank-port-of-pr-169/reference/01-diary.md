@@ -246,3 +246,52 @@ I ran the complete acceptance checklist from the ticket index: whole-repo build,
 ### Technical details
 - Final commits on `task/add-cohere-reranking`: `c5c6f8dc` (ticket+guide), `1a5a9639` (P1), `163c69be` (P2), `4601eb58` (diary 2), `66b4e650` (P3), `f0b0ca69` (P4), `fb0cba6e` (P5), `8fd87243` (diary 3), plus this close-out commit.
 - Test counts: 30 cohere adapter tests, 28 factory tests (incl. 6 new), 12 Goja rerank tests (incl. 1 new parity test); all `-race` clean.
+
+## Step 5: User profile entry and live Cohere qualification
+
+The user added a real Cohere API key and asked for a profile entry. I added `cohere-reranker` to `~/.pinocchio/config/profiles.yaml` and live-qualified the whole stack — profile registry → factory → adapter → real Cohere API — with the design guide's capital-cities fixture. `dc` won with score 0.84, exactly as the live test fixture predicts.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Create a profiles entry for cohere provider in ~/.pinocchio/config/profiles.yaml . I put the API key in /tmp/cohere.key"
+
+**Assistant interpretation:** Add a `cohere-reranker` profile entry (type cohere, engine rerank-v3.5, key from /tmp/cohere.key) following the existing `mac-bge-reranker` template, then verify it resolves.
+
+**Inferred user intent:** Actually use the new provider from pinocchio/geppetto tooling with real credentials — the live qualification that was the ticket's remaining follow-up.
+
+**Commit (code):** N/A — the profiles file lives outside the repo (`~/.pinocchio/config/profiles.yaml`).
+
+### What I did
+- Inserted a `cohere-reranker` entry into `~/.pinocchio/config/profiles.yaml` after `mac-bge-reranker`: `rerank.type: cohere`, `rerank.engine: rerank-v3.5`, `api.api_keys.cohere-api-key` from `/tmp/cohere.key` (trimmed). No base URL (hosted default), no allow flags.
+- Validated the YAML parses and the entry resolves (`type: cohere | engine: rerank-v3.5 | key len: 53`).
+- Live-ran `cmd/examples/rerank-profile-smoke` against the profile: 2-doc France fixture (paris 0.83 > berlin 0.13, 257ms), then the full 5-doc capital-cities fixture from the design guide (`dc` 0.84 > nevada 0.16 > mariana 0.08 > punishment 0.08 > grammar 0.06, 221ms).
+
+### Why
+- The smoke CLI exercises the exact production path: profile registry resolution → `ValidateInferenceSettingsForRerank` → factory → adapter → Cohere.
+
+### What worked
+- First live call succeeded; scores are normalized [0,1] and sensibly ordered, matching DR-3's documentation of Cohere score semantics.
+
+### What didn't work
+- The smoke CLI's `--document` flag is a glazed stringList, which **splits values on commas**: document text containing "Washington, D.C." was split into two list entries and failed the `id|text` check ("document 4 must use the id|text format"). Workaround: comma-free document text on the CLI. Not a provider bug.
+
+### What I learned
+- Glazed stringList flags comma-split repeated values — commas in document text are unsafe on this CLI (documents from profiles/programmatic callers are unaffected).
+- Cohere latency for a 5-doc rerank is ~220–260ms from this network.
+
+### What was tricky to build
+- Only the comma-splitting surprise above; diagnosed by counting list indices after the split.
+
+### What warrants a second pair of eyes
+- The API key is now stored plaintext in `~/.pinocchio/config/profiles.yaml` — consistent with every other provider key in that file, but worth noting.
+
+### What should be done in the future
+- Consider documenting the comma-splitting caveat in the rerank-profile-smoke help text.
+- PR #169 can now be closed pointing at both the merged adapter and this live qualification.
+
+### Code review instructions
+- Review the profiles entry with `python3 -c "import yaml; print(yaml.safe_load(open('$HOME/.pinocchio/config/profiles.yaml'))['profiles']['cohere-reranker'])"`.
+- Reproduce: `go run ./cmd/examples/rerank-profile-smoke run --profile-registries ~/.pinocchio/config/profiles.yaml --profile cohere-reranker --query "..." --document "id|text" ...` (comma-free texts).
+
+### Technical details
+- Live results (2026-08-06): query "What is the capital of the United States?" → ranks: dc 0.8396, nevada 0.1557, mariana 0.0850, punishment 0.0778, grammar 0.0610; duration 221ms.
