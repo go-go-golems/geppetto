@@ -13,3 +13,13 @@ Step 1: Rebase probe of PR #169 (2 trivial conflicts, tests pass, architecturall
 
 - /home/manuel/workspaces/2026-08-06/add-cohere-reranking/geppetto/ttmp/2026/08/06/GEPPETTO-RERANKER-002--cohere-reranker-adapter-on-pkg-rerank-port-of-pr-169/design-doc/01-cohere-reranker-adapter-architecture-and-implementation-guide.md — Primary implementation guide
 
+
+## 2026-08-06
+
+Step 2: pkg/rerank/cohere adapter core + 30 mock-server tests, -race clean (commits 1a5a9639, 163c69be)
+
+### Related Files
+
+- /home/manuel/workspaces/2026-08-06/add-cohere-reranking/geppetto/pkg/rerank/cohere/provider.go — Strict Cohere v2 /rerank adapter implementing rerank.Provider
+- /home/manuel/workspaces/2026-08-06/add-cohere-reranking/geppetto/pkg/rerank/cohere/provider_test.go — 30-test suite covering matrix rows 1-19
+

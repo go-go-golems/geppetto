@@ -85,3 +85,56 @@ Before writing any code I established ground truth: PR #169 cherry-picks onto cu
 ### Technical details
 - Probe results: `git cherry-pick 9567b207` onto `a119860d` → conflicts in `pkg/embeddings/settings_factory_test.go` (add/add), `pkg/doc/topics/06-embeddings.md`; `go test ./pkg/embeddings/` ok (0.746s) after taking main's conflicted files.
 - Ticket: `docmgr ticket create-ticket --ticket GEPPETTO-RERANKER-002 --topics geppetto,inference,providers,architecture,embeddings`.
+
+## Step 2: Cohere adapter core and unit tests (P1 + P2)
+
+I implemented `pkg/rerank/cohere` exactly per the guide's Phase 1/2: the strict Cohere v2 `/rerank` adapter mirroring the llamacpp pipeline, plus a 30-test mock-server suite covering test-matrix rows 1–19. Everything passed under `-race` on the first run; both commits cleared the full lefthook pre-commit gate (whole-repo tests + golangci-lint + custom vet tools).
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Implement the adapter core and its unit tests as Phases 1 and 2 of the design guide, committing each phase.
+
+**Inferred user intent:** A clean, reviewed-quality provider that a maintainer can diff mechanically against the llamacpp adapter.
+
+**Commit (code):** `1a5a9639` — "feat(rerank): add pkg/rerank/cohere adapter core (GEPPETTO-RERANKER-002 P1)"; `163c69be` — "test(rerank): cohere adapter unit tests with mock server (GEPPETTO-RERANKER-002 P2)"
+
+### What I did
+- Created `pkg/rerank/cohere/doc.go` (threat model + invariants), `protocol.go` (wire DTOs with pointer fields), `provider.go` (`Options`, `New`, `Rerank`, helpers).
+- Mirrored llamacpp step-for-step: core validation → ID stripping → bounded encode → context-aware POST → bounded read → strict decode → `ValidateAndMapResults` → rich `Response`.
+- Hosted deltas per the decision records: `Authorization: Bearer` + `X-Client-Name` headers; `BaseURL` defaults to `https://api.cohere.com` (DR-5); `RequestID` from the response body; `Usage` stays nil and `Cost` comes from `meta.billed_units.search_units` only when `CostPerSearch` is configured (DR-3); redirects rejected (DR-2).
+- Wrote `provider_test.go`: 30 tests — constructor hygiene, happy path (sorting, ID mapping, ranks, auth headers, request path), full cardinality, tie-breaking, search-unit cost, request validation (incl. no-ID-echo check), response validation (cardinality, missing fields, range/dup index, non-finite score, trailing JSON, unknown fields), transport (non-2xx body non-leak, size bounds, redirect rejection, transport redaction, injected-client non-mutation, context cancellation).
+
+### Why
+- Mirroring the llamacpp file structure and helper names makes review a mechanical diff between two adapters instead of a fresh audit.
+- Per-adapter duplication of the small strictness helpers is deliberate (documented in the guide, §9 alternatives): two call sites do not justify a shared abstraction.
+
+### What worked
+- `go test ./pkg/rerank/cohere/ -race` passed first try (1.063s); lefthook pre-commit (whole-repo `go test ./...`, golangci-lint, geppetto-lint, glazed-lint) reported 0 issues on both commits.
+- The test-matrix-first design paid off: writing tests was a transcription exercise, and the `1e999` non-finite-score probe confirmed strict decode rejects out-of-range floats as `ErrInvalidResponse`.
+
+### What didn't work
+- `gofmt` flagged two files after the initial write (struct field alignment in `protocol.go`, comment reflow in `provider.go`); fixed with `gofmt -w` before committing. No functional failures.
+
+### What I learned
+- The lefthook pre-commit gate runs the *entire* repo test suite plus four lint tools (~6 minutes cold, ~6 seconds warm); budget for that per commit.
+- `rerank.ValidateAndMapResults` does the heavy lifting for rows 7–10, so the adapter tests are thin — the core's invariants hold across providers for free.
+
+### What was tricky to build
+- Nothing blocked. The one design subtlety worth restating: `computeSearchCost` returns nil unless *both* billed units and a configured rate exist, preserving the core's nil-vs-zero cost distinction.
+
+### What warrants a second pair of eyes
+- `provider.go` auth header placement — grep confirms `apiKey` appears exactly twice (struct field, header set), satisfying the key-leakage review item in the guide §9.
+- `TestRerank_RedactsTransportError` asserts the redacted error does not contain "127.0.0.1"; confirm that is the right leak proxy (it matches the llamacpp precedent).
+
+### What should be done in the future
+- P3 factory/validation wiring (next), then P4 Goja parity, P5 docs + live test.
+
+### Code review instructions
+- Start at `pkg/rerank/cohere/provider.go` `Rerank` and diff against `pkg/rerank/llamacpp/provider.go` `Rerank`; deviations are the DR-2/DR-3/DR-5 deltas, each commented.
+- Validate: `go test ./pkg/rerank/cohere/ -race -count=1`.
+
+### Technical details
+- 30 passing tests: `go test ./pkg/rerank/cohere/ -v | grep -c '^--- PASS'` → 30.
+- Test helpers `testServerURL`/`testServerURLWithStatus` start fixed-response `httptest` servers; all local HTTP is explicitly opted in via `security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true}`, which itself proves the hosted default policy denies loopback.
