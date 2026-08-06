@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/rerank"
+	"github.com/go-go-golems/geppetto/pkg/rerank/cohere"
 	rerankconfig "github.com/go-go-golems/geppetto/pkg/rerank/config"
 	"github.com/go-go-golems/geppetto/pkg/rerank/llamacpp"
 	"github.com/go-go-golems/geppetto/pkg/security"
@@ -15,7 +16,7 @@ import (
 
 func TestSupportedProviders(t *testing.T) {
 	f := NewSettingsFactory(&rerankconfig.RerankConfig{}, nil, nil, nil)
-	assert.Equal(t, []string{"llamacpp"}, f.SupportedProviders())
+	assert.Equal(t, []string{"llamacpp", "cohere"}, f.SupportedProviders())
 }
 
 func TestNewProvider_RejectsMissingConfig(t *testing.T) {
@@ -40,10 +41,14 @@ func TestNewProvider_RejectsMissingEngine(t *testing.T) {
 }
 
 func TestNewProvider_RejectsUnsupportedType(t *testing.T) {
-	f := NewSettingsFactory(&rerankconfig.RerankConfig{Type: "cohere", Engine: "m"}, nil, nil, nil)
+	f := NewSettingsFactory(&rerankconfig.RerankConfig{Type: "jina", Engine: "m"}, nil, nil, nil)
 	_, err := f.NewProvider()
 	require.ErrorIs(t, err, rerank.ErrInvalidRequest)
 	assert.Contains(t, err.Error(), "unsupported rerank provider type")
+	// The diagnostic lists every supported provider so profile authors can
+	// fix typos without reading source.
+	assert.Contains(t, err.Error(), "llamacpp")
+	assert.Contains(t, err.Error(), "cohere")
 }
 
 func TestNewProvider_RejectsMissingBaseURL(t *testing.T) {
@@ -122,13 +127,19 @@ func TestValidateInferenceSettingsForRerank_Errors(t *testing.T) {
 	}), rerank.ErrInvalidRequest)
 
 	require.ErrorIs(t, ValidateInferenceSettingsForRerank(&aistepssettings.InferenceSettings{
-		Rerank: &rerankconfig.RerankConfig{Type: "cohere", Engine: "m"},
+		Rerank: &rerankconfig.RerankConfig{Type: "jina", Engine: "m"},
 	}), rerank.ErrInvalidRequest)
 
 	api := aistepssettings.NewAPISettings()
 	// No rerank-base-url set.
 	require.ErrorIs(t, ValidateInferenceSettingsForRerank(&aistepssettings.InferenceSettings{
 		Rerank: &rerankconfig.RerankConfig{Type: "llamacpp", Engine: "m"},
+		API:    api,
+	}), rerank.ErrInvalidRequest)
+
+	// Cohere: missing API key.
+	require.ErrorIs(t, ValidateInferenceSettingsForRerank(&aistepssettings.InferenceSettings{
+		Rerank: &rerankconfig.RerankConfig{Type: "cohere", Engine: "rerank-v3.5"},
 		API:    api,
 	}), rerank.ErrInvalidRequest)
 }
@@ -161,6 +172,75 @@ func TestNewSettingsFactoryFromInferenceSettings_RejectsMissingRerank(t *testing
 	_, err := NewSettingsFactoryFromInferenceSettings(in)
 	require.ErrorIs(t, err, rerank.ErrInvalidRequest)
 	assert.Contains(t, err.Error(), "missing inference_settings.rerank")
+}
+
+func TestNewProvider_ConstructsCohereFromDirectConfig(t *testing.T) {
+	api := aistepssettings.NewAPISettings()
+	api.APIKeys["cohere-api-key"] = "test-key"
+
+	f := NewSettingsFactory(&rerankconfig.RerankConfig{Type: "cohere", Engine: "rerank-v3.5"}, api, nil, nil)
+	provider, err := f.NewProvider()
+	require.NoError(t, err)
+	cohereProvider, ok := provider.(*cohere.Provider)
+	require.True(t, ok)
+	_ = cohereProvider
+	// Without a base-url override the adapter targets the canonical hosted
+	// endpoint (DR-5).
+	assert.Equal(t, rerank.Model{Provider: "cohere", Name: "rerank-v3.5"}, provider.Model())
+}
+
+func TestNewProvider_CohereHonorsBaseURLOverride(t *testing.T) {
+	api := aistepssettings.NewAPISettings()
+	api.APIKeys["cohere-api-key"] = "test-key"
+	api.BaseUrls["cohere-base-url"] = "http://127.0.0.1:18012"
+	api.AllowHTTP["rerank"] = true
+	api.AllowLocalNetworks["rerank"] = true
+
+	f := NewSettingsFactory(&rerankconfig.RerankConfig{Type: "cohere", Engine: "rerank-v3.5"}, api, nil, nil)
+	provider, err := f.NewProvider()
+	require.NoError(t, err)
+	_, ok := provider.(*cohere.Provider)
+	require.True(t, ok)
+}
+
+func TestNewProvider_CohereOverrideDeniedByDefaultPolicy(t *testing.T) {
+	api := aistepssettings.NewAPISettings()
+	api.APIKeys["cohere-api-key"] = "test-key"
+	// Plain-HTTP loopback override without the rerank allow flags: the hosted
+	// default policy (HTTPS, no local networks) correctly rejects it.
+	api.BaseUrls["cohere-base-url"] = "http://127.0.0.1:18012"
+
+	f := NewSettingsFactory(&rerankconfig.RerankConfig{Type: "cohere", Engine: "rerank-v3.5"}, api, nil, nil)
+	_, err := f.NewProvider()
+	require.ErrorIs(t, err, rerank.ErrInvalidRequest)
+	assert.Contains(t, err.Error(), "outbound URL policy")
+}
+
+func TestNewProvider_RejectsMissingCohereAPIKey(t *testing.T) {
+	f := NewSettingsFactory(&rerankconfig.RerankConfig{Type: "cohere", Engine: "rerank-v3.5"}, aistepssettings.NewAPISettings(), nil, nil)
+	_, err := f.NewProvider()
+	require.ErrorIs(t, err, rerank.ErrInvalidRequest)
+	assert.Contains(t, err.Error(), "inference_settings.api.api_keys.cohere-api-key")
+}
+
+func TestNewSettingsFactoryFromInferenceSettings_ConstructsCohereProvider(t *testing.T) {
+	api := aistepssettings.NewAPISettings()
+	api.APIKeys["cohere-api-key"] = "test-key"
+
+	in := &aistepssettings.InferenceSettings{
+		API: api,
+		Rerank: &rerankconfig.RerankConfig{
+			Type:   "cohere",
+			Engine: "rerank-v3.5",
+		},
+	}
+	f, err := NewSettingsFactoryFromInferenceSettings(in)
+	require.NoError(t, err)
+	provider, err := f.NewProvider()
+	require.NoError(t, err)
+	_, ok := provider.(*cohere.Provider)
+	require.True(t, ok)
+	assert.Equal(t, rerank.Model{Provider: "cohere", Name: "rerank-v3.5"}, provider.Model())
 }
 
 func TestRerankConfig_YAMLRoundTrip(t *testing.T) {
