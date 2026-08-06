@@ -23,3 +23,14 @@ Step 2: pkg/rerank/cohere adapter core + 30 mock-server tests, -race clean (comm
 - /home/manuel/workspaces/2026-08-06/add-cohere-reranking/geppetto/pkg/rerank/cohere/provider.go — Strict Cohere v2 /rerank adapter implementing rerank.Provider
 - /home/manuel/workspaces/2026-08-06/add-cohere-reranking/geppetto/pkg/rerank/cohere/provider_test.go — 30-test suite covering matrix rows 1-19
 
+
+## 2026-08-06
+
+Step 3: factory/validation wiring, Goja parity test, topic docs + live test (commits 66b4e650, f0b0ca69, fb0cba6e)
+
+### Related Files
+
+- /home/manuel/workspaces/2026-08-06/add-cohere-reranking/geppetto/pkg/doc/topics/15-reranking.md — Cohere provider user docs
+- /home/manuel/workspaces/2026-08-06/add-cohere-reranking/geppetto/pkg/js/modules/geppetto/api_reranker_test.go — Goja parity proof for type=cohere
+- /home/manuel/workspaces/2026-08-06/add-cohere-reranking/geppetto/pkg/rerank/factory/settings_factory.go — Cohere provider case, API key resolution, per-type validation
+

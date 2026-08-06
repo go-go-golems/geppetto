@@ -138,3 +138,56 @@ I implemented `pkg/rerank/cohere` exactly per the guide's Phase 1/2: the strict 
 ### Technical details
 - 30 passing tests: `go test ./pkg/rerank/cohere/ -v | grep -c '^--- PASS'` → 30.
 - Test helpers `testServerURL`/`testServerURLWithStatus` start fixed-response `httptest` servers; all local HTTP is explicitly opted in via `security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true}`, which itself proves the hosted default policy denies loopback.
+
+## Step 3: Factory wiring, Goja parity proof, docs and live test (P3 + P4 + P5)
+
+I wired the Cohere provider through the settings factory and profile validation, proved the JavaScript surface needed zero changes with a live Goja test, and finished the user-facing documentation plus an opt-in live test. All three phases passed their exit gates on the first run; the whole-repo pre-commit gate stayed green on every commit.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 1)
+
+**Assistant interpretation:** Complete Phases 3–5 of the design guide: factory/validation wiring with tests, a Goja parity test, topic-guide documentation, and the opt-in live test.
+
+**Inferred user intent:** Finish the integration so the feature is usable from profiles and JavaScript, documented, and verifiable against the real API on demand.
+
+**Commit (code):** `66b4e650` — "feat(rerank): wire cohere provider through factory and validation (GEPPETTO-RERANKER-002 P3)"; `f0b0ca69` — "test(rerank): prove gp.reranker works with type=cohere unchanged (GEPPETTO-RERANKER-002 P4)"; `fb0cba6e` — "docs(rerank): cohere provider docs + opt-in live test (GEPPETTO-RERANKER-002 P5)"
+
+### What I did
+- P3: added `rerankProviderCohere` to the factory; `SupportedProviders()` now returns both types; `NewProvider()` gained a `cohere` case resolving `api_keys.cohere-api-key` (required) and `base_urls.cohere-base-url` (optional override); `ValidateInferenceSettingsForRerank` switched from a single-provider check to a per-type switch with profile-oriented diagnostics naming the exact YAML paths. Updated `rerank.yaml` help text. Six new factory tests (construct from direct config, base-URL override honored, override denied by default policy, missing-key diagnostic, unsupported-type message lists both providers, InferenceSettings path).
+- P4: added `newCohereRerankerTestServer` + `TestRerankerBuilder_CohereThroughFactoryUnchanged` in `pkg/js/modules/geppetto/api_reranker_test.go`: a profile YAML with `type: cohere` resolved through the registry, `gp.reranker(settings)`, `model()`, and a sync `rerank()` asserting ID mapping, body-carried `requestId`, absent `usage` (DR-3), and present `durationMs`. The mock server asserts the bearer header and `X-Client-Name`.
+- P5: extended `pkg/doc/topics/15-reranking.md` (Cohere profile YAML, key names, usage/cost semantics, supported-providers list, live-test command); wrote `live_test.go` gated on `GEPPETTO_LIVE_RERANK=1` + `COHERE_API_KEY`, asserting the capital-cities fixture ranks `dc` first with normalized scores.
+
+### Why
+- The per-type switch in validation keeps each provider's prerequisites explicit and mirrors the established diagnostic style ("selected rerank profile has no X; set inference_settings...").
+- The Goja test asserts behavior end-to-end from a YAML profile rather than construction internals — that is the parity claim a maintainer actually cares about.
+
+### What worked
+- All exit gates first try: `go test ./pkg/rerank/...`, the 12 Goja rerank tests (11 existing + 1 new), `pkg/doc` tests, live test skip path.
+- Two pre-existing tests needed updating rather than new code: `TestNewProvider_RejectsUnsupportedType` (used `cohere` as its unsupported example — now genuinely supported; switched to `jina`) and `TestSupportedProviders`. This is exactly the kind of mechanical follow-through the guide predicted.
+
+### What didn't work
+- Nothing failed. One diary-edit hiccup: an `edit` oldText mismatch (trailing punctuation) cost one retry — cosmetic.
+
+### What I learned
+- The factory's existing tests were written so that adding a provider is a small, localized diff — the 001 design's "extend SupportedProviders and the NewProvider switch" recipe held exactly.
+- The Goja wrapper really is provider-agnostic: the parity test needed no changes to any non-test file under `pkg/js/`.
+
+### What was tricky to build
+- Choosing where the optional base-URL override lives: putting it in `api.base_urls["cohere-base-url"]` (rather than a new RerankConfig field) keeps endpoints in the API maps where they belong, consistent with the embeddings precedent and the 001 config design.
+
+### What warrants a second pair of eyes
+- `ValidateInferenceSettingsForRerank` now branches per provider; confirm the llamacpp path behavior is byte-identical to before (the existing tests cover it, and they pass unmodified).
+- The Goja parity test's `usage` assertion accepts both `undefined` and `null` — confirm that matches the wrapper's nil-mapping convention.
+
+### What should be done in the future
+- P6 close-out: full validation sweep, index/status update, final reMarkable republish, and a recommendation to close PR #169.
+- Live-run the Cohere test once with a real key (`GEPPETTO_LIVE_RERANK=1 COHERE_API_KEY=...`) before release.
+
+### Code review instructions
+- Start at `pkg/rerank/factory/settings_factory.go` (`NewProvider` cohere case, `resolveCohereAPIKey`, validation switch), then `pkg/js/modules/geppetto/api_reranker_test.go` (`TestRerankerBuilder_CohereThroughFactoryUnchanged`), then the `15-reranking.md` "Hosted provider: Cohere" section.
+- Validate: `go test ./pkg/rerank/... ./pkg/js/modules/geppetto/ -run 'Rerank|TestSupported|TestNewProvider|TestValidate|TestNewSettingsFactory' -count=1`.
+
+### Technical details
+- Commits: `66b4e650` (P3), `f0b0ca69` (P4), `fb0cba6e` (P5); each cleared lefthook (whole-repo tests + 4 lint tools, 0 issues).
+- Live test invocation: `GEPPETTO_LIVE_RERANK=1 COHERE_API_KEY=<key> GEPPETTO_RERANK_MODEL=rerank-v3.5 go test ./pkg/rerank/cohere -run TestLive -v -count=1`.
