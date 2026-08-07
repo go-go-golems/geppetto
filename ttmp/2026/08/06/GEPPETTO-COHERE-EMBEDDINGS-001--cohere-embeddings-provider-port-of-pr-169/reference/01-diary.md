@@ -11,13 +11,20 @@ DocType: reference
 Intent: long-term
 Owners:
     - manuel
-RelatedFiles: []
+RelatedFiles:
+    - Path: repo://pkg/embeddings/cohere.go
+      Note: Review hardening—endpoint derivation, outbound policy, injected client, cardinality (commit 7abdc347)
+    - Path: repo://pkg/embeddings/settings_factory.go
+      Note: Factory client/policy wiring and blank-local precedence (commit 7abdc347)
+    - Path: repo://pkg/sections/sections_test.go
+      Note: CLI cohere-api-key registration regression test (commit 7abdc347)
 ExternalSources: []
 Summary: Implementation diary for the Cohere embeddings provider port.
 LastUpdated: 2026-08-06T00:00:00-04:00
 WhatFor: Record implementation steps, failures, and review guidance for GEPPETTO-COHERE-EMBEDDINGS-001.
 WhenToUse: Read before resuming or reviewing work on this ticket.
 ---
+
 
 # Diary
 
@@ -158,3 +165,71 @@ A user prompt ("Did you update whatever documentation of geppetto was necessary,
 
 ### Code review instructions
 - `git show f3ff3a4b` — two files, one choice list, one index row.
+
+## Step 4: Address all six Cohere embeddings review findings
+
+PR #408 received six P2 inline findings, all on the embeddings half of the change. I treated them as one coherent boundary-hardening pass rather than six isolated patches: the provider now has the same base-URL, outbound-policy, and host-owned-client semantics as the Cohere reranker; its batch response contract is explicit; and direct CLI credentials plus profile precedence are internally consistent.
+
+The implementation changed the new Cohere constructor to return an error because endpoint validation belongs at construction time, before any text or bearer credential can be sent. This is a deliberate API correction inside the still-open PR, not a compatibility shim.
+
+### Prompt Context
+
+**User prompt (verbatim):** "address code review comments on the geppetto PR"
+
+**Assistant interpretation:** Fetch every inline review comment on geppetto PR #408, implement each requested correction with regression coverage, update docs and ticket records, then push and resolve/reply to the threads.
+
+**Inferred user intent:** Make PR #408 safe and review-ready rather than merely acknowledging automated findings.
+
+**Commit (code):** `7abdc347` — "fix(embeddings): address Cohere PR review findings"
+
+### What I did
+- Added `cohere-api-key` to the registered `embeddings` Glazed section. The existing `*-api-key` wildcard decode into `APISettings.APIKeys` makes `--embeddings-type cohere --cohere-api-key ...` usable through `CreateGeppettoSections`; a section-level regression test proves the field is present.
+- Changed `cohere-base-url` to shared base semantics: default/base is `https://api.cohere.com`, and embeddings derive `/v2/embed` with `url.JoinPath`, matching rerank's `/v2/rerank` behavior.
+- Changed `NewCohereProvider` to return `(*CohereProvider, error)` and validate the final endpoint at construction using `security.ValidateOutboundURL`.
+- Added `WithCohereOutboundURL`; the factory derives policy from `settings.OutboundURLOptions(f.api, "embeddings")`, so HTTP/local destinations remain fail-closed unless explicitly opted in.
+- Added `WithCohereHTTPClient`; `NewSettingsFactoryFromInferenceSettings` carries `InferenceSettings.Client`, calls `settings.EnsureHTTPClient`, and injects the resulting timeout/proxy/TLS-aware client into the provider.
+- Enforced exact Cohere response cardinality (`len(vectors) == len(texts)`) to protect cache wrappers from nil holes and out-of-range panics.
+- Skipped blank/whitespace embedding-local API keys and base URLs during profile-map overlay so validation fallback and factory precedence agree.
+- Updated `06-embeddings.md` for the error-returning constructor, CLI key, shared-base contract, and outbound policy.
+- Added tests for short/oversized/empty response mismatch, shared endpoint derivation, fail-closed URL policy plus explicit local opt-in, injected-client timeout behavior, blank local fallback, endpoint/base split, and registered CLI credentials.
+
+### Why
+- All six findings exposed one root problem: the minimal PR #169 embeddings salvage did not inherit the stricter provider-boundary conventions introduced by the newer rerank subsystem.
+- Rejecting an invalid destination at construction time prevents accidental disclosure before a request exists and gives callers a deterministic configuration error.
+- Exact response cardinality is part of the `Provider.GenerateBatchEmbeddings` contract, not optional defensive checking: both cache wrappers assume positional one-to-one output.
+
+### What worked
+- `GOWORK=off go test -race ./pkg/embeddings ./pkg/sections -count=1` passed.
+- `GOWORK=off go test ./... -count=1`, targeted vet, and `git diff --check` passed.
+- The commit's lefthook gate passed the full test suite, golangci-lint, geppetto-lint, and glazed-lint.
+- The user's unstaged glazed v1.4.2 `go.mod`/`go.sum` bump was detected during diff audit and deliberately excluded from this focused commit.
+
+### What didn't work
+- The first targeted run failed because an existing factory test still expected the old endpoint-as-base representation:
+  `--- FAIL: TestNewSettingsFactoryFromInferenceSettingsConstructsCohereProvider (0.00s)`
+  `settings_factory_test.go:178: base URL = "https://api.cohere.com", want hosted default`
+  I updated it to assert both fields separately: base `https://api.cohere.com`, endpoint `https://api.cohere.com/v2/embed`.
+
+### What I learned
+- `CreateGeppettoSections` does not need a separate embeddings credential section: the registered `embeddings` section is already decoded into both `EmbeddingsConfig` and `APISettings`; the latter's `glazed:"*-api-key"` wildcard captures `cohere-api-key`, exactly like provider chat sections.
+- A shared `cohere-base-url` key only works when every Cohere capability treats it as a base rather than an endpoint.
+
+### What was tricky to build
+- CLI credential routing is indirect: the flag lives in the embeddings YAML, `UpdateStepSettingsFromParsedValues` decodes the same section into `ss.API`, and a wildcard struct tag stores it in a map. Registering the pre-existing `NewEmbeddingsApiKeyValue` instead would not have worked without adding its separate slug to the API decode loop and could duplicate `openai-api-key`; adding the field to the existing section is the smaller correct path.
+- Tests use HTTP loopback servers, which the production policy correctly rejects. Test construction therefore needs an explicit `AllowHTTP + AllowLocalNetworks` option helper; this keeps production defaults fail-closed and makes each local opt-in visible.
+
+### What warrants a second pair of eyes
+- Confirm `"embeddings"` is the desired profile key for `api.allow_http` / `api.allow_local_networks`; it mirrors rerank's capability key and is documented, but some users may expect a provider key such as `cohere`.
+- Confirm changing the newly introduced `NewCohereProvider` constructor to return an error is acceptable before merge; all in-repo callers and docs are updated.
+
+### What should be done in the future
+- Consider consolidating hosted-provider endpoint/client/security options into a shared constructor pattern so embeddings and rerank cannot drift again.
+
+### Code review instructions
+- Start with `pkg/embeddings/cohere.go` (`NewCohereProvider`, `GenerateBatchEmbeddings`), then `pkg/embeddings/settings_factory.go` (policy/client/precedence wiring).
+- Review regression contracts in `pkg/embeddings/cohere_test.go`, `pkg/embeddings/settings_factory_test.go`, and `pkg/sections/sections_test.go`.
+- Validate with `GOWORK=off go test -race ./pkg/embeddings ./pkg/sections -count=1 && GOWORK=off go test ./... -count=1`.
+
+### Technical details
+- Review comments addressed: `3731910731`, `3731910733`, `3731910738`, `3731910744`, `3731910748`, `3731910754`.
+- Public endpoint derivation: `url.JoinPath(baseURL, "/v2/embed")`; hosted default remains `https://api.cohere.com/v2/embed`.
