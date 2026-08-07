@@ -5,10 +5,10 @@ description: Settings for cross-encoder reranking providers
 flags:
   - name: rerank-type
     type: string
-    help: The provider type to use for reranking (currently only llamacpp is supported)
+    help: The provider type to use for reranking (llamacpp or cohere)
   - name: rerank-engine
     type: string
-    help: The model to use for reranking (e.g. qllama/bge-reranker-v2-m3:q4_k_m)
+    help: The model to use for reranking (e.g. qllama/bge-reranker-v2-m3:q4_k_m or rerank-v3.5)
   - name: rerank-max-request-bytes
     type: int
     help: Maximum encoded request body size in bytes

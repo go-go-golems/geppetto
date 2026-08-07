@@ -10,6 +10,7 @@ import (
 const (
 	openAIEmbeddingProvider = "openai"
 	ollamaEmbeddingProvider = "ollama"
+	cohereEmbeddingProvider = "cohere"
 )
 
 // ValidateInferenceSettingsForEmbeddings verifies that final, already-merged
@@ -44,8 +45,12 @@ func ValidateInferenceSettingsForEmbeddings(s *settings.InferenceSettings) error
 		if s.Embeddings.Dimensions == 0 {
 			return fmt.Errorf("selected Ollama embedding profile must set inference_settings.embeddings.dimensions")
 		}
+	case cohereEmbeddingProvider:
+		if strings.TrimSpace(cohereEmbeddingAPIKey(s)) == "" {
+			return fmt.Errorf("selected Cohere embedding profile has no cohere-api-key; stack a Cohere base profile or set inference_settings.api.api_keys.cohere-api-key or inference_settings.embeddings.api_keys.cohere-api-key")
+		}
 	default:
-		return fmt.Errorf("unsupported embeddings provider type %q; supported values are openai and ollama", providerType)
+		return fmt.Errorf("unsupported embeddings provider type %q; supported values are openai, ollama and cohere", providerType)
 	}
 
 	return nil
@@ -62,6 +67,21 @@ func openAIEmbeddingAPIKey(s *settings.InferenceSettings) string {
 	}
 	if s.API != nil {
 		return s.API.APIKeys["openai-api-key"]
+	}
+	return ""
+}
+
+func cohereEmbeddingAPIKey(s *settings.InferenceSettings) string {
+	if s == nil {
+		return ""
+	}
+	if s.Embeddings != nil {
+		if key := s.Embeddings.APIKeys["cohere-api-key"]; strings.TrimSpace(key) != "" {
+			return key
+		}
+	}
+	if s.API != nil {
+		return s.API.APIKeys["cohere-api-key"]
 	}
 	return ""
 }

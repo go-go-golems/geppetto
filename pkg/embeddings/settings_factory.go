@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"text/template"
 
 	_ "embed"
@@ -73,6 +74,12 @@ func WithDimensions(d int) ProviderOption {
 // SettingsFactory creates embedding providers based on configuration
 type SettingsFactory struct {
 	config *config.EmbeddingsConfig
+	// api carries the profile-level API settings used to derive the outbound
+	// URL policy for hosted providers; nil means the fail-closed default.
+	api *settings.APISettings
+	// client carries host-owned HTTP client settings (timeouts, proxy, TLS);
+	// nil means http.DefaultClient via settings.EnsureHTTPClient.
+	client *settings.ClientSettings
 }
 
 var _ ProviderFactory = &SettingsFactory{}
@@ -113,9 +120,13 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 
 	// Set default dimensions if not specified
 	if options.dimensions == 0 {
-		if options.providerType == "openai" {
+		switch options.providerType {
+		case "openai":
 			options.dimensions = 1536 // Default for OpenAI
-		} else {
+		case "cohere":
+			// 0 means the provider omits output_dimension and the Cohere API
+			// uses the model's native default dimension.
+		default:
 			return nil, fmt.Errorf("no dimensions specified for embeddings")
 		}
 	}
@@ -146,6 +157,44 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 		}
 
 		provider = NewOpenAIProvider(apiKey, openai.EmbeddingModel(options.engine), options.dimensions)
+
+	case "cohere":
+		apiKey := options.apiKey
+		if apiKey == "" && f.config.APIKeys != nil {
+			if key, ok := f.config.APIKeys["cohere-api-key"]; ok {
+				apiKey = key
+			}
+		}
+		if apiKey == "" {
+			return nil, fmt.Errorf("no API key provided for Cohere")
+		}
+
+		providerOpts := []func(*CohereProvider){}
+		baseURL := options.baseURL
+		if baseURL == "" && f.config.BaseURLs != nil {
+			if url, ok := f.config.BaseURLs["cohere-base-url"]; ok {
+				baseURL = url
+			}
+		}
+		if baseURL != "" {
+			providerOpts = append(providerOpts, WithCohereBaseURL(baseURL))
+		}
+		// Honor the host-owned HTTP client (timeouts, proxy, TLS) and enforce
+		// the repository outbound URL policy on the embed endpoint, matching
+		// the rerank factory's wiring.
+		httpClient, err := settings.EnsureHTTPClient(f.client)
+		if err != nil {
+			return nil, fmt.Errorf("embeddings http client: %w", err)
+		}
+		providerOpts = append(providerOpts,
+			WithCohereHTTPClient(httpClient),
+			WithCohereOutboundURL(settings.OutboundURLOptions(f.api, "embeddings")),
+		)
+
+		provider, err = NewCohereProvider(apiKey, options.engine, options.dimensions, providerOpts...)
+		if err != nil {
+			return nil, err
+		}
 
 	default:
 		return nil, fmt.Errorf("unsupported provider type for embeddings: %s", options.providerType)
@@ -238,16 +287,28 @@ func NewSettingsFactoryFromInferenceSettings(s *settings.InferenceSettings) *Set
 
 	if s.Embeddings != nil {
 		// Embedding-local credentials and endpoints are more specific than the
-		// top-level API maps and should win when both are present.
+		// top-level API maps and should win when both are present. Blank local
+		// values are skipped: they cannot authenticate anything, and overlaying
+		// them would shadow a valid top-level entry while validation (which
+		// falls back to the top-level key) still reports success.
 		for apiType, key := range s.Embeddings.APIKeys {
+			if strings.TrimSpace(key) == "" {
+				continue
+			}
 			config.APIKeys[apiType] = key
 		}
 		for apiType, url := range s.Embeddings.BaseURLs {
+			if strings.TrimSpace(url) == "" {
+				continue
+			}
 			config.BaseURLs[apiType] = url
 		}
 	}
 
-	return NewSettingsFactory(config)
+	factory := NewSettingsFactory(config)
+	factory.api = s.API
+	factory.client = s.Client
+	return factory
 }
 
 func (f *SettingsFactory) GetEmbeddingFuncMap() template.FuncMap {

@@ -131,6 +131,35 @@ if err != nil { panic(err) }
 
 `ValidateInferenceSettingsForRerank` gives profile-oriented diagnostics before construction.
 
+### Hosted provider: Cohere
+
+A Cohere profile needs no base URL — the adapter defaults to the canonical
+`https://api.cohere.com` endpoint — only an API key and a model:
+
+```yaml
+inference_settings:
+  api:
+    api_keys:
+      cohere-api-key: ${COHERE_API_KEY}
+  rerank:
+    type: cohere
+    engine: rerank-v3.5
+```
+
+Notes:
+
+- `cohere-base-url` under `api.base_urls` is an optional override for proxies
+  or tests. Plain-HTTP or local-network overrides are rejected unless the
+  `allow_http.rerank` / `allow_local_networks.rerank` flags are set, exactly
+  like llama.cpp.
+- Cohere bills rerank calls in *search units*, not tokens
+  (`meta.billed_units.search_units`). `Response.Usage` therefore stays nil
+  (the provider did not report token usage), and `Response.Cost` stays nil
+  unless a per-search rate is configured (GEPPETTO-RERANKER-002, DR-3).
+- The request ID comes from the response body (`id`), not a header.
+- The wire option `max_tokens_per_doc` is intentionally not exposed; callers
+  pre-truncate `Document.Text` (DR-4).
+
 ## JavaScript API
 
 The `require("geppetto")` module exposes `reranker(settings)`, consistent with `embeddings(settings)`:
@@ -191,7 +220,18 @@ The llama.cpp adapter enforces:
 
 ## Supported Providers
 
-Currently only `llamacpp` is supported. The core package is transport-neutral; future adapters (Cohere, Jina) can be added without changing the `Provider` interface.
+Two providers are supported, both constructed through the same factory and
+usable from Go profiles and `gp.reranker(settings)` without any
+provider-specific JavaScript:
+
+- `llamacpp` — a self-hosted llama.cpp `/v1/rerank` server. Local HTTP and
+  local networks must be explicitly allowed in the profile.
+- `cohere` — the hosted Cohere v2 `/rerank` API (e.g. `rerank-v3.5`).
+  Authenticates with `api_keys.cohere-api-key`, defaults to
+  `https://api.cohere.com`, and requires no allow flags.
+
+The core package is transport-neutral; future adapters (Jina, voyage) can be
+added without changing the `Provider` interface.
 
 ## Live Qualification
 
@@ -217,6 +257,15 @@ go test ./pkg/rerank/llamacpp -run TestLive -v -count=1
 ```
 
 It skips unless `GEPPETTO_LIVE_RERANK=1` is set exactly, never falls back to a fixture, and never starts external services itself.
+
+The equivalent opt-in test exists for Cohere and requires a real API key:
+
+```bash
+GEPPETTO_LIVE_RERANK=1 \
+COHERE_API_KEY=<your-key> \
+GEPPETTO_RERANK_MODEL=rerank-v3.5 \
+go test ./pkg/rerank/cohere -run TestLive -v -count=1
+```
 
 ## Downstream Integration
 

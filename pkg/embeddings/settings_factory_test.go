@@ -2,6 +2,8 @@ package embeddings
 
 import (
 	"fmt"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
@@ -146,5 +148,118 @@ inference_settings:
 	}
 	if diskCache.directory != cacheDirectory {
 		t.Fatalf("cache directory = %q, want %q", diskCache.directory, cacheDirectory)
+	}
+}
+
+func TestNewSettingsFactoryFromInferenceSettingsSkipsBlankLocalCohereValuesAndInjectsClient(t *testing.T) {
+	client := &http.Client{}
+	in := &settings.InferenceSettings{
+		API: &settings.APISettings{
+			APIKeys:            map[string]string{"cohere-api-key": "top-level-key"},
+			BaseUrls:           map[string]string{"cohere-base-url": "https://proxy.example/cohere"},
+			AllowHTTP:          map[string]bool{},
+			AllowLocalNetworks: map[string]bool{},
+		},
+		Client: &settings.ClientSettings{HTTPClient: client},
+		Embeddings: &config.EmbeddingsConfig{
+			Type:     "cohere",
+			Engine:   "embed-v4.0",
+			APIKeys:  map[string]string{"cohere-api-key": "  "},
+			BaseURLs: map[string]string{"cohere-base-url": ""},
+		},
+	}
+
+	provider, err := NewSettingsFactoryFromInferenceSettings(in).NewProvider()
+	if err != nil {
+		t.Fatalf("NewProvider returned error: %v", err)
+	}
+	cohereProvider, ok := provider.(*CohereProvider)
+	if !ok {
+		t.Fatalf("provider = %T, want *CohereProvider", provider)
+	}
+	if cohereProvider.apiKey != "top-level-key" {
+		t.Fatalf("api key = %q, want non-blank top-level fallback", cohereProvider.apiKey)
+	}
+	if cohereProvider.baseURL != "https://proxy.example/cohere" {
+		t.Fatalf("base URL = %q, want non-blank top-level fallback", cohereProvider.baseURL)
+	}
+	if cohereProvider.endpoint != "https://proxy.example/cohere/v2/embed" {
+		t.Fatalf("endpoint = %q, want path appended to shared base", cohereProvider.endpoint)
+	}
+	if cohereProvider.httpClient != client {
+		t.Fatal("provider did not retain the HTTP client injected through InferenceSettings.Client")
+	}
+}
+
+func TestNewSettingsFactoryFromInferenceSettingsConstructsCohereProvider(t *testing.T) {
+	in := &settings.InferenceSettings{
+		API: &settings.APISettings{
+			APIKeys: map[string]string{"cohere-api-key": "top-level-key"},
+		},
+		Embeddings: &config.EmbeddingsConfig{
+			Type:    "cohere",
+			Engine:  "embed-v4.0",
+			APIKeys: map[string]string{"cohere-api-key": "embedding-key"},
+		},
+	}
+
+	provider, err := NewSettingsFactoryFromInferenceSettings(in).NewProvider()
+	if err != nil {
+		t.Fatalf("NewProvider returned error: %v", err)
+	}
+	cohereProvider, ok := provider.(*CohereProvider)
+	if !ok {
+		t.Fatalf("provider = %T, want *CohereProvider", provider)
+	}
+	// Embedding-local credentials win over top-level API maps.
+	if cohereProvider.apiKey != "embedding-key" {
+		t.Fatalf("api key = %q, want embedding-local key", cohereProvider.apiKey)
+	}
+	if cohereProvider.baseURL != "https://api.cohere.com" {
+		t.Fatalf("base URL = %q, want hosted API root", cohereProvider.baseURL)
+	}
+	if cohereProvider.endpoint != "https://api.cohere.com/v2/embed" {
+		t.Fatalf("endpoint = %q, want hosted embed endpoint", cohereProvider.endpoint)
+	}
+	model := cohereProvider.GetModel()
+	if model.Name != "embed-v4.0" {
+		t.Fatalf("model = %q, want embed-v4.0", model.Name)
+	}
+}
+
+func TestNewSettingsFactoryFromInferenceSettingsCohereHonorsBaseURLOverride(t *testing.T) {
+	in := &settings.InferenceSettings{
+		Embeddings: &config.EmbeddingsConfig{
+			Type:     "cohere",
+			Engine:   "embed-v4.0",
+			APIKeys:  map[string]string{"cohere-api-key": "key"},
+			BaseURLs: map[string]string{"cohere-base-url": "https://proxy.example.com/v2/embed"},
+		},
+	}
+
+	provider, err := NewSettingsFactoryFromInferenceSettings(in).NewProvider()
+	if err != nil {
+		t.Fatalf("NewProvider returned error: %v", err)
+	}
+	cohereProvider, ok := provider.(*CohereProvider)
+	if !ok {
+		t.Fatalf("provider = %T, want *CohereProvider", provider)
+	}
+	if cohereProvider.baseURL != "https://proxy.example.com/v2/embed" {
+		t.Fatalf("base URL = %q, want override", cohereProvider.baseURL)
+	}
+}
+
+func TestNewSettingsFactoryFromInferenceSettingsCohereRequiresAPIKey(t *testing.T) {
+	in := &settings.InferenceSettings{
+		Embeddings: &config.EmbeddingsConfig{Type: "cohere", Engine: "embed-v4.0"},
+	}
+
+	_, err := NewSettingsFactoryFromInferenceSettings(in).NewProvider()
+	if err == nil {
+		t.Fatal("NewProvider returned nil error, want missing-key error")
+	}
+	if !strings.Contains(err.Error(), "no API key provided for Cohere") {
+		t.Fatalf("error = %q, want Cohere key diagnostic", err.Error())
 	}
 }
