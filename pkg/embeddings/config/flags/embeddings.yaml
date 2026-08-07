@@ -38,3 +38,7 @@ flags:
     type: string
     help: Directory to store cache files (for disk cache)
     default: ""
+  - name: cohere-api-key
+    type: string
+    help: The API key for the Cohere embeddings provider (decoded into api_keys via the *-api-key convention, like openai-api-key in the chat sections)
+    default: ""

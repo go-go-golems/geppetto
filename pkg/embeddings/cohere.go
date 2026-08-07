@@ -7,16 +7,31 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+
+	"github.com/go-go-golems/geppetto/pkg/security"
 )
 
 // CohereProvider implements the Provider interface for Cohere embeddings API
 type CohereProvider struct {
-	apiKey     string
-	baseURL    string
-	model      string
-	inputType  string
-	dimensions int
+	apiKey      string
+	baseURL     string
+	endpoint    string
+	model       string
+	inputType   string
+	dimensions  int
+	httpClient  *http.Client
+	outboundURL security.OutboundURLOptions
 }
+
+const (
+	// defaultCohereBaseURL is the canonical hosted Cohere API root. The embed
+	// endpoint path is appended to the base URL so a single cohere-base-url
+	// override serves every Cohere capability (embeddings, reranking) with the
+	// same base-URL semantics (mirrors pkg/rerank/cohere).
+	defaultCohereBaseURL = "https://api.cohere.com"
+	cohereEmbedPath      = "/v2/embed"
+)
 
 // CohereEmbedRequest represents the request structure for Cohere's embed API
 type CohereEmbedRequest struct {
@@ -46,25 +61,48 @@ type CohereEmbeddingResult struct {
 	Float [][]float32 `json:"float"`
 }
 
-// NewCohereProvider creates a new Provider that uses Cohere's embedding API
-func NewCohereProvider(apiKey, model string, dimensions int, options ...func(*CohereProvider)) *CohereProvider {
+// NewCohereProvider creates a new Provider that uses Cohere's embedding API.
+//
+// The endpoint is derived from the configured base URL and validated against
+// the outbound URL policy at construction time: plain HTTP and
+// loopback/private/link-local targets are rejected unless explicitly allowed
+// via WithCohereOutboundURL (mirrors the rerank adapter's fail-closed stance).
+func NewCohereProvider(apiKey, model string, dimensions int, options ...func(*CohereProvider)) (*CohereProvider, error) {
 	provider := &CohereProvider{
 		apiKey:     apiKey,
-		baseURL:    "https://api.cohere.com/v2/embed",
+		baseURL:    defaultCohereBaseURL,
 		model:      model,
 		inputType:  "search_document", // Default input type
 		dimensions: dimensions,
+		httpClient: http.DefaultClient,
 	}
 
 	// Apply options
 	for _, option := range options {
 		option(provider)
 	}
+	if provider.httpClient == nil {
+		provider.httpClient = http.DefaultClient
+	}
 
-	return provider
+	// The final endpoint is built from the base URL and validated under the
+	// outbound URL policy before any request carries credentials to it.
+	endpoint, err := url.JoinPath(provider.baseURL, cohereEmbedPath)
+	if err != nil {
+		return nil, fmt.Errorf("cohere embeddings endpoint construction failed: %w", err)
+	}
+	if err := security.ValidateOutboundURL(endpoint, provider.outboundURL); err != nil {
+		return nil, fmt.Errorf("cohere embeddings endpoint rejected by outbound URL policy: %w", err)
+	}
+	provider.endpoint = endpoint
+
+	return provider, nil
 }
 
-// WithCohereBaseURL sets a custom base URL for the Cohere API
+// WithCohereBaseURL sets a custom base URL for the Cohere API. The value is a
+// base URL (scheme + host + optional path prefix), not a full endpoint: the
+// /v2/embed path is appended to it, matching the rerank adapter's treatment of
+// the shared cohere-base-url override.
 func WithCohereBaseURL(baseURL string) func(*CohereProvider) {
 	return func(p *CohereProvider) {
 		p.baseURL = baseURL
@@ -75,6 +113,23 @@ func WithCohereBaseURL(baseURL string) func(*CohereProvider) {
 func WithCohereInputType(inputType string) func(*CohereProvider) {
 	return func(p *CohereProvider) {
 		p.inputType = inputType
+	}
+}
+
+// WithCohereHTTPClient sets the HTTP client used for Cohere API calls, so
+// host-owned timeouts, proxy transport, and TLS configuration are honored
+// instead of a zero-timeout default client.
+func WithCohereHTTPClient(client *http.Client) func(*CohereProvider) {
+	return func(p *CohereProvider) {
+		p.httpClient = client
+	}
+}
+
+// WithCohereOutboundURL sets the outbound URL policy used to validate the
+// embed endpoint at construction time.
+func WithCohereOutboundURL(opts security.OutboundURLOptions) func(*CohereProvider) {
+	return func(p *CohereProvider) {
+		p.outboundURL = opts
 	}
 }
 
@@ -123,7 +178,7 @@ func (p *CohereProvider) GenerateBatchEmbeddings(ctx context.Context, texts []st
 	httpReq, err := http.NewRequestWithContext(
 		ctx,
 		"POST",
-		p.baseURL,
+		p.endpoint,
 		bytes.NewBuffer(requestBody),
 	)
 	if err != nil {
@@ -136,9 +191,9 @@ func (p *CohereProvider) GenerateBatchEmbeddings(ctx context.Context, texts []st
 	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
 	httpReq.Header.Set("X-Client-Name", "go-go-golems/geppetto")
 
-	// Send the request
-	httpClient := &http.Client{}
-	resp, err := httpClient.Do(httpReq)
+	// Send the request with the configured client (host-owned timeouts and
+	// transport policy apply).
+	resp, err := p.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("error sending request to Cohere API: %w", err)
 	}
@@ -163,9 +218,12 @@ func (p *CohereProvider) GenerateBatchEmbeddings(ctx context.Context, texts []st
 		return nil, fmt.Errorf("error decoding response: %w", err)
 	}
 
-	// Verify embeddings format
-	if len(response.Embeddings.Float) == 0 {
-		return nil, fmt.Errorf("no float embeddings in response")
+	// Enforce the one-result-per-input contract. A short response would leave
+	// nil entries in cache wrappers (CachedProvider, DiskCacheProvider), while
+	// an oversized response makes those wrappers index past missedIndices and
+	// panic; reject both rather than propagating a corrupted mapping.
+	if len(response.Embeddings.Float) != len(texts) {
+		return nil, fmt.Errorf("cohere embed API returned %d embeddings for %d texts", len(response.Embeddings.Float), len(texts))
 	}
 
 	return response.Embeddings.Float, nil

@@ -156,13 +156,17 @@ hosted `https://api.cohere.com/v2/embed` endpoint and supports the Cohere
 input-type optimization for retrieval workloads:
 
 ```go
-// Create a Cohere embedding provider
-cohereProvider := embeddings.NewCohereProvider(
+// Create a Cohere embedding provider. Construction validates the final
+// outbound endpoint before any text or credential can be sent.
+cohereProvider, err := embeddings.NewCohereProvider(
     "your-api-key",             // Cohere API key
     "embed-v4.0",               // Model to use (embed-v4.0 recommended)
     1024,                       // Vector dimensions (0 = model default, up to 1536)
     embeddings.WithCohereInputType("search_document"), // Optional: input type
 )
+if err != nil {
+    return err
+}
 
 // Generate an embedding
 embedding, err := cohereProvider.GenerateEmbedding(ctx, "Hello, world!")
@@ -180,8 +184,12 @@ Notes:
   `output_dimension` and the API uses the model's native default.
 - From engine profiles, set `embeddings.type: cohere`, `embeddings.engine`
   (e.g. `embed-v4.0`), and `cohere-api-key` under `api.api_keys` or
-  `embeddings.api_keys`. `cohere-base-url` under `api.base_urls` is an
-  optional endpoint override for proxies.
+  `embeddings.api_keys`. Direct CLI configuration exposes `--cohere-api-key`
+  alongside `--embeddings-type cohere`.
+- `cohere-base-url` is a shared Cohere API **base** (not a complete endpoint):
+  embeddings append `/v2/embed`, while reranking appends `/v2/rerank`. Custom
+  HTTP or local-network bases are rejected unless the `embeddings` outbound
+  URL policy explicitly allows them.
 
 ## Caching Strategies
 
