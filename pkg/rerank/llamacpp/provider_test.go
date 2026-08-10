@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/rerank"
+	"github.com/go-go-golems/geppetto/pkg/rerank/llamacpp/internal/transport"
 	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -420,7 +421,7 @@ func TestRerank_InjectedClientIsNotMutated(t *testing.T) {
 }
 
 func TestReadAtMost_Limits(t *testing.T) {
-	out, tooLarge, err := readAtMost(strings.NewReader("hello"), 3)
+	out, tooLarge, err := transport.ReadAtMost(strings.NewReader("hello"), 3)
 	require.NoError(t, err)
 	assert.True(t, tooLarge)
 	assert.Len(t, out, 4) // limit+1
