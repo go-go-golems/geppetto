@@ -24,11 +24,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/rerank"
+	"github.com/go-go-golems/geppetto/pkg/rerank/llamacpp/internal/transport"
 	"github.com/go-go-golems/geppetto/pkg/security"
 )
 
@@ -87,17 +87,8 @@ var _ rerank.Provider = (*Provider)(nil)
 // the caller's client. The final endpoint is built with url.JoinPath and
 // re-validated under the outbound URL policy.
 func New(options Options) (*Provider, error) {
-	baseURL := strings.TrimSpace(options.BaseURL)
-	if baseURL == "" {
-		return nil, fmt.Errorf("llamacpp base URL is required: %w", rerank.ErrInvalidRequest)
-	}
-	parsed, err := url.Parse(baseURL)
+	baseURL, err := transport.ParseAndValidateBaseURL("llamacpp", options.BaseURL)
 	if err != nil {
-		// url.Parse errors include the original URL. Never wrap them: a malformed
-		// URL can contain endpoint credentials or private topology.
-		return nil, fmt.Errorf("llamacpp base URL is malformed: %w", rerank.ErrInvalidRequest)
-	}
-	if err := validateBaseURL(parsed); err != nil {
 		return nil, err
 	}
 
@@ -121,15 +112,12 @@ func New(options Options) (*Provider, error) {
 		return nil, fmt.Errorf("llamacpp max_response_bytes must be positive: %w", rerank.ErrInvalidRequest)
 	}
 
-	endpoint, err := url.JoinPath(baseURL, rerankPath)
+	endpoint, err := transport.Endpoint("llamacpp", baseURL, rerankPath, options.OutboundURL)
 	if err != nil {
-		return nil, fmt.Errorf("llamacpp endpoint construction failed: %w: %w", err, rerank.ErrInvalidRequest)
-	}
-	if err := security.ValidateOutboundURL(endpoint, options.OutboundURL); err != nil {
-		return nil, fmt.Errorf("llamacpp endpoint rejected by outbound URL policy: %w: %w", err, rerank.ErrInvalidRequest)
+		return nil, err
 	}
 
-	client := cloneClientWithRedirectRejection(options.HTTPClient)
+	client := transport.CloneClientWithRedirectRejection(options.HTTPClient)
 
 	return &Provider{
 		baseURL:          baseURL,
@@ -141,34 +129,6 @@ func New(options Options) (*Provider, error) {
 		maxResponseBytes: maxResponseBytes,
 		costPerMTokens:   options.CostPerMTokens,
 	}, nil
-}
-
-// validateBaseURL permits an optional unambiguous path prefix, but rejects
-// encoded paths, repeated separators, and dot segments. url.JoinPath would
-// otherwise normalize those forms after validation, making the configured
-// target ambiguous to reviewers and security policy.
-func validateBaseURL(parsed *url.URL) error {
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return fmt.Errorf("llamacpp base URL scheme must be http or https: %w", rerank.ErrInvalidRequest)
-	}
-	if parsed.Host == "" {
-		return fmt.Errorf("llamacpp base URL host is required: %w", rerank.ErrInvalidRequest)
-	}
-	if parsed.User != nil {
-		return fmt.Errorf("llamacpp base URL must not contain userinfo: %w", rerank.ErrInvalidRequest)
-	}
-	if parsed.RawQuery != "" || parsed.Fragment != "" {
-		return fmt.Errorf("llamacpp base URL must not contain query or fragment: %w", rerank.ErrInvalidRequest)
-	}
-	if parsed.RawPath != "" || strings.Contains(parsed.Path, "//") {
-		return fmt.Errorf("llamacpp base URL path must be unambiguous: %w", rerank.ErrInvalidRequest)
-	}
-	for _, segment := range strings.Split(parsed.Path, "/") {
-		if segment == "." || segment == ".." {
-			return fmt.Errorf("llamacpp base URL path must not contain dot segments: %w", rerank.ErrInvalidRequest)
-		}
-	}
-	return nil
 }
 
 // Model returns the provider's configured provider/model identity.
@@ -213,17 +173,17 @@ func (p *Provider) Rerank(ctx context.Context, in rerank.Request) (rerank.Respon
 
 	httpResp, err := p.client.Do(httpReq)
 	if err != nil {
-		return rerank.Response{}, redactTransportError(err)
+		return rerank.Response{}, transport.RedactedTransportError("llamacpp")
 	}
 	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode < http.StatusOK || httpResp.StatusCode >= http.StatusMultipleChoices {
-		drainBounded(httpResp.Body, p.maxResponseBytes)
+		transport.DrainBounded(httpResp.Body, p.maxResponseBytes)
 		return rerank.Response{}, fmt.Errorf("llamacpp endpoint returned status %d: %w",
 			httpResp.StatusCode, rerank.ErrUnavailable)
 	}
 
-	raw, tooLarge, err := readAtMost(httpResp.Body, p.maxResponseBytes)
+	raw, tooLarge, err := transport.ReadAtMost(httpResp.Body, p.maxResponseBytes)
 	if err != nil {
 		return rerank.Response{}, fmt.Errorf("llamacpp could not read provider response: %w", rerank.ErrUnavailable)
 	}
@@ -261,32 +221,6 @@ func (p *Provider) Rerank(ctx context.Context, in rerank.Request) (rerank.Respon
 		RequestID:  httpResp.Header.Get("X-Request-Id"),
 		DurationMs: &durationMs,
 	}, nil
-}
-
-// redactTransportError intentionally discards the original transport error.
-// net/url errors can contain a redirect target, proxy URL, userinfo, or query
-// parameters. The stable sentinel is sufficient for callers to classify the
-// failure without serializing protected operational data.
-func redactTransportError(_ error) error {
-	return fmt.Errorf("llamacpp provider transport failed: %w", rerank.ErrUnavailable)
-}
-
-// drainBounded reads and discards a non-2xx body up to the limit so the
-// connection can be reused, without ever surfacing the body in an error.
-func drainBounded(body io.Reader, limit int64) {
-	_, _, _ = readAtMost(body, limit)
-}
-
-// readAtMost reads up to limit+1 bytes from r. tooLarge is true only when the
-// body exceeded the limit; a read error remains distinguishable from a limit
-// violation and is classified by the caller as provider unavailability.
-func readAtMost(r io.Reader, limit int64) ([]byte, bool, error) {
-	lr := &io.LimitedReader{R: r, N: limit + 1}
-	body, err := io.ReadAll(lr)
-	if err != nil {
-		return nil, false, err
-	}
-	return body, int64(len(body)) > limit, nil
 }
 
 // decodeStrict decodes exactly one JSON value. It rejects unknown fields and
@@ -350,24 +284,4 @@ func computeInputCost(u *rerank.Usage, costPerMTokens *float64) *float64 {
 	}
 	cost := *costPerMTokens * float64(tokens) / 1_000_000
 	return &cost
-}
-
-// cloneClientWithRedirectRejection returns an http.Client that rejects every
-// redirect. If options.HTTPClient is nil, a new client is constructed. When
-// injected, the client is shallow-copied so its Transport, Jar, and Timeout
-// are retained while CheckRedirect is replaced. The caller's client is never
-// mutated in place.
-func cloneClientWithRedirectRejection(injected *http.Client) *http.Client {
-	rejectRedirect := func(_ *http.Request, _ []*http.Request) error {
-		return fmt.Errorf("rerank provider rejects redirects")
-	}
-	if injected == nil {
-		return &http.Client{
-			CheckRedirect: rejectRedirect,
-			Timeout:       0,
-		}
-	}
-	cloned := *injected
-	cloned.CheckRedirect = rejectRedirect
-	return &cloned
 }

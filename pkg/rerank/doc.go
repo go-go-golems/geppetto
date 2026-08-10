@@ -19,6 +19,13 @@
 //	geppetto/pkg/rerank
 //	    -X-> any RAG or application package
 //
+// Provider implementations include:
+//
+//   - pkg/rerank/llamacpp for the standard /v1/rerank protocol;
+//   - pkg/rerank/llamacpp/qwen3 for Qwen3's official completion/logprob
+//     yes-versus-no scoring protocol;
+//   - pkg/rerank/cohere for Cohere's hosted rerank API.
+//
 // Core invariants enforced by this package:
 //
 //   - Document IDs are required, non-empty, and unique within a request.
