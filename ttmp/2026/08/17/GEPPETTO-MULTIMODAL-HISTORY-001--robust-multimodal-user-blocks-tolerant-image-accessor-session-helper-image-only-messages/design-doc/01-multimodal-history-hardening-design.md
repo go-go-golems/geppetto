@@ -12,13 +12,26 @@ DocType: design-doc
 Intent: long-term
 Owners:
     - manuel
-RelatedFiles: []
+RelatedFiles:
+    - Path: repo://pkg/inference/session/session.go
+      Note: session helper
+    - Path: repo://pkg/steps/ai/claude/helpers.go
+      Note: Claude adapter
+    - Path: repo://pkg/steps/ai/gemini/modern_adapter.go
+      Note: Gemini adapter
+    - Path: repo://pkg/steps/ai/openai/helpers.go
+      Note: OpenAI chat adapter
+    - Path: repo://pkg/steps/ai/openai_responses/helpers.go
+      Note: Responses adapter
+    - Path: repo://pkg/turns/helpers_blocks.go
+      Note: accessor
 ExternalSources: []
 Summary: Make multimodal user blocks survive YAML persistence, add a session helper for text+images, and send image-only user messages on OpenAI chat.
 LastUpdated: 2026-08-17T14:48:31.896106813-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Multimodal history hardening design
 
