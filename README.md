@@ -53,6 +53,11 @@ At the provider layer:
 - OpenAI Chat Completions serializes those image entries as `image_url` content parts.
 - OpenAI Responses serializes them as mixed `content` arrays containing `input_text` plus one or more `input_image` parts.
 - The OpenAI Responses token-count path (`/responses/input_tokens`) reuses the same request builder, so image-bearing turns are counted with the same request shape used for inference.
+- Anthropic Claude serializes inline image bytes as base64 `image` content; Gemini (modern `genai` path) uses `InlineData` blobs or `file_uri`.
+
+Reading images back: always use `turns.BlockImages(block)` (or `turns.ImagesFromPayload(payload)`) instead of asserting `payload["images"].([]map[string]any)`. After a turn has been persisted and reloaded (YAML/JSON), the slice decodes as `[]any`; the accessor accepts every shape and the provider adapters all use it, so images survive history reloads. Image-only user messages (no text) are supported by all adapters.
+
+For sessions, `session.AppendNewTurnFromUserMessage(text, images)` clones the latest turn and appends a text+images user block, mirroring `AppendNewTurnFromUserPrompt`.
 
 See also:
 

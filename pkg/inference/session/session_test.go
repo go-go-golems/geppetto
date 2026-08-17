@@ -217,3 +217,34 @@ func TestExecutionHandle_CancelIsIdempotent(t *testing.T) {
 		t.Fatal("expected ctx cancellation")
 	}
 }
+
+func TestSession_AppendNewTurnFromUserMessage_ClonesHistoryAndAppendsMultimodalBlock(t *testing.T) {
+	s := NewSessionWithID("sess-mm")
+	first, err := s.AppendNewTurnFromUserPrompt("hello")
+	require.NoError(t, err)
+	turns.AppendBlock(first, turns.NewAssistantTextBlock("hi there"))
+
+	images := []map[string]any{{"media_type": "image/png", "url": "https://example.com/a.png"}}
+	second, err := s.AppendNewTurnFromUserMessage("what is this?", images)
+	require.NoError(t, err)
+	require.NotEqual(t, first.ID, second.ID, "new turn must get its own ID")
+	require.Len(t, second.Blocks, 3, "history (user, assistant) + new multimodal user block")
+	last := second.Blocks[2]
+	require.Equal(t, turns.BlockKindUser, last.Kind)
+	require.Equal(t, "what is this?", last.Payload[turns.PayloadKeyText])
+	require.Len(t, turns.BlockImages(last), 1)
+	require.Len(t, s.Turns, 2)
+	// history turn untouched
+	require.Len(t, first.Blocks, 2)
+}
+
+func TestSession_AppendNewTurnFromUserMessage_ImageOnlyAllowedEmptyRejected(t *testing.T) {
+	s := NewSessionWithID("sess-mm2")
+	_, err := s.AppendNewTurnFromUserMessage("   ", nil)
+	require.ErrorIs(t, err, ErrSessionEmptyUserMessage)
+
+	tn, err := s.AppendNewTurnFromUserMessage("", []map[string]any{{"url": "https://example.com/a.png"}})
+	require.NoError(t, err)
+	require.Len(t, tn.Blocks, 1)
+	require.True(t, turns.HasImages(tn.Blocks[0]))
+}

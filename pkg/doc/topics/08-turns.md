@@ -321,6 +321,25 @@ Behavior notes:
 - If you provide inline bytes or base64 text in `content`, provider serializers may convert them into base64 `data:` URLs.
 - This is currently a user-message helper; assistant-side multimodal replay is not yet a first-class generalized helper workflow.
 
+Reading images back out of a block, use the tolerant accessor:
+
+```go
+for _, img := range turns.BlockImages(block) {   // []map[string]any regardless of source
+    part, ok, err := imageparts.NormalizeImageMap(img)
+    ...
+}
+```
+
+`turns.BlockImages` (and `turns.ImagesFromPayload`) accept the concrete
+`[]map[string]any` shape written by `NewUserMultimodalBlock` as well as the
+`[]any` shapes produced by YAML/JSON decoding, so images attached in an earlier
+turn are still sent to the provider after the conversation has been persisted and
+reloaded. Never assert the concrete slice type in adapter code.
+
+Convenience helpers: `TurnBuilder.WithUserMessage(text, images)` and
+`session.AppendNewTurnFromUserMessage(text, images)` (clones the latest turn like
+`AppendNewTurnFromUserPrompt`; either text or images may be empty, not both).
+
 ## Multi-turn Sessions (Chat-style apps)
 
 For multi-turn interactions (user prompt → inference → repeat), prefer the `session.Session` API:

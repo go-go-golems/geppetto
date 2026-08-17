@@ -23,6 +23,16 @@ func (tb *TurnBuilder) WithUserPrompt(userText string) *TurnBuilder {
 	return tb
 }
 
+// WithUserMessage appends a user block carrying text and/or images. It is a
+// no-op when both are empty.
+func (tb *TurnBuilder) WithUserMessage(userText string, images []map[string]any) *TurnBuilder {
+	if userText == "" && len(images) == 0 {
+		return tb
+	}
+	tb.blocks = append(tb.blocks, NewUserMultimodalBlock(userText, images))
+	return tb
+}
+
 func (tb *TurnBuilder) Build() *Turn {
 	t := &Turn{}
 	if len(tb.blocks) > 0 {

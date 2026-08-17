@@ -373,3 +373,88 @@ func TestMakeCompletionRequestFromTurnUserImageContent(t *testing.T) {
 		t.Fatalf("image URL = %#v", img.ImageURL)
 	}
 }
+
+// yamlShapedImages mimics the payload shape after a serde.FromYAML round trip:
+// []any of map[string]any instead of []map[string]any.
+func yamlShapedImageBlock(text string, imgs ...map[string]any) turns.Block {
+	generic := make([]any, 0, len(imgs))
+	for _, m := range imgs {
+		generic = append(generic, m)
+	}
+	return turns.Block{Kind: turns.BlockKindUser, Role: turns.RoleUser, Payload: map[string]any{
+		turns.PayloadKeyText:   text,
+		turns.PayloadKeyImages: generic,
+	}}
+}
+
+func TestMakeCompletionRequestFromTurnImagesSurviveYAMLShape(t *testing.T) {
+	engine := "gpt-4o-mini"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		OpenAI: &aisettingsopenai.Settings{},
+		Chat:   &aisettings.ChatSettings{Engine: &engine},
+	}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		yamlShapedImageBlock("describe", map[string]any{"media_type": "image/png", "url": "https://example.com/a.png"}),
+	}}
+	e := newTestEngine(st)
+	req, err := e.MakeCompletionRequestFromTurn(tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(req.Messages) != 1 || len(req.Messages[0].MultiContent) != 2 {
+		t.Fatalf("messages = %#v", req.Messages)
+	}
+	if req.Messages[0].MultiContent[1].ImageURL == nil || req.Messages[0].MultiContent[1].ImageURL.URL != "https://example.com/a.png" {
+		t.Fatalf("image part = %#v", req.Messages[0].MultiContent[1])
+	}
+}
+
+func TestMakeCompletionRequestFromTurnImageOnlyUserBlock(t *testing.T) {
+	engine := "gpt-4o-mini"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		OpenAI: &aisettingsopenai.Settings{},
+		Chat:   &aisettings.ChatSettings{Engine: &engine},
+	}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		turns.NewUserMultimodalBlock("", []map[string]any{{"media_type": "image/png", "content": []byte("PNG")}}),
+	}}
+	e := newTestEngine(st)
+	req, err := e.MakeCompletionRequestFromTurn(tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(req.Messages) != 1 {
+		t.Fatalf("expected image-only user message to be sent, got %#v", req.Messages)
+	}
+	parts := req.Messages[0].MultiContent
+	if len(parts) != 1 || parts[0].Type != chatMessagePartTypeImageURL {
+		t.Fatalf("expected a single image part, got %#v", parts)
+	}
+	if parts[0].ImageURL.URL != "data:image/png;base64,UE5H" {
+		t.Fatalf("image url = %q", parts[0].ImageURL.URL)
+	}
+}
+
+func TestMakeCompletionRequestFromTurnSkipsBlockWithNoTextAndNoUsableImages(t *testing.T) {
+	engine := "gpt-4o-mini"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		OpenAI: &aisettingsopenai.Settings{},
+		Chat:   &aisettings.ChatSettings{Engine: &engine},
+	}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		// file_id-only images are not supported by chat completions and are skipped
+		turns.NewUserMultimodalBlock("", []map[string]any{{"file_id": "file-123"}}),
+		turns.NewUserTextBlock("hello"),
+	}}
+	e := newTestEngine(st)
+	req, err := e.MakeCompletionRequestFromTurn(tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(req.Messages) != 1 || req.Messages[0].Content != "hello" {
+		t.Fatalf("messages = %#v", req.Messages)
+	}
+}
