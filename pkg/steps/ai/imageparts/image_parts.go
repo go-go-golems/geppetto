@@ -171,44 +171,55 @@ func contentBytes(raw any) ([]byte, error) {
 }
 
 func numberToByte(v any) (byte, bool) {
-	var n int64
 	switch x := v.(type) {
 	case int:
-		n = int64(x)
+		return smallIntToByte(int64(x))
 	case int8:
-		n = int64(x)
+		return smallIntToByte(int64(x))
 	case int16:
-		n = int64(x)
+		return smallIntToByte(int64(x))
 	case int32:
-		n = int64(x)
+		return smallIntToByte(int64(x))
 	case int64:
-		n = x
+		return smallIntToByte(x)
 	case uint:
-		n = int64(x)
+		if x > 255 {
+			return 0, false
+		}
+		return byte(x), true
 	case uint8:
-		n = int64(x)
+		return x, true
 	case uint16:
-		n = int64(x)
+		if x > 255 {
+			return 0, false
+		}
+		return byte(x), true
 	case uint32:
-		n = int64(x)
+		if x > 255 {
+			return 0, false
+		}
+		return byte(x), true
 	case uint64:
 		if x > 255 {
 			return 0, false
 		}
-		n = int64(x)
+		return byte(x), true
 	case float64:
 		if x != float64(int64(x)) {
 			return 0, false
 		}
-		n = int64(x)
+		return smallIntToByte(int64(x))
 	case float32:
 		if x != float32(int64(x)) {
 			return 0, false
 		}
-		n = int64(x)
+		return smallIntToByte(int64(x))
 	default:
 		return 0, false
 	}
+}
+
+func smallIntToByte(n int64) (byte, bool) {
 	if n < 0 || n > 255 {
 		return 0, false
 	}
