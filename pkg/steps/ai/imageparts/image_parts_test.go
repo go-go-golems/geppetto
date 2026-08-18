@@ -68,3 +68,20 @@ func TestDataURL(t *testing.T) {
 		t.Fatalf("DataURL = %q", got)
 	}
 }
+
+func TestNormalizeImageMapAcceptsGenericNumericContentSlice(t *testing.T) {
+	// Shape produced by decoding a YAML/JSON-persisted []byte content value.
+	part, ok, err := NormalizeImageMap(map[string]any{
+		"media_type": "image/png",
+		"content":    []any{80, 78, 71},
+	})
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	if string(part.Data) != "PNG" || part.MediaType != "image/png" {
+		t.Fatalf("part = %#v", part)
+	}
+	if _, _, err := NormalizeImageMap(map[string]any{"media_type": "image/png", "content": []any{"x"}}); err == nil {
+		t.Fatalf("expected error for non-numeric content slice")
+	}
+}

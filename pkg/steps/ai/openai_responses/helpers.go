@@ -601,7 +601,7 @@ func buildResponsesMessageParts(role string, payload map[string]any) []responses
 	if role == "assistant" {
 		return parts
 	}
-	if imgs, ok := payload[turns.PayloadKeyImages].([]map[string]any); ok && len(imgs) > 0 {
+	if imgs := turns.ImagesFromPayload(payload); len(imgs) > 0 {
 		for _, img := range imgs {
 			if part, ok := responsesImagePartFromMap(img); ok {
 				parts = append(parts, part)

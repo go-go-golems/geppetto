@@ -568,3 +568,17 @@ func TestBuildResponsesRequestInferenceEmptyStopClearsChatStop(t *testing.T) {
 		t.Fatalf("expected stop override to clear chat stop, got %v", req.StopSequences)
 	}
 }
+
+func TestBuildInputItemsFromTurn_ImagesSurviveYAMLShape(t *testing.T) {
+	turn := &turns.Turn{Blocks: []turns.Block{{
+		Kind: turns.BlockKindUser, Role: turns.RoleUser,
+		Payload: map[string]any{
+			turns.PayloadKeyText:   "look",
+			turns.PayloadKeyImages: []any{map[string]any{"media_type": "image/png", "url": "https://example.com/reference.png"}},
+		},
+	}}}
+	got := buildInputItemsFromTurn(turn)
+	if len(got) != 1 || len(got[0].Content) != 2 || got[0].Content[1].Type != "input_image" {
+		t.Fatalf("items = %#v", got)
+	}
+}

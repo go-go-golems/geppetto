@@ -213,7 +213,12 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 						text = strings.TrimSpace(string(bb))
 					}
 				}
-				if text == "" {
+				blockImages := turns.BlockImages(b)
+				// Image-only messages are only valid for user blocks: OpenAI Chat
+				// Completions accepts image_url parts in user messages only, so an
+				// empty-text system/assistant block is skipped as before even when it
+				// carries images.
+				if text == "" && (b.Kind != turns.BlockKindUser || len(blockImages) == 0) {
 					log.Debug().Str("role", b.Role).Msg("OpenAI request: skipping empty text block")
 					continue
 				}
@@ -236,8 +241,11 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 				}
 				// Check for images array in payload to construct MultiContent
 				var msg ChatCompletionMessage
-				if imgs, ok := b.Payload[turns.PayloadKeyImages].([]map[string]any); ok && len(imgs) > 0 {
-					parts := []ChatMessagePart{{Type: chatMessagePartTypeText, Text: text}}
+				if imgs := blockImages; len(imgs) > 0 {
+					parts := []ChatMessagePart{}
+					if text != "" {
+						parts = append(parts, ChatMessagePart{Type: chatMessagePartTypeText, Text: text})
+					}
 					for _, img := range imgs {
 						part, ok, err := imageparts.NormalizeImageMap(img)
 						if err != nil {
@@ -260,6 +268,10 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 								Detail: part.Detail,
 							},
 						})
+					}
+					if len(parts) == 0 {
+						log.Debug().Str("role", b.Role).Msg("OpenAI request: skipping block with no text and no usable images")
+						continue
 					}
 					msg = ChatCompletionMessage{Role: role, MultiContent: parts}
 				} else {

@@ -227,3 +227,21 @@ func TestModernGeminiContentsRejectsGenericImageURL(t *testing.T) {
 		t.Fatalf("expected generic URL error")
 	}
 }
+
+func TestModernGeminiContentsImagesSurviveYAMLShape(t *testing.T) {
+	turn := &turns.Turn{ID: "turn-image-yaml"}
+	turns.AppendBlock(turn, turns.Block{
+		Kind: turns.BlockKindUser, Role: turns.RoleUser,
+		Payload: map[string]any{
+			turns.PayloadKeyText:   "describe",
+			turns.PayloadKeyImages: []any{map[string]any{"content": "data:image/png;base64,UE5H"}},
+		},
+	})
+	contents, err := buildModernGeminiContentsFromTurn(turn)
+	if err != nil {
+		t.Fatalf("build contents: %v", err)
+	}
+	if len(contents) != 1 || len(contents[0].Parts) != 2 || contents[0].Parts[1].InlineData == nil {
+		t.Fatalf("contents = %#v", contents)
+	}
+}

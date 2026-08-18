@@ -235,7 +235,7 @@ func (e *ClaudeEngine) buildMessageProjectionFromTurn(t *turns.Turn) (*messagePr
 				if text != "" {
 					parts = append(parts, api.NewTextContent(text))
 				}
-				if imgs, ok := b.Payload[turns.PayloadKeyImages].([]map[string]any); ok && len(imgs) > 0 {
+				if imgs := turns.BlockImages(b); len(imgs) > 0 {
 					for _, img := range imgs {
 						part, ok, err := imageparts.NormalizeImageMap(img)
 						if err != nil {

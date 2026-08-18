@@ -113,3 +113,65 @@ func InsertBlockBeforeLast(t *Turn, b Block) {
 	}
 	AppendBlock(t, b)
 }
+
+// ImagesFromPayload returns the images stored under PayloadKeyImages in a
+// block payload as []map[string]any.
+//
+// It tolerates the shapes that occur in practice:
+//   - []map[string]any, as produced by NewUserMultimodalBlock
+//   - []any whose entries are map[string]any, as produced by YAML/JSON decoding
+//     (for example serde.FromYAML or a JSON turn store)
+//   - []any whose entries are map[any]any, as produced by yaml.v2-style decoders
+//
+// Entries that are not maps are skipped. A missing or nil value returns nil.
+// Provider adapters must use this (or BlockImages) instead of asserting the
+// concrete slice type, otherwise images silently disappear after a turn has
+// been persisted and reloaded.
+func ImagesFromPayload(payload map[string]any) []map[string]any {
+	if payload == nil {
+		return nil
+	}
+	raw, ok := payload[PayloadKeyImages]
+	if !ok || raw == nil {
+		return nil
+	}
+	switch v := raw.(type) {
+	case []map[string]any:
+		return v
+	case []any:
+		out := make([]map[string]any, 0, len(v))
+		for _, item := range v {
+			switch m := item.(type) {
+			case map[string]any:
+				out = append(out, m)
+			case map[any]any:
+				conv := make(map[string]any, len(m))
+				for k, val := range m {
+					ks, ok := k.(string)
+					if !ok {
+						continue
+					}
+					conv[ks] = val
+				}
+				out = append(out, conv)
+			}
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+// BlockImages returns the images attached to a block. See ImagesFromPayload
+// for the accepted shapes.
+func BlockImages(b Block) []map[string]any {
+	return ImagesFromPayload(b.Payload)
+}
+
+// HasImages reports whether the block carries at least one image entry.
+func HasImages(b Block) bool {
+	return len(BlockImages(b)) > 0
+}

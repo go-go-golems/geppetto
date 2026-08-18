@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -15,7 +16,10 @@ var (
 	ErrSessionAlreadyActive = errors.New("session already has an active inference")
 	ErrSessionNoActive      = errors.New("session has no active inference")
 	ErrSessionEmptyTurn     = errors.New("session has no seed turn (or seed turn is empty)")
-	ErrSessionIDEmpty       = errors.New("session has empty SessionID")
+	// ErrSessionEmptyUserMessage is returned when AppendNewTurnFromUserMessage is
+	// called with neither text nor images.
+	ErrSessionEmptyUserMessage = errors.New("session user message has neither text nor images")
+	ErrSessionIDEmpty          = errors.New("session has empty SessionID")
 )
 
 // Session represents a long-lived, multi-turn interaction.
@@ -95,6 +99,46 @@ func (s *Session) AppendNewTurnFromUserPrompts(prompts ...string) (*turns.Turn, 
 		}
 		turns.AppendBlock(seed, turns.NewUserTextBlock(prompt))
 	}
+	if seed.ID == "" {
+		seed.ID = uuid.NewString()
+	}
+	s.Append(seed)
+	return seed, nil
+}
+
+// AppendNewTurnFromUserMessage is like AppendNewTurnFromUserPrompt but appends a
+// single user block that can carry text and/or images (see
+// turns.NewUserMultimodalBlock for the image map shape). At least one of text
+// or images must be non-empty. The latest turn is cloned so conversation
+// context is preserved, exactly like AppendNewTurnFromUserPrompt.
+func (s *Session) AppendNewTurnFromUserMessage(text string, images []map[string]any) (*turns.Turn, error) {
+	if s == nil {
+		return nil, ErrSessionNil
+	}
+	if s.SessionID == "" {
+		return nil, ErrSessionIDEmpty
+	}
+	if strings.TrimSpace(text) == "" && len(images) == 0 {
+		return nil, ErrSessionEmptyUserMessage
+	}
+
+	var base *turns.Turn
+	s.mu.Lock()
+	if s.active != nil && s.active.IsRunning() {
+		s.mu.Unlock()
+		return nil, ErrSessionAlreadyActive
+	}
+	if len(s.Turns) > 0 {
+		base = s.Turns[len(s.Turns)-1]
+	}
+	s.mu.Unlock()
+
+	seed := &turns.Turn{}
+	if base != nil {
+		seed = base.Clone()
+		seed.ID = ""
+	}
+	turns.AppendBlock(seed, turns.NewUserMultimodalBlock(text, images))
 	if seed.ID == "" {
 		seed.ID = uuid.NewString()
 	}

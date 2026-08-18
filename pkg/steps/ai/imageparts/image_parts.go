@@ -152,7 +152,76 @@ func contentBytes(raw any) ([]byte, error) {
 			return decoded, nil
 		}
 		return []byte(s), nil
+	case []any:
+		// YAML/JSON round trips of []byte payloads decode into a generic slice
+		// of numbers (yaml.v3 encodes []byte held in an interface as a sequence
+		// of integers). Rebuild the byte slice so persisted turns stay usable.
+		out := make([]byte, 0, len(v))
+		for i, item := range v {
+			n, ok := numberToByte(item)
+			if !ok {
+				return nil, fmt.Errorf("unsupported image content element %d of type %T", i, item)
+			}
+			out = append(out, n)
+		}
+		return out, nil
 	default:
 		return nil, fmt.Errorf("unsupported image content type %T", raw)
 	}
+}
+
+func numberToByte(v any) (byte, bool) {
+	switch x := v.(type) {
+	case int:
+		return smallIntToByte(int64(x))
+	case int8:
+		return smallIntToByte(int64(x))
+	case int16:
+		return smallIntToByte(int64(x))
+	case int32:
+		return smallIntToByte(int64(x))
+	case int64:
+		return smallIntToByte(x)
+	case uint:
+		if x > 255 {
+			return 0, false
+		}
+		return byte(x), true
+	case uint8:
+		return x, true
+	case uint16:
+		if x > 255 {
+			return 0, false
+		}
+		return byte(x), true
+	case uint32:
+		if x > 255 {
+			return 0, false
+		}
+		return byte(x), true
+	case uint64:
+		if x > 255 {
+			return 0, false
+		}
+		return byte(x), true
+	case float64:
+		if x != float64(int64(x)) {
+			return 0, false
+		}
+		return smallIntToByte(int64(x))
+	case float32:
+		if x != float32(int64(x)) {
+			return 0, false
+		}
+		return smallIntToByte(int64(x))
+	default:
+		return 0, false
+	}
+}
+
+func smallIntToByte(n int64) (byte, bool) {
+	if n < 0 || n > 255 {
+		return 0, false
+	}
+	return byte(n), true
 }

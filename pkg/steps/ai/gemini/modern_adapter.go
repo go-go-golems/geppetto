@@ -323,8 +323,8 @@ func modernGeminiImagePartsFromBlock(b turns.Block) ([]*moderngenai.Part, error)
 	if b.Payload == nil {
 		return nil, nil
 	}
-	imgs, ok := b.Payload[turns.PayloadKeyImages].([]map[string]any)
-	if !ok || len(imgs) == 0 {
+	imgs := turns.BlockImages(b)
+	if len(imgs) == 0 {
 		return nil, nil
 	}
 	parts := make([]*moderngenai.Part, 0, len(imgs))

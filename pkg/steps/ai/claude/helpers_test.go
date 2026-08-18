@@ -407,3 +407,31 @@ func TestMakeMessageRequestFromTurnUserImageDataURL(t *testing.T) {
 		t.Fatalf("image = %#v", img)
 	}
 }
+
+func TestMakeMessageRequestFromTurnImagesSurviveYAMLShape(t *testing.T) {
+	engine := "claude-sonnet-4-20250514"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		Claude: &claudesettings.Settings{},
+		Chat:   &aisettings.ChatSettings{Engine: &engine, Stream: true},
+	}
+	// []any of map[string]any, as produced by serde.FromYAML
+	tu := &turns.Turn{Blocks: []turns.Block{{
+		Kind: turns.BlockKindUser, Role: turns.RoleUser,
+		Payload: map[string]any{
+			turns.PayloadKeyText:   "describe",
+			turns.PayloadKeyImages: []any{map[string]any{"content": "data:image/png;base64,UE5H"}},
+		},
+	}}}
+	e := newTestEngine(st)
+	req, err := e.MakeMessageRequestFromTurn(tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(req.Messages) != 1 || len(req.Messages[0].Content) != 2 {
+		t.Fatalf("messages = %#v", req.Messages)
+	}
+	if _, ok := req.Messages[0].Content[1].(api.ImageContent); !ok {
+		t.Fatalf("second content = %#v, want ImageContent", req.Messages[0].Content[1])
+	}
+}
