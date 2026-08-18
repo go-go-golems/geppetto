@@ -458,3 +458,31 @@ func TestMakeCompletionRequestFromTurnSkipsBlockWithNoTextAndNoUsableImages(t *t
 		t.Fatalf("messages = %#v", req.Messages)
 	}
 }
+
+func TestMakeCompletionRequestFromTurnSkipsImageOnlyNonUserBlocks(t *testing.T) {
+	engine := "gpt-4o-mini"
+	st := &aisettings.InferenceSettings{
+		Client: &aisettings.ClientSettings{},
+		OpenAI: &aisettingsopenai.Settings{},
+		Chat:   &aisettings.ChatSettings{Engine: &engine},
+	}
+	imgs := []map[string]any{{"media_type": "image/png", "content": []byte("PNG")}}
+	systemOnly := turns.Block{Kind: turns.BlockKindSystem, Role: turns.RoleSystem, Payload: map[string]any{turns.PayloadKeyText: "", turns.PayloadKeyImages: imgs}}
+	assistantOnly := turns.Block{Kind: turns.BlockKindLLMText, Role: turns.RoleAssistant, Payload: map[string]any{turns.PayloadKeyText: "", turns.PayloadKeyImages: imgs}}
+	tu := &turns.Turn{Blocks: []turns.Block{
+		systemOnly,
+		turns.NewUserMultimodalBlock("", imgs),
+		assistantOnly,
+	}}
+	e := newTestEngine(st)
+	req, err := e.MakeCompletionRequestFromTurn(tu)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(req.Messages) != 1 || req.Messages[0].Role != "user" {
+		t.Fatalf("expected only the image-only user message to be sent, got %#v", req.Messages)
+	}
+	if len(req.Messages[0].MultiContent) != 1 || req.Messages[0].MultiContent[0].Type != chatMessagePartTypeImageURL {
+		t.Fatalf("user message parts = %#v", req.Messages[0].MultiContent)
+	}
+}

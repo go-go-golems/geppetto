@@ -214,7 +214,11 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 					}
 				}
 				blockImages := turns.BlockImages(b)
-				if text == "" && len(blockImages) == 0 {
+				// Image-only messages are only valid for user blocks: OpenAI Chat
+				// Completions accepts image_url parts in user messages only, so an
+				// empty-text system/assistant block is skipped as before even when it
+				// carries images.
+				if text == "" && (b.Kind != turns.BlockKindUser || len(blockImages) == 0) {
 					log.Debug().Str("role", b.Role).Msg("OpenAI request: skipping empty text block")
 					continue
 				}
