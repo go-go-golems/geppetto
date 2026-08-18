@@ -218,3 +218,69 @@ gh pr create --base main …   # https://github.com/go-go-golems/geppetto/pull/4
 ### Technical details
 
 - Branch: `feature/multimodal-history-hardening` (from `origin/main`).
+
+## Step 3: Address PR #414 review and bump the Go toolchain
+
+The Codex reviewer pointed out that relaxing the empty-text guard in the
+OpenAI chat adapter let image-only *system* and *assistant* blocks reach the
+multimodal branch, and Chat Completions accepts `image_url` parts only in user
+messages — so a history with assistant-side images would now be rejected by
+the API instead of skipped. The exception is now restricted to user blocks. In
+the same commit go.mod moves to go 1.26.6, which clears the stdlib
+`govulncheck` findings that had forced `--no-verify` pushes.
+
+### Prompt Context
+
+**User prompt (verbatim):** "https://github.com/go-go-golems/geppetto/pull/414 Address code review comment. and update the toolchain go1.26.6 requirement in go.mod (+ go mod tidy)."
+
+**Assistant interpretation:** Apply the reviewer's fix with a test, bump go.mod, tidy, push, reply on the thread.
+
+**Inferred user intent:** Get #414 mergeable with clean hooks.
+
+**Commit (code):** b486764f — "openai: image-only messages only for user blocks; go 1.26.6"
+
+### What I did
+
+- `pkg/steps/ai/openai/helpers.go`: guard is now `text == "" && (b.Kind != turns.BlockKindUser || len(blockImages) == 0)`.
+- `helpers_test.go`: `TestMakeCompletionRequestFromTurnSkipsImageOnlyNonUserBlocks`.
+- `go.mod`: `go 1.26.6`; `go mod tidy` dropped the now-redundant `toolchain` line.
+- Replied on the review comment; pushed with hooks enabled (test, lint, gosec, govulncheck all pass).
+
+### Why
+
+- Correctness against the OpenAI API for non-user roles; toolchain bump removes an environmental blocker for every future push.
+
+### What worked
+
+- `GOTOOLCHAIN=go1.26.6` downloaded the toolchain on demand.
+
+### What didn't work
+
+- With the workspace `go.work` (go 1.26.5) active, `go mod tidy` and the
+  commit hooks refused the module: `go: go.mod requires go >= 1.26.6 (running go 1.26.5)`.
+  Running with `GOWORK=off` (and `GOTOOLCHAIN=go1.26.6` for tidy) resolved it;
+  the workspace `go.work` should be bumped to 1.26.6 separately.
+
+### What I learned
+
+- In a workspace, the `go.work` `go` line governs toolchain selection, so a per-module bump does not take effect until go.work follows.
+
+### What was tricky to build
+
+- N/A.
+
+### What warrants a second pair of eyes
+
+- Whether images on *system* blocks with text should still be forwarded to Chat Completions (unchanged prior behavior; the reviewer's concern was the empty-text case only).
+
+### What should be done in the future
+
+- Bump `go.work` (and pinocchio/coinvault go.mod) to 1.26.6.
+
+### Code review instructions
+
+- `GOWORK=off go test ./pkg/steps/ai/openai/... -count=1`.
+
+### Technical details
+
+- Hooks: pre-commit test+lint 191s, pre-push govulncheck clean on 1.26.6.

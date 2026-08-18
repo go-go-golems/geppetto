@@ -18,3 +18,8 @@ Implemented tolerant image accessor, adapter switch, OpenAI image-only fix, imag
 
 gosec fix (0454465b); PR https://github.com/go-go-golems/geppetto/pull/414
 
+
+## 2026-08-18
+
+Review fix: image-only exception limited to user blocks; go 1.26.6 (commit b486764f)
+
