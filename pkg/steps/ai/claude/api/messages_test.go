@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -174,5 +175,97 @@ func TestClientOutboundOptionsCanAllowLocalHTTP(t *testing.T) {
 
 	if err := security.ValidateOutboundURL(client.BaseURL, client.outboundOptions()); err != nil {
 		t.Fatalf("expected local HTTP to be allowed after opt-in: %v", err)
+	}
+}
+
+func TestClientReturnsStructuredAPIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"type":"error","error":{"type":"invalid_request_error","message":"prompt is too long"}}`)
+	}))
+	defer server.Close()
+
+	client := NewClient("test-key", server.URL)
+	client.SetOutboundURLOptions(security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true})
+	messageRequest := &MessageRequest{Model: "claude-test", Messages: []Message{{Role: "user", Content: []Content{NewTextContent("hello")}}}, MaxTokens: 16}
+	countRequest := &MessageCountTokensRequest{Model: "claude-test", Messages: messageRequest.Messages}
+	completionRequest := &Request{Model: "claude-test", Prompt: "hello", MaxTokensToSample: 16}
+
+	tests := []struct {
+		name         string
+		call         func() error
+		expectedText string
+	}{
+		{
+			name: "messages",
+			call: func() error {
+				_, err := client.SendMessage(context.Background(), messageRequest)
+				return err
+			},
+			expectedText: "claude API error: prompt is too long",
+		},
+		{
+			name: "streaming messages",
+			call: func() error {
+				_, err := client.StreamMessage(context.Background(), messageRequest)
+				return err
+			},
+			expectedText: "claude API error: prompt is too long",
+		},
+		{
+			name: "count tokens",
+			call: func() error {
+				_, err := client.CountTokens(context.Background(), countRequest)
+				return err
+			},
+			expectedText: "claude count tokens API error: prompt is too long",
+		},
+		{
+			name: "legacy completion",
+			call: func() error {
+				_, err := client.Complete(completionRequest)
+				return err
+			},
+			expectedText: "prompt is too long",
+		},
+		{
+			name: "legacy streaming completion",
+			call: func() error {
+				_, err := client.StreamComplete(completionRequest)
+				return err
+			},
+			expectedText: "prompt is too long",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.call()
+			if err == nil {
+				t.Fatal("expected an API error")
+			}
+			if err.Error() != tt.expectedText {
+				t.Fatalf("error text = %q, want %q", err, tt.expectedText)
+			}
+
+			var apiError *APIError
+			if !errors.As(err, &apiError) {
+				t.Fatalf("expected APIError, got %T: %v", err, err)
+			}
+			if apiError.StatusCode != http.StatusBadRequest || apiError.ErrorType != "invalid_request_error" || apiError.Message != "prompt is too long" {
+				t.Fatalf("APIError = %#v", apiError)
+			}
+		})
+	}
+}
+
+func TestNewAPIErrorPreservesRequestTooLarge(t *testing.T) {
+	apiError, err := newAPIError(http.StatusRequestEntityTooLarge, []byte(`{"type":"error","error":{"type":"request_too_large","message":"request body is too large"}}`))
+	if err != nil {
+		t.Fatalf("newAPIError returned error: %v", err)
+	}
+	if apiError.StatusCode != http.StatusRequestEntityTooLarge || apiError.ErrorType != "request_too_large" || apiError.Message != "request body is too large" {
+		t.Fatalf("APIError = %#v", apiError)
 	}
 }

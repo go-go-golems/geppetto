@@ -198,12 +198,12 @@ func (c *Client) SendMessage(ctx context.Context, req *MessageRequest) (*Message
 	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		var errorResp ErrorResponse
 		respBody, _ := io.ReadAll(resp.Body)
-		if unmarshalErr := json.Unmarshal(respBody, &errorResp); unmarshalErr != nil {
-			return nil, unmarshalErr
+		apiError, err := newAPIError(resp.StatusCode, respBody)
+		if err != nil {
+			return nil, err
 		}
-		return nil, fmt.Errorf("claude API error: %s", errorResp.Error.Message)
+		return nil, fmt.Errorf("claude API error: %w", apiError)
 	}
 
 	var messageResp MessageResponse
@@ -251,7 +251,6 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 			_ = Body.Close()
 		}(resp.Body)
 		log.Error().Err(err).Int("statusCode", resp.StatusCode).Interface("resp", resp.Header).Msg("Error sending streaming message request")
-		var errorResp ErrorResponse
 		respBody, _ := io.ReadAll(resp.Body)
 
 		// Truncate response body for logging
@@ -261,11 +260,12 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 		}
 
 		log.Error().Err(err).Str("respBody", truncatedRespBody).Msg("Error reading response body")
-		if unmarshalErr := json.Unmarshal(respBody, &errorResp); unmarshalErr != nil {
-			log.Error().Err(unmarshalErr).Str("respBody", truncatedRespBody).Msg("Error unmarshalling error response")
-			return nil, unmarshalErr
+		apiError, err := newAPIError(resp.StatusCode, respBody)
+		if err != nil {
+			log.Error().Err(err).Str("respBody", truncatedRespBody).Msg("Error unmarshalling error response")
+			return nil, err
 		}
-		return nil, fmt.Errorf("claude API error: %s", errorResp.Error.Message)
+		return nil, fmt.Errorf("claude API error: %w", apiError)
 	}
 
 	events := make(chan StreamingEvent)
@@ -303,12 +303,12 @@ func (c *Client) CountTokens(ctx context.Context, req *MessageCountTokensRequest
 	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		var errorResp ErrorResponse
 		respBody, _ := io.ReadAll(resp.Body)
-		if unmarshalErr := json.Unmarshal(respBody, &errorResp); unmarshalErr != nil {
-			return nil, unmarshalErr
+		apiError, err := newAPIError(resp.StatusCode, respBody)
+		if err != nil {
+			return nil, err
 		}
-		return nil, fmt.Errorf("claude count tokens API error: %s", errorResp.Error.Message)
+		return nil, fmt.Errorf("claude count tokens API error: %w", apiError)
 	}
 
 	var countResp MessageCountTokensResponse

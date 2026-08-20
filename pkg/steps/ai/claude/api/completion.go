@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -165,12 +164,11 @@ func (c *Client) Complete(req *Request) (*SuccessfulResponse, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		var errorResp ErrorResponse
-		err = json.Unmarshal(respBody, &errorResp)
+		apiError, err := newAPIError(resp.StatusCode, respBody)
 		if err != nil {
 			return nil, err
 		}
-		return nil, errors.New(errorResp.Error.Message)
+		return nil, apiError
 	}
 
 	var successResp SuccessfulResponse
@@ -215,16 +213,15 @@ func (c *Client) StreamComplete(req *Request) (<-chan Event, error) {
 		defer func(Body io.ReadCloser) {
 			_ = Body.Close()
 		}(resp.Body)
-		var errorResp ErrorResponse
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
 		}
-		err = json.Unmarshal(body, &errorResp)
+		apiError, err := newAPIError(resp.StatusCode, body)
 		if err != nil {
 			return nil, err
 		}
-		return nil, errors.New(errorResp.Error.Message)
+		return nil, apiError
 	}
 
 	events := make(chan Event)
