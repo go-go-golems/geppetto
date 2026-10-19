@@ -17,7 +17,8 @@ type InferenceConfig struct {
 	ThinkingBudget *int `json:"thinking_budget,omitempty" yaml:"thinking_budget,omitempty" glazed:"inference-thinking-budget"`
 
 	// ReasoningEffort controls reasoning depth.
-	// Maps to OpenAI Responses reasoning.effort and provider-native Chat Completions reasoning_effort when supported.
+	// Maps to OpenAI Responses reasoning.effort, Chat Completions reasoning_effort,
+	// and Claude output_config.effort when supported by the selected model.
 	ReasoningEffort *string `json:"reasoning_effort,omitempty" yaml:"reasoning_effort,omitempty" glazed:"inference-reasoning-effort"`
 
 	// ThinkingType controls provider-native thinking mode toggles such as DeepSeek Chat Completions thinking.type.

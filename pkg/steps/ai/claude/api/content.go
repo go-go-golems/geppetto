@@ -73,7 +73,7 @@ func (t ToolResultContent) Type() ContentType {
 
 type ThinkingContent struct {
 	BaseContent
-	Thinking  string `json:"thinking,omitempty"`
+	Thinking  string `json:"thinking"`
 	Signature string `json:"signature,omitempty"`
 }
 

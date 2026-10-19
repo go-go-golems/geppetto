@@ -30,6 +30,12 @@ type MessageRequest struct {
 	TopK          *int           `json:"top_k,omitempty"`
 	TopP          *float64       `json:"top_p,omitempty"`
 	OutputFormat  *OutputFormat  `json:"output_format,omitempty"`
+	OutputConfig  *OutputConfig  `json:"output_config,omitempty"`
+}
+
+// OutputConfig contains Claude's output controls, independent of thinking budgets.
+type OutputConfig struct {
+	Effort string `json:"effort,omitempty"`
 }
 
 // ThinkingParam configures extended thinking for Claude models.
