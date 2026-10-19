@@ -16,7 +16,8 @@ flags:
     type: string
     help: >
       Reasoning effort level. Maps to OpenAI Responses reasoning.effort and
-      provider-native OpenAI-compatible Chat Completions reasoning_effort when supported.
+      provider-native OpenAI-compatible Chat Completions reasoning_effort, and
+      Claude output_config.effort when supported by the selected model.
       Chat Completions sends the value exactly as provided.
   - name: inference-thinking-type
     type: choice
