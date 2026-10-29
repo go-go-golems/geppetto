@@ -389,7 +389,10 @@ func TestThinkingConfig(t *testing.T) {
 	}{
 		"plain reasoning effort":       {m(APIOpenAICompletions, Compat{}, nil), "high", s("high"), nil, nil},
 		"mapped effort":                {m(APIOpenAICompletions, Compat{}, map[string]*string{"xhigh": s("max")}), "xhigh", s("max"), nil, nil},
-		"null level not sent":          {m(APIOpenAICompletions, Compat{}, map[string]*string{"low": nil}), "low", nil, nil, nil},
+		"null level clamps up":         {m(APIOpenAICompletions, Compat{}, map[string]*string{"low": nil}), "low", s("medium"), nil, nil},
+		"null top level clamps down":   {m(APIOpenAICompletions, Compat{}, map[string]*string{"high": nil}), "xhigh", s("medium"), nil, nil},
+		"unmapped xhigh clamps":        {m(APIOpenAIResponses, Compat{}, nil), "xhigh", s("high"), nil, nil},
+		"anthropic keeps null level":   {m(APIAnthropicMessages, Compat{ForceAdaptiveThinking: &yes}, map[string]*string{"medium": nil}), "medium", s("medium"), s("adaptive"), nil},
 		"off sends mapped off":         {m(APIOpenAICompletions, Compat{}, map[string]*string{"off": s("none")}), "off", s("none"), nil, nil},
 		"effort unsupported":           {m(APIOpenAICompletions, Compat{SupportsReasoningEffort: &no}, nil), "high", nil, nil, nil},
 		"zai on":                       {m(APIOpenAICompletions, Compat{ThinkingFormat: "zai", SupportsReasoningEffort: &no}, nil), "high", nil, s("enabled"), nil},
@@ -400,6 +403,16 @@ func TestThinkingConfig(t *testing.T) {
 		"responses effort":             {m(APIOpenAIResponses, Compat{}, nil), "low", s("low"), nil, nil},
 		"responses off":                {m(APIOpenAICodexResponses, Compat{}, nil), "off", nil, nil, nil},
 		"anthropic budget":             {m(APIAnthropicMessages, Compat{}, nil), "medium", nil, nil, ptr(8192)},
+		"anthropic xhigh clamps":       {m(APIAnthropicMessages, Compat{}, nil), "xhigh", nil, nil, ptr(16384)},
+		"anthropic off":                {m(APIAnthropicMessages, Compat{}, nil), "off", nil, s("disabled"), nil},
+		"anthropic off null":           {m(APIAnthropicMessages, Compat{}, map[string]*string{"off": nil}), "off", nil, nil, nil},
+		"adaptive effort":              {m(APIAnthropicMessages, Compat{ForceAdaptiveThinking: &yes}, nil), "minimal", s("low"), s("adaptive"), nil},
+		"adaptive xhigh":               {m(APIAnthropicMessages, Compat{ForceAdaptiveThinking: &yes}, nil), "xhigh", s("high"), s("adaptive"), nil},
+		"adaptive mapped effort":       {m(APIAnthropicMessages, Compat{ForceAdaptiveThinking: &yes}, map[string]*string{"xhigh": s("max")}), "xhigh", s("max"), s("adaptive"), nil},
+		"adaptive off":                 {m(APIAnthropicMessages, Compat{ForceAdaptiveThinking: &yes}, nil), "off", nil, s("disabled"), nil},
+		"mid-convo effort":             {m(APIAnthropicMessages, Compat{SupportsMidConvoEffort: &yes}, nil), "medium", s("medium"), s("adaptive"), nil},
+		"mid-convo off stays adaptive": {m(APIAnthropicMessages, Compat{SupportsMidConvoEffort: &yes}, nil), "off", s("high"), s("adaptive"), nil},
+		"gemini budget":                {m(APIGoogleGenerativeAI, Compat{}, nil), "xhigh", nil, nil, ptr(16384)},
 	} {
 		c := thinkingConfig(tc.m, tc.level)
 		assert.Equal(t, tc.effort, c.ReasoningEffort, name)

@@ -28,6 +28,12 @@ type Compat struct {
 	SupportsReasoningEffort *bool  `json:"supportsReasoningEffort,omitempty"`
 	MaxTokensField          string `json:"maxTokensField,omitempty"` // max_tokens | max_completion_tokens
 	ThinkingFormat          string `json:"thinkingFormat,omitempty"` // openai, zai, deepseek, …
+	// ForceAdaptiveThinking selects Anthropic adaptive thinking with an
+	// effort instead of a token budget.
+	ForceAdaptiveThinking *bool `json:"forceAdaptiveThinking,omitempty"`
+	// SupportsMidConvoEffort marks Anthropic models that always think
+	// adaptively; Pi sets effort per message, we set it per request.
+	SupportsMidConvoEffort *bool `json:"supportsMidConvoEffort,omitempty"`
 }
 
 // Model is one catalog entry.
@@ -236,5 +242,11 @@ func mergeCompat(base, over Compat) Compat {
 	}
 	base.MaxTokensField = first(over.MaxTokensField, base.MaxTokensField)
 	base.ThinkingFormat = first(over.ThinkingFormat, base.ThinkingFormat)
+	if over.ForceAdaptiveThinking != nil {
+		base.ForceAdaptiveThinking = over.ForceAdaptiveThinking
+	}
+	if over.SupportsMidConvoEffort != nil {
+		base.SupportsMidConvoEffort = over.SupportsMidConvoEffort
+	}
 	return base
 }
