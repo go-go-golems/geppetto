@@ -116,6 +116,9 @@ func (e *ClaudeEngine) MakeMessageRequestFromTurn(
 	// Apply per-turn InferenceConfig overrides (Turn.Data > InferenceSettings.Inference).
 	infCfg := infengine.ResolveInferenceConfig(t, s.Inference)
 	if infCfg != nil {
+		if infCfg.ReasoningEffort != nil && *infCfg.ReasoningEffort != "" {
+			req.OutputConfig = &api.OutputConfig{Effort: *infCfg.ReasoningEffort}
+		}
 		if infCfg.ThinkingBudget != nil && *infCfg.ThinkingBudget > 0 {
 			req.Thinking = &api.ThinkingParam{
 				Type:         "enabled",
@@ -290,12 +293,14 @@ func (e *ClaudeEngine) buildMessageProjectionFromTurn(t *turns.Turn) (*messagePr
 				if v, ok := b.Payload[turns.PayloadKeyText]; ok {
 					_ = assignString(&text, v)
 				}
-				if text == "" {
-					break
-				}
 				signature := ""
 				if v, ok := b.Payload[claudePayloadKeySignature]; ok {
 					_ = assignString(&signature, v)
+				}
+				// An omitted thinking summary can still carry a signature required
+				// when returning tool results to Claude.
+				if text == "" && signature == "" {
+					break
 				}
 				content := api.NewTextContent(fmt.Sprintf("<thinking>%s</thinking>", text))
 				if signature != "" {

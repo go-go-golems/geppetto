@@ -16,6 +16,8 @@ import (
 	claudesettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/claude"
 	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/go-go-golems/geppetto/pkg/turns"
+	"github.com/go-go-golems/geppetto/pkg/turns/serde"
+	"github.com/go-go-golems/geppetto/pkg/turns/toolblocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -138,6 +140,90 @@ func TestMakeMessageRequestFromTurnInferenceEmptyStopClearsChatStop(t *testing.T
 	if len(req.StopSequences) != 0 {
 		t.Fatalf("expected stop override to clear chat stop, got %v", req.StopSequences)
 	}
+}
+
+func TestMakeMessageRequestFromTurnReasoningEffort(t *testing.T) {
+	ptr := func(value string) *string { return &value }
+	for _, tt := range []struct {
+		name          string
+		defaultEffort *string
+		turnEffort    *string
+		wantEffort    string
+	}{
+		{name: "unset omits output config"},
+		{name: "engine default", defaultEffort: ptr("medium"), wantEffort: "medium"},
+		{name: "turn overrides default", defaultEffort: ptr("high"), turnEffort: ptr("medium"), wantEffort: "medium"},
+		{name: "turn only", turnEffort: ptr("low"), wantEffort: "low"},
+		{name: "empty override clears default", defaultEffort: ptr("high"), turnEffort: ptr("")},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			model := "claude-sonnet-5-5"
+			st := &aisettings.InferenceSettings{
+				Client:    &aisettings.ClientSettings{},
+				Claude:    &claudesettings.Settings{},
+				Chat:      &aisettings.ChatSettings{Engine: &model},
+				Inference: &infengine.InferenceConfig{ReasoningEffort: tt.defaultEffort},
+			}
+			turn := &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("solve")}}
+			if tt.turnEffort != nil {
+				require.NoError(t, infengine.KeyInferenceConfig.Set(&turn.Data, infengine.InferenceConfig{ReasoningEffort: tt.turnEffort}))
+			}
+
+			req, err := newTestEngine(st).MakeMessageRequestFromTurn(turn)
+			require.NoError(t, err)
+			body, err := json.Marshal(req)
+			require.NoError(t, err)
+			var wire map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal(body, &wire))
+			if tt.wantEffort == "" {
+				assert.NotContains(t, wire, "output_config")
+			} else {
+				assert.JSONEq(t, `{"effort":"`+tt.wantEffort+`"}`, string(wire["output_config"]))
+			}
+			assert.NotContains(t, wire, "thinking", "effort must not enable legacy budget-based thinking")
+		})
+	}
+}
+
+func TestClaudeEmptySignedThinkingSurvivesToolResultRoundTrip(t *testing.T) {
+	stream := claudeSSE(
+		`data: {"type":"message_start","message":{"id":"msg_thinking","type":"message","role":"assistant","content":[],"model":"claude-sonnet-5-5","usage":{"input_tokens":1,"output_tokens":0}}}`,
+		"",
+		`data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}`,
+		"",
+		`data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"opaque-test-signature"}}`,
+		"",
+		`data: {"type":"content_block_stop","index":0}`,
+		"",
+		`data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"call_1","name":"lookup","input":{}}}`,
+		"",
+		`data: {"type":"content_block_stop","index":1}`,
+		"",
+		`data: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":2}}`,
+		"",
+		`data: {"type":"message_stop"}`,
+		"",
+	)
+	e := newTestEngine(newObservableClaudeSettings(t, stream))
+	turn, err := e.RunInference(context.Background(), &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("look up")}})
+	require.NoError(t, err)
+
+	// Checkpoints must retain signed thinking even when the API omits its text.
+	saved, err := serde.ToYAML(turn, serde.Options{})
+	require.NoError(t, err)
+	turn, err = serde.FromYAML(saved)
+	require.NoError(t, err)
+	toolblocks.AppendToolResultsBlocks(turn, []toolblocks.ToolResult{{ID: "call_1", Content: "found"}})
+	req, err := e.MakeMessageRequestFromTurn(turn)
+	require.NoError(t, err)
+	body, err := json.Marshal(req.Messages)
+	require.NoError(t, err)
+	assert.JSONEq(t, `[
+		{"role":"user","content":[{"type":"text","text":"look up"}]},
+		{"role":"assistant","content":[{"type":"thinking","thinking":"","signature":"opaque-test-signature"}]},
+		{"role":"assistant","content":[{"type":"tool_use","id":"call_1","name":"lookup","input":{}}]},
+		{"role":"user","content":[{"type":"tool_result","tool_use_id":"call_1","content":"found"}]}
+	]`, string(body))
 }
 
 type claudeHeaderTransport struct {
@@ -360,6 +446,7 @@ func TestMakeMessageRequestFromTurnWrapsUnsignedReasoningBlocksAsAssistantText(t
 		turns.NewUserTextBlock("solve"),
 		{Kind: turns.BlockKindReasoning, Role: turns.RoleAssistant, Payload: map[string]any{turns.PayloadKeyText: "reasoning from another provider"}},
 		{Kind: turns.BlockKindReasoning, Role: turns.RoleAssistant, Payload: map[string]any{turns.PayloadKeyText: "empty signature reasoning", claudePayloadKeySignature: ""}},
+		{Kind: turns.BlockKindReasoning, Role: turns.RoleAssistant, Payload: map[string]any{}},
 	}}
 
 	e := newTestEngine(st)
