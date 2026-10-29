@@ -38,10 +38,14 @@ type OutputConfig struct {
 	Effort string `json:"effort,omitempty"`
 }
 
-// ThinkingParam configures extended thinking for Claude models.
+// ThinkingParam configures extended thinking for Claude models: "enabled"
+// with a token budget, "adaptive" (the model decides how much to think,
+// steered by OutputConfig.Effort) or "disabled".
 type ThinkingParam struct {
 	Type         string `json:"type"`
-	BudgetTokens int    `json:"budget_tokens"`
+	BudgetTokens int    `json:"budget_tokens,omitempty"`
+	// Display selects how adaptive thinking is returned ("summarized").
+	Display string `json:"display,omitempty"`
 }
 
 type OutputFormat struct {

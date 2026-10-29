@@ -134,11 +134,12 @@ func (e *ClaudeEngine) MakeCountTokensRequestFromTurn(ctx context.Context, t *tu
 	}
 
 	infCfg := engine.ResolveInferenceConfig(t, e.settings.Inference)
-	if infCfg != nil && infCfg.ThinkingBudget != nil && *infCfg.ThinkingBudget > 0 {
-		req.Thinking = &api.ThinkingParam{
-			Type:         "enabled",
-			BudgetTokens: *infCfg.ThinkingBudget,
+	if infCfg != nil {
+		thinking, err := thinkingParam(infCfg)
+		if err != nil {
+			return nil, err
 		}
+		req.Thinking = thinking
 	}
 
 	if claudeCfg := engine.ResolveClaudeInferenceConfig(t); claudeCfg != nil {
