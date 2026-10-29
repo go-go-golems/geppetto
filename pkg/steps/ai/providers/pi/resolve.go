@@ -263,3 +263,33 @@ func firstPositive(vals ...int) int {
 	}
 	return 0
 }
+
+// HasCredential reports whether provider has a credential, without resolving
+// configured values (no environment lookups or commands): an auth.json entry
+// or a models.json apiKey. It mirrors Pi's "available models" filter.
+func (a *AgentDir) HasCredential(provider string) bool {
+	if e, ok, err := a.Auth.Entry(provider); err == nil && ok {
+		return e.Type == KindOAuth && e.Access != "" || e.Type == KindAPIKey && e.Key != ""
+	}
+	return a.providers[provider].APIKey != ""
+}
+
+// Available lists the supported models whose provider has a credential.
+func (a *AgentDir) Available() []Model {
+	var out []Model
+	has := map[string]bool{}
+	for _, m := range a.Catalog.Models() {
+		if !m.Supported {
+			continue
+		}
+		ok, seen := has[m.Provider]
+		if !seen {
+			ok = a.HasCredential(m.Provider)
+			has[m.Provider] = ok
+		}
+		if ok {
+			out = append(out, m)
+		}
+	}
+	return out
+}

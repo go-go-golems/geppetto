@@ -410,3 +410,21 @@ func TestThinkingConfig(t *testing.T) {
 }
 
 func ptr(i int) *int { return &i }
+
+func TestAvailable(t *testing.T) {
+	dir := agentDir(t, "https://proxy.example/v1")
+	a, err := LoadAgentDir(dir)
+	require.NoError(t, err)
+	refs := func() []string {
+		var out []string
+		for _, m := range a.Available() {
+			out = append(out, m.Ref())
+		}
+		return out
+	}
+	assert.Equal(t, []string{"lunaroute/djev", "lunaroute/glm-5.3", "lunaroute/inkling"}, refs(), "models.json apiKey counts; bedrock is unsupported")
+	writeFile(t, dir, "auth.json", map[string]any{"amazon-bedrock": map[string]any{"type": "api_key", "key": "k"}})
+	assert.True(t, a.HasCredential("amazon-bedrock"))
+	assert.False(t, a.HasCredential("zai"))
+	assert.Len(t, refs(), 3, "an unsupported API stays out even with a credential")
+}
