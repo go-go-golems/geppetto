@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strings"
 
 	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps"
@@ -119,12 +120,11 @@ func (e *ClaudeEngine) MakeMessageRequestFromTurn(
 		if infCfg.ReasoningEffort != nil && *infCfg.ReasoningEffort != "" {
 			req.OutputConfig = &api.OutputConfig{Effort: *infCfg.ReasoningEffort}
 		}
-		if infCfg.ThinkingBudget != nil && *infCfg.ThinkingBudget > 0 {
-			req.Thinking = &api.ThinkingParam{
-				Type:         "enabled",
-				BudgetTokens: *infCfg.ThinkingBudget,
-			}
+		thinking, err := thinkingParam(infCfg)
+		if err != nil {
+			return nil, err
 		}
+		req.Thinking = thinking
 		if infCfg.Temperature != nil {
 			v := *infCfg.Temperature
 			req.Temperature = &v
@@ -146,8 +146,18 @@ func (e *ClaudeEngine) MakeMessageRequestFromTurn(
 	if req.Temperature != nil && req.TopP != nil {
 		return nil, errors.New("both temperature and top_p are set (after inference overrides); Claude models require only one to be specified")
 	}
+	// A thinking budget must stay below max_tokens (a per-turn bound may lower
+	// it): keep 1024 tokens for the answer, and drop thinking when there is no
+	// room for Claude's minimum budget of 1024.
+	if req.Thinking != nil && req.Thinking.Type == "enabled" && req.Thinking.BudgetTokens >= req.MaxTokens {
+		if req.MaxTokens-1024 >= 1024 {
+			req.Thinking.BudgetTokens = req.MaxTokens - 1024
+		} else {
+			req.Thinking = nil
+		}
+	}
 	// When thinking is enabled, Claude requires temperature to be 1.0 or unset.
-	if req.Thinking != nil && req.Temperature != nil && *req.Temperature != 1.0 {
+	if req.Thinking != nil && req.Thinking.Type != "disabled" && req.Temperature != nil && *req.Temperature != 1.0 {
 		return nil, fmt.Errorf("thinking is enabled but temperature is %.2f; Claude requires temperature=1.0 (or unset) when thinking is active", *req.Temperature)
 	}
 
@@ -437,3 +447,32 @@ func anyToJSONString(v any) string {
 }
 
 // Just like in the openai package, we merge the received tool calls and messages from streaming
+
+// thinkingParam builds the thinking parameter from an InferenceConfig:
+// ThinkingType "adaptive" or "disabled" select those modes, and otherwise a
+// positive ThinkingBudget enables budget-based thinking.
+func thinkingParam(cfg *infengine.InferenceConfig) (*api.ThinkingParam, error) {
+	var budget *api.ThinkingParam
+	if cfg.ThinkingBudget != nil && *cfg.ThinkingBudget > 0 {
+		budget = &api.ThinkingParam{Type: "enabled", BudgetTokens: *cfg.ThinkingBudget}
+	}
+	if cfg.ThinkingType == nil {
+		return budget, nil
+	}
+	switch tt := strings.ToLower(strings.TrimSpace(*cfg.ThinkingType)); tt {
+	case "", "auto":
+		return budget, nil
+	case "enabled":
+		if budget == nil {
+			return nil, errors.New(`claude thinking_type "enabled" needs a thinking budget`)
+		}
+		return budget, nil
+	case "adaptive":
+		// The model decides how much to think; effort (output_config) steers it.
+		return &api.ThinkingParam{Type: "adaptive", Display: "summarized"}, nil
+	case "disabled":
+		return &api.ThinkingParam{Type: "disabled"}, nil
+	default:
+		return nil, fmt.Errorf("unsupported claude thinking_type %q (enabled, adaptive, disabled)", tt)
+	}
+}

@@ -522,3 +522,59 @@ func TestMakeMessageRequestFromTurnImagesSurviveYAMLShape(t *testing.T) {
 		t.Fatalf("second content = %#v, want ImageContent", req.Messages[0].Content[1])
 	}
 }
+
+func TestMakeMessageRequestFromTurnThinking(t *testing.T) {
+	str := func(value string) *string { return &value }
+	num := func(value int) *int { return &value }
+	for _, tt := range []struct {
+		name     string
+		cfg      infengine.InferenceConfig
+		want     string // JSON of "thinking", "" when absent
+		wantErr  string
+		wantMax  int
+		noEffort bool
+	}{
+		{name: "budget", cfg: infengine.InferenceConfig{ThinkingBudget: num(2048), MaxResponseTokens: num(8192)}, want: `{"type":"enabled","budget_tokens":2048}`, noEffort: true},
+		{name: "enabled with budget", cfg: infengine.InferenceConfig{ThinkingType: str("enabled"), ThinkingBudget: num(2048), MaxResponseTokens: num(8192)}, want: `{"type":"enabled","budget_tokens":2048}`, noEffort: true},
+		{name: "enabled without budget", cfg: infengine.InferenceConfig{ThinkingType: str("enabled")}, wantErr: "needs a thinking budget"},
+		{name: "adaptive with effort", cfg: infengine.InferenceConfig{ThinkingType: str("adaptive"), ReasoningEffort: str("low"), ThinkingBudget: num(4096)}, want: `{"type":"adaptive","display":"summarized"}`},
+		{name: "disabled", cfg: infengine.InferenceConfig{ThinkingType: str("Disabled"), ThinkingBudget: num(4096)}, want: `{"type":"disabled"}`, noEffort: true},
+		{name: "auto keeps budget", cfg: infengine.InferenceConfig{ThinkingType: str("auto"), ThinkingBudget: num(1024), MaxResponseTokens: num(4096)}, want: `{"type":"enabled","budget_tokens":1024}`, noEffort: true},
+		{name: "budget clamped below max tokens", cfg: infengine.InferenceConfig{ThinkingBudget: num(16384), MaxResponseTokens: num(4096)}, want: `{"type":"enabled","budget_tokens":3072}`, wantMax: 4096, noEffort: true},
+		{name: "no room for thinking", cfg: infengine.InferenceConfig{ThinkingBudget: num(16384), MaxResponseTokens: num(1500)}, wantMax: 1500, noEffort: true},
+		{name: "unknown type", cfg: infengine.InferenceConfig{ThinkingType: str("deep")}, wantErr: "unsupported claude thinking_type"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			model := "claude-sonnet-5-5"
+			st := &aisettings.InferenceSettings{
+				Client: &aisettings.ClientSettings{},
+				Claude: &claudesettings.Settings{},
+				Chat:   &aisettings.ChatSettings{Engine: &model},
+			}
+			turn := &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("solve")}}
+			require.NoError(t, infengine.KeyInferenceConfig.Set(&turn.Data, tt.cfg))
+
+			req, err := newTestEngine(st).MakeMessageRequestFromTurn(turn)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			body, err := json.Marshal(req)
+			require.NoError(t, err)
+			var wire map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal(body, &wire))
+			if tt.want == "" {
+				assert.NotContains(t, wire, "thinking")
+			} else {
+				assert.JSONEq(t, tt.want, string(wire["thinking"]))
+			}
+			if tt.wantMax != 0 {
+				assert.Equal(t, tt.wantMax, req.MaxTokens)
+			}
+			if !tt.noEffort {
+				assert.JSONEq(t, `{"effort":"low"}`, string(wire["output_config"]))
+			}
+		})
+	}
+}
