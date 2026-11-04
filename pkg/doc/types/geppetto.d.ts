@@ -178,6 +178,66 @@ declare module "geppetto" {
 
     export function reranker(settings: InferenceSettings): RerankerProvider;
 
+    export type DecisionType = "noul" | "choice" | "score";
+
+    export interface DecisionQuestion {
+        type: DecisionType;
+        instructions: string | Record<string, any> | any[];
+        /** noul: optional descriptions of the true and false cases */
+        true?: string;
+        false?: string;
+        /** choice: {name: description} in presentation order, names, or {name, description}[] */
+        options?: Record<string, string> | string[] | { name: string; description?: string }[];
+        /** score: level descriptions, level 0 first (at most 10) */
+        levels?: string[];
+    }
+
+    export interface DecisionRequest {
+        state: string | Record<string, any> | any[];
+        questions: Record<string, DecisionQuestion>;
+        /** data:image/{jpeg,png,webp};base64 URLs (vision models) */
+        images?: string[];
+        model?: string;
+    }
+
+    export interface DecisionAnswer {
+        type: DecisionType;
+        /** noul */
+        probability?: number;
+        /** choice */
+        choice?: string;
+        probabilities?: Record<string, number>;
+        /** score */
+        score?: number;
+        levelProbabilities?: number[];
+        /** choice and score */
+        confidence?: number;
+    }
+
+    export interface DecisionResponse {
+        provider: string;
+        model: string;
+        answers: Record<string, DecisionAnswer>;
+        usage?: { inputTokens?: number; outputTokens?: number };
+        cost?: number;
+        requestId?: string;
+        durationMs?: number;
+    }
+
+    export interface DecideAsyncHandle {
+        promise: Promise<DecisionResponse>;
+        cancel(): void;
+        close(): void;
+    }
+
+    export interface DeciderProvider {
+        decide(request: DecisionRequest): DecisionResponse;
+        decideAsync(request: DecisionRequest): DecideAsyncHandle;
+        model(): { provider: string; name: string };
+    }
+
+    export function decider(settings: InferenceSettings): DeciderProvider;
+
     export interface MessageBuilder {
         text(text: string): MessageBuilder;
         imageURL(url: string, options?: Record<string, any>): MessageBuilder;
