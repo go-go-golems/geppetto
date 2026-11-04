@@ -12,9 +12,17 @@ DocType: reference
 Intent: long-term
 Owners:
     - manuel
-RelatedFiles: []
+RelatedFiles:
+    - Path: repo://pkg/decision/decision.go
+      Note: Core types
+    - Path: repo://pkg/decision/factory/settings_factory.go
+      Note: Factory
+    - Path: repo://pkg/decision/systemone/provider.go
+      Note: Adapter
+    - Path: repo://pkg/js/modules/geppetto/api_decider.go
+      Note: JS binding
 ExternalSources: []
-Summary: "Chronological implementation diary for GEPPETTO-DECISION-001 (decision models as a Geppetto modality)."
+Summary: Chronological implementation diary for GEPPETTO-DECISION-001 (decision models as a Geppetto modality).
 LastUpdated: 2026-11-04T18:29:00.885012716-05:00
 WhatFor: ""
 WhenToUse: ""
@@ -102,3 +110,114 @@ Diary MANDATORY."
 ### Technical details
 - Endpoint `POST https://gw.lunaroute.com/v1/systemone`; request `{model, state, images?, questions: {id: {type, instructions, criteria}}}`; response `{model, answers: {id: {...}}, usage: {input_tokens, output_tokens}}`.
 - Route body cap 8 MiB; images: data URLs only, ≤ 6 attachments, ≤ 5 MiB each; choice 1–255 options; score ≤ 10 levels.
+
+## Step 2: Phase 1 and 2 — pkg/decision core and the System One adapter
+
+This step built the transport-neutral core (`pkg/decision`) and the LunaRoute adapter (`pkg/decision/systemone`), and ran the adapter against the live gateway. Both packages pass their unit tests and the repository's `lintmax` pre-commit hook; the live test returned answers from djev in 311 ms.
+
+### Prompt Context
+**User prompt (verbatim):** see Step 1
+**Assistant interpretation:** Implement guide phases 1 and 2.
+**Inferred user intent:** A working, safe decision primitive before wiring settings and callers.
+**Commit (code):** f637be88 — "feat(decision): pkg/decision core — question model types, validation, errors, Gate (GEPPETTO-DECISION-001 P1)"; 33f11d69 — "feat(decision): LunaRoute System One adapter (pkg/decision/systemone) with fake-server and opt-in live tests (GEPPETTO-DECISION-001 P2)"
+
+### What I did
+- `pkg/decision/{doc,decision,errors,gate,validate,answer_json}.go`: types (`Request`, `Question`, `Option`, `Answer`, `Response`, `Usage`, `Model`, `Provider`), `ValidateRequest`, `ValidateQuestion`, `ValidateResponse`, sentinels plus `ProviderError`/`NewProviderError`/`KindForStatus`, `Gate`.
+- `pkg/decision/systemone/{protocol,provider}.go`: `New(Options)`, `Decide`, ordered `encodeOptions`, pointer-based wire answers (`mapAnswers`, `levelProbabilities`), `providerError` with `safeCode` and `retryAfter`, bounded reads, redirect rejection.
+- Tests: `decision_test.go` (22 request-validation cases, 10 response cases, error mapping, Gate, JSON), `systemone/provider_test.go` (happy path, option order, 10 error statuses, 10 invalid responses, limits, redirects, cancellation, constructor validation), `live_test.go` (opt-in).
+- Mutation check: replaced `encodeOptions` with a `map[string]string` marshal; `TestDecideKeepsOptionOrder` failed with `criteria":{"a":"say \"hi\"","m":"","z":""}`; restored.
+- Live: `GEPPETTO_LIVE_SYSTEMONE=1 LUNAROUTE_API_KEY=… go test ./pkg/decision/systemone -run TestLive -v -count=1` (key read from Pi's models.json inline, not printed).
+
+### Why
+- Pointer fields in `wireAnswer` make "the provider omitted `noul`" an invalid response instead of a silent probability of 0.
+- Unknown top-level response fields are tolerated (`latency_ms`, `future_field` in the fixture) while answers are validated strictly (guide §4.5).
+- Provider error codes pass through `safeCode` (`[a-z0-9_]{1,64}`), so a server that put a token into `code` cannot leak it; the test plants `Bearer sk-12345` there.
+
+### What worked
+- `go test ./pkg/decision/...` → `ok` for both packages; `.bin/golangci-lint run ./pkg/decision/...` → `0 issues`.
+- Live: `model=djev request_id=01a1a8f1-4e15-7542-a508-d68a61c3d54b duration=311ms usage={InputTokens:209 OutputTokens:16}`; `route` → `semantic` (0.929, confidence 0.755), `complexity` → 1.947.
+
+### What didn't work
+- First commit attempt of P1 failed the pre-commit `make lintmax`: `pkg/decision/decision_test.go:59:1: File is not properly formatted (gofmt)`, `errors.go:67:2: QF1002: could use tagged switch on status`, `validate.go:57:6: QF1001: could apply De Morgan's law`. Fixed with gofmt, a tagged switch and an `idRune` helper.
+- `answer_json` test first draft did not compile: `decision_test.go:179:27: invalid map key type Answer` (a leftover map literal keyed by a struct with a map field); removed.
+- `TestDecide` failed on cost: `usage/cost &{InputTokens:228 OutputTokens:16} 0x350d1fd9e420` because `228*0.042/1e6` is an exact constant expression in the test and a rounded float at runtime; compared with a 1e-15 tolerance.
+- P2 lint: `QF1001` again in `safeCode` and `ST1013` (`418` → `http.StatusTeapot`); fixed.
+
+### What I learned
+- With `omitempty`, a noul answer of probability 0 serialised as `{"type":"noul"}`. Added `Answer.MarshalJSON` that writes exactly the fields of the answer's type, zeros included.
+- The live `needs_retrieval` noul, asked without criteria and without a corpus description in the state, returned 0.084; the Step 1 probe with criteria and `corpus` in the state returned 0.994 for the same query. Decisions depend strongly on what the state and criteria say; RAG callers should describe the corpus in the state.
+
+### What was tricky to build
+- Choice criteria order. Go maps cannot carry it, so `encodeOptions` writes the object bytes itself, marshalling each key and value separately for escaping. The mutation check proves the test detects a regression.
+- Score probabilities are keyed `"0".."n-1"`; `levelProbabilities` rejects padded keys like `"02"` (`strconv.Itoa(i) != k`) so a key cannot alias another level.
+
+### What warrants a second pair of eyes
+- `ProviderError.Message` is kept for 400/404 (validation messages). A provider that echoed request content into a 400 message would expose it to callers' logs.
+- On a non-2xx response the body is read under the same limit and parsed leniently; an oversized error body yields a truncated parse, not `ErrResponseTooLarge`.
+
+### What should be done in the future
+- N/A for these phases.
+
+### Code review instructions
+- Start at `pkg/decision/decision.go` and `validate.go`, then `systemone/provider.go` (`Decide`, `encodeRequest`, `mapAnswers`, `providerError`).
+- `go test ./pkg/decision/... -count=1`; live test as above.
+
+### Technical details
+- Defaults: base `https://gw.lunaroute.com/v1`, endpoint `/systemone`, request cap 8 MiB, response cap 1 MiB, client timeout 60 s when no client is injected.
+- Status → sentinel: 400/415 invalid request; 401/402/403 not granted; 404 model not found; 413 too large; 429 rate limited; others unavailable.
+
+## Step 3: Phases 3–6 — settings and profiles, Pi, JavaScript, docs and smoke example
+
+This step connected the primitive to everything that configures or calls it. Decisions now come from `InferenceSettings` and engine profiles through a factory, from Pi's agent directory through `AgentDir.Decider`, and from JavaScript through `gp.decider`. A help page and a live smoke example document the result. The full geppetto suite passes (`go test ./...`: 55 packages `ok`, exit 0), and `make lintmax` reports 0 issues.
+
+### Prompt Context
+**User prompt (verbatim):** see Step 1
+**Assistant interpretation:** Implement guide phases 3–6.
+**Inferred user intent:** Decisions should be configurable and callable like rerank, and usable from rag-workbench through Pi without extra setup.
+**Commit (code):** dff707c9 (P3 settings/factory/profiles), a37bbe30 (P4 Pi Decider), bf13aeea (P5 gp.decider + d.ts), 4229f55f (P6 help page + smoke example)
+
+### What I did
+- `pkg/decision/config/{settings.go,flags/decision.yaml}`: `DecisionConfig` (omitempty YAML tags), `DecisionSlug`, flags `decision-type`, `decision-engine`, byte limits, `systemone-api-key`, `systemone-base-url`.
+- `pkg/decision/factory/settings_factory.go`: `NewSettingsFactory`, `NewSettingsFactoryFromInferenceSettings`, `NewProvider`, `ValidateInferenceSettingsForDecision`; names `APIKeyName`, `BaseURLName`, `PolicyName` (`decision`).
+- `pkg/steps/ai/settings/settings-inference.go`: `Decision` field, nil default, metadata, clone, guarded decode, `apiSlugs`. `pkg/sections/sections.go` registers the section with `NewDecisionConfig()` defaults. `pkg/cli/bootstrap/inference_debug.go` maps `decision.*`.
+- Tests: `factory/settings_factory_test.go` (rejections, validation, a YAML profile building a working provider with cost, clone/metadata, outbound policy); `engineprofiles/stack_merge_decision_test.go` (stacking, partial overlay); `sections/sections_test.go` (section flags, flag→settings decode, host without the section).
+- `pkg/steps/ai/providers/pi/decision.go`: `DecisionOptions`, `(*AgentDir).Decider`; `decision_test.go`.
+- `pkg/js/modules/geppetto/api_decider.go`: `gp.decider`, `decide`, `decideAsync`, `model`; strict decoding through `goja.Object.Keys()`; `spec/geppetto.d.ts.tmpl` and the regenerated `pkg/doc/types/geppetto.d.ts`; `api_decider_test.go`.
+- `pkg/doc/topics/16-decisions.md`; `cmd/examples/decision-pi-smoke/main.go` (Glazed command `run`).
+
+### Why
+- Decoding the decision section only when it is registered (`parsedValues.Get`) keeps hosts that assemble their own section lists working. Glazed's `DecodeSectionInto` returns `section decision not found` for a missing section, and rerank has no such guard.
+- `systemone-api-key` and `systemone-base-url` are flags of the decision section, so the existing `*-api-key`/`*-base-url` wildcard decode puts them into `APISettings` with no new code.
+
+### What worked
+- Live through Pi: `go run ./cmd/examples/decision-pi-smoke run --query "how does the rebalance law preserve product placements?"` → route `semantic` 0.924, needs_retrieval 0.909, complexity 1.885, 231 input tokens, 403 ms.
+- Passages: rebalance passage 0.999, cafeteria passage 0.0013, 635 ms.
+
+### What didn't work
+- `TestDecisionFlagsDecodeIntoInferenceSettings` first failed with `decision: &config.DecisionConfig{Type:"systemone", Engine:"djev", MaxRequestBytes:0, MaxResponseBytes:0}`. `sections.go` initialised defaults from an empty struct, as rerank does, which zeroed the YAML defaults. Fixed by seeding from `NewDecisionConfig()`.
+- `TestDeciderErrors` failed with `header x-team of lunaroute/djev: environment variable TEAM is not set`. The fixture's models.json header needs `TEAM`; set it in the test env.
+- `TestGeneratedDTSMatchesRuntimeExportSurface` failed with `extra: [decider]`. Added declarations to `spec/geppetto.d.ts.tmpl` and ran `go generate` in `pkg/js/modules/geppetto`.
+- `TestDeciderDecide` failed on JSON key order (`"needs":{"probability":0,"type":"noul"}` vs expected order). Go maps converted to JS objects have random key order. The test now extracts fields in JS.
+- The first P6 commit was blocked by glazed-lint: `cmd/examples/decision-pi-smoke/main.go:38:25: use Glazed config/env middleware or an explicit command field instead of os.Getenv in CLI code` and five `define CLI flags with cmds.WithFlags(fields.New(...)) instead of raw Cobra/pflag/flag APIs`. Rewrote it as a Glazed `GlazeCommand` (rows per answer) through `examplecmd`.
+
+### What I learned
+- `pi.DefaultDir("")` already resolves `~/.pi/agent`, so the example needs no environment lookup.
+- Pi's `withHeaders(nil, …)` returns an `http.Client` without a timeout. The systemone adapter's 60 s default applies only when no client is injected, so Pi-built deciders rely on the caller's context deadline.
+
+### What was tricky to build
+- Preserving choice-option order across JavaScript. `Export()` of a JS object yields `map[string]any`, so the decoder walks objects with `Keys()` and reads arrays (`ClassName() == "Array"`) as names or `{name, description}`. The test checks the wire body contains `"criteria":{"z":"last letter","semantic":"concepts","keyword":"identifiers"}`.
+
+### What warrants a second pair of eyes
+- The `hasDecision` guard in `UpdateFromParsedValues` changes behaviour relative to rerank: a missing section is "not configured" rather than an error.
+- `Decider` does not check that the Pi model is a decision model (Pi cannot tell). A chat model fails at the server with `ErrInvalidRequest`.
+
+### What should be done in the future
+- Capability discovery from `GET /v1/models` (`capabilities.systemone`) so hosts can list decision models.
+- A timeout on Pi-built HTTP clients, or documentation that callers must set deadlines.
+
+### Code review instructions
+- `git log --oneline f637be88^..4229f55f`; start with `pkg/decision/factory/settings_factory.go`, the `settings-inference.go` diff, `pi/decision.go`, `js/modules/geppetto/api_decider.go`.
+- `go test ./... && make lintmax`; live: `go run ./cmd/examples/decision-pi-smoke run --format json`.
+
+### Technical details
+- JS response shape: `{provider, model, answers: {id: {type, probability | choice, confidence, probabilities | score, confidence, levelProbabilities}}, usage: {inputTokens, outputTokens}, cost?, requestId?, durationMs?}`.
