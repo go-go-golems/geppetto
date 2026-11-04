@@ -1,0 +1,35 @@
+200 354
+{
+ "id": "clef-flash",
+ "object": "model",
+ "created": 0,
+ "owned_by": "lunaroute",
+ "context_window": 8192,
+ "context_length": 8192,
+ "max_input_tokens": 8192,
+ "max_output_tokens": 2048,
+ "max_completion_tokens": 2048,
+ "capabilities": {
+  "systemone": true,
+  "vision": true
+ },
+ "vision_input_max_bytes": 11534336
+}
+{
+ "id": "djev",
+ "object": "model",
+ "created": 0,
+ "owned_by": "lunaroute",
+ "context_window": 32768,
+ "context_length": 32768,
+ "max_input_tokens": 32768,
+ "max_output_tokens": 1024,
+ "max_completion_tokens": 1024,
+ "capabilities": {
+  "systemone": true,
+  "vision": true
+ },
+ "vision_input_max_bytes": 11534336
+}
+all ids: ['clef-flash', 'deepseek-4.1-flash', 'deepseek-4.1-flash-background', 'djev', 'glm-5.3', 'glm-5.3-background', 'glm-5.3-flash', 'glm-5.3-flash-background', 'glm-5.3-vision', 'glm-5.3-vision-background', 'muse-spark-open', 'muse-spark-open-background', 'whisper-large-v3']
+example entry keys: ['capabilities', 'context_length', 'context_window', 'created', 'id', 'max_completion_tokens', 'max_input_tokens', 'max_output_tokens', 'object', 'owned_by', 'vision_input_max_bytes'] {"systemone": true, "vision": true}

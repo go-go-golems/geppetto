@@ -1,0 +1,7 @@
+{"model":"djev",
+ "state":{"query":"how does the rebalance law preserve product placements?","corpus":"engineering design notes for a warehouse slotting system"},
+ "questions":{
+  "route":{"type":"choice","instructions":"Which retrieval strategy fits this query best?","criteria":{"keyword":"Exact identifiers, names, error strings","semantic":"Conceptual question needing paraphrase matching","none":"Chit-chat or no retrieval needed"}},
+  "needs_retrieval":{"type":"noul","instructions":"Does answering require looking up documents?","criteria":{"true":"Answer depends on corpus facts","false":"Answerable without documents"}},
+  "complexity":{"type":"score","instructions":"How complex is the question?","criteria":["trivial lookup","single fact","explanation of one mechanism","multi-document synthesis"]}
+ }}
