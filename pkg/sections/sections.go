@@ -1,6 +1,7 @@
 package sections
 
 import (
+	decisionconfig "github.com/go-go-golems/geppetto/pkg/decision/config"
 	embeddingsconfig "github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	rerankconfig "github.com/go-go-golems/geppetto/pkg/rerank/config"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -104,6 +105,21 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 		return nil, err
 	}
 
+	decisionSection, err := decisionconfig.NewDecisionValueSection()
+	if err != nil {
+		return nil, err
+	}
+	decisionDefaults := ss.Decision
+	if decisionDefaults == nil {
+		// The section's own defaults (byte limits), so --help shows them.
+		if decisionDefaults, err = decisionconfig.NewDecisionConfig(); err != nil {
+			return nil, err
+		}
+	}
+	if err := decisionSection.InitializeDefaultsFromStruct(decisionDefaults); err != nil {
+		return nil, err
+	}
+
 	inferenceSection, err := settings.NewInferenceValueSection()
 	if err != nil {
 		return nil, err
@@ -126,6 +142,7 @@ func CreateGeppettoSections(opts ...CreateOption) ([]schema.Section, error) {
 		openaiSection,
 		embeddingsSection,
 		rerankSection,
+		decisionSection,
 		inferenceSection,
 		profileSettingsSection,
 	}

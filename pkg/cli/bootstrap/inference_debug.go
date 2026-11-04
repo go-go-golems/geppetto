@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 
+	decisionconfig "github.com/go-go-golems/geppetto/pkg/decision/config"
 	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	gepprofiles "github.com/go-go-golems/geppetto/pkg/engineprofiles"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
@@ -54,15 +55,16 @@ type flattenedLeaf struct {
 }
 
 var inferenceSectionFieldPathMap = map[string]map[string]string{
-	aisettings.AiChatSlug:      buildStructFieldPathMap(reflect.TypeOf(aisettings.ChatSettings{})),
-	"openai-chat":              buildStructFieldPathMap(reflect.TypeOf(openai.Settings{})),
-	aisettings.AiClientSlug:    buildStructFieldPathMap(reflect.TypeOf(aisettings.ClientSettings{})),
-	"claude-chat":              buildStructFieldPathMap(reflect.TypeOf(claude.Settings{})),
-	"gemini-chat":              buildStructFieldPathMap(reflect.TypeOf(gemini.Settings{})),
-	"ollama-chat":              buildStructFieldPathMap(reflect.TypeOf(ollama.Settings{})),
-	config.EmbeddingsSlug:      buildStructFieldPathMap(reflect.TypeOf(config.EmbeddingsConfig{})),
-	rerankconfig.RerankSlug:    buildStructFieldPathMap(reflect.TypeOf(rerankconfig.RerankConfig{})),
-	aisettings.AiInferenceSlug: buildStructFieldPathMap(reflect.TypeOf(engine.InferenceConfig{})),
+	aisettings.AiChatSlug:       buildStructFieldPathMap(reflect.TypeOf(aisettings.ChatSettings{})),
+	"openai-chat":               buildStructFieldPathMap(reflect.TypeOf(openai.Settings{})),
+	aisettings.AiClientSlug:     buildStructFieldPathMap(reflect.TypeOf(aisettings.ClientSettings{})),
+	"claude-chat":               buildStructFieldPathMap(reflect.TypeOf(claude.Settings{})),
+	"gemini-chat":               buildStructFieldPathMap(reflect.TypeOf(gemini.Settings{})),
+	"ollama-chat":               buildStructFieldPathMap(reflect.TypeOf(ollama.Settings{})),
+	config.EmbeddingsSlug:       buildStructFieldPathMap(reflect.TypeOf(config.EmbeddingsConfig{})),
+	rerankconfig.RerankSlug:     buildStructFieldPathMap(reflect.TypeOf(rerankconfig.RerankConfig{})),
+	decisionconfig.DecisionSlug: buildStructFieldPathMap(reflect.TypeOf(decisionconfig.DecisionConfig{})),
+	aisettings.AiInferenceSlug:  buildStructFieldPathMap(reflect.TypeOf(engine.InferenceConfig{})),
 }
 
 func NewInferenceDebugSection() (schema.Section, error) {
@@ -425,6 +427,8 @@ func inferencePathForParsedField(sectionSlug, fieldName string) (string, bool) {
 		return "embeddings." + path, true
 	case rerankconfig.RerankSlug:
 		return "rerank." + path, true
+	case decisionconfig.DecisionSlug:
+		return "decision." + path, true
 	case aisettings.AiInferenceSlug:
 		return "inference." + path, true
 	default:
