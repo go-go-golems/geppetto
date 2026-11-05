@@ -221,3 +221,62 @@ This step connected the primitive to everything that configures or calls it. Dec
 
 ### Technical details
 - JS response shape: `{provider, model, answers: {id: {type, probability | choice, confidence, probabilities | score, confidence, levelProbabilities}}, usage: {inputTokens, outputTokens}, cost?, requestId?, durationMs?}`.
+
+## Step 4: Address the Codex review on PR #444
+
+PR #444 (`wesen:task/geppetto-decision-001` → `main`) got three automated review findings from `chatgpt-codex-connector`. All three were real and are fixed in one commit, with regression tests. While running the tests repeatedly I also found that `TestDeciderDecide` was still flaky, and fixed that too.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Tackle this https://github.com/go-go-golems/geppetto/pull/444 (code review comments)"
+
+**Assistant interpretation:** Fix each review finding on PR #444, push the fixes, and reply to each comment.
+
+### What I did
+- **P1, `pkg/steps/ai/providers/pi/decision.go`:**
+  - `Decider` used to fall back to `systemone.DefaultBaseURL` for any catalog entry without a `baseUrl`. That would send, for example, an OpenAI credential to `gw.lunaroute.com`.
+  - Now the fallback applies only when `m.Provider == LunaRouteProvider` (`"lunaroute"`). Any other provider without a base URL is rejected with `decision.ErrInvalidRequest` before its credential is even looked up.
+  - Test: `amazon-bedrock/claude` in the fixture has no `baseUrl`.
+- **P2, `pkg/decision/validate.go`:**
+  - A choice answer must now carry a probability for every declared option. Before, a nil or partial `probabilities` map passed validation, and a missing option silently read as 0.
+  - Tests: "partial option probabilities" and "no option probabilities".
+  - djev always returns the full distribution, including entries such as `9.5e-06` (see `sources/01-systemone-probe-results.txt`), so live behaviour does not change.
+  - The fixture in `TestDecideKeepsOptionOrder` returned only `{"z":1}` and had to be completed.
+- **P2, `pkg/js/modules/geppetto/api_decider.go`:**
+  - `images` must be an array; `undefined`/`null` is still allowed. `levels` must be an array too.
+  - Before, `exportSlice` returned nil for a string, so the images were silently dropped.
+  - Added an `isArray` helper. Tests cover both cases.
+- **Docs:** `16-decisions.md` now states the base-URL rule and the full-distribution requirement.
+
+### Why
+- P1 is a credential leak to a third-party host.
+- The other two hand callers a "validated" answer or request that silently lacks data they relied on.
+
+### What worked
+- `GOWORK=off go test ./... -count=1` passes.
+- `make lint` passes (golangci-lint 0 issues, geppetto-lint, glazed-lint).
+- `go test -run TestDecider -count=50 ./pkg/js/modules/geppetto/` passes.
+
+### What didn't work
+- `TestDecideKeepsOptionOrder` failed after the P2 fix: `decision answer "q": 1 option probabilities for 3 options: invalid decision response`. Its fixture answered with an incomplete map, so I completed it with `{"z":1,"a":0,"m":0}`.
+- `TestDeciderDecide` failed in about 5 of 30 runs: `... "usage":{"outputTokens":3,"inputTokens":12} ... does not contain "usage":{"inputTokens":12,"outputTokens":3}` (and the same for `model`).
+  - Step 3's fix had covered only the answers. `model` and `usage` are also Go maps, so their key order is random.
+  - The test now reads those fields individually. This flake was there before the PR's CI run, which passed by chance.
+
+### What I learned
+- An unvalidated fallback default combined with a per-provider credential lookup turns a convenience into a credential leak. A default endpoint has to be tied to the provider it belongs to.
+
+### What was tricky to build
+- Ordering in `Decider`: the base-URL check must come before `a.credential(...)`. That way a misconfigured provider fails with the base-URL error, not a missing-credential error, and no credential is resolved for a request that is never sent.
+
+### What warrants a second pair of eyes
+- `LunaRouteProvider = "lunaroute"` is the provider name in the user's Pi config. A user who registers LunaRoute under another name must set `baseUrl` explicitly.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- `git show HEAD` on `task/geppetto-decision-001`. Start with `pi/decision.go`, then the `validateAnswer` choice branch.
+
+### Technical details
+- Review comment ids: 4484703632 (P1, Pi URL fallback), 4484703647 (P2, choice probabilities), 4484703659 (P2, images).

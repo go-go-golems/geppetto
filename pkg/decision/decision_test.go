@@ -123,9 +123,15 @@ func TestValidateResponse(t *testing.T) {
 			x.Probabilities = map[string]float64{"vector": 0.5}
 			a["route"] = x
 		},
-		"score above top":  func(a map[string]Answer) { x := a["hardness"]; x.Score = 2.5; a["hardness"] = x },
-		"level count":      func(a map[string]Answer) { x := a["hardness"]; x.LevelProbabilities = []float64{1}; a["hardness"] = x },
-		"confidence above": func(a map[string]Answer) { x := a["route"]; x.Confidence = 2; a["route"] = x },
+		"partial option probabilities": func(a map[string]Answer) {
+			x := a["route"]
+			x.Probabilities = map[string]float64{"semantic": 0.98}
+			a["route"] = x
+		},
+		"no option probabilities": func(a map[string]Answer) { x := a["route"]; x.Probabilities = nil; a["route"] = x },
+		"score above top":         func(a map[string]Answer) { x := a["hardness"]; x.Score = 2.5; a["hardness"] = x },
+		"level count":             func(a map[string]Answer) { x := a["hardness"]; x.LevelProbabilities = []float64{1}; a["hardness"] = x },
+		"confidence above":        func(a map[string]Answer) { x := a["route"]; x.Confidence = 2; a["route"] = x },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {

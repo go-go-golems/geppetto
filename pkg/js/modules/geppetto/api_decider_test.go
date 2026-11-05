@@ -76,14 +76,16 @@ func TestDeciderDecide(t *testing.T) {
 		const d = gp.decider(gp.inferenceProfiles.load(globalThis.profilePath).resolve("djev"));
 		const m = d.model();
 		const r = d.decide(`+deciderRequestJS+`);
-		return JSON.stringify({ model: m, choice: r.answers.route.choice, needs: [r.answers.needs.type, r.answers.needs.probability], levels: r.answers.hard.levelProbabilities,
-			usage: r.usage, requestId: r.requestId, provider: r.provider, keys: Object.keys(d) });
+		// model and usage come from Go maps, so their key order is not
+		// stable; read their fields individually.
+		return JSON.stringify({ model: [m.provider, m.name], choice: r.answers.route.choice, needs: [r.answers.needs.type, r.answers.needs.probability], levels: r.answers.hard.levelProbabilities,
+			usage: [r.usage.inputTokens, r.usage.outputTokens], requestId: r.requestId, provider: r.provider, keys: Object.keys(d) });
 	})()`)
 	s := got.(string)
 	for _, want := range []string{
-		`"model":{"provider":"systemone","name":"djev"}`,
+		`"model":["systemone","djev"]`,
 		`"choice":"semantic"`, `"needs":["noul",0]`, `"levels":[0.1,0.3,0.6]`,
-		`"usage":{"inputTokens":12,"outputTokens":3}`, `"requestId":"rid-1"`, `"keys":["decide","decideAsync","model"]`,
+		`"usage":[12,3]`, `"requestId":"rid-1"`, `"keys":["decide","decideAsync","model"]`,
 	} {
 		assert.Contains(t, s, want)
 	}
@@ -106,6 +108,8 @@ func TestDeciderRejectsBadRequests(t *testing.T) {
 			{ state: "s", questions: { q: { type: "noul", instruction: "?" } } },
 			{ state: "s", questions: { q: { type: "choice", instructions: "?" } } },
 			{ state: "s", questions: { q: { type: "choice", instructions: "?", options: [{ name: "a", weight: 1 }] } } },
+			{ state: "s", questions: { q: { type: "noul", instructions: "?" } }, images: "data:image/png;base64,AAAA" },
+			{ state: "s", questions: { q: { type: "score", instructions: "?", levels: "low" } } },
 			"not an object",
 		]) {
 			try { d.decide(req); out.push("accepted"); } catch (e) { out.push(String(e)); }
@@ -118,6 +122,8 @@ func TestDeciderRejectsBadRequests(t *testing.T) {
 	assert.Contains(t, s, `unknown key \"instruction\"`)
 	assert.Contains(t, s, "needs 1-255 options")
 	assert.Contains(t, s, "only name and description")
+	assert.Contains(t, s, "images must be an array")
+	assert.Contains(t, s, "levels must be an array")
 }
 
 func TestDeciderAsyncResolves(t *testing.T) {

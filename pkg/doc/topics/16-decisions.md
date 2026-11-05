@@ -64,7 +64,7 @@ resp.Answers["needs"].Probability   // 0.91
 decision.Gate(resp.Answers["needs"].Probability, 0.8, 0.5) // decision.Act
 ```
 
-`Decide` validates the request (question ids `[A-Za-z0-9_.-]{1,64}`, type-specific fields only, option and level limits, data-URL images) and the response (one answer per question, of its type, with finite probabilities over the declared space).
+`Decide` validates the request (question ids `[A-Za-z0-9_.-]{1,64}`, type-specific fields only, option and level limits, data-URL images) and the response (one answer per question, of its type, with a finite probability for every declared option or level).
 
 Errors wrap sentinels, which you test with `errors.Is`:
 
@@ -86,7 +86,7 @@ a, _ := pi.LoadAgentDir(pi.DefaultDir(os.Getenv(pi.EnvAgentDir)))
 d, _ := a.Decider(ctx, "lunaroute/djev", pi.DecisionOptions{})
 ```
 
-`Decider` uses the provider's base URL, any `models.json` headers, and Pi's credential (`auth.json`, then `models.json` `apiKey`). To try it:
+`Decider` uses the provider's base URL, any `models.json` headers, and Pi's credential (`auth.json`, then `models.json` `apiKey`). A model without a base URL falls back to LunaRoute's endpoint only if its provider is `lunaroute`. Other providers need an explicit `baseUrl`, so their credentials are never sent to LunaRoute. To try it:
 
 ```bash
 go run ./cmd/examples/decision-pi-smoke run --query "how does the rebalance law preserve placements?"

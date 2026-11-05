@@ -129,6 +129,9 @@ func decodeDecisionRequest(vm *goja.Runtime, v goja.Value) (decision.Request, er
 			}
 			req.Model = s
 		case "images":
+			if !isArray(val) && !goja.IsUndefined(val) && !goja.IsNull(val) {
+				return req, bad("images must be an array of data URL strings")
+			}
 			for _, x := range exportSlice(val) {
 				s, ok := x.(string)
 				if !ok {
@@ -180,6 +183,9 @@ func decodeQuestion(vm *goja.Runtime, v goja.Value) (decision.Question, error) {
 				q.False = s
 			}
 		case "levels":
+			if !isArray(val) {
+				return q, fmt.Errorf("levels must be an array of strings")
+			}
 			for _, x := range exportSlice(val) {
 				s, ok := x.(string)
 				if !ok {
@@ -237,6 +243,12 @@ func decodeOptions(vm *goja.Runtime, v goja.Value) ([]decision.Option, error) {
 		}
 	}
 	return out, nil
+}
+
+// isArray reports whether v is a JavaScript array.
+func isArray(v goja.Value) bool {
+	o, ok := v.(*goja.Object)
+	return ok && o.ClassName() == "Array"
 }
 
 func asObject(vm *goja.Runtime, v goja.Value) (*goja.Object, bool) {

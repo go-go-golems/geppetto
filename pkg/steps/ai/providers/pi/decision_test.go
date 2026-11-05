@@ -52,4 +52,12 @@ func TestDeciderErrors(t *testing.T) {
 	require.NoError(t, err)
 	_, err = b.Decider(context.Background(), "lunaroute/djev", DecisionOptions{})
 	assert.ErrorIs(t, err, decision.ErrInvalidRequest)
+
+	// A non-LunaRoute model without a baseUrl must not fall back to
+	// LunaRoute's endpoint, which would send that provider's credential there.
+	c, err := LoadAgentDir(agentDir(t, "https://gw.example/v1"), env(map[string]string{}))
+	require.NoError(t, err)
+	_, err = c.Decider(context.Background(), "amazon-bedrock/claude", DecisionOptions{})
+	assert.ErrorIs(t, err, decision.ErrInvalidRequest)
+	assert.Contains(t, err.Error(), "no baseUrl")
 }

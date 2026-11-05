@@ -204,6 +204,13 @@ func validateAnswer(q Question, a Answer) error {
 				return err
 			}
 		}
+		// The distribution must cover every declared option; a missing
+		// entry would otherwise read as probability 0.
+		for _, o := range q.Options {
+			if _, ok := a.Probabilities[o.Name]; !ok {
+				return fmt.Errorf("%d option probabilities for %d options", len(a.Probabilities), len(q.Options))
+			}
+		}
 	case Score:
 		if err := checkProbability("confidence", a.Confidence); err != nil {
 			return err

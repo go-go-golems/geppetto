@@ -135,7 +135,7 @@ func TestDecide(t *testing.T) {
 
 // Options reach the server in slice order, not sorted.
 func TestDecideKeepsOptionOrder(t *testing.T) {
-	s := newServer(t, reply(200, `{"model":"djev","answers":{"q":{"type":"choice","choice":"z","confidence":1,"probabilities":{"z":1}}}}`))
+	s := newServer(t, reply(200, `{"model":"djev","answers":{"q":{"type":"choice","choice":"z","confidence":1,"probabilities":{"z":1,"a":0,"m":0}}}}`))
 	p := provider(t, s)
 	_, err := p.Decide(context.Background(), decision.Request{State: "s", Questions: map[string]decision.Question{
 		"q": {Type: decision.Choice, Instructions: "pick", Options: []decision.Option{{Name: "z"}, {Name: "a", Description: `say "hi"`}, {Name: "m"}}},
