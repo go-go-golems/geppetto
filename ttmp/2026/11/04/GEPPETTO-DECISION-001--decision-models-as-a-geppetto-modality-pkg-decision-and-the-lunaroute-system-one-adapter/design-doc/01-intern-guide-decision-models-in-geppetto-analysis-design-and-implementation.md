@@ -35,7 +35,7 @@ ExternalSources:
     - https://pypi.org/project/jevkit/
     - https://www.getmaxim.ai/bifrost/blog/jev-a-decision-model-that-classifies-without-generating-text
 Summary: 'How decision models (Jev, LunaRoute djev) work, what their wire protocol is, and how to add them to Geppetto as a fourth model-service primitive next to inference, embeddings and rerank: pkg/decision, a System One adapter, settings and profile wiring, Pi credentials, and a JS binding.'
-LastUpdated: 2026-11-04T19:30:00-05:00
+LastUpdated: 2026-11-04T21:30:00-05:00
 WhatFor: Onboarding an engineer who will implement or maintain decision-model support in Geppetto.
 WhenToUse: Read before touching pkg/decision, the systemone adapter, or the decision section of InferenceSettings.
 ---
@@ -744,3 +744,49 @@ Ticket artifacts:
 - `scripts/01-systemone-probe/probe.py`, with request bodies `q1.json`, `relevance.json`, `e_*.json` and `ok_*.json`.
 - `sources/01-systemone-probe-results.txt`: recorded responses and status lines.
 - `sources/02-models-systemone-capability.txt`: the `/v1/models` entries with `systemone: true`.
+
+---
+
+## Part 6 — Implementation status and results
+
+All six phases are implemented on branch `task/geppetto-decision-001`: 29 files and about 3 200 lines outside `ttmp`. The full suite passes (`go test ./...`, 55 packages), and so do `make lintmax` and the opt-in live test against djev.
+
+| Phase | Commit | What landed |
+|---|---|---|
+| 1 | `f637be88` | `pkg/decision`: types, `ValidateRequest`/`ValidateQuestion`/`ValidateResponse`, sentinels plus `ProviderError`, `Gate`, `Answer.MarshalJSON` |
+| 2 | `33f11d69` | `pkg/decision/systemone` with fake-server tests and `TestLive_DecideAgainstLunaRoute` |
+| 3 | `dff707c9` | `pkg/decision/config`, `pkg/decision/factory`, `InferenceSettings.Decision`, section registration, debug paths, profile-stack tests |
+| 4 | `a37bbe30` | `pi.(*AgentDir).Decider` |
+| 5 | `bf13aeea` | `gp.decider` with `decide`/`decideAsync`/`model`, plus the `.d.ts` declarations |
+| 6 | `4229f55f` | `pkg/doc/topics/16-decisions.md`, `cmd/examples/decision-pi-smoke` |
+
+### 6.1 Where the implementation differs from Part 4
+
+- **`Answer` JSON.** With `omitempty`, a noul answer of probability 0 serialised as `{"type":"noul"}`. `Answer.MarshalJSON` now writes exactly the fields of the answer's type, zero values included.
+- **Optional section decode.** Glazed's `DecodeSectionInto` fails with `section decision not found` when a host did not register the section. `UpdateFromParsedValues` checks `parsedValues.Get(DecisionSlug)` first and treats absence as "not configured". Rerank has no such guard.
+- **Section defaults.** `pkg/sections` seeds the decision section from `NewDecisionConfig()`, so `--help` and parsed values show the 8 MiB and 1 MiB limits rather than 0.
+- **Credential flags.** `systemone-api-key` and `systemone-base-url` are flags of the decision section. The existing `*-api-key`/`*-base-url` wildcard decode places them in `APISettings`.
+- **Provider error codes** pass through `safeCode` (`[a-z0-9_]{1,64}`), so a code field cannot carry a token.
+- **The smoke example is a Glazed command** (`decision-pi-smoke run`). The repository's glazed-lint rejects raw Cobra flags and `os.Getenv` in CLI code.
+- **JS options** accept three forms: an object in insertion order (read through `goja.Object.Keys()`), an array of names, or an array of `{name, description}`.
+
+### 6.2 Measurements
+
+| Call | Questions | Input tokens | Wall clock |
+|---|---|---|---|
+| Probe §1.3 (routing set), djev | 3 | 228 | 428 ms |
+| Live test (same set, no corpus in state) | 3 | 209 | 311 ms |
+| `decision-pi-smoke run` through Pi | 3 | 231 | 403 ms |
+| Smoke example, two passages | 2 | — | 635 ms |
+| 12 short passages (probe) | 12 | 659 | 639 ms |
+| 40 questions | 40 | — | `400 "questions" exceeds this model's max_questions of 32` |
+
+The 32-question limit was found later, by the rag-workbench spike (RAGWB-007). LunaRoute's documentation does not state it. The core does not enforce it, because it is a model limit that the server reports. Callers that batch (rag-workbench's `filter.decide`/`rerank.decide`) cap batches at 32.
+
+Two answers show how much the state matters. Asked "does answering require documents?", djev gave 0.994 when the state described the corpus and the question had true/false criteria. With neither, it gave 0.084.
+
+### 6.3 Follow-ups
+
+- Capability discovery from `GET /v1/models` (`capabilities.systemone`).
+- A timeout on Pi-built HTTP clients. `withHeaders(nil, …)` returns a client without one, so Pi deciders rely on the caller's context deadline.
+- An OpenRouter or TypeSafe adapter for Jev proper.
