@@ -686,3 +686,64 @@ The settings factory now selects embedding credential layers atomically. A nonbl
 - The 64-row matrix uses marker credentials and a tripwire on the ambient transport; no real service is called.
 - `Connection` remains provider-neutral; only source resolvers import canonical vendor defaults.
 - An explicit connection is exclusive with separate endpoint/key/client inputs, while model and response-limit options remain independent.
+
+
+## Step 11: Bind credential-source HTTP and issuer-specific authentication
+
+A final audit of HTTP call sites found that OAuth token grants still used the context/ambient HTTP client directly, and the Umans helper returned an unbound credential option that could inherit Anthropic's default endpoint. Those are authentication paths too, so they now use the same connection boundary.
+
+OAuth continues to own grant/body encoding and the existing explicit HTTP(S)/local token-endpoint policy, while a bound connection owns sending and rejects redirects. Umans now exposes a connection bound to its own issuer endpoint and dual-auth headers; the old unbound `ClaudeOptions` helper is removed rather than retained as a compatibility wrapper.
+
+### Prompt Context
+**User prompt (verbatim):** see Steps 7–9.
+**Assistant interpretation:** Finish the audit of authenticated API routes, including built-in credential acquisition and issuer-specific bindings.
+**Inferred user intent:** A new or auxiliary auth path should not bypass the common setup or accidentally inherit a protocol vendor's endpoint.
+**Commit (providers):** `5b0386c9` — "refactor(providers): use bound requests and atomic credential pairs"
+
+### What I did
+- Added a private bound token client in `credentials/oauth` for both authorization-code exchange and refresh grants.
+- Preserved the host's context-injected timeout/proxy/TLS transport while refusing every token-endpoint redirect.
+- Marked OAuth Authorization headers sensitive for connection diagnostics; grant credential bodies remain owned by the credential source.
+- Replaced `umans.ClaudeOptions(key)` with `umans.NewConnection(key, client)` bound to `https://api.code.umans.ai`, Anthropic routes and dual-auth carriers.
+- Added Umans to the canonical provider defaults catalogue.
+- Added in-process grant tests for successful exchange/refresh and redirect refusal, checking both HTTP Basic and form auth where the OAuth library negotiates the style.
+- Added a Umans test that sends the bound key to its issuer and refuses `api.anthropic.com`.
+- Hardened generic header handling for nil request headers and declarations with no header values.
+- Built the repository and Glazed custom vet tools into writable `/tmp` paths for final lint.
+
+### Why
+- Credential refresh calls carry secrets in their bodies and must have a fixed destination just as inference calls do.
+- A provider-specific auth helper knows the issuer and should return the full binding rather than leave its endpoint to later settings fallback.
+- The connection's role is network authority; OAuth grant semantics remain in the dedicated protocol package.
+
+### What worked
+- `GOWORK=off GOCACHE=/tmp/geppetto-bound-go-cache go test ./pkg/steps/ai/credentials/oauth ./pkg/steps/ai/providers/umans -run 'Test(TokenGrants|ConnectionRequires)' -count=1`: passed.
+- Both OAuth grant types contact only the configured token issuer, including under 307 redirect responses.
+- The Umans connection sends both verified headers to its canonical issuer and rejects a request to the Anthropic origin.
+- Both lint-tool binaries built successfully from installed module sources; no dependency changes were needed.
+
+### What didn't work
+- The first OAuth redirect test assumed every exchange attempt uses Basic auth. `TestTokenGrantsUseBoundConnection/exchange/redirect` failed with `Should be true` at the Basic-auth assertion. Inspection showed `x/oauth2` retries a failed automatic header-auth probe with form auth at the same configured token endpoint. Updated the test to validate both legitimate credential carriers and the bounded two probes, while continuing to assert that no foreign origin is contacted.
+
+### What I learned
+- OAuth's auth-style negotiation is separate from the connection's one unauthorized credential replay. A grant source can perform two bounded issuer requests while probing auth style; neither follows redirects.
+- The existing OAuth URL contract allows explicitly configured local/plain-HTTP token endpoints. This migration retains that declared policy while adding origin/redirect enforcement.
+
+### What was tricky to build
+- `oauth2.Config.Exchange` chooses its HTTP client through context, so its injected value must be the sealed SDK facade, not the raw host client.
+- A source-specific helper must capture the issuer at its creation boundary. Passing a raw key as a Claude option reproduced the original provider-versus-protocol default problem.
+
+### What warrants a second pair of eyes
+- OAuth automatic auth-style negotiation and the explicit token-endpoint policy retained from the existing API.
+- Public removal of `umans.ClaudeOptions`; callers now pass `claude.WithConnection(umansConnection)` or reuse the connection for token counting.
+
+### What should be done in the future
+- Complete final public docs and validation evidence. No further production HTTP path was identified outside the shared boundary in the migrated AI packages.
+
+### Code review instructions
+- Read `oauth.tokenConnection`, the client substitution in `ExchangeAuthorizationCode` and `Refresh`, and `umans.NewConnection`.
+- Run the source-grant recording tests and the 64-row matrix.
+
+### Technical details
+- OAuth's browser authorization URL generation remains a non-network operation.
+- Arbitrary host-provided credential sources and network transports are trusted code; the connection does not sandbox their implementation.

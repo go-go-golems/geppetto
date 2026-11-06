@@ -13,7 +13,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
+	aitransport "github.com/go-go-golems/geppetto/pkg/steps/ai/transport"
 	oauth2 "golang.org/x/oauth2"
 )
 
@@ -141,6 +144,11 @@ func (c *Client) ExchangeAuthorizationCode(ctx context.Context, code string, pkc
 	if strings.TrimSpace(pkce.Verifier) == "" {
 		return credentials.Credential{}, errors.New("OAuth PKCE verifier is required")
 	}
+	bound, err := c.tokenConnection(ctx)
+	if err != nil {
+		return credentials.Credential{}, errors.New("OAuth token endpoint binding failed")
+	}
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, bound.SDKClient())
 	token, err := c.config.Exchange(ctx, code, oauth2.VerifierOption(pkce.Verifier))
 	if err != nil {
 		return credentials.Credential{}, errors.New("OAuth authorization code exchange failed")
@@ -176,7 +184,11 @@ func (c *Client) Refresh(ctx context.Context, previous credentials.Credential) (
 		req.SetBasicAuth(c.config.ClientID, c.config.ClientSecret)
 	}
 
-	response, err := oauthHTTPClient(ctx).Do(req)
+	bound, err := c.tokenConnection(ctx)
+	if err != nil {
+		return credentials.Credential{}, errors.New("OAuth token endpoint binding failed")
+	}
+	response, err := bound.Do(req)
 	if err != nil {
 		return credentials.Credential{}, errors.New("OAuth refresh grant failed")
 	}
@@ -218,6 +230,17 @@ func (p tokenPayload) token(now time.Time) (*oauth2.Token, error) {
 	}
 	token.Expiry = now.Add(time.Duration(seconds * float64(time.Second)))
 	return token, nil
+}
+
+// tokenConnection preserves OAuth Config's explicit HTTP(S)/local endpoint
+// policy while forbidding token material from following any redirect. OAuth
+// grant encoding owns body credentials; the common connection owns sending.
+func (c *Client) tokenConnection(ctx context.Context) (*connection.Connection, error) {
+	return connection.New(connection.Config{
+		Provider: "oauth", BaseURL: c.config.Endpoint.TokenURL, HTTPClient: oauthHTTPClient(ctx), RejectRedirects: true,
+		OutboundURL: security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true},
+		Auth:        connection.Middleware([]aitransport.HeaderRule{{Name: "Authorization", Sensitive: true}}),
+	})
 }
 
 func oauthHTTPClient(ctx context.Context) *http.Client {

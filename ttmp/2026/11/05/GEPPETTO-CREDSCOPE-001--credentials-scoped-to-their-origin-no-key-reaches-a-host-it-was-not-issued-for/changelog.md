@@ -33,3 +33,7 @@ Migrate inference, token counting, Pi, System One binding and Whisper to shared 
 ## 2026-11-06
 
 Finish embeddings/rerank migration and atomic credential pairs; centralize provider defaults; 64-path matrix and repository compile/build pass
+
+## 2026-11-06
+
+Bind OAuth token grants and Umans issuer authentication; recording tests refuse credential-bearing redirects and protocol-vendor fallback

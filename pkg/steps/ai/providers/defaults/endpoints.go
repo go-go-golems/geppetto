@@ -9,6 +9,7 @@ const (
 	CodexBaseURL     = "https://chatgpt.com/backend-api"
 	LunaRouteBaseURL = "https://gw.lunaroute.com/v1"
 	CohereBaseURL    = "https://api.cohere.com"
+	UmansBaseURL     = "https://api.code.umans.ai"
 )
 
 func BaseURL(provider string) (string, bool) {
@@ -23,6 +24,8 @@ func BaseURL(provider string) (string, bool) {
 		return CodexBaseURL, true
 	case "lunaroute":
 		return LunaRouteBaseURL, true
+	case "umans":
+		return UmansBaseURL, true
 	case "cohere":
 		return CohereBaseURL, true
 	default:

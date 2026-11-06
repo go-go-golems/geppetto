@@ -1,21 +1,20 @@
-// Package umans provides the verified Umans Anthropic-Messages authentication
-// binding. It is API-key based, not renewable OAuth.
+// Package umans binds the verified Umans Anthropic-Messages authentication to
+// its issuer endpoint. The resulting connection can be shared with token counting.
 package umans
 
 import (
-	"errors"
+	"net/http"
 
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
+	providerdefaults "github.com/go-go-golems/geppetto/pkg/steps/ai/providers/defaults"
 )
 
-// ClaudeOptions returns Go-only Claude engine options for an Umans API key.
-// The key is sent in the verified dual-auth form by the Claude API client and
-// never becomes an inference setting or JavaScript value.
-func ClaudeOptions(apiKey string) ([]claude.EngineOption, error) {
-	source, err := credentials.NewStaticBearerTokenSource(apiKey)
-	if err != nil {
-		return nil, errors.New("umans API key is required")
-	}
-	return []claude.EngineOption{claude.WithBearerTokenSource(source)}, nil
+// NewConnection binds the Umans key, dual-auth headers and routes together.
+// Model settings cannot redirect this key to Anthropic's default endpoint.
+func NewConnection(apiKey string, client *http.Client) (*connection.Connection, error) {
+	return connection.New(connection.Config{
+		Provider: "umans", BaseURL: providerdefaults.UmansBaseURL, Routes: api.Routes(), HTTPClient: client,
+		Auth: connection.StaticToken(apiKey, connection.TokenHeaders{"x-api-key": "", "Authorization": "Bearer "}),
+	})
 }

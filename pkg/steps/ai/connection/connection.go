@@ -94,6 +94,10 @@ func New(config Config) (*Connection, error) {
 		if _, exists := headers[canonical]; exists {
 			return nil, errors.New("duplicate API default header")
 		}
+		// Validate the name even for a header declared without values.
+		if _, err := aitransport.NewHeaderSet(http.Header{}, aitransport.HeaderRule{Name: canonical, Sensitive: true}); err != nil {
+			return nil, err
+		}
 		// Apply the same framing/host and value validation to default headers.
 		for _, value := range values {
 			set, err := aitransport.NewHeaderSet(http.Header{}, aitransport.HeaderRule{Name: canonical, Sensitive: true})
@@ -201,6 +205,9 @@ func (c *Connection) DoWithObserver(request *http.Request, observe func(*http.Re
 	var previous aitransport.AttemptState
 	for attempt := 0; ; attempt++ {
 		req := request.Clone(request.Context())
+		if req.Header == nil {
+			req.Header = http.Header{}
+		}
 		if attempt > 0 && request.Body != nil && request.Body != http.NoBody {
 			req.Body, err = request.GetBody()
 			if err != nil {
