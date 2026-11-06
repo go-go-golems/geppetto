@@ -9,10 +9,12 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/decision"
 	"github.com/go-go-golems/geppetto/pkg/decision/systemone"
 	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 )
 
-// LunaRouteProvider is the Pi provider name whose models may fall back to
-// systemone.DefaultBaseURL when the catalog has no baseUrl for them.
+// LunaRouteProvider is LunaRoute's Pi provider name. Its models default to
+// LunaRoute's gateway (providerDefaultBaseURLs) when the catalog has no
+// baseUrl for them.
 const LunaRouteProvider = "lunaroute"
 
 // DecisionOptions shape a decision provider.
@@ -32,24 +34,18 @@ type DecisionOptions struct {
 // checked here; a chat model id is rejected by the server with
 // decision.ErrInvalidRequest.
 //
-// A model without a base URL gets LunaRoute's endpoint only when its
-// provider is LunaRoute. For any other provider that default would send
-// that provider's credential to LunaRoute, so an explicit baseUrl is
-// required instead.
+// The endpoint comes from the model's provider (see endpoint): its baseUrl,
+// else that provider's own default, else a NoEndpointError that also wraps
+// decision.ErrInvalidRequest. The credential is scoped and the client pinned
+// to that origin.
 func (a *AgentDir) Decider(ctx context.Context, ref string, o DecisionOptions) (decision.Provider, error) {
 	m, ok := a.Catalog.Lookup(ref)
 	if !ok {
 		return nil, errors.Wrap(ErrUnknownModel, ref)
 	}
-	// Check the value systemone.New will actually use: " " or "/" normalize
-	// to "" and would otherwise select DefaultBaseURL there.
-	baseURL := systemone.NormalizeBaseURL(m.BaseURL)
-	if baseURL == "" {
-		if m.Provider != LunaRouteProvider {
-			return nil, fmt.Errorf("pi: %s has no baseUrl; a System One endpoint must be configured for provider %q: %w",
-				ref, m.Provider, decision.ErrInvalidRequest)
-		}
-		baseURL = systemone.DefaultBaseURL
+	baseURL, origin, err := a.endpoint(m)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", err, decision.ErrInvalidRequest)
 	}
 	src, _, err := a.credential(ctx, m.Provider)
 	if err != nil {
@@ -65,9 +61,9 @@ func (a *AgentDir) Decider(ctx context.Context, ref string, o DecisionOptions) (
 	}
 	return systemone.New(systemone.Options{
 		BaseURL:          baseURL,
-		TokenSource:      src,
+		TokenSource:      credentials.Scoped(src, origin),
 		Model:            m.ID,
-		HTTPClient:       withHeaders(a.opts.httpClient, headers),
+		HTTPClient:       security.PinClient(withHeaders(a.opts.httpClient, headers), origin),
 		OutboundURL:      outbound,
 		MaxRequestBytes:  o.MaxRequestBytes,
 		MaxResponseBytes: o.MaxResponseBytes,

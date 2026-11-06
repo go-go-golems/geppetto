@@ -169,3 +169,66 @@ This step adds the two primitives the design rests on. `pkg/security/origin.go` 
 
 ### Technical details
 - Error shape: `request to https://other.example refused (allowed: https://gw.example:443): origin not allowed for this credential`.
+
+## Step 3: Phase 2 — the Pi bridge resolves endpoints by provider, pins the client, scopes the source
+
+The Pi bridge now computes a model's endpoint and its credential's scope from the same place, the provider. `endpoint(m)` (new `pkg/steps/ai/providers/pi/endpoint.go`) returns the model's normalized `baseUrl`, else the provider's own default from `providerDefaultBaseURLs`, else `*NoEndpointError`. `Resolve` and `Decider` use the result verbatim. They pin the engine's HTTP client to its origin and wrap the token source in `credentials.Scoped`. The protocol-keyed defaults (`first(m.BaseURL, "https://api.openai.com/v1")` and the Anthropic and Codex equivalents) are gone. The LunaRoute special case from #444 became one row of the table.
+
+This closes inventory rows 1, 2 and 6 for the Pi path, and the redirect part of row 7 for Pi-built Claude and Gemini engines: their clients are pinned, so `x-api-key` and `?key=` cannot follow a redirect.
+
+### Prompt Context
+
+**User prompt (verbatim):** see Step 1.
+
+**Assistant interpretation:** Implement guide Phase 2.
+
+**Inferred user intent:** Make Pi-built engines and deciders unable to send a key anywhere but the provider's own origin.
+
+### What I did
+- `endpoint.go`:
+  - `providerDefaultBaseURLs` covers `openai`, `anthropic`, `google`, `openai-codex` and `lunaroute` (`LunaRouteProvider`);
+  - `NoEndpointError{Model, Provider, Reason}`; its message contains "no baseUrl";
+  - `normalizeBaseURL` trims space and trailing slashes;
+  - a URL that is not absolute http(s) is a `NoEndpointError` too.
+- `resolve.go`:
+  - `endpoint(m)` runs before `headers()` and before `credential()`;
+  - `s.Client.HTTPClient = security.PinClient(withHeaders(…), origin)`;
+  - `src = credentials.Scoped(src, origin)`;
+  - every `BaseUrls[...]` assignment uses `baseURL`.
+- `decision.go`: `endpoint(m)` (errors also wrap `decision.ErrInvalidRequest`), `credentials.Scoped`, pinned client.
+- `credscope_test.go`, with a recording `http.RoundTripper` passed through `WithHTTPClient`:
+  - foreign providers without a usable `baseUrl` (`""`, `" "`, `"/"`, `"api.z.ai/v1"`) fail with `NoEndpointError`, and **no host is contacted**;
+  - `openai` keeps `api.openai.com`;
+  - a 307 from `gateway.example` to `other.example` is refused with `security.ErrOriginNotAllowed`, and `other.example` is never contacted;
+  - the decider uses the LunaRoute default, refuses `fireworks`, and stays on `gateway.example`.
+
+### Why
+- The default URL now belongs to the key's provider by construction (guide §7, "the Pi bridge resolves endpoints by provider").
+- Running `endpoint()` first means no credential or header value is resolved for a request that will never be sent.
+
+### What worked
+- Pre-change check: I restored `resolve.go` and `decision.go` from `HEAD` and ran `go test ./pkg/steps/ai/providers/pi/ -run 'TestResolve|TestDeciderUsesProviderEndpoint'`. Three tests FAIL there (`TestResolveRefusesProtocolDefaultForForeignProviders`, `TestResolvePinsClientAcrossRedirects`, `TestDeciderUsesProviderEndpoint`), and all pass with the change.
+- `GOWORK=off go test ./... -count=1`: no failures. `make lint`: 0 issues.
+
+### What didn't work
+- No failures observed beyond the intended pre-change failures.
+
+### What I learned
+- The existing `TestDeciderErrors` cases from #444 pass unchanged. The table entry for `lunaroute` and the `NoEndpointError` message ("no baseUrl") preserve their contract.
+
+### What was tricky to build
+- Codex: its route already accepts only `https://chatgpt.com/backend-api`. Pinning its client to the same origin is consistent, and the OAuth refresh uses its own client (`oauth.NewClient(a.codexConfig())`), not `s.Client.HTTPClient`, so refreshes to `auth.openai.com` are not affected.
+- Gemini: before, an empty `baseUrl` left `gemini-base-url` unset (SDK default). Now it is set to the `google` table entry, or to the model's URL. Behaviour only changes for non-`google` Gemini-protocol providers without `baseUrl`, which now fail.
+
+### What warrants a second pair of eyes
+- `catalog.go:147` (`m.BaseURL = first(pc.BaseURL, m.BaseURL)`): a `models.json` provider `baseUrl` of `" "` wins over a valid stored URL, and then normalizes to missing. That fails closed (an error, not a leak), but a user could find it surprising.
+
+### What should be done in the future
+- N/A for this phase.
+
+### Code review instructions
+- `pkg/steps/ai/providers/pi/endpoint.go`, then the `resolve.go` diff around the `endpoint(m)` call, then `decision.go`.
+- `GOWORK=off go test ./pkg/steps/ai/providers/pi/ -count=1`.
+
+### Technical details
+- Error: `pi: fireworks/m has no baseUrl (and provider fireworks has no default endpoint); set baseUrl for provider fireworks in models.json`.

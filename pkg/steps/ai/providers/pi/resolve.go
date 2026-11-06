@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
+	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/gemini"
@@ -90,11 +91,19 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 	}
 	s.ModelInfo = &settings.ModelInfo{ID: &model, Reasoning: &reasoning}
 
+	// The endpoint and the credential's scope come from the same place, the
+	// model's provider. The engine's client is pinned to that origin, so no
+	// request carrying this provider's key or models.json headers can reach
+	// another host, whatever URL a later layer picks or a redirect names.
+	baseURL, origin, err := a.endpoint(m)
+	if err != nil {
+		return nil, err
+	}
 	headers, err := a.headers(ctx, m)
 	if err != nil {
 		return nil, err
 	}
-	s.Client.HTTPClient = withHeaders(a.opts.httpClient, headers)
+	s.Client.HTTPClient = security.PinClient(withHeaders(a.opts.httpClient, headers), origin)
 
 	r := &Resolved{Model: m, Settings: s}
 	defer func() {
@@ -111,7 +120,7 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 		}
 		t := types.ApiTypeOpenResponses
 		s.Chat.ApiType = &t
-		s.API.BaseUrls[string(t)+"-base-url"] = first(m.BaseURL, "https://chatgpt.com/backend-api")
+		s.API.BaseUrls[string(t)+"-base-url"] = baseURL
 		rt, err := openaicodex.RequestTransport(src, openaicodex.Options{Originator: "pi"})
 		if err != nil {
 			return nil, err
@@ -126,6 +135,7 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 	if err != nil {
 		return nil, err
 	}
+	src = credentials.Scoped(src, origin)
 	switch m.API {
 	case APIOpenAICompletions, APIOpenAIResponses:
 		t := types.ApiTypeOpenAI
@@ -133,7 +143,7 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 			t = types.ApiTypeOpenAIResponses
 		}
 		s.Chat.ApiType = &t
-		s.API.BaseUrls[string(t)+"-base-url"] = first(m.BaseURL, "https://api.openai.com/v1")
+		s.API.BaseUrls[string(t)+"-base-url"] = baseURL
 		r.build = func(s *settings.InferenceSettings) (engine.Engine, error) {
 			if t == types.ApiTypeOpenAIResponses {
 				return openai_responses.NewEngine(s, openai_responses.WithBearerTokenSource(src))
@@ -143,7 +153,7 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 	case APIAnthropicMessages:
 		t := types.ApiTypeClaude
 		s.Chat.ApiType = &t
-		s.API.BaseUrls[string(t)+"-base-url"] = first(m.BaseURL, "https://api.anthropic.com")
+		s.API.BaseUrls[string(t)+"-base-url"] = baseURL
 		if key != "" {
 			// API keys go in x-api-key, as Anthropic-compatible providers expect.
 			// The settings object is private to this Resolved and never serialized.
@@ -161,9 +171,7 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 		t := types.ApiTypeGemini
 		s.Chat.ApiType = &t
 		s.API.APIKeys[string(t)+"-api-key"] = key
-		if m.BaseURL != "" {
-			s.API.BaseUrls[string(t)+"-base-url"] = m.BaseURL
-		}
+		s.API.BaseUrls[string(t)+"-base-url"] = baseURL
 		r.build = func(s *settings.InferenceSettings) (engine.Engine, error) { return gemini.NewGeminiEngine(s) }
 	}
 	return r, nil
