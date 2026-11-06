@@ -1,0 +1,30 @@
+# Matrix (pkg/steps/ai/credscope) run against 4ab5c800 (PR #444 head, before GEPPETTO-CREDSCOPE-001), with tripwire
+--- FAIL: TestNoCredentialLeavesItsOrigin
+    --- FAIL: TestNoCredentialLeavesItsOrigin/openai_chat_+_307_to_other.example
+        credscope_test.go:345: contacted other.example (allowed [gateway.example]; all contacts [gateway.example other.example]; err chat completions error: status=400 body={"error":{"message":"matrix","code":"matrix"}})
+    --- FAIL: TestNoCredentialLeavesItsOrigin/claude_+_307_to_other.example
+        credscope_test.go:345: contacted other.example (allowed [gateway.example]; all contacts [gateway.example other.example]; err claude API error: matrix)
+    --- FAIL: TestNoCredentialLeavesItsOrigin/gemini_+_307_to_other.example
+        credscope_test.go:345: contacted other.example (allowed [gateway.example]; all contacts [gateway.example other.example]; err Error 400, Message: {"error":{"message":"matrix","code":"matrix"}}, Status: , Details: [])
+    --- FAIL: TestNoCredentialLeavesItsOrigin/responses_openai_slot_+_307_to_other.example
+        credscope_test.go:345: contacted other.example (allowed [gateway.example]; all contacts [gateway.example other.example]; err responses api error: status=400 body=map[error:map[code:matrix message:matrix]])
+    --- FAIL: TestNoCredentialLeavesItsOrigin/responses_open-responses_slot_+_307_to_other.example
+        credscope_test.go:345: contacted other.example (allowed [gateway.example]; all contacts [gateway.example other.example]; err responses api error: status=400 body=map[error:map[code:matrix message:matrix]])
+    --- FAIL: TestNoCredentialLeavesItsOrigin/embeddings_openai
+        credscope_test.go:340: path bypassed the configured HTTP client and tried to reach [api.openai.com] (err Post "https://api.openai.com/v1/embeddings": credscope tripwire: request bypassed the configured client)
+    --- FAIL: TestNoCredentialLeavesItsOrigin/embeddings_openai_+_307_to_other.example
+        credscope_test.go:340: path bypassed the configured HTTP client and tried to reach [api.openai.com] (err Post "https://api.openai.com/v1/embeddings": credscope tripwire: request bypassed the configured client)
+    --- FAIL: TestNoCredentialLeavesItsOrigin/embeddings_cohere_+_307_to_other.example
+        credscope_test.go:345: contacted other.example (allowed [gateway.example]; all contacts [gateway.example other.example]; err cohere embed API returned status 400)
+    --- FAIL: TestNoCredentialLeavesItsOrigin/pi_openai-completions_+_307_to_other.example
+        credscope_test.go:345: contacted other.example (allowed [gateway.example]; all contacts [gateway.example other.example]; err chat completions error: status=400 body={"error":{"message":"matrix","code":"matrix"}})
+    --- FAIL: TestNoCredentialLeavesItsOrigin/pi_anthropic-messages_+_307_to_other.example
+        credscope_test.go:345: contacted other.example (allowed [gateway.example]; all contacts [gateway.example other.example]; err claude API error: matrix)
+    --- FAIL: TestNoCredentialLeavesItsOrigin/pi_foreign_provider_without_baseUrl_(openai_protocol)
+        credscope_test.go:345: contacted api.openai.com (allowed []; all contacts [api.openai.com]; err chat completions error: status=400 body={"error":{"message":"matrix","code":"matrix"}})
+    --- FAIL: TestNoCredentialLeavesItsOrigin/pi_foreign_provider_without_baseUrl_(anthropic_protocol)
+        credscope_test.go:345: contacted api.anthropic.com (allowed []; all contacts [api.anthropic.com]; err claude API error: matrix)
+    --- FAIL: TestNoCredentialLeavesItsOrigin/responses_open-responses_key_with_only_openai-base-url
+        credscope_test.go:345: contacted api.openai.com (allowed []; all contacts [api.openai.com]; err responses api error: status=400 body=map[error:map[code:matrix message:matrix]])
+    --- FAIL: TestNoCredentialLeavesItsOrigin/embeddings_openai_default
+        credscope_test.go:340: path bypassed the configured HTTP client and tried to reach [api.openai.com] (err Post "https://api.openai.com/v1/embeddings": credscope tripwire: request bypassed the configured client)

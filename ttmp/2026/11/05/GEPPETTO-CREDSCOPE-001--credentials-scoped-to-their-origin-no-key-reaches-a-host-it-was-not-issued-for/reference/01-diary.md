@@ -302,3 +302,57 @@ Every engine and adapter that attaches a settings slot's credential now sends th
 
 ### Technical details
 - The Responses slot error message: `open-responses-api-key is set but open-responses-base-url is not; the key is not sent to another slot's URL or to OpenAI's default`.
+
+## Step 5: Phase 4 — the cross-path regression matrix
+
+`pkg/steps/ai/credscope` is a test-only package (just `doc.go`, no production code) holding `TestNoCredentialLeavesItsOrigin`, a matrix of 38 rows. Each row drives a real path (an engine, adapter, factory, or the Pi bridge) with the marker `MATRIX-SECRET` as its credential, through a recording transport. The invariant: every contacted host is in the row's allowed set, a refused configuration contacts nothing, and a configured row really does reach its own origin, so a row cannot pass by never exercising the credential. On the #444 head the matrix fails 14 rows; on this branch all 38 pass.
+
+### Prompt Context
+
+**User prompt (verbatim):** see Step 1.
+
+**Assistant interpretation:** Implement guide Phase 4.
+
+**Inferred user intent:** Make the bug class regress loudly. New engines must add a row.
+
+### What I did
+- The rows:
+  - 12 paths, each with a plain row and a "307 to other.example" row: OpenAI chat; Claude; Gemini; Responses (`openai` slot and `open-responses` slot); embeddings (OpenAI, Cohere); rerank Cohere; decision System One; Pi `openai-completions` with a secret `x-team` header; Pi `anthropic-messages`; Pi decider;
+  - refusal rows for `" "` and `"/"` base URLs (OpenAI chat, Claude, Pi engine, Pi decider), Pi foreign providers without a `baseUrl` (both protocols), and an `open-responses` key with only `openai-base-url`;
+  - default rows: OpenAI embeddings, Pi first-party `openai`, Pi `lunaroute` decider.
+- A `TestMain` installs a **tripwire** as `http.DefaultTransport`. Any request from a path that ignores the client it was given is recorded there and fails the row, and nothing leaves the process.
+- Ran the same test files against `4ab5c800` in a temporary worktree (`git worktree add --detach … 4ab5c800`, files copied in, then removed):
+  - `sources/02-matrix-before.txt`: 14 FAIL;
+  - `sources/03-matrix-after.txt`: 38 PASS.
+
+### Why
+- The matrix tests the invariant, not each fix: a row asserts *where the marker went*, whatever mechanism stops it.
+- The tripwire turns "the path built its own client" into a test failure instead of a network call.
+
+### What worked
+- Before (14 FAIL): every redirect row of OpenAI chat, Claude, Gemini, both Responses slots, Cohere embeddings, Pi openai and Pi anthropic contacted `other.example`. The Pi foreign-provider rows contacted `api.openai.com`/`api.anthropic.com`. The open-responses row contacted `api.openai.com`. All three OpenAI-embeddings rows bypassed the client.
+- After: `GOWORK=off go test ./pkg/steps/ai/credscope/ -count=1` → `ok`.
+- Before this change, the decision, rerank-Cohere and Pi-decider redirect rows already passed: those adapters set `CheckRedirect` to reject redirects themselves. Pinning is the second line of defence there.
+
+### What didn't work
+- The first matrix run failed `decision_systemone` with `expected a request to [gateway.example], none was sent (err selected profile is not decision-capable: missing inference_settings.decision.type …)`. `NewDecisionConfig()` leaves `Type` empty; the row now sets `systemone`/`djev`. The "must reach its own origin" assertion caught this. Without it the row would have passed vacuously.
+- **The first before-run made real network requests.** Before I added the tripwire, the three OpenAI-embeddings rows on the old code ignored the recorder (go-openai's own client) and sent requests to the real `https://api.openai.com/v1/embeddings` with the dummy marker `MATRIX-SECRET` as the bearer token. OpenAI answered `401 … Incorrect API key provided: MATRIX-S*CRET`. No real credential was involved, but this is exactly inventory row 3 happening for real. The tripwire was added immediately afterwards, and the re-run (`sources/02-matrix-before.txt`) sent nothing.
+
+### What I learned
+- Every adapter whose author thought about redirects (System One, Cohere rerank, llama.cpp) already rejected them. The engines written against `EnsureHTTPClient` did not. Pinning centralizes that knowledge.
+
+### What was tricky to build
+- Making each row both drive the path and end promptly. The recorder answers 400 with a JSON error that every engine parses as a terminal error. A 401 would trigger unauthorized-refresh paths, and 5xx would trigger retries.
+
+### What warrants a second pair of eyes
+- The matrix replaces `http.DefaultTransport` for the whole test binary. That is safe because the package contains only this test, which is not parallel.
+
+### What should be done in the future
+- New credential-carrying paths must add rows. The package doc says so.
+
+### Code review instructions
+- `pkg/steps/ai/credscope/credscope_test.go`: `rows()`, then `TestNoCredentialLeavesItsOrigin`.
+- To reproduce "before": `git worktree add --detach /tmp/x 4ab5c800 && cp -r pkg/steps/ai/credscope /tmp/x/pkg/steps/ai/ && (cd /tmp/x && GOWORK=off go test ./pkg/steps/ai/credscope/)`.
+
+### Technical details
+- Row shape: `row{name, run func(*testing.T, *http.Client) error, allowed []string, redirectFrom string}`.
