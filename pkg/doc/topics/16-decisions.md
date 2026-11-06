@@ -86,7 +86,7 @@ a, _ := pi.LoadAgentDir(pi.DefaultDir(os.Getenv(pi.EnvAgentDir)))
 d, _ := a.Decider(ctx, "lunaroute/djev", pi.DecisionOptions{})
 ```
 
-`Decider` uses the provider's base URL, any `models.json` headers, and Pi's credential (`auth.json`, then `models.json` `apiKey`). A model without a base URL falls back to LunaRoute's endpoint only if its provider is `lunaroute`. Other providers need an explicit `baseUrl`, so their credentials are never sent to LunaRoute. To try it:
+`Decider` uses the provider's base URL, any `models.json` headers, and Pi's credential (`auth.json`, then `models.json` `apiKey`). The endpoint comes from the model's provider: its `baseUrl`, else that provider's own default (`lunaroute` → `https://gw.lunaroute.com/v1`), else `*pi.NoEndpointError`. The decider's client is pinned to that origin (see the `geppetto-credential-scope` help topic). To try it:
 
 ```bash
 go run ./cmd/examples/decision-pi-smoke run --query "how does the rebalance law preserve placements?"

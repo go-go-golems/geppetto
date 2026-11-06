@@ -16,8 +16,12 @@ RelatedFiles:
       Note: existing outbound URL policy, home of the new Origin/PinnedTransport
     - Path: repo://pkg/steps/ai/credentials/bearer.go
       Note: BearerTokenSource and Request{Provider,BaseURL}
+    - Path: repo://pkg/steps/ai/credscope/credscope_test.go
+      Note: the regression matrix (invariant test)
     - Path: repo://pkg/steps/ai/providers/openaicodex/codex.go
       Note: existing origin pinning precedent
+    - Path: repo://pkg/steps/ai/providers/pi/endpoint.go
+      Note: provider-keyed endpoint resolution
     - Path: repo://pkg/steps/ai/providers/pi/resolve.go
       Note: Pi bridge credential and endpoint resolution
     - Path: repo://ttmp/2026/11/05/GEPPETTO-CREDSCOPE-001--credentials-scoped-to-their-origin-no-key-reaches-a-host-it-was-not-issued-for/scripts/01-leak-probe/main.go

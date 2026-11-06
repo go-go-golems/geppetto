@@ -522,3 +522,40 @@ If an engine's client is already pinned by the Pi bridge, it gets pinned twice. 
 - HTTP client construction: `pkg/steps/ai/settings/http_client.go:98–`.
 - Go `net/http` documentation for `Client`, on redirects: headers are forwarded except `Authorization`, `WWW-Authenticate` and `Cookie` to untrusted targets.
 - Related tickets: GEPPETTO-DECISION-001 (PR #444, the triggering review); GEPPETTO-REFRESHABLE-CREDENTIALS-387 (bearer sources); GEPPETTO-PI-SUBSCRIPTION-CREDENTIAL-ADAPTERS (Codex adapter and its route pinning).
+
+## 13. Implementation status (2026-11-06)
+
+Implemented on `task/geppetto-credscope-001`, stacked on PR #444 (`4ab5c800`):
+
+| Phase | Commit | Content |
+|---|---|---|
+| ticket, probe, guide | `c21e151d` | sections 1–12 of this document, `scripts/01-leak-probe`, `sources/01-leak-probe-output.txt` |
+| 1 — primitives | `286b29ac` | `security.Origin`, `ParseOrigin`, `PinnedTransport`, `PinClient`, `ErrOriginNotAllowed`; `credentials.Scoped` |
+| 2 — Pi bridge | `9b35f712` | `pi.endpoint` with the provider table and `NoEndpointError`; pinned clients and scoped sources in `Resolve` and `Decider`; protocol-keyed defaults removed |
+| 3 — settings path | `b99c65ae` | `settings.EnsurePinnedHTTPClient` in every engine and adapter; Responses slot pairing; OpenAI embeddings honour `openai-base-url` |
+| 4 — matrix | `3d6a6e1e` | `pkg/steps/ai/credscope`: 38 rows, with a tripwire on `http.DefaultTransport` |
+| 5 — docs | this commit | help topic `geppetto-credential-scope`, `16-decisions.md`, after-state probe |
+
+### Evidence
+
+- **Probe, before:** `sources/01-leak-probe-output.txt` — six leak paths.
+- **Probe, after:** `sources/04-leak-probe-after.txt`.
+  - Foreign providers without a `baseUrl`, and the cross-slot Responses key, are refused before any request.
+  - Redirects are refused, so `TEAM-SECRET` and `CL-SECRET` reach only `gateway.example`.
+  - OpenAI embeddings send `GW-SECRET` to the configured gateway.
+- **Matrix, before** (the test files copied onto `4ab5c800`): `sources/02-matrix-before.txt`, 14 FAIL.
+- **Matrix, after:** `sources/03-matrix-after.txt`, 38 PASS.
+- **Validation:**
+  - `GOWORK=off go test ./... -count=1` passes, and `make lint` reports 0 issues (golangci-lint, geppetto-lint, glazed-lint).
+  - rag-workbench builds against this branch through `go.work`, and its `pkg/ragjs`, `pkg/llm/...`, `pkg/server` and `cmd/...` tests pass.
+
+### Deviations from the design above
+
+- `ParseOrigin` **ignores** user info instead of rejecting it (§6.4 said "errors"). User info is not part of the origin, and rejecting it could break proxy-style base URLs.
+- The Responses rule gained one case that §7 did not anticipate: when **no** slot has a key (Codex supplies its credential through a transport middleware), the slot is chosen by URL. Without this case, Codex was routed to the openai slot's default.
+- Pin targets include each adapter's own default when the profile names none: `cohere.DefaultBaseURL`, `defaultCohereBaseURL`, `systemone.DefaultBaseURL`, and `geminiDefaultBaseURL` (new, `https://generativelanguage.googleapis.com/`).
+
+### Still open
+
+- The Gemini SDK's cache client (§11): it is not pinned if the SDK builds it itself. Not verified.
+- Path-scoped multi-tenant gateways, and cross-profile stack merges (§11).

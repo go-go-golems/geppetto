@@ -1,0 +1,28 @@
+== pi.Resolve fireworks/m (openai-completions, no baseUrl)
+   expected: no request, or only to fireworks' own host
+   (no request sent)
+   error: pi: fireworks/m has no baseUrl (and provider fireworks has no default endpoint); set baseUrl for provider fireworks in m…
+== pi.Resolve zai/m (anthropic-messages, no baseUrl)
+   expected: no request, or only to zai's own host
+   (no request sent)
+   error: pi: zai/m has no baseUrl (and provider zai has no default endpoint); set baseUrl for provider zai in models.json
+== pi.Resolve gateway/m, gateway answers 307 to other.example
+   expected: GW-SECRET and TEAM-SECRET only at gateway.example
+   gateway.example              /v1/chat/completions         markers=[GW-SECRET TEAM-SECRET]
+   error: Post "https://other.example/v1/chat/completions": request to https://other.example refused (allowed: https://gateway.exa…
+== embeddings openai, openai-base-url=https://gateway.example/v1
+   expected: GW-SECRET only at gateway.example
+   gateway.example              /v1/embeddings               markers=[GW-SECRET]
+   error: error, status code: 400, status: , message: probe
+== open-responses key, only openai-base-url set
+   expected: OR-SECRET not sent to the openai slot's gateway
+   (no request sent)
+   error: open-responses-api-key is set but open-responses-base-url is not; the key is not sent to another slot's URL or to OpenAI…
+== claude, gateway answers 307 to other.example
+   expected: CL-SECRET only at gateway.example
+   gateway.example              /v1/messages                 markers=[CL-SECRET]
+   error: Post "https://other.example/v1/messages": request to https://other.example refused (allowed: https://gateway.example:443…
+== pi.Decider fireworks/m, baseUrl " " (after #444 fixes)
+   expected: refused before any request
+   (no request sent)
+   error: pi: fireworks/m has no baseUrl (and provider fireworks has no default endpoint); set baseUrl for provider fireworks in m…

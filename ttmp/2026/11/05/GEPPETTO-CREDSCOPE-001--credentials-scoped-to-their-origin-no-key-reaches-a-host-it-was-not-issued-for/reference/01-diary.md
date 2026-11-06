@@ -356,3 +356,55 @@ Every engine and adapter that attaches a settings slot's credential now sends th
 
 ### Technical details
 - Row shape: `row{name, run func(*testing.T, *http.Client) error, allowed []string, redirectFrom string}`.
+
+## Step 6: Phase 5 — help topic, decisions doc, after-state probe, guide status
+
+This step documents the behaviour for users and closes the evidence loop. There is a new Glazed help topic, `pkg/doc/topics/17-credential-scope.md` (slug `geppetto-credential-scope`), and `16-decisions.md` now describes the provider-keyed endpoint. The probe re-run on this branch is saved as `sources/04-leak-probe-after.txt`. The guide has a new §13 with the implementation status, the deviations and the open items.
+
+### Prompt Context
+
+**User prompt (verbatim):** see Step 1.
+
+**Assistant interpretation:** Implement guide Phase 5 and close the ticket's documentation.
+
+**Inferred user intent:** Leave users and reviewers able to understand the new errors and behaviour changes.
+
+### What I did
+- The help topic covers:
+  - the error shape;
+  - the scope sources table and the provider default table;
+  - behaviour to be aware of (redirects, Responses slots, embeddings base URL and outbound policy);
+  - guidance for code (`EnsurePinnedHTTPClient`, `PinClient`, adding matrix rows).
+- Re-ran the probe: `GOWORK=off go run ./ttmp/…/scripts/01-leak-probe`.
+- Checked rag-workbench, a downstream user of `pi.Resolve`/`Decider` and `NewOpenAIProvider`:
+  - `go build ./...` passes through the workspace `go.work`;
+  - `go test ./pkg/ragjs/ ./pkg/llm/... ./pkg/server/ ./cmd/... -count=1` passes.
+- Guide §13: the commits table, the evidence, the deviations and the open items.
+
+### Why
+- The behaviour changes (redirects refused, open-responses keys needing their own URL, embeddings honouring `openai-base-url`) produce new errors, and each needs a user-facing explanation that names the fix.
+
+### What worked
+- Probe after: every leak row is either refused before sending, or has its marker only at the configured host (`sources/04-leak-probe-after.txt`).
+- `GOWORK=off go test ./pkg/doc/... -count=1`: ok. The topic is embedded through `pkg/doc/doc.go`.
+
+### What didn't work
+- `go run ./cmd/examples/decision-pi-smoke help geppetto-credential-scope` printed ``Unknown help topic [`geppetto-credential-scope`]``. The example binary does not load Geppetto's doc FS. `help geppetto-decision-package` gives the same answer, so this is not specific to the new page. I changed the cross-reference in `16-decisions.md` from "`geppetto help …`" to "the `geppetto-credential-scope` help topic", because Geppetto has no `geppetto` binary.
+
+### What I learned
+- Geppetto's help topics are surfaced by host binaries (for example pinocchio) that load `pkg/doc`, not by the examples.
+
+### What was tricky to build
+- N/A (documentation).
+
+### What warrants a second pair of eyes
+- Whether the behaviour changes need a release note in addition to the help topic.
+
+### What should be done in the future
+- Verify the Gemini SDK cache client (guide §11).
+
+### Code review instructions
+- `pkg/doc/topics/17-credential-scope.md`; guide §13.
+
+### Technical details
+- Evidence files: `sources/01-leak-probe-output.txt` (before), `02-matrix-before.txt`, `03-matrix-after.txt`, `04-leak-probe-after.txt`.

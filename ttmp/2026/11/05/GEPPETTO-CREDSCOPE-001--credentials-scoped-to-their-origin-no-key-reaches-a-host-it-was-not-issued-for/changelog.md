@@ -7,3 +7,13 @@
 ## 2026-11-05
 
 Ticket opened; inventory and in-process leak probe (6 paths confirmed); intern design guide written
+
+## 2026-11-05
+
+Implemented phases 1-5: Origin/PinnedTransport/PinClient + credentials.Scoped; Pi endpoints by provider with pinned clients; settings-path engines pinned, Responses slot pairing, embeddings honour openai-base-url; 38-row regression matrix (14 fail before, 38 pass after); help topic geppetto-credential-scope
+
+### Related Files
+
+- /home/manuel/workspaces/2026-11-02/rag-workbench/geppetto/pkg/security/origin.go — pinning primitives
+- /home/manuel/workspaces/2026-11-02/rag-workbench/geppetto/pkg/steps/ai/credscope/credscope_test.go — regression matrix
+- /home/manuel/workspaces/2026-11-02/rag-workbench/geppetto/pkg/steps/ai/providers/pi/endpoint.go — provider-keyed endpoints
