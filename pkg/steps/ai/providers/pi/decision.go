@@ -13,7 +13,7 @@ import (
 )
 
 // LunaRouteProvider is LunaRoute's Pi provider name. Its models default to
-// LunaRoute's gateway (providerDefaultBaseURLs) when the catalog has no
+// LunaRoute's gateway (providers/defaults) when the catalog has no
 // baseUrl for them.
 const LunaRouteProvider = "lunaroute"
 

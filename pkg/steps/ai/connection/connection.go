@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/security"
@@ -35,6 +36,8 @@ type Config struct {
 	Headers     http.Header
 	HTTPClient  *http.Client
 	OutboundURL security.OutboundURLOptions
+	// RejectRedirects disables even same-origin redirects for strict API contracts.
+	RejectRedirects bool
 }
 
 // Connection owns a fixed endpoint and its authority. It exposes no credential,
@@ -85,18 +88,23 @@ func New(config Config) (*Connection, error) {
 	if _, err := aitransport.NewHeaderSet(http.Header{}, rules...); err != nil {
 		return nil, err
 	}
-	headers := config.Headers.Clone()
-	for name, values := range headers {
-		// Apply the same framing/host and value validation to default headers.
-		set, err := aitransport.NewHeaderSet(http.Header{}, aitransport.HeaderRule{Name: name, Sensitive: true})
-		if err != nil {
-			return nil, err
+	headers := http.Header{}
+	for name, values := range config.Headers {
+		canonical := http.CanonicalHeaderKey(strings.TrimSpace(name))
+		if _, exists := headers[canonical]; exists {
+			return nil, errors.New("duplicate API default header")
 		}
+		// Apply the same framing/host and value validation to default headers.
 		for _, value := range values {
-			if err := set.Set(name, value); err != nil {
+			set, err := aitransport.NewHeaderSet(http.Header{}, aitransport.HeaderRule{Name: canonical, Sensitive: true})
+			if err != nil {
+				return nil, err
+			}
+			if err := set.Set(canonical, value); err != nil {
 				return nil, err
 			}
 		}
+		headers[canonical] = append([]string(nil), values...)
 	}
 	c := &Connection{
 		provider: strings.TrimSpace(config.Provider), baseURL: *base, origin: origin,
@@ -111,6 +119,11 @@ func New(config Config) (*Connection, error) {
 	}
 	if config.HTTPClient != nil {
 		c.client = *config.HTTPClient
+	}
+	if config.RejectRedirects {
+		c.client.CheckRedirect = func(*http.Request, []*http.Request) error {
+			return errors.New("API connection rejects redirects")
+		}
 	}
 	next := c.client.Transport
 	if next == nil {
@@ -129,7 +142,11 @@ func (c *Connection) Resolve(operation string) (aitransport.RequestContext, erro
 	if c == nil {
 		return aitransport.RequestContext{}, errors.New("nil API connection")
 	}
-	return aitransport.ResolveAndValidate(c.provider, operation, &c.baseURL, c.routes[operation], c.checkURL)
+	resolver, ok := c.routes[operation]
+	if !ok {
+		return aitransport.RequestContext{}, errors.Errorf("API connection has no route %q", operation)
+	}
+	return aitransport.ResolveAndValidate(c.provider, operation, &c.baseURL, resolver, c.checkURL)
 }
 
 type routeContextKey struct{}
@@ -321,6 +338,8 @@ func (identityRoute) Resolve(r aitransport.RouteRequest) (*url.URL, error) {
 	return &u, nil
 }
 
+var routeSegment = regexp.MustCompile(`^[A-Za-z0-9._~-]+$`)
+
 type relativeRoute string
 
 // Relative declares an operation path below the base URL. Absolute URLs,
@@ -329,12 +348,12 @@ func Relative(path string) aitransport.RouteResolver { return relativeRoute(path
 
 func (path relativeRoute) Resolve(r aitransport.RouteRequest) (*url.URL, error) {
 	rel, err := url.Parse(string(path))
-	if err != nil || rel.IsAbs() || rel.Host != "" || rel.User != nil || rel.RawQuery != "" || rel.Fragment != "" || strings.HasPrefix(string(path), "/") || strings.Contains(string(path), "\\") {
+	if err != nil || rel.IsAbs() || rel.Host != "" || rel.User != nil || rel.RawQuery != "" || rel.ForceQuery || rel.Fragment != "" || strings.HasPrefix(string(path), "/") || strings.Contains(string(path), "\\") {
 		return nil, errors.New("API route must be a relative path")
 	}
 	for _, segment := range strings.Split(rel.Path, "/") {
-		if segment == "." || segment == ".." {
-			return nil, errors.New("API route cannot contain dot segments")
+		if segment == "." || segment == ".." || !routeSegment.MatchString(segment) {
+			return nil, errors.New("API route requires plain relative path segments")
 		}
 	}
 	target := r.BaseURL()

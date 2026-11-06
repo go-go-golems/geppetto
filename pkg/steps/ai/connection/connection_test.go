@@ -255,7 +255,7 @@ func TestInvalidDeclarationsAndRelativeRoutes(t *testing.T) {
 		require.Error(t, err)
 		require.NotContains(t, err.Error(), "SECRET")
 	}
-	for _, path := range []string{"https://foreign.example", "//foreign.example", "/root", "../other", "%2e%2e/other", "a/../b", "a?key=SECRET", "a#SECRET"} {
+	for _, path := range []string{"https://foreign.example", "//foreign.example", "/root", "../other", "%2e%2e/other", "a/../b", "a?key=SECRET", "a#SECRET", "", "a b", "a//b", "a?"} {
 		cfg := config(nil)
 		cfg.Routes["chat"] = connection.Relative(path)
 		c, err := connection.New(cfg)

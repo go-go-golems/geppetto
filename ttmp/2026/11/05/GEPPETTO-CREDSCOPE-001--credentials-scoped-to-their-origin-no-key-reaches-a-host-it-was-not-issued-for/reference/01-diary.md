@@ -607,3 +607,82 @@ The migration removes independent credential resolution from payload code and st
 - No new environment reads or dependencies were added.
 - Static configuration is resolved once; renewable credentials remain request-time lookups within the connection.
 - This checkpoint removes more request setup code than it adds; provider payloads and SSE reducers retain their existing responsibilities.
+
+
+## Step 10: Complete provider migration and atomic embedding credential selection
+
+Embedding payload clients now take a connection directly, including OpenAI, Cohere and Ollama. The OpenAI SDK factory is shared with Whisper. Rerank providers (Cohere, llama.cpp and Qwen3 completion) and System One execute through the same connection and accept a prebound connection without independently replacing its endpoint or policy. Their direct configuration constructors also establish the same binding, so skipping a settings factory does not skip enforcement.
+
+The settings factory now selects embedding credential layers atomically. A nonblank local key or URL replaces the provider's whole pair; an incomplete local pair is refused. Per-call credential overrides have the same contract. Provider endpoint constants now live in one provider-keyed defaults package. The expanded regression matrix has 64 cases, including direct bound constructors, local providers with auth, counters, Whisper and Gemini cache.
+
+### Prompt Context
+**User prompt (verbatim):** see Step 7 for implementation/diary requirements; Step 8 for the streamlined authenticated-call goal; Step 9 for API-family scope. The user subsequently said "continue" while this work was active.
+**Assistant interpretation:** Finish applying the common request boundary across the requested API families and close the deferred layer-pairing gap.
+**Inferred user intent:** Each request encoder should receive one API authority, regardless of modality or SDK.
+**Commit (inference):** `aa77b9b3` — "refactor(ai): share bound connections across inference, Pi and audio"
+
+### What I did
+- Changed OpenAI, Cohere and Ollama embedding constructors to accept a connection. Removed separate network/client options from these payload clients.
+- Added a complete connection option to the embedding factory for host-owned bindings.
+- Replaced embedding-local and per-call field merges with atomic pair selection and actionable errors for partial bindings.
+- Preserved parsed-section provenance rather than decoding top-level and local credentials into the same struct. Added matching local URL inputs for credential-specific CLI sections.
+- Snapshotted source configuration in the factory and retained URL policy selection at the binding boundary.
+- Migrated hosted/local rerank request senders to `NewRequest`/`Do`; added prebound connection input to local providers so authenticated gateways need no new auth path.
+- Centralized strict redirect rejection as `connection.Config.RejectRedirects` and removed duplicated client-cloning/route-sending helpers.
+- Removed unused `settings.EnsurePinnedHTTPClient`: consumers now bind the full connection rather than assembling and separately pinning a client.
+- Added `providers/defaults` as the single source of canonical runtime vendor endpoints; Pi still defaults by provider identity, never protocol.
+- Normalized and copied default header names/values in the connection, including multiple values.
+- Removed the OpenAI SDK placeholder: this SDK supports an empty configured token, and the connection installs real auth when needed. Only SDKs requiring a nonempty key use the inert placeholder.
+- Updated behavioral tests to check the sent credential and destination instead of reading private raw-key/client fields.
+- Fixed an old embedding batch test that claimed to mock its SDK but actually attempted a network call with a dummy key; it now uses an in-process recorder.
+- Extended the credential matrix from 38 to 64 cases. New refusal rows cover a foreign Responses route and a local embedding key with an inherited parent URL.
+
+### Why
+- Direct constructors must establish or accept the same authority as factory-created providers.
+- Layer provenance is lost after independent map merges; refusal must happen while the source layers are still distinguishable.
+- An already bound connection owns URL policy; applying fresh default policy from an otherwise empty provider options struct would incorrectly reject a deliberately local connection.
+- Central provider defaults reduce endpoint duplication while preserving the provider-versus-protocol distinction.
+
+### What worked
+- `GOWORK=off GOCACHE=/tmp/geppetto-bound-go-cache go test ./... -run '^$'`: every repository package and test compiled, including examples and ticket probes.
+- `GOWORK=off GOCACHE=/tmp/geppetto-bound-go-cache go build ./...`: passed. It emitted a nonfatal VCS stat-cache warning under the read-only module cache.
+- `GOWORK=off GOCACHE=/tmp/geppetto-bound-go-cache GOPROXY=off go build -buildvcs=false ./...`: passed without that metadata-cache warning.
+- Focused connection/matrix/embedding checks passed: all 64 credential paths, 16 atomic-pair cases across OpenAI/Cohere, factory fixtures, model/dimension behavior and in-process batch tests.
+- Explicit connections with local-network permission are validated by their own policy rather than a second empty adapter policy.
+
+### What didn't work
+- The first embedding factory build reported `undefined: err` after the shared connection construction replaced the provider switch. Added one function-local error variable.
+- The first local-rerank build reported `qwen3/provider.go:224:25: p.client undefined`; changed the remaining completion request to `p.connection.Do`.
+- Embedding test compilation initially referenced removed fields (`ollamaProvider.baseURL`, `cohereProvider.apiKey`, `cohereProvider.httpClient`, `cohereProvider.endpoint`). Updated tests to observe requests and non-secret route metadata instead of restoring those fields.
+- Expanding the route validation cases exposed `a?`: `TestInvalidDeclarationsAndRelativeRoutes` expected refusal but got nil. `url.Parse` records an empty query delimiter as `ForceQuery`; added that explicit check.
+- The whole-repository build emitted `go: writing stat cache: open /home/manuel/go/pkg/mod/cache/download/github.com/go-go-golems/geppetto/@v/v0.13.14-0.20261106223354-aa77b9b365b5.info...tmp: read-only file system`. The build ultimately returned exit 0; disabling VCS stamping avoids that sandbox-only write.
+
+### What I learned
+- OpenAI's SDK accepts an empty constructor token and does not install an Authorization header for it, so it needs no inert placeholder.
+- Ollama and local rerank can use authenticated gateways through the same connection even though their original adapters had no API-key fields.
+- A source factory and a payload client are different boundaries: raw configuration may enter the factory/constructor, while the reusable request implementation holds only the connection.
+
+### What was tricky to build
+- Preserving local Ollama's existing explicit HTTP/local-network policy while making hosted providers fail closed.
+- Keeping provider byte limits, strict response validation and pricing independent from network authority during the rerank migration.
+- Ensuring a complete local override replaces both fields, while blank local entries leave the parent binding alone.
+- Removing redundant route helpers without losing their traversal checks; those checks now live in the shared connection's `Relative` resolver.
+
+### What warrants a second pair of eyes
+- Constructor changes in embeddings and the new requirement for paired local credential overrides.
+- Selection of the outbound policy when an adapter receives an already bound connection.
+- Full runtime execution of existing loopback tests remains restricted by the environment; their code compiles and new recording checks exercise the migrated paths.
+
+### What should be done in the future
+- Audit remaining credential-source HTTP calls and provider-specific auth helpers so they cannot reintroduce an ambient client or an issuer/default mismatch.
+- Complete the public usage guide, final lint/race/downstream checks and design status.
+
+### Code review instructions
+- Start at `embeddings/settings_factory.go` and `embeddings/connection_test.go` for source pairing.
+- Read `credscope/bound_paths_test.go` for direct constructor coverage.
+- Review rerank constructor connection branches, the shared strict redirect setting and `providers/defaults/endpoints.go`.
+
+### Technical details
+- The 64-row matrix uses marker credentials and a tripwire on the ambient transport; no real service is called.
+- `Connection` remains provider-neutral; only source resolvers import canonical vendor defaults.
+- An explicit connection is exclusive with separate endpoint/key/client inputs, while model and response-limit options remain independent.

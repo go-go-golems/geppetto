@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	providerdefaults "github.com/go-go-golems/geppetto/pkg/steps/ai/providers/defaults"
 	"io"
 	"net/http"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/rerank"
 	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 )
 
 const (
@@ -24,7 +26,7 @@ const (
 	// llama.cpp adapter, a hosted provider has exactly one canonical endpoint,
 	// so a default is unambiguous; the BaseURL option remains as an override
 	// for proxies and tests (GEPPETTO-RERANKER-002 decision record DR-5).
-	DefaultBaseURL = "https://api.cohere.com"
+	DefaultBaseURL = providerdefaults.CohereBaseURL
 
 	// DefaultMaxRequestBytes is the conservative default request body bound.
 	DefaultMaxRequestBytes int64 = 2 << 20 // 2 MiB
@@ -49,6 +51,7 @@ const (
 // CostPerSearch is optional; when nil or when the response reports no billed
 // units, the response Cost is nil (unknown) rather than zero.
 type Options struct {
+	Connection       *connection.Connection
 	APIKey           string
 	BaseURL          string
 	Model            string
@@ -63,10 +66,8 @@ type Options struct {
 type Provider struct {
 	baseURL          string
 	endpoint         string
-	apiKey           string
+	connection       *connection.Connection
 	model            string
-	client           *http.Client
-	outboundURL      security.OutboundURLOptions
 	maxRequestBytes  int64
 	maxResponseBytes int64
 	costPerSearch    *float64
@@ -85,12 +86,19 @@ var _ rerank.Provider = (*Provider)(nil)
 // The final endpoint is built with url.JoinPath and re-validated under the
 // outbound URL policy.
 func New(options Options) (*Provider, error) {
+	c := options.Connection
+	if c != nil && (options.APIKey != "" || options.BaseURL != "" || options.HTTPClient != nil) {
+		return nil, fmt.Errorf("connection already owns endpoint, authentication and client: %w", rerank.ErrInvalidRequest)
+	}
 	apiKey := strings.TrimSpace(options.APIKey)
-	if apiKey == "" {
+	if apiKey == "" && c == nil {
 		return nil, fmt.Errorf("cohere api key is required: %w", rerank.ErrInvalidRequest)
 	}
 
 	baseURL := strings.TrimSpace(options.BaseURL)
+	if c != nil {
+		baseURL = c.BaseURL()
+	}
 	if baseURL == "" {
 		baseURL = DefaultBaseURL
 	}
@@ -128,19 +136,27 @@ func New(options Options) (*Provider, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cohere endpoint construction failed: %w: %w", err, rerank.ErrInvalidRequest)
 	}
-	if err := security.ValidateOutboundURL(endpoint, options.OutboundURL); err != nil {
-		return nil, fmt.Errorf("cohere endpoint rejected by outbound URL policy: %w: %w", err, rerank.ErrInvalidRequest)
+	if c == nil {
+		if err := security.ValidateOutboundURL(endpoint, options.OutboundURL); err != nil {
+			return nil, fmt.Errorf("cohere endpoint rejected by outbound URL policy: %w: %w", err, rerank.ErrInvalidRequest)
+		}
 	}
 
-	client := cloneClientWithRedirectRejection(options.HTTPClient)
+	if c == nil {
+		c, err = connection.New(connection.Config{Provider: ProviderName, BaseURL: baseURL, Routes: Routes(), Auth: connection.StaticBearer(apiKey), HTTPClient: options.HTTPClient, OutboundURL: options.OutboundURL, RejectRedirects: true})
+		if err != nil {
+			return nil, fmt.Errorf("cohere connection: %w: %w", err, rerank.ErrInvalidRequest)
+		}
+	}
+	if _, err := c.Resolve("rerank"); err != nil {
+		return nil, err
+	}
 
 	return &Provider{
 		baseURL:          baseURL,
 		endpoint:         endpoint,
-		apiKey:           apiKey,
+		connection:       c,
 		model:            model,
-		client:           client,
-		outboundURL:      options.OutboundURL,
 		maxRequestBytes:  maxRequestBytes,
 		maxResponseBytes: maxResponseBytes,
 		costPerSearch:    options.CostPerSearch,
@@ -209,18 +225,16 @@ func (p *Provider) Rerank(ctx context.Context, in rerank.Request) (rerank.Respon
 			len(payload), p.maxRequestBytes, rerank.ErrRequestTooLarge)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.endpoint, bytes.NewReader(payload))
+	httpReq, err := p.connection.NewRequest(ctx, http.MethodPost, "rerank", bytes.NewReader(payload))
 	if err != nil {
 		return rerank.Response{}, fmt.Errorf("cohere could not create provider request: %w", rerank.ErrUnavailable)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
-	// The API key appears exactly twice in this package: the struct field above
-	// and this header. It must never appear in an error, log, or trace.
-	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
+
 	httpReq.Header.Set("X-Client-Name", clientName)
 
-	httpResp, err := p.client.Do(httpReq)
+	httpResp, err := p.connection.Do(httpReq)
 	if err != nil {
 		return rerank.Response{}, redactTransportError(err)
 	}
@@ -340,24 +354,5 @@ func computeSearchCost(m *meta, costPerSearch *float64) *float64 {
 	return &cost
 }
 
-// cloneClientWithRedirectRejection returns an http.Client that rejects every
-// redirect. The canonical hosted endpoint does not redirect; failing closed
-// keeps credentials from crossing origins and makes endpoint drift loud
-// (GEPPETTO-RERANKER-002 decision record DR-2). If options.HTTPClient is nil,
-// a new client is constructed. When injected, the client is shallow-copied so
-// its Transport, Jar, and Timeout are retained while CheckRedirect is
-// replaced. The caller's client is never mutated in place.
-func cloneClientWithRedirectRejection(injected *http.Client) *http.Client {
-	rejectRedirect := func(_ *http.Request, _ []*http.Request) error {
-		return fmt.Errorf("rerank provider rejects redirects")
-	}
-	if injected == nil {
-		return &http.Client{
-			CheckRedirect: rejectRedirect,
-			Timeout:       0,
-		}
-	}
-	cloned := *injected
-	cloned.CheckRedirect = rejectRedirect
-	return &cloned
-}
+// Routes declares the hosted reranking operation.
+func Routes() connection.Routes { return connection.Routes{"rerank": connection.Relative(rerankPath)} }

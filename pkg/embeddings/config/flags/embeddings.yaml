@@ -42,3 +42,7 @@ flags:
     type: string
     help: The API key for the Cohere embeddings provider (decoded into api_keys via the *-api-key convention, like openai-api-key in the chat sections)
     default: ""
+  - name: cohere-base-url
+    type: string
+    help: The Cohere API root paired with an embedding-local cohere-api-key; configure both together
+    default: ""

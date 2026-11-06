@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	providerdefaults "github.com/go-go-golems/geppetto/pkg/steps/ai/providers/defaults"
 	"strconv"
 	"strings"
 	"text/template"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	geppetto_openai "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
@@ -35,6 +37,7 @@ type providerOptions struct {
 	baseURL      string
 	apiKey       string
 	dimensions   int
+	connection   *connection.Connection
 }
 
 // WithType sets the provider type
@@ -74,7 +77,8 @@ func WithDimensions(d int) ProviderOption {
 
 // SettingsFactory creates embedding providers based on configuration
 type SettingsFactory struct {
-	config *config.EmbeddingsConfig
+	credentialPairErrors map[string]error
+	config               *config.EmbeddingsConfig
 	// api carries the profile-level API settings used to derive the outbound
 	// URL policy for hosted providers; nil means the fail-closed default.
 	api *settings.APISettings
@@ -88,12 +92,13 @@ var _ ProviderFactory = &SettingsFactory{}
 // NewSettingsFactory creates a new factory that uses the provided configuration
 // openAIDefaultEmbeddingsBaseURL is OpenAI's API root, used when neither an
 // option nor openai-base-url names one.
-const openAIDefaultEmbeddingsBaseURL = "https://api.openai.com/v1"
+const openAIDefaultEmbeddingsBaseURL = providerdefaults.OpenAIBaseURL
 
 func NewSettingsFactory(config *config.EmbeddingsConfig) *SettingsFactory {
-	return &SettingsFactory{
-		config: config,
+	if config != nil {
+		config = config.Clone()
 	}
+	return &SettingsFactory{config: config}
 }
 
 // NewProvider creates a new embedding provider based on the configuration and options
@@ -137,94 +142,70 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 	}
 
 	var provider Provider
+	var err error
 
-	switch options.providerType {
-	case "ollama":
-		baseURL := "http://localhost:11434"
-		if options.baseURL != "" {
-			baseURL = options.baseURL
-		} else if f.config.BaseURLs != nil {
-			if url, ok := f.config.BaseURLs["ollama-base-url"]; ok {
-				baseURL = url
+	c := options.connection
+	if c != nil && (options.apiKey != "" || options.baseURL != "") {
+		return nil, fmt.Errorf("connection already owns credentials and endpoint")
+	}
+	if c == nil {
+		if pairErr := f.credentialPairErrors[options.providerType]; pairErr != nil {
+			return nil, pairErr
+		}
+		key, baseURL := "", ""
+		if options.apiKey != "" || options.baseURL != "" {
+			if options.providerType != "ollama" && (options.apiKey == "" || options.baseURL == "") {
+				return nil, fmt.Errorf("embeddings credential overrides require both API key and base URL")
 			}
+			key, baseURL = options.apiKey, options.baseURL
+		} else {
+			key = f.config.APIKeys[options.providerType+"-api-key"]
+			baseURL = f.config.BaseURLs[options.providerType+"-base-url"]
 		}
-		provider = NewOllamaProvider(baseURL, options.engine, options.dimensions)
-
-	case "openai":
-		apiKey := options.apiKey
-		if apiKey == "" && f.config.APIKeys != nil {
-			if key, ok := f.config.APIKeys["openai-api-key"]; ok {
-				apiKey = key
+		defaults := map[string]string{"openai": openAIDefaultEmbeddingsBaseURL, "cohere": defaultCohereBaseURL, "ollama": "http://localhost:11434"}
+		defaultURL, ok := defaults[options.providerType]
+		if !ok {
+			return nil, fmt.Errorf("unsupported provider type for embeddings: %s", options.providerType)
+		}
+		if strings.TrimSpace(baseURL) == "" {
+			baseURL = defaultURL
+		}
+		auth := connection.Authentication{}
+		if options.providerType != "ollama" {
+			if strings.TrimSpace(key) == "" {
+				return nil, fmt.Errorf("no API key provided for %s", map[string]string{"cohere": "Cohere", "openai": "OpenAI"}[options.providerType])
 			}
+			auth = connection.StaticBearer(key)
 		}
-		if apiKey == "" {
-			return nil, fmt.Errorf("no API key provided for OpenAI")
+		routes := connection.Routes{"embed": connection.Relative("embeddings")}
+		if options.providerType == "cohere" {
+			routes = CohereRoutes()
 		}
-
-		// The key in the openai slot goes to the URL in the same slot
-		// (GEPPETTO-CREDSCOPE-001): chat already honours openai-base-url, and
-		// embeddings used to ignore it, sending a gateway's key to OpenAI.
-		baseURL := options.baseURL
-		if baseURL == "" && f.config.BaseURLs != nil {
-			baseURL = strings.TrimSpace(f.config.BaseURLs["openai-base-url"])
+		if options.providerType == "ollama" {
+			routes = OllamaRoutes()
 		}
-		if baseURL == "" {
-			baseURL = openAIDefaultEmbeddingsBaseURL
+		policy := settings.OutboundURLOptions(f.api, "embeddings")
+		// Local Ollama is an explicitly local provider, as before this migration.
+		if options.providerType == "ollama" {
+			policy = security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true}
 		}
-		if err := security.ValidateOutboundURL(baseURL, settings.OutboundURLOptions(f.api, "embeddings")); err != nil {
-			return nil, fmt.Errorf("invalid OpenAI embeddings base URL: %w", err)
-		}
-		httpClient, err := settings.EnsurePinnedHTTPClient(f.client, baseURL)
-		if err != nil {
-			return nil, fmt.Errorf("embeddings http client: %w", err)
-		}
-		provider = NewOpenAIProvider(apiKey, openai.EmbeddingModel(options.engine), options.dimensions,
-			WithOpenAIBaseURL(baseURL), WithOpenAIHTTPClient(httpClient))
-
-	case "cohere":
-		apiKey := options.apiKey
-		if apiKey == "" && f.config.APIKeys != nil {
-			if key, ok := f.config.APIKeys["cohere-api-key"]; ok {
-				apiKey = key
-			}
-		}
-		if apiKey == "" {
-			return nil, fmt.Errorf("no API key provided for Cohere")
-		}
-
-		providerOpts := []func(*CohereProvider){}
-		baseURL := options.baseURL
-		if baseURL == "" && f.config.BaseURLs != nil {
-			if url, ok := f.config.BaseURLs["cohere-base-url"]; ok {
-				baseURL = url
-			}
-		}
-		if baseURL != "" {
-			providerOpts = append(providerOpts, WithCohereBaseURL(baseURL))
-		}
-		// Honor the host-owned HTTP client (timeouts, proxy, TLS) and enforce
-		// the repository outbound URL policy on the embed endpoint, matching
-		// the rerank factory's wiring.
-		pinTo := baseURL
-		if pinTo == "" {
-			pinTo = defaultCohereBaseURL
-		}
-		httpClient, err := settings.EnsurePinnedHTTPClient(f.client, pinTo)
-		if err != nil {
-			return nil, fmt.Errorf("embeddings http client: %w", err)
-		}
-		providerOpts = append(providerOpts,
-			WithCohereHTTPClient(httpClient),
-			WithCohereOutboundURL(settings.OutboundURLOptions(f.api, "embeddings")),
-		)
-
-		provider, err = NewCohereProvider(apiKey, options.engine, options.dimensions, providerOpts...)
+		c, err = settings.BindConnection(f.client, connection.Config{Provider: options.providerType, BaseURL: baseURL, Routes: routes, Auth: auth, OutboundURL: policy})
 		if err != nil {
 			return nil, err
 		}
-
+	}
+	switch options.providerType {
+	case "openai":
+		provider, err = NewOpenAIProvider(c, openai.EmbeddingModel(options.engine), options.dimensions)
+	case "cohere":
+		provider, err = NewCohereProvider(c, options.engine, options.dimensions)
+	case "ollama":
+		provider, err = NewOllamaProvider(c, options.engine, options.dimensions)
 	default:
 		return nil, fmt.Errorf("unsupported provider type for embeddings: %s", options.providerType)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	// Wrap with caching if enabled
@@ -247,30 +228,27 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 	}
 }
 
+// NewSettingsFactoryFromParsedValues keeps section provenance through pair selection.
 func NewSettingsFactoryFromParsedValues(parsedValues *values.Values) (ProviderFactory, error) {
-	embeddingsSettings := &config.EmbeddingsConfig{}
-	// try loading openai API keys
+	api := settings.NewAPISettings()
 	if _, ok := parsedValues.Get(geppetto_openai.OpenAiChatSlug); ok {
-		err := parsedValues.DecodeSectionInto(geppetto_openai.OpenAiChatSlug, embeddingsSettings)
-		if err != nil {
+		if err := parsedValues.DecodeSectionInto(geppetto_openai.OpenAiChatSlug, api); err != nil {
 			return nil, err
 		}
 	}
-	err := parsedValues.DecodeSectionInto(config.EmbeddingsSlug, embeddingsSettings)
-	if err != nil {
+	local := &config.EmbeddingsConfig{}
+	if err := parsedValues.DecodeSectionInto(config.EmbeddingsSlug, local); err != nil {
 		return nil, err
 	}
 	if _, ok := parsedValues.Get(config.EmbeddingsApiKeySlug); ok {
-		err = parsedValues.DecodeSectionInto(config.EmbeddingsApiKeySlug, embeddingsSettings)
-		if err != nil {
+		if err := parsedValues.DecodeSectionInto(config.EmbeddingsApiKeySlug, local); err != nil {
 			return nil, err
 		}
 	}
-
-	return NewSettingsFactory(embeddingsSettings), nil
+	return NewSettingsFactoryFromInferenceSettings(&settings.InferenceSettings{API: api, Embeddings: local}), nil
 }
 
-// NewSettingsFactoryFromInferenceSettings creates a new factory from InferenceSettings for backwards compatibility
+// NewSettingsFactoryFromInferenceSettings creates a factory while retaining credential-layer provenance
 func NewSettingsFactoryFromInferenceSettings(s *settings.InferenceSettings) *SettingsFactory {
 	config := &config.EmbeddingsConfig{
 		APIKeys:  make(map[string]string),
@@ -312,28 +290,31 @@ func NewSettingsFactoryFromInferenceSettings(s *settings.InferenceSettings) *Set
 		}
 	}
 
+	pairErrors := map[string]error{}
 	if s.Embeddings != nil {
-		// Embedding-local credentials and endpoints are more specific than the
-		// top-level API maps and should win when both are present. Blank local
-		// values are skipped: they cannot authenticate anything, and overlaying
-		// them would shadow a valid top-level entry while validation (which
-		// falls back to the top-level key) still reports success.
-		for apiType, key := range s.Embeddings.APIKeys {
-			if strings.TrimSpace(key) == "" {
+		for _, provider := range []string{"openai", "cohere", "ollama"} {
+			key := strings.TrimSpace(s.Embeddings.APIKeys[provider+"-api-key"])
+			endpoint := strings.TrimSpace(s.Embeddings.BaseURLs[provider+"-base-url"])
+			if key == "" && endpoint == "" {
 				continue
 			}
-			config.APIKeys[apiType] = key
-		}
-		for apiType, url := range s.Embeddings.BaseURLs {
-			if strings.TrimSpace(url) == "" {
-				continue
+			// A local layer replaces the whole binding. It cannot inherit the other field.
+			delete(config.APIKeys, provider+"-api-key")
+			delete(config.BaseURLs, provider+"-base-url")
+			if provider != "ollama" && (key == "" || endpoint == "") {
+				pairErrors[provider] = fmt.Errorf("embedding-local %s credentials require both api_keys.%s-api-key and base_urls.%s-base-url", provider, provider, provider)
 			}
-			config.BaseURLs[apiType] = url
+			config.APIKeys[provider+"-api-key"] = key
+			config.BaseURLs[provider+"-base-url"] = endpoint
 		}
 	}
 
 	factory := NewSettingsFactory(config)
+	factory.credentialPairErrors = pairErrors
 	factory.api = s.API
+	if s.API != nil {
+		factory.api = s.API.Clone()
+	}
 	factory.client = s.Client
 	return factory
 }
@@ -432,4 +413,9 @@ func (f *SettingsFactory) GetEmbeddingTagFunc() emrichen.TagFunc {
 
 		return emrichen.ValueToNode(embedding)
 	}
+}
+
+// WithConnection supplies a complete authority without separate key/URL overrides.
+func WithConnection(c *connection.Connection) ProviderOption {
+	return func(o *providerOptions) { o.connection = c }
 }

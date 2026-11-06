@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	providerdefaults "github.com/go-go-golems/geppetto/pkg/steps/ai/providers/defaults"
 	"io"
 	"net/http"
 	"net/url"
@@ -27,7 +28,7 @@ const (
 	ProviderName = "systemone"
 	// DefaultBaseURL is LunaRoute's API root (the OpenAI-style base URL Pi
 	// stores); the endpoint is DefaultBaseURL + "/systemone".
-	DefaultBaseURL = "https://gw.lunaroute.com/v1"
+	DefaultBaseURL = providerdefaults.LunaRouteBaseURL
 	// DefaultMaxRequestBytes matches the gateway's 8 MiB route cap.
 	DefaultMaxRequestBytes int64 = 8 << 20
 	// DefaultMaxResponseBytes bounds the response body.
@@ -111,8 +112,10 @@ func New(o Options) (*Provider, error) {
 	if err != nil {
 		return nil, invalid("endpoint construction failed")
 	}
-	if err := security.ValidateOutboundURL(endpoint, o.OutboundURL); err != nil {
-		return nil, fmt.Errorf("systemone endpoint rejected by outbound URL policy: %w: %w", err, decision.ErrInvalidRequest)
+	if c == nil {
+		if err := security.ValidateOutboundURL(endpoint, o.OutboundURL); err != nil {
+			return nil, fmt.Errorf("systemone endpoint rejected by outbound URL policy: %w: %w", err, decision.ErrInvalidRequest)
+		}
 	}
 	maxReq, maxResp := o.MaxRequestBytes, o.MaxResponseBytes
 	if maxReq == 0 {
@@ -131,7 +134,7 @@ func New(o Options) (*Provider, error) {
 		}
 		c, err = connection.New(connection.Config{
 			Provider: ProviderName, BaseURL: baseURL, Routes: Routes(), Auth: auth,
-			HTTPClient: rejectRedirects(o.HTTPClient), OutboundURL: o.OutboundURL,
+			HTTPClient: o.HTTPClient, OutboundURL: o.OutboundURL, RejectRedirects: true,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("systemone connection: %w: %w", err, decision.ErrInvalidRequest)
@@ -452,16 +455,6 @@ func decodeOne(raw []byte, v any) error {
 		return errors.New("trailing data")
 	}
 	return nil
-}
-
-func rejectRedirects(c *http.Client) *http.Client {
-	reject := func(*http.Request, []*http.Request) error { return errors.New("systemone rejects redirects") }
-	if c == nil {
-		return &http.Client{CheckRedirect: reject, Timeout: 60 * time.Second}
-	}
-	cloned := *c
-	cloned.CheckRedirect = reject
-	return &cloned
 }
 
 func sortedKeys[V any](m map[string]V) []string {

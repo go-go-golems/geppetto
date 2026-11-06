@@ -2,6 +2,7 @@ package openai_responses
 
 import (
 	"fmt"
+	providerdefaults "github.com/go-go-golems/geppetto/pkg/steps/ai/providers/defaults"
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/security"
@@ -16,7 +17,7 @@ var responsesSlotChain = []types.ApiType{types.ApiTypeOpenResponses, types.ApiTy
 
 // openAIDefaultBaseURL is OpenAI's API root, the default only for the
 // OpenAI-named slots.
-const openAIDefaultBaseURL = "https://api.openai.com/v1"
+const openAIDefaultBaseURL = providerdefaults.OpenAIBaseURL
 
 // responsesSlot is the key and base URL of one settings slot, resolved as a
 // pair so a key is never combined with another slot's URL.

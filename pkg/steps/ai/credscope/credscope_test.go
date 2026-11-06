@@ -288,7 +288,7 @@ func rows() []row {
 	add(row{name: "embeddings openai default", run: embedRow("openai", "openai-api-key", "openai-base-url", ""), allowed: []string{"api.openai.com"}})
 	add(row{name: "pi first-party default", run: piRow("openai", map[string]any{"api": "openai-completions"}, false), allowed: []string{"api.openai.com"}})
 	add(row{name: "pi lunaroute decider default", run: piRow("lunaroute", map[string]any{"api": "openai-completions"}, true), allowed: []string{"gw.lunaroute.com"}})
-	return rs
+	return append(rs, additionalBoundRows()...)
 }
 
 func quote(s string) string { return `"` + s + `"` }

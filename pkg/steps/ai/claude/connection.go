@@ -4,6 +4,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
+	providerdefaults "github.com/go-go-golems/geppetto/pkg/steps/ai/providers/defaults"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
 	"net/http"
@@ -43,7 +44,7 @@ func resolveClaudeConnection(s *settings.InferenceSettings, source credentials.B
 		headers.Set("Authorization", "Bearer "+bearer)
 	}
 	return settings.ResolveAPIConnection(s.API, s.Client, settings.ConnectionSpec{
-		Slot: "claude", DefaultBaseURL: "https://api.anthropic.com", Routes: api.Routes(),
+		Slot: "claude", DefaultBaseURL: providerdefaults.AnthropicBaseURL, Routes: api.Routes(),
 		TokenHeaders: carriers, TokenSource: source, Headers: headers,
 	})
 }

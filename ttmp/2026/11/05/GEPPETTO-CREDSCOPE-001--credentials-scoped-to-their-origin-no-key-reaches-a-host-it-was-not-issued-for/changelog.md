@@ -29,3 +29,7 @@ Implement the immutable bound connection and shared authenticated request execut
 ## 2026-11-06
 
 Migrate inference, token counting, Pi, System One binding and Whisper to shared connections; original matrix and recording SDK/mutation tests pass
+
+## 2026-11-06
+
+Finish embeddings/rerank migration and atomic credential pairs; centralize provider defaults; 64-path matrix and repository compile/build pass

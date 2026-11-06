@@ -12,7 +12,7 @@ func NewClient(c *connection.Connection) (*openai.Client, error) {
 	if c == nil {
 		return nil, errors.New("OpenAI SDK requires a bound API connection")
 	}
-	cfg := openai.DefaultConfig(connection.SDKAPIKey)
+	cfg := openai.DefaultConfig("")
 	cfg.BaseURL = c.BaseURL()
 	cfg.HTTPClient = c.SDKClient()
 	return openai.NewClientWithConfig(cfg), nil

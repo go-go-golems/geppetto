@@ -9,5 +9,6 @@
 - [x] Design 02: immutable bound connections and migration contracts <!-- t:h2bn -->
 - [x] Implement bound connection transport, scoped authentication, replay and adversarial tests <!-- t:0ojx -->
 - [x] Route chat, Responses, Claude and Gemini requests through bound connections <!-- t:u2g1 -->
-- [ ] Bind Pi, embeddings, rerank and decision providers; make credential layer selection atomic <!-- t:n5q3 -->
+- [x] Bind Pi, embeddings, rerank and decision providers; make credential layer selection atomic <!-- t:n5q3 -->
 - [ ] Extend regression matrix, update help and design status, validate and commit <!-- t:nouk -->
+- [ ] Audit and bind built-in OAuth token requests and issuer-specific auth helpers <!-- t:fw8k -->

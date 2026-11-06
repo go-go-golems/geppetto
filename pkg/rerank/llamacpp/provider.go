@@ -30,6 +30,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/rerank"
 	"github.com/go-go-golems/geppetto/pkg/rerank/llamacpp/internal/transport"
 	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 )
 
 const (
@@ -55,6 +56,7 @@ const (
 // memory and transport. CostPerMTokens is optional; when nil, the response
 // Cost is nil (unknown) rather than zero.
 type Options struct {
+	Connection       *connection.Connection
 	BaseURL          string
 	Model            string
 	HTTPClient       *http.Client
@@ -69,7 +71,7 @@ type Provider struct {
 	baseURL          string
 	endpoint         string
 	model            string
-	client           *http.Client
+	connection       *connection.Connection
 	outboundURL      security.OutboundURLOptions
 	maxRequestBytes  int64
 	maxResponseBytes int64
@@ -87,7 +89,15 @@ var _ rerank.Provider = (*Provider)(nil)
 // the caller's client. The final endpoint is built with url.JoinPath and
 // re-validated under the outbound URL policy.
 func New(options Options) (*Provider, error) {
-	baseURL, err := transport.ParseAndValidateBaseURL("llamacpp", options.BaseURL)
+	c := options.Connection
+	if c != nil && (options.BaseURL != "" || options.HTTPClient != nil) {
+		return nil, fmt.Errorf("connection already owns endpoint and client: %w", rerank.ErrInvalidRequest)
+	}
+	declaredURL := options.BaseURL
+	if c != nil {
+		declaredURL = c.BaseURL()
+	}
+	baseURL, err := transport.ParseAndValidateBaseURL("llamacpp", declaredURL)
 	if err != nil {
 		return nil, err
 	}
@@ -112,18 +122,24 @@ func New(options Options) (*Provider, error) {
 		return nil, fmt.Errorf("llamacpp max_response_bytes must be positive: %w", rerank.ErrInvalidRequest)
 	}
 
-	endpoint, err := transport.Endpoint("llamacpp", baseURL, rerankPath, options.OutboundURL)
+	if c == nil {
+		c, err = connection.New(connection.Config{Provider: ProviderName, BaseURL: baseURL, Routes: Routes(), HTTPClient: options.HTTPClient, OutboundURL: options.OutboundURL, RejectRedirects: true})
+		if err != nil {
+			return nil, fmt.Errorf("llamacpp connection: %w: %w", err, rerank.ErrInvalidRequest)
+		}
+	}
+	routed, err := c.Resolve("rerank")
 	if err != nil {
 		return nil, err
 	}
-
-	client := transport.CloneClientWithRedirectRejection(options.HTTPClient)
+	target := routed.URL()
+	endpoint := target.String()
 
 	return &Provider{
 		baseURL:          baseURL,
 		endpoint:         endpoint,
 		model:            model,
-		client:           client,
+		connection:       c,
 		outboundURL:      options.OutboundURL,
 		maxRequestBytes:  maxRequestBytes,
 		maxResponseBytes: maxResponseBytes,
@@ -165,13 +181,13 @@ func (p *Provider) Rerank(ctx context.Context, in rerank.Request) (rerank.Respon
 			len(payload), p.maxRequestBytes, rerank.ErrRequestTooLarge)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.endpoint, bytes.NewReader(payload))
+	httpReq, err := p.connection.NewRequest(ctx, http.MethodPost, "rerank", bytes.NewReader(payload))
 	if err != nil {
 		return rerank.Response{}, fmt.Errorf("llamacpp could not create provider request: %w", rerank.ErrUnavailable)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	httpResp, err := p.client.Do(httpReq)
+	httpResp, err := p.connection.Do(httpReq)
 	if err != nil {
 		return rerank.Response{}, transport.RedactedTransportError("llamacpp")
 	}
@@ -285,3 +301,5 @@ func computeInputCost(u *rerank.Usage, costPerMTokens *float64) *float64 {
 	cost := *costPerMTokens * float64(tokens) / 1_000_000
 	return &cost
 }
+
+func Routes() connection.Routes { return connection.Routes{"rerank": connection.Relative(rerankPath)} }
