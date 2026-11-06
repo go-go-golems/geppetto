@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/imageparts"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -33,9 +32,6 @@ func (e *ClaudeEngine) MakeMessageRequestFromTurn(
 	t *turns.Turn,
 ) (*api.MessageRequest, error) {
 	s := e.settings
-	if s.Client == nil {
-		return nil, steps.ErrMissingClientSettings
-	}
 	if s.Claude == nil {
 		return nil, errors.New("no claude settings")
 	}

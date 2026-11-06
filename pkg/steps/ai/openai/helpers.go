@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	infengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/imageparts"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -122,9 +121,6 @@ func (e *OpenAIEngine) MakeCompletionRequestFromTurn(
 	t *turns.Turn,
 ) (*ChatCompletionRequest, error) {
 	settings := e.settings
-	if settings.Client == nil {
-		return nil, steps.ErrMissingClientSettings
-	}
 	if settings.OpenAI == nil {
 		return nil, errors.New("no openai settings")
 	}

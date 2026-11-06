@@ -34,6 +34,31 @@ func Middleware(rules []aitransport.HeaderRule, middlewares ...aitransport.Middl
 	}
 }
 
+// Combine composes authentication hooks while declaring each header once.
+// Conflicting sensitivity is rejected and different writes still fail closed.
+func Combine(parts ...Authentication) Authentication {
+	var result Authentication
+	seen := map[string]aitransport.HeaderRule{}
+	for _, part := range parts {
+		if part.err != nil {
+			return part
+		}
+		for _, rule := range part.rules {
+			name := http.CanonicalHeaderKey(strings.TrimSpace(rule.Name))
+			if previous, ok := seen[name]; ok {
+				if previous.Sensitive != rule.Sensitive {
+					return Authentication{err: errors.New("API header has conflicting sensitivity")}
+				}
+				continue
+			}
+			seen[name] = rule
+			result.rules = append(result.rules, rule)
+		}
+		result.middlewares = append(result.middlewares, part.middlewares...)
+	}
+	return result
+}
+
 // TokenHeaders maps credential header names to prefixes (for example
 // Authorization: "Bearer ", or x-api-key: ""). All are sensitive.
 type TokenHeaders map[string]string

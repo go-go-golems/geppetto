@@ -13,12 +13,12 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	gepsession "github.com/go-go-golems/geppetto/pkg/inference/session"
-	aitransport "github.com/go-go-golems/geppetto/pkg/steps/ai/transport"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
-func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, httpClient *http.Client, requestTransport responsesRequestTransport, body []byte, metadata events.EventMetadata, tap engine.DebugTap, startTime time.Time, reqBody responsesRequest) (*turns.Turn, error) {
-	resp, err := openResponsesStream(ctx, httpClient, requestTransport, body, tap)
+func (e *Engine) runStreamingInference(ctx context.Context, t *turns.Turn, body []byte, metadata events.EventMetadata, tap engine.DebugTap, startTime time.Time, reqBody responsesRequest) (*turns.Turn, error) {
+	resp, err := openResponsesStream(ctx, e.connection, body, tap)
 	if err != nil {
 		return nil, err
 	}
@@ -145,62 +145,25 @@ func (e *Engine) completeResponsesStream(ctx context.Context, t *turns.Turn, met
 	return t, nil
 }
 
-func openResponsesStream(ctx context.Context, httpClient *http.Client, requestTransport responsesRequestTransport, body []byte, tap engine.DebugTap) (*http.Response, error) {
-	var previousAttempt aitransport.AttemptState
-	for attempt := 0; ; attempt++ {
-		resp, attempts, err := openResponsesRequest(ctx, httpClient, requestTransport, body, previousAttempt, tap)
-		if err != nil {
-			return nil, err
-		}
-		decision, err := requestTransport.chain.AfterResponse(ctx, requestTransport.request, attempts, aitransport.ResponseMetadata{StatusCode: resp.StatusCode, RetryEligible: attempt == 0})
-		if err != nil {
-			_ = resp.Body.Close()
-			return nil, err
-		}
-		if decision == aitransport.Retry && attempt == 0 {
-			_ = resp.Body.Close()
-			previousAttempt = attempts
-			continue
-		}
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			return resp, nil
-		}
-		return nil, responsesHTTPError(resp, tap)
-	}
-}
-
-func openResponsesRequest(ctx context.Context, httpClient *http.Client, requestTransport responsesRequestTransport, body []byte, previousAttempt aitransport.AttemptState, tap engine.DebugTap) (*http.Response, aitransport.AttemptState, error) {
-	resolvedURL := requestTransport.request.URL()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, resolvedURL.String(), strings.NewReader(string(body)))
+func openResponsesStream(ctx context.Context, c *connection.Connection, body []byte, tap engine.DebugTap) (*http.Response, error) {
+	req, err := c.NewRequest(ctx, http.MethodPost, responsesOperation, strings.NewReader(string(body)))
 	if err != nil {
-		return nil, aitransport.AttemptState{}, err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
-	headers, err := aitransport.NewHeaderSet(req.Header, requestTransport.headerRules...)
-	if err != nil {
-		return nil, aitransport.AttemptState{}, err
-	}
-	attempts, err := requestTransport.chain.BeforeRequest(ctx, requestTransport.request, previousAttempt, headers)
-	if err != nil {
-		return nil, aitransport.AttemptState{}, err
-	}
-
-	log.Trace().Msg("Responses: initiating HTTP request (streaming)")
-	if tap != nil {
-		tap.OnHTTP(redactedResponsesRequestForDebug(req, headers), body)
-	}
-	// #nosec G704 -- URL is validated above with transport.ResolveAndValidate.
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		log.Debug().Err(err).Msg("Responses: HTTP request failed")
+	resp, err := c.DoWithObserver(req, func(redacted *http.Request) {
 		if tap != nil {
-			tap.OnProviderObject("http.error", map[string]any{"error": err.Error()})
+			tap.OnHTTP(redacted, body)
 		}
-		return nil, aitransport.AttemptState{}, err
+	})
+	if err != nil {
+		return nil, err
 	}
-	log.Debug().Int("status", resp.StatusCode).Str("content_type", resp.Header.Get("Content-Type")).Msg("Responses: HTTP response received")
-	return resp, attempts, nil
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return resp, nil
+	}
+	return nil, responsesHTTPError(resp, tap)
 }
 
 func responsesHTTPError(resp *http.Response, tap engine.DebugTap) error {

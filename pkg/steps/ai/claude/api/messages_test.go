@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 )
 
 const multipleContentTypesExpected = `{"role":"assistant","content":[{"type":"text","text":"Text"},{"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":"base64data"}},{"type":"tool_use","id":"tool1","name":"calculator","input":{"operation":"add","numbers":[1,2]}}]}`
@@ -138,9 +139,11 @@ func TestUmansMessagesContractUsesAnthropicPathAndDualAuthHeaders(t *testing.T) 
 	}))
 	defer server.Close()
 
-	client := NewClient("umans-key", server.URL)
-	client.SetBearerAuthorization("umans-key")
-	client.SetOutboundURLOptions(security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true})
+	bound, err := connection.New(connection.Config{Provider: "claude", BaseURL: server.URL, Routes: Routes(), Auth: connection.StaticToken("umans-key", connection.TokenHeaders{"x-api-key": "", "Authorization": "Bearer "}), OutboundURL: security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := NewClient(bound)
 	response, err := client.SendMessage(context.Background(), &MessageRequest{
 		Model: "umans-test", Messages: []Message{{Role: "user", Content: []Content{NewTextContent("hello")}}}, MaxTokens: 16,
 	})
@@ -159,22 +162,16 @@ func TestUmansMessagesContractUsesAnthropicPathAndDualAuthHeaders(t *testing.T) 
 }
 
 func TestClientOutboundOptionsDefaultDeny(t *testing.T) {
-	client := NewClient("test-key", "http://127.0.0.1:9999")
-	err := security.ValidateOutboundURL(client.BaseURL, client.outboundOptions())
+	_, err := connection.New(connection.Config{Provider: "claude", BaseURL: "http://127.0.0.1:9999", Routes: Routes(), Auth: connection.StaticBearer("test-key")})
 	if err == nil {
 		t.Fatal("expected default outbound options to reject plain HTTP")
 	}
 }
 
 func TestClientOutboundOptionsCanAllowLocalHTTP(t *testing.T) {
-	client := NewClient("test-key", "http://127.0.0.1:9999")
-	client.SetOutboundURLOptions(security.OutboundURLOptions{
-		AllowHTTP:          true,
-		AllowLocalNetworks: true,
-	})
-
-	if err := security.ValidateOutboundURL(client.BaseURL, client.outboundOptions()); err != nil {
-		t.Fatalf("expected local HTTP to be allowed after opt-in: %v", err)
+	_, err := connection.New(connection.Config{Provider: "claude", BaseURL: "http://127.0.0.1:9999", Routes: Routes(), Auth: connection.StaticBearer("test-key"), OutboundURL: security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true}})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -186,8 +183,11 @@ func TestClientReturnsStructuredAPIError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient("test-key", server.URL)
-	client.SetOutboundURLOptions(security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true})
+	bound, err := connection.New(connection.Config{Provider: "claude", BaseURL: server.URL, Routes: Routes(), Auth: connection.StaticToken("test-key", connection.TokenHeaders{"x-api-key": ""}), OutboundURL: security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := NewClient(bound)
 	messageRequest := &MessageRequest{Model: "claude-test", Messages: []Message{{Role: "user", Content: []Content{NewTextContent("hello")}}}, MaxTokens: 16}
 	countRequest := &MessageCountTokensRequest{Model: "claude-test", Messages: messageRequest.Messages}
 	completionRequest := &Request{Model: "claude-test", Prompt: "hello", MaxTokensToSample: 16}

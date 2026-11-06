@@ -25,3 +25,7 @@ Design 02: define immutable bound connections, request-time authentication and a
 ## 2026-11-06
 
 Implement the immutable bound connection and shared authenticated request executor; connection unit tests and race check pass
+
+## 2026-11-06
+
+Migrate inference, token counting, Pi, System One binding and Whisper to shared connections; original matrix and recording SDK/mutation tests pass

@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -24,6 +25,7 @@ type Engine struct {
 	observabilityConfig geppettoobs.Config
 	bearerTokenSource   credentials.BearerTokenSource
 	requestTransport    *RequestTransport
+	connection          *connection.Connection
 }
 
 func NewEngine(s *settings.InferenceSettings, opts ...EngineOption) (*Engine, error) {
@@ -34,6 +36,17 @@ func NewEngine(s *settings.InferenceSettings, opts ...EngineOption) (*Engine, er
 		}
 	}
 	e.observabilityConfig = e.observabilityConfig.Normalized()
+	if e.connection == nil {
+		var err error
+		e.connection, err = resolveResponsesConnection(s, e.bearerTokenSource, e.requestTransport)
+		if err != nil {
+			return nil, err
+		}
+	} else if e.bearerTokenSource != nil || e.requestTransport != nil {
+		return nil, errors.New("connection already owns authentication and routes")
+	}
+	e.bearerTokenSource, e.requestTransport = nil, nil
+	e.settings = settings.PayloadSettings(s)
 	return e, nil
 }
 
@@ -93,25 +106,9 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		Int("include_len", len(reqBody.Include)).
 		Msg("Responses: built request")
 
-	apiSettings := func() *settings.APISettings {
-		if e.settings == nil {
-			return nil
-		}
-		return e.settings.API
-	}()
-	requestTransport, err := e.newRequestTransport(apiSettings)
+	route, err := e.connection.Resolve(responsesOperation)
 	if err != nil {
 		return nil, err
-	}
-	resolved := requestTransport.request.URL()
-	httpClient, err := settings.EnsurePinnedHTTPClient(func() *settings.ClientSettings {
-		if e.settings == nil {
-			return nil
-		}
-		return e.settings.Client
-	}(), resolved.String())
-	if err != nil {
-		return nil, errors.Wrap(err, "resolve responses HTTP client")
 	}
 
 	// Prepare metadata for events
@@ -145,7 +142,7 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		metadata.Extra[events.MetadataSettingsSlug] = e.settings.GetMetadata()
 	}
 	runtimeattrib.AddRuntimeAttributionToExtra(metadata.Extra, t)
-	resolvedURL := requestTransport.request.URL()
+	resolvedURL := route.URL()
 	log.Debug().Str("url", resolvedURL.String()).Int("body_len", len(b)).Msg("Responses: sending request")
 
 	// Attach DebugTap if present on context
@@ -157,5 +154,5 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	// Responses always uses streaming internally so provider-to-canonical event
 	// normalization has one lifecycle path. Profiles may still carry chat.stream
 	// for other engines, but this engine forces the request and runtime path.
-	return e.runStreamingInference(ctx, t, httpClient, requestTransport, b, metadata, tap, startTime, reqBody)
+	return e.runStreamingInference(ctx, t, b, metadata, tap, startTime, reqBody)
 }

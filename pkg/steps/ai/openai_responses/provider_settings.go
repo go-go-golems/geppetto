@@ -1,37 +1,13 @@
 package openai_responses
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/security"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 )
-
-func resolveResponsesBearerToken(ctx context.Context, api *settings.APISettings, apiType types.ApiType, source credentials.BearerTokenSource) (string, error) {
-	slot, err := resolveResponsesSlot(api, source != nil)
-	if err != nil {
-		return "", err
-	}
-	if source != nil {
-		token, err := source.BearerToken(ctx, credentials.Request{Provider: string(apiType), BaseURL: slot.baseURL})
-		if err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return "", err
-			}
-			return "", fmt.Errorf("resolve bearer credential for OpenAI Responses")
-		}
-		if strings.TrimSpace(token) == "" {
-			return "", fmt.Errorf("bearer credential source returned an empty token for OpenAI Responses")
-		}
-		return token, nil
-	}
-	return slot.key, nil
-}
 
 // responsesSlotChain is the precedence of the settings slots a Responses
 // engine reads: open-responses (current name), openai-responses (legacy
@@ -97,31 +73,6 @@ func resolveResponsesSlot(api *settings.APISettings, sourced bool) (responsesSlo
 		return out, fmt.Errorf("open-responses-api-key is set but open-responses-base-url is not; the key is not sent to another slot's URL or to OpenAI's default")
 	}
 	return out, nil
-}
-
-// responsesAPIKey is the key of the resolved slot ("" when unresolvable).
-func responsesAPIKey(api *settings.APISettings) string {
-	slot, err := resolveResponsesSlot(api, false)
-	if err != nil {
-		return ""
-	}
-	return slot.key
-}
-
-// responsesBaseURL is the base URL of the slot a static key would use
-// ("" when unresolvable). Engines with a token source call
-// resolveResponsesSlot(api, true) instead.
-func responsesBaseURL(api *settings.APISettings) string {
-	slot, err := resolveResponsesSlot(api, false)
-	if err != nil {
-		return ""
-	}
-	return slot.baseURL
-}
-
-func responsesEndpoint(api *settings.APISettings, path string) string {
-	path = "/" + strings.TrimLeft(path, "/")
-	return strings.TrimRight(responsesBaseURL(api), "/") + path
 }
 
 func responsesOutboundURLOptions(api *settings.APISettings) security.OutboundURLOptions {

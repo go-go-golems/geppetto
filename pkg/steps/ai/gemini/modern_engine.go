@@ -11,6 +11,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	gepsession "github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/providers/geminisdk"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -25,39 +26,9 @@ import (
 const geminiDefaultBaseURL = "https://generativelanguage.googleapis.com/"
 
 func (e *GeminiEngine) runModernInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-	apiType := e.settings.Chat.ApiType
-	if apiType == nil {
-		return nil, errors.New("no chat api type specified")
-	}
-	apiKey, ok := e.settings.API.APIKeys[string(*apiType)+"-api-key"]
-	if !ok || apiKey == "" {
-		return nil, errors.Errorf("missing API key %s", string(*apiType)+"-api-key")
-	}
-	baseURL := e.settings.API.BaseUrls[string(*apiType)+"-base-url"]
-	// The key travels in a header (x-goog-api-key) that net/http forwards on
-	// redirects, so the client is pinned to the endpoint actually used: the
-	// configured base URL, or the SDK's default when none is set.
-	pinTo := baseURL
-	if strings.TrimSpace(pinTo) == "" {
-		pinTo = geminiDefaultBaseURL
-	}
-	httpClient, err := settings.EnsurePinnedHTTPClient(e.settings.Client, pinTo)
+	client, err := geminisdk.NewClient(ctx, e.connection, modernGeminiAPIVersion(e.settings))
 	if err != nil {
-		return nil, errors.Wrap(err, "resolve gemini HTTP client")
-	}
-
-	clientConfig := &moderngenai.ClientConfig{
-		APIKey:     apiKey,
-		Backend:    moderngenai.BackendGeminiAPI,
-		HTTPClient: httpClient,
-		HTTPOptions: moderngenai.HTTPOptions{
-			BaseURL:    baseURL,
-			APIVersion: modernGeminiAPIVersion(e.settings),
-		},
-	}
-	client, err := moderngenai.NewClient(ctx, clientConfig)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create modern gemini client")
+		return nil, errors.Wrap(err, "create bound Gemini client")
 	}
 
 	modelName := *e.settings.Chat.Engine

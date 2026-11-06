@@ -530,3 +530,80 @@ The user clarified that the purpose is to streamline the way authenticated API c
 - Sources receive `{Provider: declaration.Provider, BaseURL: declaration.BaseURL}`; custom source scope refusals and cancellation identities survive sanitized errors.
 - `Authentication`'s zero value permits explicitly anonymous APIs; a configured token source cannot silently become anonymous.
 - This is a core checkpoint; production paths have not yet been migrated.
+
+
+## Step 9: Migrate inference, token counting, Pi and transcription to connections
+
+OpenAI chat and Responses now use the connection's common authentication and bounded replay implementation. Claude's API client accepts only a connection, and its former key/URL/client/auth setters are removed. Gemini uses a bound modern SDK factory shared by all SDK services. Whisper transcription now takes the same connection used by chat or embeddings, rather than building an ambient OpenAI client from a raw key. Pi captures one source-bound connection and passes it directly to engine constructors.
+
+The migration removes independent credential resolution from payload code and stops storing Anthropic/Gemini credentials in Pi's public resolved settings. Settings are snapshotted without credential maps or host clients for encoders. Responses validates a custom route against the original declaration's origin during construction, before any credential lookup.
+
+### Prompt Context
+**User prompt (verbatim):** "is this used for all APIs like embeddings and rerank and whisper (?) and llm and stuff> for anthropic and openai and gemini?"
+**Assistant interpretation:** Apply the same setup to all existing AI API families, explicitly including Whisper transcription, embeddings and reranking.
+**Inferred user intent:** Avoid a collection of separate authentication pipelines per capability or SDK.
+**Commit (core):** `9b8a0f48` — "feat(connection): bind API routes, authentication and request execution"
+
+### What I did
+- Added `settings.ResolveAPIConnection` to select one slot's key/endpoint together and `BindConnection` to apply host client settings at the declaration boundary.
+- Added `settings.PayloadSettings` so encoders do not retain API credential maps or host clients.
+- Added `WithConnection` options for OpenAI, Responses, Claude and Gemini; conflicting separate auth options are rejected.
+- Replaced OpenAI/Responses credential/retry loops with `connection.NewRequest` and `Do`; kept streaming decoding unchanged.
+- Removed secret-returning Responses helpers and its duplicated bearer middleware. The existing `RequestTransport` is resolved into connection routes and middleware at construction.
+- Changed Claude's low-level API client to `NewClient(connection)` and removed its mutable authentication, endpoint and client fields/setters.
+- Migrated Claude and Responses token counting and added explicit connection injection.
+- Added `providers/openaisdk` and `providers/geminisdk` so SDK constructors receive only an inert placeholder and the bound HTTP facade.
+- Changed `NewTranscriptionClient` to take a connection and return a constructor error.
+- Removed unused legacy Gemini API-key query transport/client setup. Active inference already used the modern SDK.
+- Changed Pi to bind provider endpoint, scoped source and custom headers once, capture the connection, and keep raw keys out of resolved settings. System One gained a connection input so Pi decision calls use the same boundary.
+- Updated tests for the explicit constructor contracts instead of restoring removed wrappers or setters.
+- Added recording tests for Whisper multipart uploads and redirects; modern Gemini generation, cache, counting, embeddings and files; and mutation of Pi resolved settings across all four protocols.
+
+### Why
+- Shared ownership must replace repeated assembly, not just add another wrapper around each old client.
+- A protocol route cannot become a new credential authority. Custom Responses routes are checked against the source binding.
+- SDK client factories make the injected transport mandatory and keep real credential material out of SDK configuration.
+- Payload encoders should depend on model/settings data, without requiring unrelated client settings to exist.
+
+### What worked
+- `GOWORK=off GOCACHE=/tmp/geppetto-bound-go-cache go build ./pkg/steps/ai/... ./pkg/decision/...`: passed after removing a stale unused import.
+- The original 38-row credential matrix passes with all migrated inference/Pi paths reaching their intended marker hosts.
+- Recording checks passed for connection ownership, OpenAI refresh, Responses source errors/slot selection, Pi redirects/settings mutation, Codex routing/refresh and Anthropic auth headers.
+- Modern Gemini's `client.go:427–435` assigns the same internal API client to Models, Caches, Files and other services. Recording tests exercise generation, cache, counting, embeddings and files directly, including refused cross-origin redirects.
+
+### What didn't work
+- The first affected-package build reported `pkg/steps/ai/claude/api/completion.go:7:2: "fmt" imported and not used`; removed the import.
+- The first test compilation reported removed internal APIs (for example `undefined: resolveBearerToken`, `unknown field apiKey in struct literal of type chatStreamConfig`, `client.SetBearerAuthorization undefined`, `undefined: responsesRequestTransport` and `undefined: geminiClientOptions`). Updated behavioral tests to construct explicit connections and removed tests of obsolete legacy setup.
+- After credential-free settings were introduced, matrix rows returned `missing client settings` without making a request. OpenAI and Claude payload builders had checked for a client despite never using one. Removed those obsolete checks; the matrix then passed.
+- Existing socket-based tests failed before exercising code: `httptest: failed to listen on a port: listen tcp6 [::1]:0: socket: operation not permitted`. The affected command was `GOWORK=off GOCACHE=/tmp/geppetto-bound-go-cache go test ./pkg/steps/ai/openai/... ./pkg/steps/ai/openai_responses/... ./pkg/steps/ai/claude/... ./pkg/steps/ai/gemini/... ./pkg/steps/ai/providers/pi/... ./pkg/decision/... ./pkg/steps/ai/credscope/...`. New integration tests use recording transports; existing socket tests will be compile-checked and the execution restriction remains disclosed.
+- An unused `turns` test import remained after moving invalid-route rejection to construction; removed it.
+- The first Whisper test used `result.Text`; the compiler reported `result.Text undefined (type *Transcription has no field or method Text)`. The existing API returns `Transcription.Response.Text` and stores provider errors in `Transcription.Error`, so the test now checks that actual contract.
+- A tool invocation adding integration tests was interrupted by user steering before execution; verified the files were absent and applied the additions once on resume.
+
+### What I learned
+- Transcription was a real additional leak surface: `NewTranscriptionClient(apiKey)` constructed an SDK client with no host endpoint or client injection.
+- The modern Gemini cache path shares its bound client; the old warning was attached to unused legacy setup.
+- Some tests only need an engine's observation helpers. Those tests can construct the observation state directly rather than requiring invalid runnable credentials to be accepted.
+
+### What was tricky to build
+- Pi's settings remain public and mutable for model configuration, so the closure must capture the connection independently. Mutation tests demonstrate that changing URL maps and key slots cannot move the resolved authority.
+- Claude requires three carrier choices: `x-api-key`, gateway dual auth, and subscription OAuth with identity headers. These are connection configuration choices, not request-encoder branches.
+- Returning a private SDK facade preserves host timeouts/proxies while preventing SDK config from acquiring the original mutable transport.
+
+### What warrants a second pair of eyes
+- Public constructor changes: Claude API client and transcription now require a connection; invalid network settings are rejected during engine construction.
+- Source-bound origin checks around custom Responses routes and the canonical Codex route.
+- The broader existing suite still needs execution in an environment that permits loopback test sockets.
+
+### What should be done in the future
+- Complete embeddings/rerank/direct-provider migration, make embeddings layer pairing atomic and update help and final validation.
+
+### Code review instructions
+- Start at `settings/connection.go`, then OpenAI and Responses engine constructors and reduced request senders.
+- Inspect `claude/connection.go`, `claude/api/completion.go`, `providers/pi/resolve.go`, and the two SDK factories.
+- Review new recording tests in `providers/geminisdk/client_test.go`, `openai/transcribe_test.go` and `providers/pi/credscope_test.go`.
+
+### Technical details
+- No new environment reads or dependencies were added.
+- Static configuration is resolved once; renewable credentials remain request-time lookups within the connection.
+- This checkpoint removes more request setup code than it adds; provider payloads and SSE reducers retain their existing responsibilities.

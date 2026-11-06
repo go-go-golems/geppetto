@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/decision"
 	"github.com/go-go-golems/geppetto/pkg/decision/systemone"
-	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 )
 
@@ -55,16 +55,13 @@ func (a *AgentDir) Decider(ctx context.Context, ref string, o DecisionOptions) (
 	if err != nil {
 		return nil, err
 	}
-	outbound := security.OutboundURLOptions{}
-	if a.opts.insecure {
-		outbound = security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true}
+	c, err := a.bindConnection(m, baseURL, connection.Bearer(credentials.Scoped(src, origin)), systemone.Routes(), headers)
+	if err != nil {
+		return nil, err
 	}
 	return systemone.New(systemone.Options{
-		BaseURL:          baseURL,
-		TokenSource:      credentials.Scoped(src, origin),
+		Connection:       c,
 		Model:            m.ID,
-		HTTPClient:       security.PinClient(withHeaders(a.opts.httpClient, headers), origin),
-		OutboundURL:      outbound,
 		MaxRequestBytes:  o.MaxRequestBytes,
 		MaxResponseBytes: o.MaxResponseBytes,
 	})

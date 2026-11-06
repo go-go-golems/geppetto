@@ -10,8 +10,8 @@ import (
 	gepsession "github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
-	"github.com/go-go-golems/geppetto/pkg/steps"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -32,12 +32,13 @@ type ClaudeEngine struct {
 	bearerAuthorization string
 	bearerTokenSource   credentials.BearerTokenSource
 	oauthBearerMode     bool
+	connection          *connection.Connection
 }
 
 // NewClaudeEngine creates a new Claude inference engine with the given settings and options.
-func NewClaudeEngine(settings *settings.InferenceSettings, opts ...EngineOption) (*ClaudeEngine, error) {
+func NewClaudeEngine(s *settings.InferenceSettings, opts ...EngineOption) (*ClaudeEngine, error) {
 	e := &ClaudeEngine{
-		settings:            settings,
+		settings:            s,
 		toolAdapter:         tools.NewClaudeToolAdapter(),
 		observabilityConfig: geppettoobs.DefaultConfig(),
 	}
@@ -47,6 +48,17 @@ func NewClaudeEngine(settings *settings.InferenceSettings, opts ...EngineOption)
 		}
 	}
 	e.observabilityConfig = e.observabilityConfig.Normalized()
+	if e.connection == nil {
+		var err error
+		e.connection, err = resolveClaudeConnection(s, e.bearerTokenSource, e.oauthBearerMode, e.bearerAuthorization)
+		if err != nil {
+			return nil, err
+		}
+	} else if e.bearerTokenSource != nil || e.bearerAuthorization != "" {
+		return nil, errors.New("connection already owns authentication")
+	}
+	e.bearerTokenSource, e.bearerAuthorization = nil, ""
+	e.settings = settings.PayloadSettings(s)
 	return e, nil
 }
 
@@ -60,58 +72,10 @@ func (e *ClaudeEngine) RunInference(
 ) (*turns.Turn, error) {
 	// Build request messages directly from Turn blocks (no conversation dependency)
 	log.Debug().Int("num_blocks", len(t.Blocks)).Bool("stream", e.settings.Chat.Stream).Msg("Claude RunInference started")
-	clientSettings := e.settings.Client
-	if clientSettings == nil {
-		return nil, steps.ErrMissingClientSettings
-	}
-	anthropicSettings := e.settings.Claude
-	if anthropicSettings == nil {
+	if e.settings.Claude == nil {
 		return nil, errors.New("no claude settings")
 	}
-
-	apiType_ := e.settings.Chat.ApiType
-	if apiType_ == nil {
-		return nil, errors.New("no chat engine specified")
-	}
-	apiType := *apiType_
-	apiSettings := e.settings.API
-
-	baseURL, ok := apiSettings.BaseUrls[string(apiType)+"-base-url"]
-	if !ok {
-		return nil, errors.Errorf("no base URL for %s", apiType)
-	}
-	apiKey, ok := apiSettings.APIKeys[string(apiType)+"-api-key"]
-	if e.bearerTokenSource != nil {
-		request := credentials.Request{Provider: string(apiType), BaseURL: strings.TrimRight(baseURL, "/")}
-		resolvedToken, resolveErr := e.bearerTokenSource.BearerToken(ctx, request)
-		if resolveErr != nil {
-			return nil, errors.New("resolve Anthropic gateway credential")
-		}
-		apiKey = resolvedToken
-		if strings.TrimSpace(apiKey) == "" {
-			return nil, errors.New("Anthropic gateway credential is empty")
-		}
-		ok = true
-	}
-	if !ok {
-		return nil, errors.Errorf("no API key for %s", apiType)
-	}
-	client := api.NewClient(apiKey, baseURL)
-	bearerAuthorization := e.bearerAuthorization
-	if e.bearerTokenSource != nil && bearerAuthorization == "" {
-		bearerAuthorization = apiKey
-	}
-	if e.oauthBearerMode {
-		client.SetOAuthBearerAuthorization(bearerAuthorization)
-	} else {
-		client.SetBearerAuthorization(bearerAuthorization)
-	}
-	client.SetOutboundURLOptions(settings.OutboundURLOptions(apiSettings, string(apiType)))
-	httpClient, err := settings.EnsurePinnedHTTPClient(clientSettings, baseURL)
-	if err != nil {
-		return nil, err
-	}
-	client.SetHTTPClient(httpClient)
+	client := api.NewClient(e.connection)
 
 	req, err := e.MakeMessageRequestFromTurn(t)
 	if err != nil {
@@ -415,3 +379,7 @@ func convertToolExamples(examples []engine.ToolExample) []tools.ToolExample {
 }
 
 var _ engine.Engine = (*ClaudeEngine)(nil)
+
+func WithConnection(c *connection.Connection) EngineOption {
+	return func(e *ClaudeEngine) { e.connection = c }
+}

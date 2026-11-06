@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -32,12 +33,13 @@ type OpenAIEngine struct {
 	observer            geppettoobs.Observer
 	observabilityConfig geppettoobs.Config
 	bearerTokenSource   credentials.BearerTokenSource
+	connection          *connection.Connection
 }
 
 // NewOpenAIEngine creates a new OpenAI inference engine with the given settings and options.
-func NewOpenAIEngine(settings *settings.InferenceSettings, opts ...EngineOption) (*OpenAIEngine, error) {
+func NewOpenAIEngine(s *settings.InferenceSettings, opts ...EngineOption) (*OpenAIEngine, error) {
 	e := &OpenAIEngine{
-		settings:            settings,
+		settings:            s,
 		toolAdapter:         tools.NewOpenAIToolAdapter(),
 		observabilityConfig: geppettoobs.DefaultConfig(),
 	}
@@ -47,6 +49,22 @@ func NewOpenAIEngine(settings *settings.InferenceSettings, opts ...EngineOption)
 		}
 	}
 	e.observabilityConfig = e.observabilityConfig.Normalized()
+	if e.connection == nil {
+		if s == nil || s.Chat == nil || s.Chat.ApiType == nil {
+			return nil, errors.New("chat API type is required")
+		}
+		var err error
+		e.connection, err = settings.ResolveAPIConnection(s.API, s.Client, settings.ConnectionSpec{
+			Slot: string(*s.Chat.ApiType), Routes: Routes(), TokenSource: e.bearerTokenSource,
+		})
+		if err != nil {
+			return nil, err
+		}
+	} else if e.bearerTokenSource != nil {
+		return nil, errors.New("connection already owns authentication")
+	}
+	e.bearerTokenSource = nil
+	e.settings = settings.PayloadSettings(s)
 	return e, nil
 }
 
@@ -66,10 +84,12 @@ func (e *OpenAIEngine) RunInference(
 
 	// Chat engine no longer routes to Responses; factory selects the correct engine
 
-	streamCfg, err := resolveChatStreamConfig(ctx, e.settings.API, e.settings.Client, *e.settings.Chat.ApiType, e.bearerTokenSource)
+	route, err := e.connection.Resolve("chat")
 	if err != nil {
 		return nil, err
 	}
+	target := route.URL()
+	streamCfg := chatStreamConfig{baseURL: e.connection.BaseURL(), endpoint: target.String(), connection: e.connection}
 
 	req, err := e.MakeCompletionRequestFromTurn(t)
 	if err != nil {
@@ -527,3 +547,13 @@ func convertToolExamples(examples []engine.ToolExample) []tools.ToolExample {
 }
 
 var _ engine.Engine = (*OpenAIEngine)(nil)
+
+// Routes declares the OpenAI chat and audio operations below the provider root.
+func Routes() connection.Routes {
+	return connection.Routes{"chat": connection.Relative("chat/completions"), "transcribe": connection.Relative("audio/transcriptions")}
+}
+
+// WithConnection supplies the already resolved authority for this engine.
+func WithConnection(c *connection.Connection) EngineOption {
+	return func(e *OpenAIEngine) { e.connection = c }
+}
