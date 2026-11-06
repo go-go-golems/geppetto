@@ -69,7 +69,7 @@ func resolveChatStreamConfig(
 	if err := security.ValidateOutboundURL(endpoint, settings.OutboundURLOptions(apiSettings, string(apiType))); err != nil {
 		return chatStreamConfig{}, errors.Wrap(err, "invalid chat completion URL")
 	}
-	httpClient, err := settings.EnsureHTTPClient(clientSettings)
+	httpClient, err := settings.EnsurePinnedHTTPClient(clientSettings, baseURL)
 	if err != nil {
 		return chatStreamConfig{}, err
 	}

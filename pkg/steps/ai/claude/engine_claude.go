@@ -107,7 +107,7 @@ func (e *ClaudeEngine) RunInference(
 		client.SetBearerAuthorization(bearerAuthorization)
 	}
 	client.SetOutboundURLOptions(settings.OutboundURLOptions(apiSettings, string(apiType)))
-	httpClient, err := settings.EnsureHTTPClient(clientSettings)
+	httpClient, err := settings.EnsurePinnedHTTPClient(clientSettings, baseURL)
 	if err != nil {
 		return nil, err
 	}

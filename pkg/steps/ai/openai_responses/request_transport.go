@@ -63,7 +63,11 @@ func WithRequestTransport(config RequestTransport) EngineOption {
 }
 
 func (e *Engine) newRequestTransport(api *settings.APISettings) (responsesRequestTransport, error) {
-	baseURL, err := url.Parse(responsesBaseURL(api))
+	slot, err := resolveResponsesSlot(api, e.bearerTokenSource != nil)
+	if err != nil {
+		return responsesRequestTransport{}, err
+	}
+	baseURL, err := url.Parse(slot.baseURL)
 	if err != nil {
 		return responsesRequestTransport{}, errors.New("parse Responses base URL")
 	}
@@ -105,7 +109,7 @@ func (e *Engine) newRequestTransport(api *settings.APISettings) (responsesReques
 		if err != nil {
 			return responsesRequestTransport{}, err
 		}
-		credentialRequest := credentials.Request{Provider: string(responsesAPIType(e.settings)), BaseURL: responsesBaseURL(api)}
+		credentialRequest := credentials.Request{Provider: string(responsesAPIType(e.settings)), BaseURL: slot.baseURL}
 		middlewares = append([]aitransport.Middleware{
 			&responsesBearerMiddleware{
 				api:               api,

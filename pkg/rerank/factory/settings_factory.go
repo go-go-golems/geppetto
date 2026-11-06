@@ -90,9 +90,9 @@ func (f *SettingsFactory) NewProvider() (rerank.Provider, error) {
 			return nil, err
 		}
 		outbound := f.resolveOutboundURLOptions()
-		httpClient, err := settings.EnsureHTTPClient(f.client)
+		httpClient, err := settings.EnsurePinnedHTTPClient(f.client, baseURL)
 		if err != nil {
-			return nil, fmt.Errorf("rerank http client: %w", err)
+			return nil, fmt.Errorf("rerank http client: %w: %w", err, rerank.ErrInvalidRequest)
 		}
 		return llamacpp.New(llamacpp.Options{
 			BaseURL:          baseURL,
@@ -115,9 +115,15 @@ func (f *SettingsFactory) NewProvider() (rerank.Provider, error) {
 			baseURL = strings.TrimSpace(f.api.BaseUrls["cohere-base-url"])
 		}
 		outbound := f.resolveOutboundURLOptions()
-		httpClient, err := settings.EnsureHTTPClient(f.client)
+		// Pin to the endpoint the adapter will use, so the Cohere key cannot
+		// follow a redirect to another origin (GEPPETTO-CREDSCOPE-001).
+		pinTo := baseURL
+		if pinTo == "" {
+			pinTo = cohere.DefaultBaseURL
+		}
+		httpClient, err := settings.EnsurePinnedHTTPClient(f.client, pinTo)
 		if err != nil {
-			return nil, fmt.Errorf("rerank http client: %w", err)
+			return nil, fmt.Errorf("rerank http client: %w: %w", err, rerank.ErrInvalidRequest)
 		}
 		return cohere.New(cohere.Options{
 			APIKey:           apiKey,

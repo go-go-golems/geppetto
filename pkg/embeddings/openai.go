@@ -3,6 +3,7 @@ package embeddings
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/sashabaranov/go-openai"
@@ -16,16 +17,45 @@ type OpenAIProvider struct {
 
 var _ Provider = &OpenAIProvider{}
 
-func NewOpenAIProvider(apiKey string, model openai.EmbeddingModel, dimensions int) *OpenAIProvider {
+// OpenAIOption configures NewOpenAIProvider.
+type OpenAIOption func(*openai.ClientConfig)
+
+// WithOpenAIBaseURL sends requests to baseURL (an OpenAI-compatible API
+// root such as https://gateway.example/v1) instead of OpenAI's.
+func WithOpenAIBaseURL(baseURL string) OpenAIOption {
+	return func(c *openai.ClientConfig) {
+		if u := strings.TrimSpace(baseURL); u != "" {
+			c.BaseURL = strings.TrimRight(u, "/")
+		}
+	}
+}
+
+// WithOpenAIHTTPClient sets the HTTP client. The settings factory passes a
+// client pinned to the base URL's origin (GEPPETTO-CREDSCOPE-001).
+func WithOpenAIHTTPClient(c *http.Client) OpenAIOption {
+	return func(cfg *openai.ClientConfig) {
+		if c != nil {
+			cfg.HTTPClient = c
+		}
+	}
+}
+
+func NewOpenAIProvider(apiKey string, model openai.EmbeddingModel, dimensions int, opts ...OpenAIOption) *OpenAIProvider {
 	if model == "" {
 		model = openai.SmallEmbedding3
 	}
 	if dimensions <= 0 {
 		dimensions = 1536 // Default for Ada-002
 	}
+	cfg := openai.DefaultConfig(apiKey)
+	for _, o := range opts {
+		if o != nil {
+			o(&cfg)
+		}
+	}
 
 	return &OpenAIProvider{
-		client:     openai.NewClient(apiKey),
+		client:     openai.NewClientWithConfig(cfg),
 		model:      model,
 		dimensions: dimensions,
 	}

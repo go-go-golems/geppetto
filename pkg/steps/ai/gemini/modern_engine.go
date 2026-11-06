@@ -20,6 +20,10 @@ import (
 	moderngenai "google.golang.org/genai"
 )
 
+// geminiDefaultBaseURL is the Gemini API endpoint the SDK uses when no base
+// URL is configured.
+const geminiDefaultBaseURL = "https://generativelanguage.googleapis.com/"
+
 func (e *GeminiEngine) runModernInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
 	apiType := e.settings.Chat.ApiType
 	if apiType == nil {
@@ -30,7 +34,14 @@ func (e *GeminiEngine) runModernInference(ctx context.Context, t *turns.Turn) (*
 		return nil, errors.Errorf("missing API key %s", string(*apiType)+"-api-key")
 	}
 	baseURL := e.settings.API.BaseUrls[string(*apiType)+"-base-url"]
-	httpClient, err := settings.EnsureHTTPClient(e.settings.Client)
+	// The key travels in a header (x-goog-api-key) that net/http forwards on
+	// redirects, so the client is pinned to the endpoint actually used: the
+	// configured base URL, or the SDK's default when none is set.
+	pinTo := baseURL
+	if strings.TrimSpace(pinTo) == "" {
+		pinTo = geminiDefaultBaseURL
+	}
+	httpClient, err := settings.EnsurePinnedHTTPClient(e.settings.Client, pinTo)
 	if err != nil {
 		return nil, errors.Wrap(err, "resolve gemini HTTP client")
 	}

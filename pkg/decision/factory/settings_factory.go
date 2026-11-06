@@ -67,9 +67,15 @@ func (f *SettingsFactory) NewProvider() (decision.Provider, error) {
 		if key == "" {
 			return nil, fmt.Errorf("decision profile has no %s; set inference_settings.api.api_keys.%s: %w", APIKeyName, APIKeyName, decision.ErrInvalidRequest)
 		}
-		client, err := settings.EnsureHTTPClient(f.client)
+		// Pin to the endpoint systemone.New will use (its default when the
+		// profile names none), so the key cannot follow a redirect elsewhere.
+		pinTo := systemone.NormalizeBaseURL(f.baseURL())
+		if pinTo == "" {
+			pinTo = systemone.DefaultBaseURL
+		}
+		client, err := settings.EnsurePinnedHTTPClient(f.client, pinTo)
 		if err != nil {
-			return nil, fmt.Errorf("decision http client: %w", err)
+			return nil, fmt.Errorf("decision http client: %w: %w", err, decision.ErrInvalidRequest)
 		}
 		return systemone.New(systemone.Options{
 			BaseURL:             f.baseURL(),

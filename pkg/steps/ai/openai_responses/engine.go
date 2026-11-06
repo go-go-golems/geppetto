@@ -103,12 +103,13 @@ func (e *Engine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	if err != nil {
 		return nil, err
 	}
-	httpClient, err := settings.EnsureHTTPClient(func() *settings.ClientSettings {
+	resolved := requestTransport.request.URL()
+	httpClient, err := settings.EnsurePinnedHTTPClient(func() *settings.ClientSettings {
 		if e.settings == nil {
 			return nil
 		}
 		return e.settings.Client
-	}())
+	}(), resolved.String())
 	if err != nil {
 		return nil, errors.Wrap(err, "resolve responses HTTP client")
 	}

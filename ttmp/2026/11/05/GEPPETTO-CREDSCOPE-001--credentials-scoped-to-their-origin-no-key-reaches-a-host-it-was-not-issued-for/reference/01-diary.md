@@ -232,3 +232,73 @@ This closes inventory rows 1, 2 and 6 for the Pi path, and the redirect part of 
 
 ### Technical details
 - Error: `pi: fireworks/m has no baseUrl (and provider fireworks has no default endpoint); set baseUrl for provider fireworks in models.json`.
+
+## Step 4: Phase 3 — pinned clients on the settings path; Responses slot pairing; embeddings honour openai-base-url
+
+Every engine and adapter that attaches a settings slot's credential now sends through `settings.EnsurePinnedHTTPClient(cs, baseURL…)`. That is `EnsureHTTPClient` pinned to the origin of the URL actually used, so a redirect or any other origin is refused. Two resolution bugs are fixed on the way. The Responses engine now resolves the key and the URL as a pair from one slot (inventory row 4). OpenAI embeddings now read `openai-base-url` instead of always calling OpenAI (row 3).
+
+### Prompt Context
+
+**User prompt (verbatim):** see Step 1.
+
+**Assistant interpretation:** Implement guide Phase 3.
+
+**Inferred user intent:** Close the profile-configured paths, which need no Pi involvement.
+
+### What I did
+- `settings.EnsurePinnedHTTPClient` (`pkg/steps/ai/settings/http_client.go`): an error when given no URL or an unparsable one; the host client is copied, never modified.
+- Pinned clients wired into:
+  - OpenAI chat (`chat_stream.go`, to the slot base URL);
+  - the Responses engine (to the transport's resolved URL) and Responses token count;
+  - Claude: the engine and token count, which before used `&http.Client{}` unless one was injected;
+  - Gemini modern engine (to the base URL, or `geminiDefaultBaseURL` when unset);
+  - embeddings: OpenAI and Cohere (to the base URL or `defaultCohereBaseURL`);
+  - rerank: llama.cpp and Cohere (to the base URL or `cohere.DefaultBaseURL`);
+  - the decision factory (to `NormalizeBaseURL(baseURL)` or `systemone.DefaultBaseURL`).
+  - Pinning errors in rerank and decision also wrap their `ErrInvalidRequest`.
+- Responses: `resolveResponsesSlot(api, sourced)`:
+  - the slot is the first with a key; with a token source, or when no slot has a key (Codex), the first with a URL;
+  - `openai-responses` may use `openai-base-url`; only the OpenAI-named slots default to `api.openai.com`;
+  - an `open-responses` key without its own URL is an error;
+  - `responsesAPIKey`/`responsesBaseURL` remain as wrappers over it.
+- Embeddings OpenAI: `NewOpenAIProvider(…, opts ...OpenAIOption)` with `WithOpenAIBaseURL` and `WithOpenAIHTTPClient` (variadic, so existing callers compile). The factory resolves `options.baseURL`, then `openai-base-url`, then `https://api.openai.com/v1`, validates it with `ValidateOutboundURL(…, "embeddings")` as Cohere does, and pins.
+- Tests:
+  - new `TestResponsesSlotPairsKeyWithItsOwnURL`: the leak case is an error; five pairing cases, including Codex and a token source;
+  - `TestResponsesAPIKeyPrefersOpenResponsesKey` now gives the open-responses slot a URL;
+  - the embeddings client-injection test now asserts a pinned copy (same `Timeout`, `PinnedTransport.Next` is the host transport, origin `https://proxy.example:443`, host client unmodified).
+
+### Why
+- Pinning to the URL actually used covers redirect leaks for all profile-configured keys (row 7: Claude `x-api-key`, Gemini `x-goog-api-key`).
+- For profile keys, slot pairing is the only signal of where a key belongs, so pairing has to be fixed where it was broken (Responses, embeddings).
+
+### What worked
+- `GOWORK=off go test ./pkg/rerank/... ./pkg/decision/... ./pkg/embeddings/... ./pkg/steps/... ./pkg/inference/... ./pkg/js/... -count=1`: no failures after the test updates.
+- `make lint`: 0 issues.
+
+### What didn't work
+- First Responses attempt: choosing the slot only by key broke Codex. Codex supplies its credential through a transport middleware with `DisableDefaultBearer`, so no slot has a key and the openai slot (api.openai.com) was picked instead of `open-responses-base-url`. Fixed: with no key in any slot, the slot is chosen by URL.
+- `TestResponsesAPIKeyPrefersOpenResponsesKey` failed with `provider_settings_test.go:265: expected open-responses key, got ""`. That is the intended change (an open-responses key with no open-responses URL), so I updated the test's fixture.
+- `TestNewSettingsFactoryFromInferenceSettingsSkipsBlankLocalCohereValuesAndInjectsClient` failed with `settings_factory_test.go:190: provider did not retain the HTTP client injected through InferenceSettings.Client`. The test compared client identity; it now checks the pinned copy's properties.
+- `go build` failed with `pkg/embeddings/settings_factory.go:173:13: undefined: security`: a missing import, added.
+
+### What I learned
+- `open-responses` is the canonical Responses slot name and `openai-responses` a legacy alias (`types.go:7–8`, `factory.go:230–245`). Only `openai`, `claude` and `gemini` have YAML URL defaults, so `openai-base-url` is always populated in CLI apps. That is what made the old cross-slot fallback send other vendors' keys to OpenAI.
+
+### What was tricky to build
+- Pin target versus adapter default: when a profile names no URL, the adapter (Cohere, System One, the Gemini SDK) applies its own default. The pin must use the *same* default, or every request would be refused. Each call site therefore pins to `configured-or-adapter-default`, using the adapter's exported constant where one exists.
+
+### What warrants a second pair of eyes
+- Behaviour changes:
+  1. OpenAI embeddings honour `openai-base-url`;
+  2. OpenAI embeddings now enforce the outbound URL policy (`allow_http.embeddings`, `allow_local_networks.embeddings` for local servers);
+  3. an `open-responses` key needs `open-responses-base-url`.
+- Gemini SDK: the cache client may be built without our `HTTPClient` (guide §11). This was not verified in this step.
+
+### What should be done in the future
+- Phase 4 matrix: end-to-end rows for chat, Claude redirect, embeddings and Responses.
+
+### Code review instructions
+- `settings/http_client.go` (`EnsurePinnedHTTPClient`), `openai_responses/provider_settings.go` (`resolveResponsesSlot`), `embeddings/settings_factory.go` (the openai case), then the one-line call-site changes.
+
+### Technical details
+- The Responses slot error message: `open-responses-api-key is set but open-responses-base-url is not; the key is not sent to another slot's URL or to OpenAI's default`.

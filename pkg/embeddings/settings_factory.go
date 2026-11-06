@@ -11,6 +11,7 @@ import (
 	_ "embed"
 
 	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
+	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	geppetto_openai "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
@@ -85,6 +86,10 @@ type SettingsFactory struct {
 var _ ProviderFactory = &SettingsFactory{}
 
 // NewSettingsFactory creates a new factory that uses the provided configuration
+// openAIDefaultEmbeddingsBaseURL is OpenAI's API root, used when neither an
+// option nor openai-base-url names one.
+const openAIDefaultEmbeddingsBaseURL = "https://api.openai.com/v1"
+
 func NewSettingsFactory(config *config.EmbeddingsConfig) *SettingsFactory {
 	return &SettingsFactory{
 		config: config,
@@ -156,7 +161,25 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 			return nil, fmt.Errorf("no API key provided for OpenAI")
 		}
 
-		provider = NewOpenAIProvider(apiKey, openai.EmbeddingModel(options.engine), options.dimensions)
+		// The key in the openai slot goes to the URL in the same slot
+		// (GEPPETTO-CREDSCOPE-001): chat already honours openai-base-url, and
+		// embeddings used to ignore it, sending a gateway's key to OpenAI.
+		baseURL := options.baseURL
+		if baseURL == "" && f.config.BaseURLs != nil {
+			baseURL = strings.TrimSpace(f.config.BaseURLs["openai-base-url"])
+		}
+		if baseURL == "" {
+			baseURL = openAIDefaultEmbeddingsBaseURL
+		}
+		if err := security.ValidateOutboundURL(baseURL, settings.OutboundURLOptions(f.api, "embeddings")); err != nil {
+			return nil, fmt.Errorf("invalid OpenAI embeddings base URL: %w", err)
+		}
+		httpClient, err := settings.EnsurePinnedHTTPClient(f.client, baseURL)
+		if err != nil {
+			return nil, fmt.Errorf("embeddings http client: %w", err)
+		}
+		provider = NewOpenAIProvider(apiKey, openai.EmbeddingModel(options.engine), options.dimensions,
+			WithOpenAIBaseURL(baseURL), WithOpenAIHTTPClient(httpClient))
 
 	case "cohere":
 		apiKey := options.apiKey
@@ -182,7 +205,11 @@ func (f *SettingsFactory) NewProvider(opts ...ProviderOption) (Provider, error) 
 		// Honor the host-owned HTTP client (timeouts, proxy, TLS) and enforce
 		// the repository outbound URL policy on the embed endpoint, matching
 		// the rerank factory's wiring.
-		httpClient, err := settings.EnsureHTTPClient(f.client)
+		pinTo := baseURL
+		if pinTo == "" {
+			pinTo = defaultCohereBaseURL
+		}
+		httpClient, err := settings.EnsurePinnedHTTPClient(f.client, pinTo)
 		if err != nil {
 			return nil, fmt.Errorf("embeddings http client: %w", err)
 		}

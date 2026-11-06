@@ -63,12 +63,16 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 		return nil, err
 	}
 
-	apiKey := responsesAPIKey(tc.settings.API)
+	slot, err := resolveResponsesSlot(tc.settings.API, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "responses token count")
+	}
+	apiKey := slot.key
 	if strings.TrimSpace(apiKey) == "" {
 		return nil, errors.New("responses token count: no responses api key configured")
 	}
 
-	url := responsesEndpoint(tc.settings.API, "/responses/input_tokens")
+	url := strings.TrimRight(slot.baseURL, "/") + "/responses/input_tokens"
 	if err := security.ValidateOutboundURL(url, responsesOutboundURLOptions(tc.settings.API)); err != nil {
 		return nil, errors.Wrap(err, "invalid responses token count URL")
 	}
@@ -80,9 +84,9 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-	httpClient := http.DefaultClient
-	if tc.settings.Client != nil && tc.settings.Client.HTTPClient != nil {
-		httpClient = tc.settings.Client.HTTPClient
+	httpClient, err := settings.EnsurePinnedHTTPClient(tc.settings.Client, slot.baseURL)
+	if err != nil {
+		return nil, err
 	}
 
 	resp, err := httpClient.Do(req)

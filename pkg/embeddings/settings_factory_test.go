@@ -5,8 +5,10 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
+	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"gopkg.in/yaml.v3"
 )
@@ -152,7 +154,8 @@ inference_settings:
 }
 
 func TestNewSettingsFactoryFromInferenceSettingsSkipsBlankLocalCohereValuesAndInjectsClient(t *testing.T) {
-	client := &http.Client{}
+	hostTransport := &http.Transport{}
+	client := &http.Client{Transport: hostTransport, Timeout: 7 * time.Second}
 	in := &settings.InferenceSettings{
 		API: &settings.APISettings{
 			APIKeys:            map[string]string{"cohere-api-key": "top-level-key"},
@@ -186,8 +189,17 @@ func TestNewSettingsFactoryFromInferenceSettingsSkipsBlankLocalCohereValuesAndIn
 	if cohereProvider.endpoint != "https://proxy.example/cohere/v2/embed" {
 		t.Fatalf("endpoint = %q, want path appended to shared base", cohereProvider.endpoint)
 	}
-	if cohereProvider.httpClient != client {
+	// The host client is honoured as a pinned copy (GEPPETTO-CREDSCOPE-001):
+	// same timeout, its transport wrapped so only the base URL's origin is reachable.
+	pinned, ok := cohereProvider.httpClient.Transport.(*security.PinnedTransport)
+	if !ok || pinned.Next != hostTransport || cohereProvider.httpClient.Timeout != client.Timeout {
 		t.Fatal("provider did not retain the HTTP client injected through InferenceSettings.Client")
+	}
+	if len(pinned.Allowed) != 1 || pinned.Allowed[0].String() != "https://proxy.example:443" {
+		t.Fatalf("pinned origins = %v, want the Cohere base URL's origin", pinned.Allowed)
+	}
+	if client.Transport != hostTransport {
+		t.Fatal("host client modified")
 	}
 }
 

@@ -91,9 +91,11 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 		client.SetBearerAuthorization(bearerAuthorization)
 	}
 	client.SetOutboundURLOptions(settings.OutboundURLOptions(tc.settings.API, "claude"))
-	if tc.settings.Client != nil && tc.settings.Client.HTTPClient != nil {
-		client.SetHTTPClient(tc.settings.Client.HTTPClient)
+	httpClient, err := settings.EnsurePinnedHTTPClient(tc.settings.Client, baseURL)
+	if err != nil {
+		return nil, err
 	}
+	client.SetHTTPClient(httpClient)
 	res, err := client.CountTokens(ctx, req)
 	if err != nil {
 		return nil, err

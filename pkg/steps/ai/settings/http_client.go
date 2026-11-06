@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
+	"github.com/go-go-golems/geppetto/pkg/security"
 )
 
 const defaultClientSettingsTimeout = 60 * time.Second
@@ -211,4 +213,29 @@ func RedactedProxyURL(raw string) string {
 		return raw
 	}
 	return u.Redacted()
+}
+
+// EnsurePinnedHTTPClient is EnsureHTTPClient pinned to the origins of
+// baseURLs (GEPPETTO-CREDSCOPE-001): the returned client refuses every
+// request, including redirect hops, whose origin is not one of them. Engines
+// that attach a settings slot's credential use it with that slot's base URL,
+// so the credential cannot follow a redirect or reach any other host.
+// The client from ClientSettings is copied, never modified.
+func EnsurePinnedHTTPClient(cs *ClientSettings, baseURLs ...string) (*http.Client, error) {
+	if len(baseURLs) == 0 {
+		return nil, errors.New("pinned HTTP client needs at least one base URL")
+	}
+	origins := make([]security.Origin, 0, len(baseURLs))
+	for _, u := range baseURLs {
+		o, err := security.ParseOrigin(u)
+		if err != nil {
+			return nil, errors.Wrap(err, "pin HTTP client")
+		}
+		origins = append(origins, o)
+	}
+	c, err := EnsureHTTPClient(cs)
+	if err != nil {
+		return nil, err
+	}
+	return security.PinClient(c, origins...), nil
 }

@@ -258,11 +258,65 @@ func TestResponsesAPIKeyPrefersOpenResponsesKey(t *testing.T) {
 			"openai-responses-api-key": "legacy-key",
 			"open-responses-api-key":   "new-key",
 		},
+		BaseUrls: map[string]string{"open-responses-base-url": "https://responses.example/v1"},
 	}
 
 	got := responsesAPIKey(api)
 	if got != "new-key" {
 		t.Fatalf("expected open-responses key, got %q", got)
+	}
+}
+
+// GEPPETTO-CREDSCOPE-001: the key and the URL come from the same slot. An
+// open-responses key without open-responses-base-url used to be paired with
+// openai-base-url (whose flag default is api.openai.com), sending one
+// provider's key to another.
+func TestResponsesSlotPairsKeyWithItsOwnURL(t *testing.T) {
+	leak := &settings.APISettings{
+		APIKeys:  map[string]string{"open-responses-api-key": "vendor-key"},
+		BaseUrls: map[string]string{"openai-base-url": "https://api.openai.com/v1"},
+	}
+	if _, err := resolveResponsesSlot(leak, false); err == nil {
+		t.Fatal("open-responses key without its own URL must be an error")
+	}
+	if responsesAPIKey(leak) != "" || responsesBaseURL(leak) != "" {
+		t.Fatal("unresolvable slot must yield neither key nor URL")
+	}
+
+	cases := []struct {
+		name      string
+		api       *settings.APISettings
+		sourced   bool
+		wantKey   string
+		wantURL   string
+		wantAPITy types.ApiType
+	}{
+		{"openai slot keeps its URL", &settings.APISettings{
+			APIKeys:  map[string]string{"openai-api-key": "k"},
+			BaseUrls: map[string]string{"openai-base-url": "https://gw.example/v1", "open-responses-base-url": "https://other.example/v1"},
+		}, false, "k", "https://gw.example/v1", types.ApiTypeOpenAI},
+		{"openai slot defaults to OpenAI", &settings.APISettings{
+			APIKeys: map[string]string{"openai-api-key": "k"},
+		}, false, "k", openAIDefaultBaseURL, types.ApiTypeOpenAI},
+		{"legacy alias may use openai-base-url", &settings.APISettings{
+			APIKeys:  map[string]string{"openai-responses-api-key": "k"},
+			BaseUrls: map[string]string{"openai-base-url": "https://gw.example/v1"},
+		}, false, "k", "https://gw.example/v1", types.ApiTypeOpenAIResponses},
+		{"token source picks the first slot with a URL", &settings.APISettings{
+			BaseUrls: map[string]string{"openai-responses-base-url": "https://pi.example/v1", "openai-base-url": "https://api.openai.com/v1"},
+		}, true, "", "https://pi.example/v1", types.ApiTypeOpenAIResponses},
+		{"no key anywhere picks the first slot with a URL (Codex)", &settings.APISettings{
+			BaseUrls: map[string]string{"open-responses-base-url": "https://chatgpt.com/backend-api"},
+		}, false, "", "https://chatgpt.com/backend-api", types.ApiTypeOpenResponses},
+	}
+	for _, tc := range cases {
+		got, err := resolveResponsesSlot(tc.api, tc.sourced)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if got.key != tc.wantKey || got.baseURL != tc.wantURL || got.apiType != tc.wantAPITy {
+			t.Fatalf("%s: got %+v", tc.name, got)
+		}
 	}
 }
 
