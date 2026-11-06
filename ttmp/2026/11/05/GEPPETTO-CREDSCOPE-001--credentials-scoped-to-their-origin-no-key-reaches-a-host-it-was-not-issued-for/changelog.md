@@ -37,3 +37,7 @@ Finish embeddings/rerank migration and atomic credential pairs; centralize provi
 ## 2026-11-06
 
 Bind OAuth token grants and Umans issuer authentication; recording tests refuse credential-bearing redirects and protocol-vendor fallback
+
+## 2026-11-06
+
+Finish connection-aware factories and atomic profile overlays; publish usage guide, compiled examples and validation evidence with environment and custom-vet limits

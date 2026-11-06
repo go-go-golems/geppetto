@@ -819,3 +819,75 @@ Inspection of profile stack resolution found another place where a valid connect
 - No compatibility wrappers were added for removed token-counter or Umans APIs.
 - Credential overlay errors name slot fields, never their values.
 - Existing byte limits, SSE decoding and response validation remain owned by their payload implementations.
+
+
+## Step 13: Publish the public API guide and hand off the implementation
+
+Finished the second design document with implementation results, constructor/configuration changes, commit boundaries and validation limits. The user-facing credential-scope help topic now explains the single connection API and maps it to every supported AI API family. Updated embedding examples and added compiled generic/shared-connection examples. The existing ticket remains active for review, with its implementation tasks checked.
+
+The completed validation gate passes, and the downstream rag-workbench builds against this isolated implementation. Golangci-lint reports zero issues; the separate repository vet tool reports six calls in an unchanged generated key-definition file. The user's latest instruction is to avoid repeated exhaustive checks at each commit, so this checkpoint records the evidence already obtained and wraps up without expanding validation.
+
+### Prompt Context
+**User prompt (verbatim):** "how far are we?"
+**User follow-up (verbatim):** "ook, we don't need to check veverything at every commit, this will get figured out as we use it"
+**Assistant interpretation:** Report progress, finish the authorized implementation/documentation, and avoid further repeated broad verification.
+**Inferred user intent:** Prioritize a coherent, usable implementation and reviewable commits; let ordinary use reveal additional integration details.
+**Commit (factory/profile):** `dd84c625` — "refactor(factory): pass connections and merge credential bindings atomically"
+
+### What I did
+- Rewrote `pkg/doc/topics/17-credential-scope.md` around the bound connection, named routes, auth/header carriers, sharing, source configuration, profile/embedding pairing and troubleshooting.
+- Updated the embedding topic/tutorial constructor examples and documented the complete provider base binding.
+- Added `connection/example_test.go`: a generic authenticated API operation and one connection shared by chat, embeddings and Whisper.
+- Added compile-time interface assertions for the connection's diagnostic interfaces and route resolvers.
+- Updated design 02's delivered API, commit table, migration effects, evidence and trust limits; added a continuation link to the historical design 01.
+- Filled the ticket overview with direct design/diary/evidence links and related the focused implementation files through docmgr.
+- Added reproducible recording-validation and offline-schema lint scripts under the ticket.
+- Saved successful validation output, actual lint output and a concise receipt of the downstream build.
+- Checked all ticket implementation tasks, updated its changelog, and reviewed staging and whitespace before the final commit.
+- Verified the original linked checkout is clean and the parent workspace file is preserved.
+
+### Why
+- The API needs to be clear to application authors: bind endpoint/auth/routes/headers once, then pass the opaque connection with model/payload settings.
+- Constructor and credential-overlay behavior changes must be documented where callers find the relevant API examples.
+- Evidence should distinguish a passing analyzer run from a different custom tool's diagnostics and from environment-blocked tests.
+- The latest user instruction favors completing useful work over repeating broad checks at every commit.
+
+### What worked
+- `scripts/02-validate-bound-connections.sh`: exit 0. Includes all 64 credential matrix cases, focused source/SDK/factory/embedding tests, full profile/bootstrap/doc tests, core/matrix/SDK/issuer race checks, repository-wide test compilation and repository-wide build. Output: `sources/05-bound-connection-validation.txt`.
+- The compiled generic and shared connection examples pass.
+- Offline golangci-lint schema verification passes; the final golangci-lint run reports `0 issues.`.
+- Downstream `GOWORK=/tmp/geppetto-bound-validation.work GOCACHE=/tmp/geppetto-bound-go-cache GOFLAGS=-buildvcs=false GOPROXY=off go build ./...` in rag-workbench: exit 0, no diagnostics. The temporary workspace selects the isolated Geppetto implementation and existing sibling modules.
+- `docmgr doc relate`, task completion and changelog updates succeeded.
+
+### What didn't work
+- The custom repository vet stage of `scripts/03-lint-with-local-schema.sh` reports six `do not call turns.DataK outside key-definition files` diagnostics at `pkg/inference/engine/turnkeys_gen.go:9–14`. That generated file and the analyzer are unchanged by this work. The script returns exit 1 and stops before the final Glazed vet stage; a successful full `make lint` run is not claimed. Raw output is retained in `sources/06-bound-connection-lint.txt`.
+- Existing socket-based tests cannot open loopback listeners in this environment, as recorded in Step 9. Their packages compile; recording tests exercise the changed request boundaries.
+- `git diff --check` found one extra blank line at the end of design 02; removed it before staging.
+
+### What I learned
+- The public API is now useful through both direct clients and generic factories; callers can omit credential/client maps when they supply a connection.
+- Verification boundaries should track meaningful implementation milestones. A commit alone is not a reason to repeat a broad gate.
+
+### What was tricky to build
+- Explaining source declarations, runtime authority and payload configuration without teaching callers the removed assembly paths.
+- Keeping the historical PR #445 diary/design intact while clearly identifying the new implementation and its broader coverage.
+- Reporting lint truthfully: the nine configured golangci analyzers pass, while a separate unchanged generated-key check still reports diagnostics.
+
+### What warrants a second pair of eyes
+- Deliberate public API changes: bound embedding/transcription/Claude clients, eager counter errors, connection factory options and the replaced Umans/source helper APIs.
+- Complete pair requirements for credential overrides and profile stacks.
+- Remaining trust limits: raw declarations from hosts, custom Go transports/sources, DNS/proxy trust and tenant path isolation.
+
+### What should be done in the future
+- Exercise the new APIs during normal use, as requested. Run the existing socket tests in a normal environment when useful.
+- Review the independent generated-key vet diagnostics in their own context; no unrelated generated code was changed here.
+
+### Code review instructions
+- Start with design 02 and `connection/example_test.go`, then read the public usage topic.
+- Review the six preceding commits as bounded implementation stages; the final commit contains the public guide, examples and evidence.
+- Worktree: `/home/manuel/workspaces/2026-11-02/rag-workbench/geppetto-bound-connections`; branch: `task/geppetto-bound-connections-001`.
+
+### Technical details
+- No remote messages, push, PR publication, real credential lookup or live AI API requests were performed.
+- The isolated checkout is necessary because the original common Git metadata is read-only in this environment. The original checkout is preserved.
+- Evidence files are readable text; the downstream receipt explicitly identifies itself as a summary of the completed command.

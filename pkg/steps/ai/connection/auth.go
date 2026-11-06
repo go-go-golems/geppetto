@@ -2,6 +2,7 @@ package connection
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -21,6 +22,9 @@ type Authentication struct {
 	middlewares []aitransport.Middleware
 	err         error
 }
+
+var _ fmt.Stringer = Authentication{}
+var _ fmt.GoStringer = Authentication{}
 
 func (Authentication) String() string     { return "<API authentication>" }
 func (a Authentication) GoString() string { return a.String() }

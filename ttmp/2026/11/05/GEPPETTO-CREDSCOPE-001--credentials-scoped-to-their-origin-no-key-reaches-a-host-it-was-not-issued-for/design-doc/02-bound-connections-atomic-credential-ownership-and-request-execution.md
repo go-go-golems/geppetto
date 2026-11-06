@@ -12,12 +12,20 @@ Intent: long-term
 Owners:
     - manuel
 RelatedFiles:
+    - Path: repo://pkg/embeddings/settings_factory.go
+      Note: Atomic local credential selection
+    - Path: repo://pkg/engineprofiles/inference_settings_merge.go
+      Note: Profile stacks preserve credential pairs
+    - Path: repo://pkg/inference/engine/factory/factory.go
+      Note: Public factory accepts a complete connection
     - Path: repo://pkg/steps/ai/connection/auth.go
       Note: Request-time authentication and refresh
     - Path: repo://pkg/steps/ai/connection/connection.go
       Note: Opaque request capability and shared executor
     - Path: repo://pkg/steps/ai/connection/connection_test.go
       Note: Adversarial ownership and routing tests
+    - Path: repo://pkg/steps/ai/credscope/bound_paths_test.go
+      Note: Direct API family coverage in the 64-path matrix
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-11-06T17:05:09.738684029-05:00
@@ -71,7 +79,7 @@ The origin is fixed from the declared source endpoint, before protocol routing. 
 
 ## SDK integration
 
-`SDKClient()` returns an HTTP client facade whose private transport executes through the connection. The facade exposes neither the original client nor its transport. The connection owns redirects and authentication; an outer facade does not follow redirects a second time. SDKs receive an inert nonempty API-key placeholder where their constructor requires a key. The connection overwrites the placeholder with real authentication immediately before the network boundary. No engine or SDK holds the real key.
+`SDKClient()` returns an HTTP client facade whose private transport executes through the connection. The facade exposes neither the original client nor its transport. The connection owns redirects and authentication; an outer facade does not follow redirects a second time. SDKs receive an inert nonempty API-key placeholder where their constructor requires a key. The connection overwrites the placeholder with real authentication immediately before the network boundary. No engine or SDK holds the real key. The OpenAI SDK accepts an empty constructor token and needs no placeholder; Gemini receives an inert placeholder because its constructor requires one.
 
 Modern Gemini generation and cache operations must share this client. Remove unused legacy client setup and verify the installed modern SDK's cache path with a recording transport. No SDK operation is permitted to fall back to an ambient client.
 
@@ -81,7 +89,7 @@ Settings slots are translated to an immutable connection at engine construction.
 
 Pi resolves provider endpoint, credentials and custom headers once, builds the connection, and captures it in the engine builder. Mutating `Resolved.Settings.API` afterward cannot move the credential. Anthropic and Gemini credentials no longer enter public resolved settings. Codex retains its canonical route and typed source, installed as restricted connection middleware.
 
-For embeddings, a layer that overrides either credential field selects that layer's pair for that provider. A partial override is an error rather than implicit inheritance. Empty entries do not count as overrides. Likewise per-call credential overrides require a pair. Callers wanting to change only model/dimensions can continue to do so without affecting the connection. Adapter defaults are resolved only at the declaration boundary, before binding.
+For embeddings, a local layer that overrides either credential field selects that layer's pair for that provider. A partial override is an error rather than implicit inheritance. Empty entries do not count as overrides. Likewise per-call credential overrides require a pair. Engine profile stacks also replace existing authenticated API/embedding bindings atomically, using `settings.OverlayCredentialSlots`; partial changes are errors and blank values preserve the prior pair. Callers wanting to change only model/dimensions can continue to do so without affecting the connection. Adapter defaults are resolved only at the declaration boundary, before binding.
 
 Factories pass host timeout/proxy/TLS settings and policy into the constructor; provider implementations use the connection. Direct constructors establish the same boundary and cannot bypass protection by skipping a factory.
 
@@ -108,4 +116,38 @@ Recording transports and marker credentials are used throughout; no real API req
 
 ## Implementation status
 
-Design checkpoint only. The subsequent diary entries and completion section will record the delivered behavior and exact validation results.
+Implemented on `task/geppetto-bound-connections-001`, based on `47984a78` from PR #445. The original linked checkout's Git metadata is outside the writable roots, so work and commits live in the isolated sibling checkout `geppetto-bound-connections`. The original checkout and parent `go.work` are preserved.
+
+| Commit | Delivered boundary |
+|---|---|
+| `565dc266` | Design 02, tasks and detailed diary checkpoint |
+| `9b8a0f48` | Immutable connection, named routes, auth, headers, shared executor, SDK facade and adversarial tests |
+| `aa77b9b3` | OpenAI/Responses/Claude/Gemini inference, counters, Pi and Whisper |
+| `5b0386c9` | Embeddings, rerank, decisions, atomic embedding pairs and central provider defaults |
+| `4739946b` | OAuth grant requests and issuer-bound Umans connection |
+| `dd84c625` | Connection-aware factories, immediate counter errors, Pi accessor and atomic profile stack pairs |
+
+### Actual public API
+
+- `connection.New(Config)` returns an opaque connection. `Config` groups provider, base URL, named `Routes`, `Authentication`, default `Headers`, host `HTTPClient`, `OutboundURL` and optional strict redirect rejection.
+- `NewRequest(ctx, method, operation, body)` selects a named route; `Do` owns auth and bounded unauthorized replay. `DoWithObserver` supplies redacted diagnostics.
+- Token sources see the declared provider/base URL through a private binding context. The actual target is validated before source access and every redirect is guarded.
+- `SDKClient` is a private transport facade. `providers/openaisdk` and `providers/geminisdk` own SDK setup. Modern Gemini generation, cache, counting, embedding and file services share it.
+- `WithConnection` is available on inference engines and the generic factory. Embedding and transcription clients take a connection directly. Rerank and decision options accept one complete connection. Pi exposes `Resolved.Connection()` for reuse.
+- Token counter constructors now return an error immediately. The counter factory accepts connection/source options; the old separate unbound-source entrypoint is removed.
+- Claude's low-level client's credential/URL/client setters, the unbound Umans option helper, legacy Gemini client setup, duplicated retry/pinning setup and redundant local-rerank transport helpers are removed.
+
+### Evidence and limits
+
+- `scripts/02-validate-bound-connections.sh` passes. It runs the 64-path matrix, focused source/SDK/factory/embedding tests, full profile/bootstrap/doc tests, race checks for core/matrix/SDK/issuer bindings, whole-repository test compilation and whole-repository build.
+- `sources/05-bound-connection-validation.txt` records that successful gate. The compiled Go examples show generic sending and sharing one connection across chat, embeddings and Whisper.
+- The final golangci-lint analyzer run reports **0 issues**. Offline schema verification uses the schema from the installed v2.11.2 sources. The custom repository vet tool reports six calls in the existing generated `pkg/inference/engine/turnkeys_gen.go`; those calls and that analyzer are outside this change. The wrapper stops there, so a full `make lint` success is not claimed. See `sources/06-bound-connection-lint.txt`.
+- The downstream rag-workbench build succeeds with a temporary workspace selecting the isolated implementation; `sources/07-rag-workbench-build.txt` records the command. The parent workspace file is unchanged.
+- Existing socket-based tests cannot execute in this environment: `socket: operation not permitted`. Their packages compile. Recording transports exercise the changed request boundaries without real API traffic.
+- No real credentials or external API calls are needed for this work. Host-supplied transports, middleware and credential sources remain trusted Go code. Arbitrary already-merged settings supplied by another application are trusted declarations; their lost provenance cannot be recovered here.
+
+### Configuration and migration effects
+
+Embedding-local and per-call auth overrides require both fields. Existing authenticated profile stack bindings must be replaced with a complete key/URL pair; model-only profiles can inherit the pair unchanged. Direct embedding/transcription/Claude API constructors now take a connection, and counter constructors return errors. These are deliberate API/configuration changes; no compatibility layer was added.
+
+A new authenticated API implementation should declare its operation routes, accept an existing connection, keep payload/model configuration separate and add a recording regression row. It should not obtain raw keys or create a network client in its request method.

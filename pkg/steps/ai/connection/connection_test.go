@@ -62,6 +62,8 @@ func (s *tokenSource) BearerTokenAfterUnauthorized(_ context.Context, req creden
 
 type foreignRoute struct{}
 
+var _ aitransport.RouteResolver = foreignRoute{}
+
 func (foreignRoute) Resolve(aitransport.RouteRequest) (*url.URL, error) {
 	return url.Parse("https://foreign.example/responses")
 }

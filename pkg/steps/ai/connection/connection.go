@@ -5,6 +5,7 @@ package connection
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -53,6 +54,9 @@ type Connection struct {
 	rules    []aitransport.HeaderRule
 	chain    *aitransport.Chain
 }
+
+var _ fmt.Stringer = (*Connection)(nil)
+var _ fmt.GoStringer = (*Connection)(nil)
 
 func (*Connection) String() string     { return "<bound API connection>" }
 func (c *Connection) GoString() string { return c.String() }
@@ -340,6 +344,8 @@ func closeBody(req *http.Request) {
 
 type identityRoute struct{}
 
+var _ aitransport.RouteResolver = identityRoute{}
+
 func (identityRoute) Resolve(r aitransport.RouteRequest) (*url.URL, error) {
 	u := r.BaseURL()
 	return &u, nil
@@ -348,6 +354,8 @@ func (identityRoute) Resolve(r aitransport.RouteRequest) (*url.URL, error) {
 var routeSegment = regexp.MustCompile(`^[A-Za-z0-9._~-]+$`)
 
 type relativeRoute string
+
+var _ aitransport.RouteResolver = relativeRoute("")
 
 // Relative declares an operation path below the base URL. Absolute URLs,
 // queries, fragments and dot-segment traversal are rejected when resolved.
