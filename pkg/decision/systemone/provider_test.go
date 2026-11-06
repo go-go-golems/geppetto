@@ -204,6 +204,9 @@ func TestDecideInvalidResponses(t *testing.T) {
 		"not json":            `answers: yes`,
 		"unasked answer":      strings.Replace(okBody, `"needs":{`, `"surprise":{"noul":0.1,"type":"noul"},"needs":{`, 1),
 		"probability above 1": strings.Replace(okBody, `"noul":0.994`, `"noul":1.5`, 1),
+		// encoding/json decodes null as 0; it must not become a fabricated zero.
+		"null option probability": strings.Replace(okBody, `"none":0.0000125`, `"none":null`, 1),
+		"null level probability":  strings.Replace(okBody, `"0":0.001`, `"0":null`, 1),
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {

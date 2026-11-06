@@ -280,3 +280,55 @@ PR #444 (`wesen:task/geppetto-decision-001` → `main`) got three automated revi
 
 ### Technical details
 - Review comment ids: 4484703632 (P1, Pi URL fallback), 4484703647 (P2, choice probabilities), 4484703659 (P2, images).
+
+## Step 5: Second Codex review — URL normalization and null probabilities
+
+After step 4, the user asked Codex to re-review PR #444. It reported two more findings against `194f1287`. Both are fixed here, kept small, because the user decided the architectural fix (credentials scoped to their origin) goes in a separate stacked PR, GEPPETTO-CREDSCOPE-001. This step only makes #444 safe on its own.
+
+### Prompt Context
+
+**User prompt (verbatim):** "yes, stack it. Create a new tickte and Create  a detailed analysis / design / implementation guide that is for a new intern, explaining all the parts of the system needed to understand what it is, with prose paragraphs and bullet point sand pseudocode and diagrams and api references and file references. It should be very clear and technical. Store in the ticket and the nupload to remarkable.
+ then implement, and commit at appropriate intervals and keep a detailed diary as you work (using the diary format from the skill). Diary format from skill:L Mandatory"
+
+**Assistant interpretation:** Fix the two open comments on #444 minimally. Then do the credential-scoping work as a new ticket and branch stacked on #444.
+
+**Inferred user intent:** Keep #444 reviewable and safe, and remove the bug class in a dedicated change.
+
+### What I did
+- **P1, comment 4485078058:**
+  - Added `systemone.NormalizeBaseURL`, the exact normalization `New` applies.
+  - `pi.Decider` now checks the normalized value, so `" "`, `"/"` and `" // "` count as missing for non-LunaRoute providers.
+  - Test: a `fireworks/djev` model with each of those URLs must fail with "no baseUrl".
+  - I confirmed the test fails when the old raw check is restored.
+- **P2, comment 4485078074:**
+  - `wireAnswer.Probabilities` is now `map[string]*float64`.
+  - `optionProbabilities` and `levelProbabilities` reject JSON `null` with `ErrInvalidResponse`.
+  - Tests: "null option probability" and "null level probability" in `TestDecideInvalidResponses`.
+
+### Why
+- P1: the step-4 guard checked the raw string while `New` used the normalized one, so the value that was checked differed from the value that was used. Sharing one normalization function closes that gap for this call site. The general fix is GEPPETTO-CREDSCOPE-001.
+- P2: `encoding/json` decodes `null` into a `float64` as 0 without an error, so the completeness check from step 4 could not see it.
+
+### What worked
+- `GOWORK=off go test ./pkg/decision/... ./pkg/steps/ai/providers/pi/ -count=1` passes.
+
+### What didn't work
+- No failures observed.
+
+### What I learned
+- Pi's `buildCatalog` keeps non-empty but unusable `baseUrl` values such as `" "` as they are. Each consumer normalizes differently.
+
+### What was tricky to build
+- Nothing beyond keeping the check and the use on the same function.
+
+### What warrants a second pair of eyes
+- Whether to remove `systemone.New`'s default URL entirely once CREDSCOPE lands (planned there).
+
+### What should be done in the future
+- GEPPETTO-CREDSCOPE-001: tie each credential to its origin across all engines (inventory in that ticket).
+
+### Code review instructions
+- `git show HEAD`: `systemone/provider.go` (`NormalizeBaseURL`, `optionProbabilities`), `pi/decision.go`.
+
+### Technical details
+- Review comment ids: 4485078058, 4485078074.

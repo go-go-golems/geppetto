@@ -41,7 +41,9 @@ func (a *AgentDir) Decider(ctx context.Context, ref string, o DecisionOptions) (
 	if !ok {
 		return nil, errors.Wrap(ErrUnknownModel, ref)
 	}
-	baseURL := m.BaseURL
+	// Check the value systemone.New will actually use: " " or "/" normalize
+	// to "" and would otherwise select DefaultBaseURL there.
+	baseURL := systemone.NormalizeBaseURL(m.BaseURL)
 	if baseURL == "" {
 		if m.Provider != LunaRouteProvider {
 			return nil, fmt.Errorf("pi: %s has no baseUrl; a System One endpoint must be configured for provider %q: %w",

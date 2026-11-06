@@ -60,4 +60,19 @@ func TestDeciderErrors(t *testing.T) {
 	_, err = c.Decider(context.Background(), "amazon-bedrock/claude", DecisionOptions{})
 	assert.ErrorIs(t, err, decision.ErrInvalidRequest)
 	assert.Contains(t, err.Error(), "no baseUrl")
+
+	// Blank or "/" base URLs normalize to empty in systemone.New and must be
+	// treated as missing here too, not as an explicit endpoint.
+	for _, u := range []string{" ", "/", " // "} {
+		dir := agentDir(t, "https://gw.example/v1")
+		writeFile(t, dir, "models.json", map[string]any{"providers": map[string]any{"fireworks": map[string]any{
+			"baseUrl": u, "api": "openai-completions", "apiKey": "fw-key",
+			"models": []any{map[string]any{"id": "djev"}},
+		}}})
+		d, err := LoadAgentDir(dir, env(map[string]string{}))
+		require.NoError(t, err)
+		_, err = d.Decider(context.Background(), "fireworks/djev", DecisionOptions{})
+		require.ErrorIs(t, err, decision.ErrInvalidRequest, "baseUrl %q", u)
+		assert.Contains(t, err.Error(), "no baseUrl", "baseUrl %q", u)
+	}
 }

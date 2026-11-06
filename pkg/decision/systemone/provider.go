@@ -35,6 +35,14 @@ const (
 	endpointPath = "systemone"
 )
 
+// NormalizeBaseURL is the normalization New applies to Options.BaseURL
+// (surrounding space and trailing slashes removed). An empty result means
+// New will use DefaultBaseURL, so callers that decide whether the default is
+// acceptable must check the normalized value, not the raw one.
+func NormalizeBaseURL(s string) string {
+	return strings.TrimRight(strings.TrimSpace(s), "/")
+}
+
 // Options configure a Provider. Exactly one of APIKey and TokenSource is
 // required.
 type Options struct {
@@ -86,7 +94,7 @@ func New(o Options) (*Provider, error) {
 	case tokens == nil:
 		return nil, invalid("api key or token source is required")
 	}
-	baseURL := strings.TrimRight(strings.TrimSpace(o.BaseURL), "/")
+	baseURL := NormalizeBaseURL(o.BaseURL)
 	if baseURL == "" {
 		baseURL = DefaultBaseURL
 	}
@@ -311,7 +319,11 @@ func mapAnswers(in decision.Request, wire map[string]wireAnswer) (map[string]dec
 			if w.Choice == nil || w.Confidence == nil {
 				return nil, bad(id, "lacks choice or confidence")
 			}
-			a.Choice, a.Confidence, a.Probabilities = *w.Choice, *w.Confidence, w.Probabilities
+			probs, err := optionProbabilities(w.Probabilities)
+			if err != nil {
+				return nil, bad(id, err.Error())
+			}
+			a.Choice, a.Confidence, a.Probabilities = *w.Choice, *w.Confidence, probs
 		case decision.Score:
 			if w.Score == nil || w.Confidence == nil {
 				return nil, bad(id, "lacks score or confidence")
@@ -331,8 +343,26 @@ func mapAnswers(in decision.Request, wire map[string]wireAnswer) (map[string]dec
 	return out, nil
 }
 
+// optionProbabilities copies a choice distribution. A JSON null value is
+// rejected: encoding/json would otherwise decode it as 0, which is
+// indistinguishable from the model assigning zero probability.
+func optionProbabilities(m map[string]*float64) (map[string]float64, error) {
+	if m == nil {
+		return nil, nil
+	}
+	out := make(map[string]float64, len(m))
+	for k, p := range m {
+		if p == nil {
+			return nil, fmt.Errorf("has a null option probability")
+		}
+		out[k] = *p
+	}
+	return out, nil
+}
+
 // levelProbabilities turns {"0": p0, "1": p1, ...} into a slice of n.
-func levelProbabilities(m map[string]float64, n int) ([]float64, error) {
+// Null values are rejected, as in optionProbabilities.
+func levelProbabilities(m map[string]*float64, n int) ([]float64, error) {
 	if len(m) != n {
 		return nil, fmt.Errorf("has %d level probabilities for %d levels", len(m), n)
 	}
@@ -342,7 +372,10 @@ func levelProbabilities(m map[string]float64, n int) ([]float64, error) {
 		if err != nil || i < 0 || i >= n || strconv.Itoa(i) != k {
 			return nil, fmt.Errorf("has a probability for an undeclared level")
 		}
-		out[i] = p
+		if p == nil {
+			return nil, fmt.Errorf("has a null level probability")
+		}
+		out[i] = *p
 	}
 	return out, nil
 }

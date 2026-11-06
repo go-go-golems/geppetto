@@ -35,13 +35,13 @@ type wireUsage struct {
 
 // wireAnswer uses pointers so a missing field is distinguishable from zero.
 type wireAnswer struct {
-	Type          string             `json:"type"`
-	Noul          *float64           `json:"noul"`
-	Choice        *string            `json:"choice"`
-	Score         *float64           `json:"score"`
-	Confidence    *float64           `json:"confidence"`
-	Probabilities map[string]float64 `json:"probabilities"`
-	Legend        map[string]string  `json:"legend"`
+	Type          string              `json:"type"`
+	Noul          *float64            `json:"noul"`
+	Choice        *string             `json:"choice"`
+	Score         *float64            `json:"score"`
+	Confidence    *float64            `json:"confidence"`
+	Probabilities map[string]*float64 `json:"probabilities"` // nil entry = JSON null, rejected
+	Legend        map[string]string   `json:"legend"`
 }
 
 // wireError is the error envelope: {"error": {code, message, request_id}}.
