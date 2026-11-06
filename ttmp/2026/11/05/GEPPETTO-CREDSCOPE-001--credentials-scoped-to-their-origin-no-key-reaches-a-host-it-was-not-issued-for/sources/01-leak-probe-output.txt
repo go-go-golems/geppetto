@@ -1,0 +1,30 @@
+== pi.Resolve fireworks/m (openai-completions, no baseUrl)
+   expected: no request, or only to fireworks' own host
+   api.openai.com               /v1/chat/completions         markers=[FW-SECRET]
+   error: chat completions error: status=400 body={"error":{"message":"probe"}}
+== pi.Resolve zai/m (anthropic-messages, no baseUrl)
+   expected: no request, or only to zai's own host
+   api.anthropic.com            /v1/messages                 markers=[ZAI-SECRET]
+   error: claude API error: probe
+== pi.Resolve gateway/m, gateway answers 307 to other.example
+   expected: GW-SECRET and TEAM-SECRET only at gateway.example
+   gateway.example              /v1/chat/completions         markers=[GW-SECRET TEAM-SECRET]
+   other.example                /v1/chat/completions         markers=[TEAM-SECRET]
+   error: chat completions error: status=400 body={"error":{"message":"probe"}}
+== embeddings openai, openai-base-url=https://gateway.example/v1
+   expected: GW-SECRET only at gateway.example
+   api.openai.com               /v1/embeddings               markers=[GW-SECRET]
+   error: error, status code: 400, status: , message: probe
+== open-responses key, only openai-base-url set
+   expected: OR-SECRET not sent to the openai slot's gateway
+   gateway.example              /v1/responses                markers=[OR-SECRET]
+   error: responses api error: status=400 body=map[error:map[message:probe]]
+== claude, gateway answers 307 to other.example
+   expected: CL-SECRET only at gateway.example
+   gateway.example              /v1/messages                 markers=[CL-SECRET]
+   other.example                /v1/messages                 markers=[CL-SECRET]
+   error: claude API error: probe
+== pi.Decider fireworks/m, baseUrl " " (after #444 fixes)
+   expected: refused before any request
+   (no request sent)
+   error: pi: fireworks/m has no baseUrl; a System One endpoint must be configured for provider "fireworks": invalid decision requ…
