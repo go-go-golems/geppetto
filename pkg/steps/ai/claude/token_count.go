@@ -20,7 +20,6 @@ type TokenCounter struct {
 	bearerTokenSource credentials.BearerTokenSource
 	oauthBearerMode   bool
 	connection        *connection.Connection
-	connectionErr     error
 }
 
 // TokenCounterOption configures request-time authentication for token counting.
@@ -40,7 +39,11 @@ func WithTokenCountOAuthBearerTokenSource(source credentials.BearerTokenSource) 
 	}
 }
 
-func NewTokenCounter(s *settings.InferenceSettings, opts ...TokenCounterOption) *TokenCounter {
+func NewTokenCounter(s *settings.InferenceSettings, opts ...TokenCounterOption) (*TokenCounter, error) {
+	if s == nil || s.Chat == nil {
+		return nil, errors.New("token count model settings are required")
+	}
+	var err error
 	counter := &TokenCounter{settings: s}
 	for _, opt := range opts {
 		if opt != nil {
@@ -48,13 +51,16 @@ func NewTokenCounter(s *settings.InferenceSettings, opts ...TokenCounterOption) 
 		}
 	}
 	if counter.connection == nil {
-		counter.connection, counter.connectionErr = resolveClaudeConnection(s, counter.bearerTokenSource, counter.oauthBearerMode, "")
+		counter.connection, err = resolveClaudeConnection(s, counter.bearerTokenSource, counter.oauthBearerMode, "")
 	} else if counter.bearerTokenSource != nil {
-		counter.connectionErr = errors.New("connection already owns authentication")
+		return nil, errors.New("connection already owns authentication")
+	}
+	if err != nil {
+		return nil, err
 	}
 	counter.bearerTokenSource = nil
 	counter.settings = settings.PayloadSettings(s)
-	return counter
+	return counter, nil
 }
 
 func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencount.Result, error) {
@@ -72,9 +78,6 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 		apiType = string(*tc.settings.Chat.ApiType)
 	}
 
-	if tc.connectionErr != nil {
-		return nil, tc.connectionErr
-	}
 	client := api.NewClient(tc.connection)
 	res, err := client.CountTokens(ctx, req)
 	if err != nil {

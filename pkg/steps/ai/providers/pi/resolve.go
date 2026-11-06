@@ -52,10 +52,14 @@ type ResolveOptions struct {
 // Resolved is a model ready to run: settings without secrets, plus the
 // credential wiring the engine needs.
 type Resolved struct {
-	Model    Model
-	Settings *settings.InferenceSettings
-	build    func(*settings.InferenceSettings) (engine.Engine, error)
+	Model      Model
+	Settings   *settings.InferenceSettings
+	build      func(*settings.InferenceSettings) (engine.Engine, error)
+	connection *connection.Connection
 }
+
+// Connection returns the opaque provider authority for other API capabilities.
+func (r *Resolved) Connection() *connection.Connection { return r.connection }
 
 // Engine creates an engine. Engines are cheap; create one per call.
 func (r *Resolved) Engine() (engine.Engine, error) { return r.build(r.Settings) }
@@ -133,6 +137,7 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 		if _, err := c.Resolve("responses"); err != nil {
 			return nil, err
 		}
+		r.connection = c
 		r.build = func(s *settings.InferenceSettings) (engine.Engine, error) {
 			return openai_responses.NewEngine(s, openai_responses.WithConnection(c))
 		}
@@ -201,6 +206,7 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 	if err != nil {
 		return nil, err
 	}
+	r.connection = c
 	r.build = func(s *settings.InferenceSettings) (engine.Engine, error) { return build(s, c) }
 
 	return r, nil

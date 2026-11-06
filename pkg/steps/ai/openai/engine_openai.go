@@ -20,6 +20,7 @@ import (
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
+	providerdefaults "github.com/go-go-golems/geppetto/pkg/steps/ai/providers/defaults"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/pkg/errors"
@@ -38,6 +39,9 @@ type OpenAIEngine struct {
 
 // NewOpenAIEngine creates a new OpenAI inference engine with the given settings and options.
 func NewOpenAIEngine(s *settings.InferenceSettings, opts ...EngineOption) (*OpenAIEngine, error) {
+	if s == nil || s.Chat == nil {
+		return nil, errors.New("model chat settings are required")
+	}
 	e := &OpenAIEngine{
 		settings:            s,
 		toolAdapter:         tools.NewOpenAIToolAdapter(),
@@ -54,8 +58,12 @@ func NewOpenAIEngine(s *settings.InferenceSettings, opts ...EngineOption) (*Open
 			return nil, errors.New("chat API type is required")
 		}
 		var err error
+		defaultURL := ""
+		if string(*s.Chat.ApiType) == "openai" {
+			defaultURL = providerdefaults.OpenAIBaseURL
+		}
 		e.connection, err = settings.ResolveAPIConnection(s.API, s.Client, settings.ConnectionSpec{
-			Slot: string(*s.Chat.ApiType), Routes: Routes(), TokenSource: e.bearerTokenSource,
+			Slot: string(*s.Chat.ApiType), DefaultBaseURL: defaultURL, Routes: Routes(), TokenSource: e.bearerTokenSource,
 		})
 		if err != nil {
 			return nil, err

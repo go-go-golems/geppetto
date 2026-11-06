@@ -32,6 +32,9 @@ type EngineOption func(*GeminiEngine)
 
 // NewGeminiEngine creates a new Gemini inference engine with the given settings.
 func NewGeminiEngine(s *settings.InferenceSettings, opts ...EngineOption) (*GeminiEngine, error) {
+	if s == nil || s.Chat == nil {
+		return nil, errors.New("model chat settings are required")
+	}
 	ret := &GeminiEngine{settings: s, observabilityConfig: geppettoobs.DefaultConfig()}
 	for _, opt := range opts {
 		if opt != nil {

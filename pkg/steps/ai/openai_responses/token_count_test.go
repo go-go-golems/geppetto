@@ -97,7 +97,10 @@ func TestTokenCounterCountTurn(t *testing.T) {
 		OpenAI: &openaisettings.Settings{},
 	}
 
-	counter := NewTokenCounter(ss)
+	counter, err := NewTokenCounter(ss)
+	if err != nil {
+		t.Fatal(err)
+	}
 	res, err := counter.CountTurn(context.Background(), &turns.Turn{
 		Blocks: []turns.Block{turns.NewUserTextBlock("hello")},
 	})
@@ -169,7 +172,10 @@ func TestTokenCounterCountTurn_IncludesImageInputs(t *testing.T) {
 		OpenAI: &openaisettings.Settings{},
 	}
 
-	counter := NewTokenCounter(ss)
+	counter, err := NewTokenCounter(ss)
+	if err != nil {
+		t.Fatal(err)
+	}
 	res, err := counter.CountTurn(context.Background(), &turns.Turn{
 		Blocks: []turns.Block{turns.NewUserMultimodalBlock("Inspect this screenshot", []map[string]any{{
 			"media_type": "image/png",
@@ -275,7 +281,10 @@ func TestTokenCounterCountTurn_AttachesTools(t *testing.T) {
 		t.Fatalf("set tool config: %v", err)
 	}
 
-	counter := NewTokenCounter(ss)
+	counter, err := NewTokenCounter(ss)
+	if err != nil {
+		t.Fatal(err)
+	}
 	res, err := counter.CountTurn(inferencetools.WithRegistry(context.Background(), registry), turn)
 	if err != nil {
 		t.Fatalf("CountTurn returned error: %v", err)

@@ -179,6 +179,7 @@ func createValidOpenResponsesSettings() *settings.InferenceSettings {
 	apiType := types.ApiTypeOpenResponses
 	settings.Chat.ApiType = &apiType
 	settings.API.APIKeys["open-responses-api-key"] = "test-api-key"
+	settings.API.BaseUrls["open-responses-base-url"] = "https://api.openai.com/v1"
 
 	return settings
 }

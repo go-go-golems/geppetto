@@ -37,6 +37,9 @@ type ClaudeEngine struct {
 
 // NewClaudeEngine creates a new Claude inference engine with the given settings and options.
 func NewClaudeEngine(s *settings.InferenceSettings, opts ...EngineOption) (*ClaudeEngine, error) {
+	if s == nil || s.Chat == nil {
+		return nil, errors.New("model chat settings are required")
+	}
 	e := &ClaudeEngine{
 		settings:            s,
 		toolAdapter:         tools.NewClaudeToolAdapter(),

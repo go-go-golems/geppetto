@@ -747,3 +747,75 @@ OAuth continues to own grant/body encoding and the existing explicit HTTP(S)/loc
 ### Technical details
 - OAuth's browser authorization URL generation remains a non-network operation.
 - Arbitrary host-provided credential sources and network transports are trusted code; the connection does not sandbox their implementation.
+
+
+## Step 12: Remove factory auth duplication and preserve binding units through profile stacks
+
+The public factory layer still performed its own key/URL checks before constructing an engine. That prevented the intended use of one prebound connection without credential maps. The generic engine and token-counter factories now accept a connection directly and leave network/auth validation to its constructor. Counter constructors also return binding errors immediately instead of keeping a latent error until the first request.
+
+Inspection of profile stack resolution found another place where a valid connection could be built from an already mixed key/URL pair: recursive merging of `APISettings` and embedding credentials. Added atomic credential-slot overlay semantics there too. Changing an existing authenticated pair requires both fields; blank values preserve the original pair. Initial declarations and anonymous local endpoints retain their source semantics.
+
+### Prompt Context
+**User prompt (verbatim):** see Steps 7–9.
+**Assistant interpretation:** Make the connection usable through the normal public factory APIs and keep available configuration provenance until a binding is established.
+**Inferred user intent:** The common path should be sufficient for applications, and ordinary profile composition should not undo credential pairing.
+**Commit (auth sources):** `4739946b` — "fix(auth): bind OAuth grants and issuer-specific credentials to connections"
+
+### What I did
+- Added `factory.WithConnection` to the standard engine factory and removed independent credential-map/base-URL validation there.
+- Kept model/protocol configuration checks and normalized protocol aliases/defaults once without mutating caller settings.
+- Added connection/source options to the token-counter factory; replaced its separate unbound-source entrypoint.
+- Fixed the Responses counter factory path that previously ignored an injected source.
+- Changed both token-counter constructors to return `(*TokenCounter, error)` and updated all repository callers/tests. Invalid bindings fail at construction.
+- Added minimal payload-settings checks to engine/counter constructors even when a connection is supplied.
+- Added a nil-API guard in `InferenceSettings.GetMetadata`, required when a caller supplies only model settings plus a connection.
+- Added `Pi.Resolved.Connection()` so callers can reuse the opaque authority without retrieving a secret or client.
+- Added `settings.CredentialSlots` / `OverlayCredentialSlots` and used them after ordinary profile merging for top-level API and embedding credential sections.
+- Added factory recording tests with no API/client settings, plus profile pair/blank/immutability cases.
+- Used the matching cached golangci-lint source schema for offline configuration verification.
+
+### Why
+- A factory that insists on separate raw credentials defeats the new runtime capability and encourages duplicate assembly.
+- Credential validation and fallback decisions should happen once at the source boundary, rather than once in a factory and again in an engine.
+- Profile provenance is available during merging. A bound client cannot later detect that independently merged settings already contain the wrong pair.
+- Blank overlays must not erase an endpoint and leave its old credential available to a later default.
+
+### What worked
+- Full `go test ./pkg/engineprofiles ./pkg/cli/bootstrap -count=1`: passed, including registry/stack/bootstrap cases.
+- Factory/matrix recording checks passed, including four inference protocols and both counters with `API=nil` and `Client=nil`.
+- All 64 credential matrix cases continue to pass after eager counter validation and factory cleanup.
+- Configuration verification with `golangci-lint config verify --schema /home/manuel/go/pkg/mod/github.com/golangci/golangci-lint/v2@v2.11.2/jsonschema/golangci.next.jsonschema.json`: passed without network access.
+
+### What didn't work
+- `make lint` stopped at remote JSON-schema loading: `dial tcp: lookup golangci-lint.run: no such host`. The installed tool has a hidden `--schema` option; its matching module sources include the schema, so the actual configuration verification can run locally.
+- First analyzer run found `settings/connection.go: variable copy has same name as predeclared identifier (predeclared)`. Renamed the payload snapshot variable.
+- Second analyzer run found `engineprofiles/credential_merge_test.go: ineffectual assignment to gotKeys (ineffassign)`. Removed the unnecessary initial map allocations.
+- An initial factory test selection also included the pre-existing TLS-server observation test and hit the known socket restriction. Narrowed the selection to constructor/factory recording tests; all selected tests passed.
+
+### What I learned
+- The highest-level API matters: accepting a connection in leaf constructors is insufficient if the application factory still demands raw key maps.
+- Recursive profile merges were a concrete remaining instance of the same bug class, rather than only an abstract future concern.
+- The installed golangci-lint schema override is hidden from normal help; source inspection established the supported flag before using it.
+
+### What was tricky to build
+- Separating protocol/model validation from network authority without leaving a second credential fallback chain in the factory.
+- Making pair merging preserve blank overlays, initial declarations and anonymous endpoints while refusing partial changes to an existing credential-bearing binding.
+- Passing settings without API maps through event metadata code that previously assumed those maps always existed.
+
+### What warrants a second pair of eyes
+- Public counter constructor/factory signature changes and their immediate-error contract.
+- Source semantics for profile overlays: complete authenticated pairs are required when overriding an existing binding.
+- The factory path no longer performs credential checks separately; connection resolution is the authoritative validation.
+
+### What should be done in the future
+- Complete the public guide and final verification after this code checkpoint. Arbitrary caller-premerged maps remain trusted declarations; no library can reconstruct provenance that a host discarded before calling it.
+
+### Code review instructions
+- Read `engine/factory.CreateEngine`, the reduced validation method, and the connection-only factory tests.
+- Read `settings/credential_slots.go` and `engineprofiles/credential_merge_test.go` before the profile merge integration.
+- Inspect the changed token-counter constructor signatures and Pi's opaque connection accessor.
+
+### Technical details
+- No compatibility wrappers were added for removed token-counter or Umans APIs.
+- Credential overlay errors name slot fields, never their values.
+- Existing byte limits, SSE decoding and response validation remain owned by their payload implementations.

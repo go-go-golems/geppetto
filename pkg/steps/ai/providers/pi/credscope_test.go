@@ -187,6 +187,7 @@ func TestResolvedSettingsCannotRebindCredential(t *testing.T) {
 			require.NoError(t, err)
 			r, err := a.Resolve(t.Context(), "gateway/m", ResolveOptions{})
 			require.NoError(t, err)
+			require.NotNil(t, r.Connection())
 			for _, key := range r.Settings.API.APIKeys {
 				require.NotContains(t, key, "SECRET")
 			}

@@ -198,9 +198,10 @@ func (ss *InferenceSettings) GetMetadata() map[string]interface{} {
 		if ss.Chat.ApiType != nil {
 			metadata["ai-api-type"] = *ss.Chat.ApiType
 
-			baseUrl, ok := ss.API.BaseUrls[string(*ss.Chat.ApiType)]
-			if ok {
-				metadata["ai-base-url"] = baseUrl
+			if ss.API != nil {
+				if baseURL, ok := ss.API.BaseUrls[string(*ss.Chat.ApiType)]; ok {
+					metadata["ai-base-url"] = baseURL
+				}
 			}
 		}
 		if ss.Chat.MaxResponseTokens != nil {

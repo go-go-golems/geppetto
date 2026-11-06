@@ -10,15 +10,16 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/inference/tokencount"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
 )
 
 type TokenCounter struct {
-	settings      *settings.InferenceSettings
-	connection    *connection.Connection
-	connectionErr error
+	settings          *settings.InferenceSettings
+	connection        *connection.Connection
+	bearerTokenSource credentials.BearerTokenSource
 }
 
 type inputTokensRequest struct {
@@ -37,7 +38,14 @@ type TokenCounterOption func(*TokenCounter)
 func WithTokenCountConnection(c *connection.Connection) TokenCounterOption {
 	return func(counter *TokenCounter) { counter.connection = c }
 }
-func NewTokenCounter(s *settings.InferenceSettings, opts ...TokenCounterOption) *TokenCounter {
+func WithTokenCountBearerTokenSource(source credentials.BearerTokenSource) TokenCounterOption {
+	return func(counter *TokenCounter) { counter.bearerTokenSource = source }
+}
+func NewTokenCounter(s *settings.InferenceSettings, opts ...TokenCounterOption) (*TokenCounter, error) {
+	if s == nil || s.Chat == nil {
+		return nil, errors.New("token count model settings are required")
+	}
+	var err error
 	counter := &TokenCounter{settings: settings.PayloadSettings(s)}
 	for _, opt := range opts {
 		if opt != nil {
@@ -45,9 +53,15 @@ func NewTokenCounter(s *settings.InferenceSettings, opts ...TokenCounterOption) 
 		}
 	}
 	if counter.connection == nil {
-		counter.connection, counter.connectionErr = resolveResponsesConnection(s, nil, nil)
+		counter.connection, err = resolveResponsesConnection(s, counter.bearerTokenSource, nil)
+	} else if counter.bearerTokenSource != nil {
+		return nil, errors.New("connection already owns authentication")
 	}
-	return counter
+	if err != nil {
+		return nil, err
+	}
+	counter.bearerTokenSource = nil
+	return counter, nil
 }
 
 func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencount.Result, error) {
@@ -79,9 +93,6 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 		return nil, err
 	}
 
-	if tc.connectionErr != nil {
-		return nil, tc.connectionErr
-	}
 	req, err := tc.connection.NewRequest(ctx, http.MethodPost, "input-tokens", bytes.NewReader(payload))
 	if err != nil {
 		return nil, err

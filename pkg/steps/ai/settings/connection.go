@@ -37,6 +37,9 @@ func ResolveAPIConnection(api *APISettings, client *ClientSettings, spec Connect
 	if len(carriers) == 0 {
 		carriers = connection.TokenHeaders{"Authorization": "Bearer "}
 	}
+	if spec.TokenSource == nil && strings.TrimSpace(key) == "" {
+		return nil, errors.Errorf("missing API key %s-api-key", spec.Slot)
+	}
 	auth := connection.StaticToken(key, carriers)
 	if spec.TokenSource != nil {
 		auth = connection.Token(spec.TokenSource, carriers)
@@ -63,19 +66,19 @@ func PayloadSettings(s *InferenceSettings) *InferenceSettings {
 	if s == nil {
 		return nil
 	}
-	copy := *s
-	copy.Client = nil
+	payload := *s
+	payload.Client = nil
 	if s.API != nil {
-		copy.API = s.API.Clone()
-		copy.API.APIKeys = nil
+		payload.API = s.API.Clone()
+		payload.API.APIKeys = nil
 	}
 	if s.Chat != nil {
-		copy.Chat = s.Chat.Clone()
-		copy.Chat.APIKeys = nil
+		payload.Chat = s.Chat.Clone()
+		payload.Chat.APIKeys = nil
 	}
 	if s.Embeddings != nil {
-		copy.Embeddings = s.Embeddings.Clone()
-		copy.Embeddings.APIKeys = nil
+		payload.Embeddings = s.Embeddings.Clone()
+		payload.Embeddings.APIKeys = nil
 	}
-	return &copy
+	return &payload
 }

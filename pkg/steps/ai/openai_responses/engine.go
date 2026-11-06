@@ -29,6 +29,9 @@ type Engine struct {
 }
 
 func NewEngine(s *settings.InferenceSettings, opts ...EngineOption) (*Engine, error) {
+	if s == nil || s.Chat == nil {
+		return nil, errors.New("model chat settings are required")
+	}
 	e := &Engine{settings: s, observabilityConfig: geppettoobs.DefaultConfig()}
 	for _, opt := range opts {
 		if opt != nil {

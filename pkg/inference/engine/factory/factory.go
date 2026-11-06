@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/gemini"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
@@ -42,6 +43,7 @@ type StandardEngineFactory struct {
 	claudeOptions          []claude.EngineOption
 	geminiOptions          []gemini.EngineOption
 	bearerTokenSource      credentials.BearerTokenSource
+	connection             *connection.Connection
 }
 
 // StandardEngineFactoryOption configures StandardEngineFactory.
@@ -87,10 +89,6 @@ func WithBearerTokenSource(source credentials.BearerTokenSource) StandardEngineF
 	}
 }
 
-func isResponsesProvider(provider string) bool {
-	return provider == string(types.ApiTypeOpenResponses) || provider == string(types.ApiTypeOpenAIResponses)
-}
-
 // NewStandardEngineFactory creates a new StandardEngineFactory.
 func NewStandardEngineFactory(opts ...StandardEngineFactoryOption) *StandardEngineFactory {
 	f := &StandardEngineFactory{}
@@ -131,10 +129,27 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSetting
 		return nil, errors.Wrapf(err, "invalid settings for provider %s", provider)
 	}
 
+	if f.connection != nil && f.bearerTokenSource != nil {
+		return nil, errors.New("connection already owns authentication")
+	}
+	// Normalize the protocol once without mutating caller settings. Authentication
+	// remains attached to the connection, independent of protocol aliases.
+	normalized := *settings
+	normalized.Chat = settings.Chat.Clone()
+	normalizedType := types.ApiType(provider)
+	if provider == "anthropic" {
+		normalizedType = types.ApiTypeClaude
+	}
+	normalized.Chat.ApiType = &normalizedType
+	settings = &normalized
+
 	// Create engine based on provider
 	switch provider {
 	case string(types.ApiTypeOpenAI), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
 		opts := append([]openai.EngineOption(nil), f.openAIOptions...)
+		if f.connection != nil {
+			opts = append(opts, openai.WithConnection(f.connection))
+		}
 		if f.bearerTokenSource != nil {
 			opts = append(opts, openai.WithBearerTokenSource(f.bearerTokenSource))
 		}
@@ -142,6 +157,9 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSetting
 
 	case string(types.ApiTypeOpenResponses), string(types.ApiTypeOpenAIResponses):
 		opts := append([]openai_responses.EngineOption(nil), f.openAIResponsesOptions...)
+		if f.connection != nil {
+			opts = append(opts, openai_responses.WithConnection(f.connection))
+		}
 		if f.bearerTokenSource != nil {
 			opts = append(opts, openai_responses.WithBearerTokenSource(f.bearerTokenSource))
 		}
@@ -149,13 +167,20 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSetting
 
 	case string(types.ApiTypeClaude), "anthropic":
 		opts := append([]claude.EngineOption(nil), f.claudeOptions...)
+		if f.connection != nil {
+			opts = append(opts, claude.WithConnection(f.connection))
+		}
 		if f.bearerTokenSource != nil {
 			opts = append(opts, claude.WithOAuthBearerTokenSource(f.bearerTokenSource))
 		}
 		return claude.NewClaudeEngine(settings, opts...)
 
 	case string(types.ApiTypeGemini):
-		return gemini.NewGeminiEngine(settings, f.geminiOptions...)
+		opts := append([]gemini.EngineOption(nil), f.geminiOptions...)
+		if f.connection != nil {
+			opts = append(opts, gemini.WithConnection(f.connection))
+		}
+		return gemini.NewGeminiEngine(settings, opts...)
 
 	default:
 		supported := strings.Join(f.SupportedProviders(), ", ")
@@ -196,115 +221,32 @@ func (f *StandardEngineFactory) DefaultProvider() string {
 	return string(types.ApiTypeOpenAI)
 }
 
-// validateSettings performs basic validation of settings for the specified provider.
-func (f *StandardEngineFactory) validateSettings(settings *settings.InferenceSettings, provider string) error {
-	if settings.Chat == nil {
+// validateSettings checks payload requirements only. The connection constructor
+// owns credential, endpoint and HTTP-client validation, including slot selection.
+func (f *StandardEngineFactory) validateSettings(s *settings.InferenceSettings, provider string) error {
+	if s.Chat == nil {
 		return errors.New("chat settings cannot be nil")
 	}
-
-	if settings.API == nil {
-		return errors.New("API settings cannot be nil")
-	}
-
-	// Validate provider-specific requirements
 	switch provider {
 	case string(types.ApiTypeOpenAI), string(types.ApiTypeOpenResponses), string(types.ApiTypeOpenAIResponses), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
-		return f.validateOpenAISettings(settings, provider)
-
+		return nil
 	case string(types.ApiTypeClaude), "anthropic":
-		return f.validateClaudeSettings(settings, provider)
-
+		if s.Claude == nil {
+			return errors.New("Claude-specific settings cannot be nil")
+		}
 	case string(types.ApiTypeGemini):
-		return f.validateGeminiSettings(settings, provider)
-
+		if s.Gemini == nil {
+			return errors.New("Gemini-specific settings cannot be nil")
+		}
 	default:
 		return errors.Errorf("unknown provider %s", provider)
 	}
-}
-
-// validateOpenAISettings validates settings required for OpenAI-compatible providers.
-func (f *StandardEngineFactory) validateOpenAISettings(settings *settings.InferenceSettings, provider string) error {
-	// A request-time bearer source is authoritative; otherwise preserve the
-	// existing static API-key validation and Responses aliases.
-	if f.bearerTokenSource == nil {
-		apiKeyName := provider + "-api-key"
-		if _, ok := settings.API.APIKeys[apiKeyName]; !ok {
-			if isResponsesProvider(provider) {
-				if _, ok2 := settings.API.APIKeys[string(types.ApiTypeOpenResponses)+"-api-key"]; ok2 {
-					return nil
-				}
-				if _, ok2 := settings.API.APIKeys[string(types.ApiTypeOpenAIResponses)+"-api-key"]; ok2 {
-					return nil
-				}
-				if _, ok2 := settings.API.APIKeys[string(types.ApiTypeOpenAI)+"-api-key"]; !ok2 {
-					return errors.Errorf("missing API key %s (or fallback open-responses-api-key, openai-responses-api-key, openai-api-key)", apiKeyName)
-				}
-			} else {
-				return errors.Errorf("missing API key %s", apiKeyName)
-			}
-		}
-	}
-
-	// Base URL is optional for OpenAI (uses default), but required for others
-	baseURLName := provider + "-base-url"
-	// Base URL optional for openai and responses providers; required for other OpenAI-compatible providers
-	if provider != string(types.ApiTypeOpenAI) && !isResponsesProvider(provider) {
-		if _, ok := settings.API.BaseUrls[baseURLName]; !ok {
-			return errors.Errorf("missing base URL %s for provider %s", baseURLName, provider)
-		}
-	}
-
 	return nil
 }
 
-// validateClaudeSettings validates settings required for Claude/Anthropic provider.
-func (f *StandardEngineFactory) validateClaudeSettings(settings *settings.InferenceSettings, provider string) error {
-	// Claude uses "claude" as the key regardless of "anthropic" alias
-	actualProvider := string(types.ApiTypeClaude)
-
-	// A request-time source is authoritative over static API-key settings.
-	apiKeyName := actualProvider + "-api-key"
-	if f.bearerTokenSource == nil {
-		if _, ok := settings.API.APIKeys[apiKeyName]; !ok {
-			return errors.Errorf("missing API key %s", apiKeyName)
-		}
-	}
-
-	// Check for base URL
-	baseURLName := actualProvider + "-base-url"
-	if _, ok := settings.API.BaseUrls[baseURLName]; !ok {
-		return errors.Errorf("missing base URL %s", baseURLName)
-	}
-
-	// Check for Claude-specific settings
-	if settings.Claude == nil {
-		return errors.New("Claude-specific settings cannot be nil")
-	}
-
-	// Check for client settings (required by ClaudeEngine)
-	if settings.Client == nil {
-		return errors.New("client settings cannot be nil for Claude provider")
-	}
-
-	return nil
-}
-
-// validateGeminiSettings validates settings required for Gemini provider.
-func (f *StandardEngineFactory) validateGeminiSettings(settings *settings.InferenceSettings, provider string) error {
-	// Check for API key
-	apiKeyName := provider + "-api-key"
-	if _, ok := settings.API.APIKeys[apiKeyName]; !ok {
-		return errors.Errorf("missing API key %s", apiKeyName)
-	}
-
-	// Base URL optional for Gemini official client; use default endpoint when absent
-
-	// Check for Gemini-specific settings
-	if settings.Gemini == nil {
-		return errors.New("Gemini-specific settings cannot be nil")
-	}
-
-	return nil
+// WithConnection passes one resolved API authority to the selected protocol.
+func WithConnection(c *connection.Connection) StandardEngineFactoryOption {
+	return func(f *StandardEngineFactory) { f.connection = c }
 }
 
 // Compile-time check that StandardEngineFactory implements EngineFactory

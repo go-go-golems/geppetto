@@ -93,9 +93,17 @@ func boundPath(kind string) func(*testing.T, *http.Client) error {
 		case "claude messages":
 			_, err = claudeapi.NewClient(c).SendMessage(t.Context(), &claudeapi.MessageRequest{Model: "test"})
 		case "claude count":
-			_, err = claude.NewTokenCounter(newSettings(t, client), claude.WithTokenCountConnection(c)).CountTurn(t.Context(), userTurn())
+			counter, e := claude.NewTokenCounter(newSettings(t, client), claude.WithTokenCountConnection(c))
+			err = e
+			if err == nil {
+				_, err = counter.CountTurn(t.Context(), userTurn())
+			}
 		case "responses count":
-			_, err = openai_responses.NewTokenCounter(newSettings(t, client), openai_responses.WithTokenCountConnection(c)).CountTurn(t.Context(), userTurn())
+			counter, e := openai_responses.NewTokenCounter(newSettings(t, client), openai_responses.WithTokenCountConnection(c))
+			err = e
+			if err == nil {
+				_, err = counter.CountTurn(t.Context(), userTurn())
+			}
 		case "whisper":
 			p, e := openai.NewTranscriptionClient(c)
 			err = e
