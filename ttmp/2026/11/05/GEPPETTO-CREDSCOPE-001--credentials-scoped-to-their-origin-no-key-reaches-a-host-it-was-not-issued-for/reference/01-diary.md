@@ -945,3 +945,53 @@ The new recording tests reproduce both failures before the implementation change
 - Review threads: https://github.com/go-go-golems/geppetto/pull/446#discussion_r4498812896 and https://github.com/go-go-golems/geppetto/pull/446#discussion_r4498812911.
 - PR #446 targets the upstream mirror `stack/geppetto-445-credscope` at #445's head `47984a78` and therefore isolates the continuation's changes.
 - Remote publication uses the GitHub connector because shell DNS resolution is unavailable. Local source and published commit IDs can differ; compare tree identities for content equivalence.
+
+## Step 15: Repair CI test setup after the connection migration
+
+The user supplied CI failures from PR #446: llama.cpp still expected the old policy error wrapper, and three Claude inference tests used a helper that only initializes payload settings. The inference implementation now correctly expects its constructor to establish a connection; the helper bypassed that invariant.
+
+Changed the tests to use the public constructor for inference and assert the actual HTTP-policy refusal for llama.cpp. No lazy connection initialization, compatibility path, or runtime behavior change was added.
+
+### Prompt Context
+**User prompt (verbatim excerpt):** "failing tests"
+**User-provided evidence:** https://github.com/go-go-golems/geppetto/actions/runs/42314375476/job/128223300193?pr=446, including the failing test names and stack traces pasted in the conversation.
+**Assistant interpretation:** Fix the reported CI failures and publish the corrections to #446.
+**Inferred user intent:** Make the migration's existing behavioral tests execute with valid construction and retain their original assertions.
+**Previous code commit:** local `d606623d`, published as `98c88d36`.
+
+### What I did
+- Replace the payload-only helper with `NewClaudeEngine` in signed-thinking round-trip, forced streaming, and injected-client inference tests. Check constructor errors explicitly.
+- Document that `newTestEngine` is for request conversion only, so future inference tests do not bypass binding.
+- Retain `rerank.ErrInvalidRequest` classification and assert `http scheme is not allowed` instead of the old `outbound URL policy` wrapper string.
+
+### Why
+- Tests that exercise network execution must establish the same connection invariant as production callers.
+- A wrapper wording change is not a reason to restore duplicate provider policy validation; the refusal and its public error classification are what matter.
+
+### What worked
+- With `GOWORK=off GOCACHE=/tmp/geppetto-bound-go-cache GOFLAGS=-buildvcs=false GOPROXY=off`, `go test ./pkg/rerank/llamacpp -run '^TestNew_' -count=1` passes.
+- With the same settings, `go test ./pkg/steps/ai/claude -run '^TestMakeMessageRequest' -count=1` passes.
+- `go test ./pkg/steps/ai/claude ./pkg/rerank/llamacpp -run '^$'` compiles both packages and all their tests.
+- Audited the remaining `newTestEngine` uses: they only build payload requests; the three inference callers now use the public constructor.
+
+### What didn't work
+- No new command failure observed. The three existing TLS-server inference tests are deferred to CI because this environment's previously recorded loopback listener restriction prevents their execution. Compilation is not reported as runtime validation.
+
+### What I learned
+- The prior all-package compilation gate could not detect a test helper that constructed an invalid runtime engine. Normal CI caught this when the socket-based tests ran.
+
+### What was tricky to build
+- Distinguishing a payload-only test fixture from an inference-capable engine without changing unrelated pure conversion tests or restoring lazy credential resolution.
+
+### What warrants a second pair of eyes
+- Confirm in CI that the three original inference assertions still pass: signed thinking survives persistence/tool results, stream=true is forced, and the configured client is used.
+
+### What should be done in the future
+- Keep payload-only fixtures separate from constructors required for execution. Use CI for the remaining existing socket tests.
+
+### Code review instructions
+- Review only `claude/helpers_test.go` and `llamacpp/provider_test.go`, then the CI result for this follow-up. Production code is unchanged.
+
+### Technical details
+- The stack trace entered `connection.Resolve` with a nil receiver because `newTestEngine` constructed `&ClaudeEngine{settings: st}` directly.
+- The llama.cpp failure already returned `rerank.ErrInvalidRequest`; only the asserted wrapper wording was stale.

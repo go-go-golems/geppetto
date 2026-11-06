@@ -47,3 +47,9 @@ Finish connection-aware factories and atomic profile overlays; publish usage gui
 - Preserve complete OAuth token request queries while binding a query-free declaration; retain redirect refusal.
 - Restore the direct SystemOne nil-client 60-second timeout and preserve injected timeout policy.
 - Recording regressions fail before and pass after the fixes, including race checks; full OAuth socket tests remain environment-blocked. Diary step 14 records commands and evidence.
+
+## 2026-11-06 — CI fixture corrections
+
+- Claude inference tests use the public connection-establishing constructor; payload-only tests keep their lightweight fixture.
+- llama.cpp policy refusal assertion follows the actual cause instead of the removed wrapper wording.
+- Focused constructor/payload tests pass and both packages compile; TLS inference execution awaits CI. See diary step 15.

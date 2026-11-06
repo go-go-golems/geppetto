@@ -98,7 +98,7 @@ func TestNew_MalformedURLDoesNotLeakUserinfo(t *testing.T) {
 func TestNew_DeniesLocalHTTPByDefault(t *testing.T) {
 	_, err := New(Options{BaseURL: "http://127.0.0.1:18012", Model: testModel})
 	require.ErrorIs(t, err, rerank.ErrInvalidRequest)
-	assert.Contains(t, err.Error(), "outbound URL policy")
+	assert.Contains(t, err.Error(), "http scheme is not allowed")
 }
 
 func TestNew_RejectsNonPositiveLimits(t *testing.T) {
