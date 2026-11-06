@@ -11,7 +11,13 @@ DocType: design-doc
 Intent: long-term
 Owners:
     - manuel
-RelatedFiles: []
+RelatedFiles:
+    - Path: repo://pkg/steps/ai/connection/auth.go
+      Note: Request-time authentication and refresh
+    - Path: repo://pkg/steps/ai/connection/connection.go
+      Note: Opaque request capability and shared executor
+    - Path: repo://pkg/steps/ai/connection/connection_test.go
+      Note: Adversarial ownership and routing tests
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-11-06T17:05:09.738684029-05:00

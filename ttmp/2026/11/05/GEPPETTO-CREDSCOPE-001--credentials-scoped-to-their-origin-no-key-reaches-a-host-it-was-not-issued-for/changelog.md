@@ -21,3 +21,7 @@ Implemented phases 1-5: Origin/PinnedTransport/PinClient + credentials.Scoped; P
 ## 2026-11-06
 
 Design 02: define immutable bound connections, request-time authentication and atomic credential layer selection; begin implementation
+
+## 2026-11-06
+
+Implement the immutable bound connection and shared authenticated request executor; connection unit tests and race check pass

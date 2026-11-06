@@ -468,3 +468,65 @@ The design keeps current configuration sources as the trusted declaration bounda
 #### Commit storage correction
 
 The initial commit command in the original linked checkout failed before staging: `fatal: Unable to create '/home/manuel/code/wesen/go-go-golems/geppetto/.git/worktrees/geppetto31/index.lock': Read-only file system`. Its common Git directory is outside the writable roots. I cloned the clean branch locally into the writable sibling `geppetto-bound-connections`, copied only this step's four documentation changes, and restored those four original-checkout paths to their starting state. Implementation and commits now live on `task/geppetto-bound-connections-001` in that isolated clone; the original checkout is preserved. This is a filesystem restriction, not a code failure or an automatic approval rejection.
+
+
+## Step 8: Implement the bound connection and shared request executor
+
+Added `pkg/steps/ai/connection`, whose immutable runtime object owns the provider's declared base URL, named operation routes, authentication, default headers, URL policy and private HTTP client. The reusable restricted transport middleware from #444 supplies header injection and response classification. Encoders submit an operation and body; the connection resolves, validates, authenticates, sends and governs one pre-stream unauthorized replay.
+
+The user clarified that the purpose is to streamline the way authenticated API calls carry credentials, auth, routes and headers. Named routes are therefore part of the connection API, and the shared executor replaces duplicated send/retry loops rather than merely wrapping each existing pinned client.
+
+### Prompt Context
+**User prompt (verbatim):** "the goal is really to streamline this all and make a very clear way of passing credential auth routes headers around, for API calls to auth'ed routes"
+**Assistant interpretation:** Make this a coherent API-call boundary, including route selection and headers, rather than only another credential guard.
+**Inferred user intent:** Callers should pass one connection and an operation/payload without understanding credential or transport assembly.
+**Commit (design):** `565dc266` — "docs(credscope): design bound connections and record implementation plan"
+
+### What I did
+- Added `connection.Config`, opaque `Connection` and `Authentication`, named `Routes`, `Relative`, `NewRequest`, `Do`, `DoWithObserver` and `SDKClient`.
+- Added static and renewable token authentication with generic sensitive header carriers (`Authorization`, `x-api-key`, or another declared header).
+- Reused transport header restrictions, per-invocation middleware attempt state and response hooks.
+- Validated actual request origin and Host before credential lookup; validated every redirected network request with a private final guard.
+- Snapshotted the declaration's headers, route map, client struct and default transport reference.
+- Kept SDK placeholder credentials separate from real credentials. The SDK facade runs through the shared executor and does not reprocess redirects or cookies.
+- Redacted auth/default headers both for observers and the returned `Response.Request` so successful response metadata does not hand credentials back to encoders.
+- Added adversarial unit tests for foreign routes, direct foreign URLs, Host overrides, configuration mutation, redaction, redirects (301/302/303/307/308), SDK requests, same-origin redirects, a redirect callback that changes the host, concurrent bounded refresh, non-replayable bodies, invalid declarations and route traversal.
+
+### Why
+- Resolving a route must never redefine the credential scope. Scope comes from the declaration before a route resolver runs.
+- Auth middleware can only set declared headers; the connection owns all routing and sending.
+- One shared request executor removes the need for each engine to implement authentication refresh and redirect handling.
+- The original client struct and route/header maps may be reused by the host without mutating an established connection.
+
+### What worked
+- `GOWORK=off GOCACHE=/tmp/geppetto-bound-go-cache go test ./pkg/steps/ai/connection`: passed.
+- Recording transports exercise real `net/http` redirect behavior without network requests.
+- Concurrent requests each get independent initial/replacement tokens and at most two attempts.
+
+### What didn't work
+- The first plain `GOWORK=off go test ./pkg/steps/ai/connection` failed at setup because Go attempted to write `/home/manuel/.cache/go-build/...`: `read-only file system`. Subsequent Go commands use the writable `/tmp/geppetto-bound-go-cache` through an explicit `GOCACHE` assignment. No environment variables are read by new code.
+
+### What I learned
+- A redacted observer alone is insufficient: `http.Response.Request` otherwise exposes the authenticated request to its caller.
+- Wrapping an SDK client requires one owner for redirects and cookies. The SDK facade leaves these to the inner bound connection.
+
+### What was tricky to build
+- The HTTP request body has a different lifetime from the reusable payload. Retry requires `GetBody`; non-replayable bodies do not trigger credential refresh at all.
+- A host redirect callback runs before the final RoundTripper. The origin/Host guard must therefore be inside the private network transport as well as before authentication.
+- Capturing the binding's base URL in a private context value prevents token sources from being keyed by an operation path or an SDK-rewritten URL.
+
+### What warrants a second pair of eyes
+- SDK facade redirect ownership and successful response redaction.
+- Trust assumptions for injected network transports and custom route/middleware implementations.
+
+### What should be done in the future
+- Integrate engines and adapters with this executor, replacing their independent credential and client assembly.
+
+### Code review instructions
+- Read `connection/connection.go` from `New` through `Resolve`, `DoWithObserver` and `SDKClient`, then `auth.go`.
+- Run `GOWORK=off GOCACHE=/tmp/geppetto-bound-go-cache go test -race ./pkg/steps/ai/connection`.
+
+### Technical details
+- Sources receive `{Provider: declaration.Provider, BaseURL: declaration.BaseURL}`; custom source scope refusals and cancellation identities survive sanitized errors.
+- `Authentication`'s zero value permits explicitly anonymous APIs; a configured token source cannot silently become anonymous.
+- This is a core checkpoint; production paths have not yet been migrated.
