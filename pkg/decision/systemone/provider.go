@@ -132,9 +132,13 @@ func New(o Options) (*Provider, error) {
 		if o.TokenSource != nil {
 			auth = connection.Bearer(o.TokenSource)
 		}
+		client := o.HTTPClient
+		if client == nil {
+			client = &http.Client{Timeout: 60 * time.Second}
+		}
 		c, err = connection.New(connection.Config{
 			Provider: ProviderName, BaseURL: baseURL, Routes: Routes(), Auth: auth,
-			HTTPClient: o.HTTPClient, OutboundURL: o.OutboundURL, RejectRedirects: true,
+			HTTPClient: client, OutboundURL: o.OutboundURL, RejectRedirects: true,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("systemone connection: %w: %w", err, decision.ErrInvalidRequest)

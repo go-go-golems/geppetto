@@ -236,8 +236,16 @@ func (p tokenPayload) token(now time.Time) (*oauth2.Token, error) {
 // policy while forbidding token material from following any redirect. OAuth
 // grant encoding owns body credentials; the common connection owns sending.
 func (c *Client) tokenConnection(ctx context.Context) (*connection.Connection, error) {
+	endpoint, err := url.Parse(c.config.Endpoint.TokenURL)
+	if err != nil {
+		return nil, errors.New("invalid OAuth token endpoint")
+	}
+	// Query parameters belong to the actual grant URL, not the base binding.
+	// Exchange and Refresh continue to use the complete configured TokenURL.
+	endpoint.RawQuery = ""
+	endpoint.ForceQuery = false
 	return connection.New(connection.Config{
-		Provider: "oauth", BaseURL: c.config.Endpoint.TokenURL, HTTPClient: oauthHTTPClient(ctx), RejectRedirects: true,
+		Provider: "oauth", BaseURL: endpoint.String(), HTTPClient: oauthHTTPClient(ctx), RejectRedirects: true,
 		OutboundURL: security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true},
 		Auth:        connection.Middleware([]aitransport.HeaderRule{{Name: "Authorization", Sensitive: true}}),
 	})

@@ -41,3 +41,9 @@ Bind OAuth token grants and Umans issuer authentication; recording tests refuse 
 ## 2026-11-06
 
 Finish connection-aware factories and atomic profile overlays; publish usage guide, compiled examples and validation evidence with environment and custom-vet limits
+
+## 2026-11-06 — PR #446 review fixes
+
+- Preserve complete OAuth token request queries while binding a query-free declaration; retain redirect refusal.
+- Restore the direct SystemOne nil-client 60-second timeout and preserve injected timeout policy.
+- Recording regressions fail before and pass after the fixes, including race checks; full OAuth socket tests remain environment-blocked. Diary step 14 records commands and evidence.

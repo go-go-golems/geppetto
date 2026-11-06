@@ -891,3 +891,57 @@ The completed validation gate passes, and the downstream rag-workbench builds ag
 - No remote messages, push, PR publication, real credential lookup or live AI API requests were performed.
 - The isolated checkout is necessary because the original common Git metadata is read-only in this environment. The original checkout is preserved.
 - Evidence files are readable text; the downstream receipt explicitly identifies itself as a summary of the completed command.
+
+## Step 14: Address PR #446 OAuth endpoint and SystemOne timeout findings
+
+The review identified two migration regressions: a complete OAuth token URL was incorrectly used as a query-free connection base, and SystemOne's default 60-second timeout disappeared with its old redirect helper. Fixed both without adding compatibility wrappers or changing caller-supplied connection policy.
+
+The new recording tests reproduce both failures before the implementation changes and pass afterward, including the race detector. The OAuth cases cover exchange and refresh with and without query parameters, plus refused foreign redirects; SystemOne covers default, explicit positive, and explicit zero timeouts.
+
+### Prompt Context
+**User prompt (verbatim):** "ok, fix, push"
+**Assistant interpretation:** Fix the two review findings discussed immediately before this request and publish the follow-up to PR #446.
+**Inferred user intent:** Preserve valid OAuth endpoints and bounded default decision requests while continuing to streamline request ownership.
+**Source implementation:** local `b8566b6e`, published with the identical tree as PR head `ba79888f8f8b9e41a0e58c6db430a6517b4e5e2e`.
+
+### What I did
+- In `oauth.Client.tokenConnection`, parse a copy of TokenURL and remove RawQuery/ForceQuery only from the binding declaration. Exchange and Refresh retain the complete original request URL.
+- In `systemone.New`, supply a 60-second HTTP client only when constructing a connection without an injected client. Leave explicit clients and complete supplied connections unchanged.
+- Expand the recording OAuth grant matrix with repeated query values, encoded content, and a bare flag, checking the raw query exactly at the transport boundary.
+- Add `TestDirectClientTimeoutPolicy`, which observes the actual outgoing request context deadline without waiting or opening a socket. Check that explicit client settings are preserved and the constructor does not mutate the injected client's redirect policy.
+
+### Why
+- Request query parameters and origin authority are different inputs. Keeping query-free base validation preserves the connection contract without discarding valid grant parameters.
+- Timeout is service request policy that was accidentally coupled to the removed redirect helper. Restoring the default at construction retains the useful policy, without changing all connections globally.
+
+### What worked
+- Before the fixes, the targeted command failed with `OAuth token endpoint binding failed` on query-bearing endpoints and `request has no client deadline` for the default SystemOne client.
+- After the fixes, `GOWORK=off GOCACHE=/tmp/geppetto-bound-go-cache GOFLAGS=-buildvcs=false GOPROXY=off go test ./pkg/steps/ai/credentials/oauth ./pkg/decision/systemone -run 'TestTokenGrantsUseBoundConnection|TestDirectClientTimeoutPolicy' -count=1` passed both packages.
+- The same command with `-race` passed both packages. Recording transports made no live provider requests.
+
+### What didn't work
+- `GOWORK=off GOCACHE=/tmp/geppetto-bound-go-cache GOFLAGS=-buildvcs=false GOPROXY=off go test ./pkg/steps/ai/credentials/oauth -count=1` hit the existing environment restriction: `httptest: failed to listen on a port: listen tcp6 [::1]:0: socket: operation not permitted`, in `TestExchangeAuthorizationCodeNormalizesCredential`. This is not reported as a passing full OAuth suite. The focused recording regressions and race checks execute without listeners.
+
+### What I learned
+- Consolidating request execution does not automatically carry over service defaults formerly hidden in transport helpers.
+- A complete operation URL can validly contain query parameters even when a connection's base declaration cannot.
+
+### What was tricky to build
+- Keeping the original token URL byte representation for requests, including repeated parameters and encoding, while removing query state from only the binding copy.
+- Verifying a 60-second default without a 60-second delay: inspect the context deadline supplied to the recording transport, and separately prove explicit zero remains unbounded.
+
+### What warrants a second pair of eyes
+- Verify that no TokenURL mutation reaches `c.config.Endpoint.TokenURL` and that redirects remain rejected for both grant types.
+- Confirm default policy is applied only in the nil-client construction branch; an already bound connection remains authoritative.
+
+### What should be done in the future
+- Consider connection-only provider constructors and factory-owned source/default resolution as a separate simplification, not part of this bounded review fix.
+
+### Code review instructions
+- Review `oauth.go: tokenConnection`, `connection_test.go: TestTokenGrantsUseBoundConnection`, `systemone/provider.go: New`, and `timeout_test.go: TestDirectClientTimeoutPolicy`.
+- Run the focused command above, optionally with `-race`; no provider access or loopback listeners are required.
+
+### Technical details
+- Review threads: https://github.com/go-go-golems/geppetto/pull/446#discussion_r4498812896 and https://github.com/go-go-golems/geppetto/pull/446#discussion_r4498812911.
+- PR #446 targets the upstream mirror `stack/geppetto-445-credscope` at #445's head `47984a78` and therefore isolates the continuation's changes.
+- Remote publication uses the GitHub connector because shell DNS resolution is unavailable. Local source and published commit IDs can differ; compare tree identities for content equivalence.
