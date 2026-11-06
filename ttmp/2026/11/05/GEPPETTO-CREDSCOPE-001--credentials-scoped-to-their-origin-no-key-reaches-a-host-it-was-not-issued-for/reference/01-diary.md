@@ -408,3 +408,63 @@ This step documents the behaviour for users and closes the evidence loop. There 
 
 ### Technical details
 - Evidence files: `sources/01-leak-probe-output.txt` (before), `02-matrix-before.txt`, `03-matrix-after.txt`, `04-leak-probe-after.txt`.
+
+
+## Step 7: Design 02 — make a bound connection the request capability
+
+The user approved the bound-connection direction and requested implementation, appropriate commits and a detailed diary. The existing GEPPETTO-CREDSCOPE-001 ticket covers precisely this invariant, so I added design document 02 and new tasks there. The starting tree is clean at `47984a78` on `task/geppetto-credscope-001`.
+
+The design keeps current configuration sources as the trusted declaration boundary and replaces the runtime representation: one opaque connection owns endpoint, authentication, transport and URL policy. It also closes the deferred embeddings layer pairing and verifies the modern Gemini SDK cache path. It does not invent a secret URI backend merely to reproduce illustrative pseudocode.
+
+### Prompt Context
+**User prompt (verbatim):** "alright, i don't know if there's already a ticket we can use, and add a second design doc, then implement. commit at appropriate intervals and keep a detailed diary as you work (using the diary format from the skill)"
+**Assistant interpretation:** Reuse the credential-scoping ticket, write a second concrete design, implement the capability boundary and document the work with milestone commits.
+**Inferred user intent:** Remove repeated key/URL/client assembly so ordinary feature code cannot accidentally send credentials to a fallback endpoint.
+
+### What I did
+- Read the docmgr and diary skills and the full investigation-entry format.
+- Checked branch, clean status, recent commits and the latest diary checkpoint.
+- Inspected settings maps, HTTP-client ownership, engine constructors and request paths, Pi resolution, embeddings merges, direct adapter constructors and the existing restricted transport middleware.
+- Used `docmgr doc add` to create design-doc/02 and `docmgr task add` to add implementation milestones.
+- Wrote the design including source boundaries, route validation order, SDK ownership, replay policy and trust limits.
+
+### Why
+- The existing origin guard is valuable but a new path still has to remember several independent pieces. Binding them once removes that repeated assembly.
+- Reusing the restricted header middleware preserves the existing Codex model without another authentication extension system.
+- Source settings and runtime capability must have distinct lifetimes; changing a public settings map after resolution must not change a credential's destination.
+
+### What worked
+- `git status --short --branch`: clean on the expected ticket branch at `47984a78`.
+- `docmgr status --summary-only`: recognized the repository configuration and existing ticket tree.
+- `docmgr doc add` and all five task additions succeeded.
+
+### What didn't work
+- Inventory attempted `cat pkg/steps/ai/transport/route.go` and `cat pkg/steps/ai/transport/middleware.go`; both reported `No such file or directory`. `rg --files` showed the package is implemented in `transport.go`, which I read instead. No source changes or validation failures occurred.
+
+### What I learned
+- Active Gemini inference already uses the modern SDK. The legacy cache warning concerns unused setup code; the modern cache path still needs direct verification.
+- Pi's public settings currently contain raw Anthropic/Gemini keys despite the surrounding `Resolved` documentation saying settings are without secrets.
+- Responses currently pins the resolved route's origin, which is too late if routing itself changes the origin.
+
+### What was tricky to build
+- Defining a useful boundary without a new configuration registry: the binding is created at each existing trusted input boundary and cannot be rebound by the request encoder.
+- SDKs expect an HTTP client; the facade must preserve the guard and authentication without exposing the underlying transport or double-following redirects.
+
+### What warrants a second pair of eyes
+- Credential origin declarations are trusted configuration, not a claim that issuer ownership can be inferred from opaque API-key bytes.
+- Host-provided RoundTrippers remain trusted code and cannot be sandboxed by an origin wrapper.
+
+### What should be done in the future
+- Implement the five milestones in tasks.md; replace design checkpoint status with actual delivery evidence.
+
+### Code review instructions
+- Read design-doc/02 first, then the `connection` package as it is added.
+- Preserve prior diary steps as historical evidence; subsequent steps use this full investigation format.
+
+### Technical details
+- Existing reusable extension points: `transport.HeaderWriter`, `HeaderSet`, `Middleware`, `Chain`, and `ResolveAndValidate`.
+- Existing public inputs remain the source boundary; no backwards compatibility layer is planned.
+
+#### Commit storage correction
+
+The initial commit command in the original linked checkout failed before staging: `fatal: Unable to create '/home/manuel/code/wesen/go-go-golems/geppetto/.git/worktrees/geppetto31/index.lock': Read-only file system`. Its common Git directory is outside the writable roots. I cloned the clean branch locally into the writable sibling `geppetto-bound-connections`, copied only this step's four documentation changes, and restored those four original-checkout paths to their starting state. Implementation and commits now live on `task/geppetto-bound-connections-001` in that isolated clone; the original checkout is preserved. This is a filesystem restriction, not a code failure or an automatic approval rejection.

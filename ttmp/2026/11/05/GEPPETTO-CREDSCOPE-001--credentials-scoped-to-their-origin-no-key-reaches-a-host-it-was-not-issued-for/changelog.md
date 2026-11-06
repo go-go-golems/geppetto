@@ -17,3 +17,7 @@ Implemented phases 1-5: Origin/PinnedTransport/PinClient + credentials.Scoped; P
 - /home/manuel/workspaces/2026-11-02/rag-workbench/geppetto/pkg/security/origin.go — pinning primitives
 - /home/manuel/workspaces/2026-11-02/rag-workbench/geppetto/pkg/steps/ai/credscope/credscope_test.go — regression matrix
 - /home/manuel/workspaces/2026-11-02/rag-workbench/geppetto/pkg/steps/ai/providers/pi/endpoint.go — provider-keyed endpoints
+
+## 2026-11-06
+
+Design 02: define immutable bound connections, request-time authentication and atomic credential layer selection; begin implementation
