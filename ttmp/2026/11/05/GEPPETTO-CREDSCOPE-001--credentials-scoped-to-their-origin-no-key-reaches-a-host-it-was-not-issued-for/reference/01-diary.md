@@ -115,3 +115,57 @@ The probe confirmed six leak paths without any real network traffic. Two were un
 ### Technical details
 - Probe markers: `FW-SECRET`, `ZAI-SECRET`, `GW-SECRET`, `OR-SECRET`, `CL-SECRET`, `TEAM-SECRET`.
 - Redirect simulation: the recorder answers `307` with `Location: https://other.example/…` for `gateway.example`.
+
+## Step 2: Phase 1 — Origin, PinnedTransport, PinClient and credentials.Scoped
+
+This step adds the two primitives the design rests on. `pkg/security/origin.go` defines `Origin`, `ParseOrigin`/`OriginOf`, `Allows`, `PinnedTransport` and `PinClient`, plus the sentinel `ErrOriginNotAllowed`. `pkg/steps/ai/credentials/scoped.go` adds `Scoped`, which wraps a bearer token source so it refuses to produce a token for a foreign `Request.BaseURL`. Nothing uses them yet. Phases 2 and 3 wire them in.
+
+### Prompt Context
+
+**User prompt (verbatim):** see Step 1.
+
+**Assistant interpretation:** Implement guide Phase 1.
+
+**Inferred user intent:** Build the enforcement mechanism once, before touching any engine.
+
+### What I did
+- `Origin{Scheme, Host, Port}`:
+  - scheme and host are lower-case, and the port is always explicit;
+  - `String()` uses `net.JoinHostPort`, so IPv6 hosts are bracketed.
+- `PinnedTransport.RoundTrip`:
+  - refuses before calling `Next` and closes the request body (RoundTripper contract);
+  - the error names only scheme and host (`redactedTarget`), plus the allowed list.
+- `PinClient(base, allowed…)` copies `base` (nil means a new client), so pinning `http.DefaultClient` never mutates the global.
+- `credentials.Scoped` returns one of two wrapper types, so `UnauthorizedBearerTokenSource` is preserved only when the wrapped source has it. An empty or unparsable `BaseURL` is refused.
+- Tests:
+  - `pkg/security/origin_test.go`: normalization table; rejects `""`, `" "`, `"/"`, `"//"`, relative, `ftp`, `file`; refusal before sending (the counting `Next` sees only the allowed request); no query in the error; body closed;
+  - an `httptest` cross-origin 307 with `x-api-key`: the target is never contacted, while a same-origin redirect still works;
+  - the base client is not modified;
+  - `scoped_test.go`.
+
+### Why
+- Pinning lives in the transport because `http.Client` calls `Transport.RoundTrip` once per redirect hop. A check before `Do` cannot see redirects.
+
+### What worked
+- `GOWORK=off go test ./pkg/security/ ./pkg/steps/ai/credentials/ -count=1`: both packages pass.
+
+### What didn't work
+- No failures observed.
+
+### What I learned
+- `url.Parse("https://")` succeeds with an empty host, so the host check in `OriginOf` is required, not redundant.
+
+### What was tricky to build
+- A nil `Next` must mean `http.DefaultTransport` *read at request time*, not captured at construction. Otherwise a pinned client built before a test (or the probe) swaps `http.DefaultTransport` would bypass the swap.
+
+### What warrants a second pair of eyes
+- Deviation from the guide's API sketch: `ParseOrigin` *ignores* user info instead of rejecting it, because user info is not part of the origin and rejecting it could break proxy-style URLs. Recorded for the guide's status section.
+
+### What should be done in the future
+- N/A
+
+### Code review instructions
+- `pkg/security/origin.go`, `pkg/steps/ai/credentials/scoped.go` and their tests.
+
+### Technical details
+- Error shape: `request to https://other.example refused (allowed: https://gw.example:443): origin not allowed for this credential`.
