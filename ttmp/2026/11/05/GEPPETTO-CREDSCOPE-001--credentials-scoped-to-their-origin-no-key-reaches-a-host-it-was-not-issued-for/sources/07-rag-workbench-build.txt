@@ -1,0 +1,7 @@
+Downstream build against the isolated connection implementation
+
+Working directory: /home/manuel/workspaces/2026-11-02/rag-workbench/rag-workbench
+Command: GOWORK=/tmp/geppetto-bound-validation.work GOCACHE=/tmp/geppetto-bound-go-cache GOFLAGS=-buildvcs=false GOPROXY=off go build ./...
+Result: exit 0, no diagnostics.
+
+The temporary go.work selects geppetto-bound-connections plus the existing local go-go-goja, jig, rag-workbench, ragkit and slop-computer modules. The parent workspace go.work was not changed. This is a concise receipt of the completed command, not a raw compiler log.

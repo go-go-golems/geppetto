@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/providers/openaisdk"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -331,9 +333,14 @@ func WithTemperature(temperature float32) ClientOption {
 	}
 }
 
-func NewTranscriptionClient(apiKey string, opts ...ClientOption) *TranscriptionClient {
+// NewTranscriptionClient shares the same bound connection used for chat or embeddings.
+func NewTranscriptionClient(c *connection.Connection, opts ...ClientOption) (*TranscriptionClient, error) {
+	sdk, err := openaisdk.NewClient(c)
+	if err != nil {
+		return nil, err
+	}
 	client := &TranscriptionClient{
-		client:      openai.NewClient(apiKey),
+		client:      sdk,
 		model:       "whisper-1",
 		temperature: 0,
 	}
@@ -342,7 +349,7 @@ func NewTranscriptionClient(apiKey string, opts ...ClientOption) *TranscriptionC
 		opt(client)
 	}
 
-	return client
+	return client, nil
 }
 
 func (tc *TranscriptionClient) TranscribeFile(ctx context.Context, mp3FilePath string, opts ...TranscriptionOption) (*Transcription, error) {

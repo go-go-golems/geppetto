@@ -22,6 +22,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// newTestEngine is only for payload conversion tests that do not send requests.
+// Inference tests must use NewClaudeEngine to establish the connection.
 func newTestEngine(st *aisettings.InferenceSettings) *ClaudeEngine {
 	return &ClaudeEngine{settings: st}
 }
@@ -204,7 +206,8 @@ func TestClaudeEmptySignedThinkingSurvivesToolResultRoundTrip(t *testing.T) {
 		`data: {"type":"message_stop"}`,
 		"",
 	)
-	e := newTestEngine(newObservableClaudeSettings(t, stream))
+	e, err := NewClaudeEngine(newObservableClaudeSettings(t, stream))
+	require.NoError(t, err)
 	turn, err := e.RunInference(context.Background(), &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("look up")}})
 	require.NoError(t, err)
 
@@ -304,7 +307,7 @@ func TestClaudeRunInference_ForcesStreamingMessagesRequest(t *testing.T) {
 
 	engine := "claude-sonnet-4-20250514"
 	apiType := ai_types.ApiTypeClaude
-	e := newTestEngine(&aisettings.InferenceSettings{
+	e, err := NewClaudeEngine(&aisettings.InferenceSettings{
 		Client: &aisettings.ClientSettings{HTTPClient: httpClient},
 		Claude: &claudesettings.Settings{},
 		API: &aisettings.APISettings{
@@ -317,6 +320,7 @@ func TestClaudeRunInference_ForcesStreamingMessagesRequest(t *testing.T) {
 			Stream:  false,
 		},
 	})
+	require.NoError(t, err)
 
 	turn := &turns.Turn{Blocks: []turns.Block{
 		turns.NewUserTextBlock("hello"),
@@ -378,7 +382,7 @@ func TestClaudeRunInference_UsesConfiguredHTTPClient(t *testing.T) {
 
 	engine := "claude-sonnet-4-20250514"
 	apiType := ai_types.ApiTypeClaude
-	e := newTestEngine(&aisettings.InferenceSettings{
+	e, err := NewClaudeEngine(&aisettings.InferenceSettings{
 		Client: &aisettings.ClientSettings{HTTPClient: httpClient},
 		Claude: &claudesettings.Settings{},
 		API: &aisettings.APISettings{
@@ -391,6 +395,7 @@ func TestClaudeRunInference_UsesConfiguredHTTPClient(t *testing.T) {
 			Stream:  true,
 		},
 	})
+	require.NoError(t, err)
 
 	turn := &turns.Turn{Blocks: []turns.Block{
 		turns.NewUserTextBlock("hello"),

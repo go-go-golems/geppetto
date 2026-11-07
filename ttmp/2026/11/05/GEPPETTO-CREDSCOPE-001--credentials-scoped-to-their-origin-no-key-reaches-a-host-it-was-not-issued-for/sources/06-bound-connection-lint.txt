@@ -1,0 +1,26 @@
+level=info msg="golangci-lint has version 2.11.2 built with go1.26.10 from (unknown, modified: ?, mod sum: \"h1:4Icd3mEqthcFcFww8L67OBtfKB/obXxko8aFUMqP/5w=\") on (unknown)"
+level=info msg="[config_reader] Config search paths: [./ /home/manuel/workspaces/2026-11-02/rag-workbench/geppetto-bound-connections/cmd /home/manuel/workspaces/2026-11-02/rag-workbench/geppetto-bound-connections /home/manuel/workspaces/2026-11-02/rag-workbench /home/manuel/workspaces/2026-11-02 /home/manuel/workspaces /home/manuel /home /]"
+level=info msg="[config_reader] Used config file .golangci.yml"
+level=info msg="[config_reader] Module name \"github.com/go-go-golems/geppetto\""
+level=info msg="[goenv] Read go env for 25.906787ms: map[string]string{\"GOCACHE\":\"/tmp/geppetto-bound-go-cache\", \"GOROOT\":\"/home/manuel/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.10.linux-amd64\"}"
+level=info msg="[lintersdb] Active 9 linters: [errcheck exhaustive gofmt govet ineffassign nonamedreturns predeclared staticcheck unused]"
+level=info msg="[loader] Go packages loading at mode 8767 (compiled_files|deps|files|types_sizes|exports_file|imports|name) took 1.317447312s"
+level=info msg="[runner/filename_unadjuster] Pre-built 0 adjustments in 116.84375ms"
+level=info msg="[linters_context/goanalysis] analyzers took 58.708088158s with top 10 stages: buildir: 19.915911079s, gofmt: 2.592066879s, S1038: 2.420121319s, unused: 1.500066705s, QF1010: 965.069177ms, exhaustive: 892.202883ms, printf: 886.352551ms, QF1008: 809.484678ms, SA1012: 787.163334ms, S1008: 682.652665ms"
+level=info msg="[runner/exclusion_rules] Skipped 0 issues by rules: [Path: \"(^|/)testdata($|/)\", Linters: \"errcheck, exhaustive, gofmt, govet, ineffassign, nonamedreturns, predeclared, staticcheck, unused\"]"
+level=info msg="[runner/exclusion_rules] Skipped 0 issues by rules: [Path: \"(^|/)ttmp($|/)\", Linters: \"errcheck, exhaustive, gofmt, govet, ineffassign, nonamedreturns, predeclared, staticcheck, unused\"]"
+level=info msg="[runner/exclusion_rules] Skipped 0 issues by rules: [Text: \"SA1019: cli.CreateProcessorLegacy\", Linters: \"staticcheck\"]"
+level=info msg="[runner] Issues before processing: 3, after processing: 0"
+level=info msg="[runner] Processors filtering stat (in/out): path_absoluter: 3/3, path_relativity: 3/3, exclusion_paths: 3/3, cgo: 3/3, invalid_issue: 3/3, generated_file_filter: 3/3, nolint_filter: 3/0, filename_unadjuster: 3/3, exclusion_rules: 3/3"
+level=info msg="[runner] processing took 3.528575ms with stages: nolint_filter: 3.225359ms, generated_file_filter: 142.87µs, exclusion_rules: 132.393µs, path_relativity: 12.292µs, sort_results: 2.526µs, max_same_issues: 2.04µs, cgo: 1.647µs, invalid_issue: 1.498µs, path_absoluter: 1.058µs, filename_unadjuster: 1.021µs, fixer: 1.002µs, exclusion_paths: 916ns, diff: 752ns, max_from_linter: 742ns, path_shortener: 483ns, uniq_by_line: 473ns, source_code: 464ns, max_per_file_from_linter: 428ns, path_prettifier: 379ns, severity-rules: 232ns"
+level=info msg="[runner] linters took 6.182177559s with stages: goanalysis_metalinter: 6.1785105s"
+0 issues.
+level=info msg="File cache stats: 0 entries of total size 0B"
+level=info msg="Memory: 75 samples, avg is 374.8MB, max is 688.3MB"
+level=info msg="Execution took 7.644824847s"
+pkg/inference/engine/turnkeys_gen.go:9:53: do not call turns.DataK outside key-definition files (define canonical keys in generated keys/turnkeys files or app-level *_keys.go)
+pkg/inference/engine/turnkeys_gen.go:10:58: do not call turns.DataK outside key-definition files (define canonical keys in generated keys/turnkeys files or app-level *_keys.go)
+pkg/inference/engine/turnkeys_gen.go:11:65: do not call turns.DataK outside key-definition files (define canonical keys in generated keys/turnkeys files or app-level *_keys.go)
+pkg/inference/engine/turnkeys_gen.go:12:58: do not call turns.DataK outside key-definition files (define canonical keys in generated keys/turnkeys files or app-level *_keys.go)
+pkg/inference/engine/turnkeys_gen.go:13:64: do not call turns.DataK outside key-definition files (define canonical keys in generated keys/turnkeys files or app-level *_keys.go)
+pkg/inference/engine/turnkeys_gen.go:14:64: do not call turns.DataK outside key-definition files (define canonical keys in generated keys/turnkeys files or app-level *_keys.go)

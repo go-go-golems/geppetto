@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	aitransport "github.com/go-go-golems/geppetto/pkg/steps/ai/transport"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
-	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
 type bearerTokenSourceFunc func(context.Context, credentials.Request) (string, error)
@@ -56,36 +56,21 @@ func (*capturingResponsesDebugTap) OnSSE(string, []byte)                  {}
 func (*capturingResponsesDebugTap) OnProviderObject(string, any)          {}
 func (*capturingResponsesDebugTap) OnTurnBeforeConversion([]byte)         {}
 
-func testResponsesRequestTransport(t *testing.T, rawURL, apiKey string, source credentials.BearerTokenSource, request credentials.Request) responsesRequestTransport {
+func testResponsesConnection(t *testing.T, client *http.Client, rawURL, apiKey string, source credentials.BearerTokenSource, request credentials.Request) *connection.Connection {
 	t.Helper()
 	target, err := url.Parse(rawURL)
 	if err != nil {
-		t.Fatalf("parse target URL: %v", err)
+		t.Fatal(err)
 	}
-	context, err := aitransport.ResolveAndValidate(
-		request.Provider,
-		responsesOperation,
-		target,
-		fixedResponsesRoute{target: target},
-		func(*url.URL) error { return nil },
-	)
+	auth := connection.StaticBearer(apiKey)
+	if source != nil {
+		auth = connection.Bearer(source)
+	}
+	c, err := connection.New(connection.Config{Provider: request.Provider, BaseURL: request.BaseURL, Routes: connection.Routes{responsesOperation: fixedResponsesRoute{target: target}}, Auth: auth, HTTPClient: client})
 	if err != nil {
-		t.Fatalf("ResolveAndValidate: %v", err)
+		t.Fatal(err)
 	}
-	chain, err := aitransport.NewChain(&responsesBearerMiddleware{
-		api:               &settings.APISettings{APIKeys: map[string]string{"open-responses-api-key": apiKey}},
-		apiType:           types.ApiTypeOpenResponses,
-		source:            source,
-		credentialRequest: request,
-	})
-	if err != nil {
-		t.Fatalf("NewChain: %v", err)
-	}
-	return responsesRequestTransport{
-		request:     context,
-		chain:       chain,
-		headerRules: []aitransport.HeaderRule{{Name: "Authorization", Sensitive: true}},
-	}
+	return c
 }
 
 func TestOpenResponsesStreamRetriesOneProvider401WithReplacementBearer(t *testing.T) {
@@ -118,7 +103,7 @@ func TestOpenResponsesStreamRetriesOneProvider401WithReplacementBearer(t *testin
 	})}
 
 	credentialRequest := credentials.Request{Provider: "open-responses", BaseURL: "https://provider.example.test/v1"}
-	response, err := openResponsesStream(context.Background(), client, testResponsesRequestTransport(t, "https://provider.example.test/v1/responses", "stale-token", source, credentialRequest), []byte(`{"model":"test"}`), nil)
+	response, err := openResponsesStream(context.Background(), testResponsesConnection(t, client, "https://provider.example.test/v1/responses", "stale-token", source, credentialRequest), []byte(`{"model":"test"}`), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +126,7 @@ func TestOpenResponsesRequestRedactsMiddlewareCredentialsFromDebugTap(t *testing
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("data: [DONE]\\n\\n")), Request: request}, nil
 	})}
 	tap := &capturingResponsesDebugTap{}
-	response, err := openResponsesStream(context.Background(), client, testResponsesRequestTransport(t, "https://provider.example.test/v1/responses", "", source, credentialRequest), []byte(`{"model":"test"}`), tap)
+	response, err := openResponsesStream(context.Background(), testResponsesConnection(t, client, "https://provider.example.test/v1/responses", "", source, credentialRequest), []byte(`{"model":"test"}`), tap)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,14 +149,11 @@ func TestResponsesRunInferenceDoesNotResolveBearerBeforeInvalidRoute(t *testing.
 		return "must-not-be-requested", nil
 	})
 	model := "test-model"
-	engine, err := NewEngine(&settings.InferenceSettings{
+	_, err := NewEngine(&settings.InferenceSettings{
 		API:  &settings.APISettings{BaseUrls: map[string]string{"open-responses-base-url": "http://provider.example.test/v1"}},
 		Chat: &settings.ChatSettings{Engine: &model},
 	}, WithBearerTokenSource(source))
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
-	_, err = engine.RunInference(context.Background(), &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("hello")}})
+
 	if err == nil || !strings.Contains(err.Error(), "http scheme is not allowed") {
 		t.Fatalf("RunInference error = %v", err)
 	}
@@ -196,7 +178,7 @@ func TestOpenResponsesStreamDoesNotRetrySecondProvider401(t *testing.T) {
 	})}
 
 	credentialRequest := credentials.Request{Provider: "open-responses", BaseURL: "https://provider.example.test/v1"}
-	_, err := openResponsesStream(context.Background(), client, testResponsesRequestTransport(t, "https://provider.example.test/v1/responses", "stale-token", source, credentialRequest), []byte(`{"model":"test"}`), nil)
+	_, err := openResponsesStream(context.Background(), testResponsesConnection(t, client, "https://provider.example.test/v1/responses", "stale-token", source, credentialRequest), []byte(`{"model":"test"}`), nil)
 	if err == nil || !strings.Contains(err.Error(), "status=401") {
 		t.Fatalf("expected second 401 error, got %v", err)
 	}
@@ -205,49 +187,33 @@ func TestOpenResponsesStreamDoesNotRetrySecondProvider401(t *testing.T) {
 	}
 }
 
-func TestResolveResponsesBearerTokenPreservesContextCancellation(t *testing.T) {
-	for name, sourceErr := range map[string]error{
-		"canceled": context.Canceled,
-		"deadline": context.DeadlineExceeded,
-	} {
-		t.Run(name, func(t *testing.T) {
-			_, err := resolveResponsesBearerToken(
-				context.Background(),
-				&settings.APISettings{},
-				types.ApiTypeOpenResponses,
-				bearerTokenSourceFunc(func(context.Context, credentials.Request) (string, error) {
-					return "", sourceErr
-				}),
-			)
-			if !errors.Is(err, sourceErr) {
-				t.Fatalf("expected %v to be preserved, got %v", sourceErr, err)
+func TestResponsesCredentialCancellationAndSourceErrors(t *testing.T) {
+	for _, sourceErr := range []error{context.Canceled, context.DeadlineExceeded, errors.New("SECRET")} {
+		calls := 0
+		source := bearerTokenSourceFunc(func(_ context.Context, request credentials.Request) (string, error) {
+			calls++
+			if request.Provider != "open-responses" || request.BaseURL != "https://responses.example/v1" {
+				t.Fatalf("wrong binding: %+v", request)
 			}
+			return "", sourceErr
 		})
-	}
-}
-
-func TestResolveResponsesBearerTokenUsesSourceAndRedactsSourceErrors(t *testing.T) {
-	api := &settings.APISettings{BaseUrls: map[string]string{"open-responses-base-url": "https://responses.example/v1"}}
-	var seen credentials.Request
-	source := bearerTokenSourceFunc(func(_ context.Context, request credentials.Request) (string, error) {
-		seen = request
-		return "refreshed-token", nil
-	})
-	token, err := resolveResponsesBearerToken(context.Background(), api, types.ApiTypeOpenResponses, source)
-	if err != nil || token != "refreshed-token" {
-		t.Fatalf("resolveResponsesBearerToken() = %q, %v", token, err)
-	}
-	if seen.Provider != "open-responses" || seen.BaseURL != "https://responses.example/v1" {
-		t.Fatalf("credential request = %#v", seen)
-	}
-
-	_, err = resolveResponsesBearerToken(context.Background(), api, types.ApiTypeOpenResponses,
-		bearerTokenSourceFunc(func(context.Context, credentials.Request) (string, error) {
-			return "", errors.New("refresh token is sensitive")
-		}),
-	)
-	if err == nil || strings.Contains(err.Error(), "sensitive") {
-		t.Fatalf("source error leaked: %v", err)
+		api := &settings.APISettings{BaseUrls: map[string]string{"open-responses-base-url": "https://responses.example/v1"}}
+		c, err := resolveResponsesConnection(&settings.InferenceSettings{API: api}, source, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = openResponsesStream(t.Context(), c, []byte(`{}`), nil)
+		if err == nil || strings.Contains(err.Error(), "SECRET") {
+			t.Fatalf("unsafe source error: %v", err)
+		}
+		if sourceErr == context.Canceled || sourceErr == context.DeadlineExceeded {
+			if !errors.Is(err, sourceErr) {
+				t.Fatalf("lost cancellation: %v", err)
+			}
+		}
+		if calls != 1 {
+			t.Fatalf("source calls: %d", calls)
+		}
 	}
 }
 
@@ -261,7 +227,11 @@ func TestResponsesAPIKeyPrefersOpenResponsesKey(t *testing.T) {
 		BaseUrls: map[string]string{"open-responses-base-url": "https://responses.example/v1"},
 	}
 
-	got := responsesAPIKey(api)
+	slot, err := resolveResponsesSlot(api, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := slot.key
 	if got != "new-key" {
 		t.Fatalf("expected open-responses key, got %q", got)
 	}
@@ -278,9 +248,6 @@ func TestResponsesSlotPairsKeyWithItsOwnURL(t *testing.T) {
 	}
 	if _, err := resolveResponsesSlot(leak, false); err == nil {
 		t.Fatal("open-responses key without its own URL must be an error")
-	}
-	if responsesAPIKey(leak) != "" || responsesBaseURL(leak) != "" {
-		t.Fatal("unresolvable slot must yield neither key nor URL")
 	}
 
 	cases := []struct {
@@ -328,7 +295,11 @@ func TestResponsesAPIKeyFallsBackToLegacyAlias(t *testing.T) {
 		},
 	}
 
-	got := responsesAPIKey(api)
+	slot, err := resolveResponsesSlot(api, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := slot.key
 	if got != "legacy-key" {
 		t.Fatalf("expected legacy openai-responses key, got %q", got)
 	}
@@ -343,7 +314,11 @@ func TestResponsesBaseURLPrefersOpenResponsesBaseURL(t *testing.T) {
 		},
 	}
 
-	got := responsesBaseURL(api)
+	slot, err := resolveResponsesSlot(api, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := slot.baseURL
 	if got != "https://new.example/v1" {
 		t.Fatalf("expected open-responses base URL, got %q", got)
 	}
@@ -356,7 +331,11 @@ func TestResponsesBaseURLFallsBackToOpenAIBaseURL(t *testing.T) {
 		},
 	}
 
-	got := responsesBaseURL(api)
+	slot, err := resolveResponsesSlot(api, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := slot.baseURL
 	if got != "https://openai.example/v1" {
 		t.Fatalf("expected openai fallback base URL, got %q", got)
 	}
@@ -369,7 +348,17 @@ func TestResponsesEndpointBuildsProviderURL(t *testing.T) {
 		},
 	}
 
-	got := responsesEndpoint(api, "responses/input_tokens")
+	source, _ := credentials.NewStaticBearerTokenSource("test-key")
+	c, err := resolveResponsesConnection(&settings.InferenceSettings{API: api}, source, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	route, err := c.Resolve("input-tokens")
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := route.URL()
+	got := target.String()
 	if got != "https://responses.example/v1/responses/input_tokens" {
 		t.Fatalf("unexpected endpoint %q", got)
 	}

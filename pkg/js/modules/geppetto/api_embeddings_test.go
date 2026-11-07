@@ -48,6 +48,8 @@ profiles:
         dimensions: 4
         api_keys:
           openai-api-key: dummy-key
+        base_urls:
+          openai-base-url: https://embedding.example/v1
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile profiles.yaml: %v", err)
 	}

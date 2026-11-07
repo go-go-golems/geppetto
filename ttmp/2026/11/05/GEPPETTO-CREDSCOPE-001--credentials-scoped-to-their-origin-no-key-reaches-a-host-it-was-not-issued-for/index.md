@@ -37,12 +37,16 @@ WhenToUse: ""
 
 ## Overview
 
-<!-- Provide a brief overview of the ticket, its goals, and current status -->
+The original implementation pins credential-bearing HTTP clients to their configured origins. Design 02 completes the runtime pattern: one opaque connection owns the endpoint, routes, authentication, headers, URL policy and client for every supported AI API family. Credential overrides remain atomic through embedding settings and profile stacks.
+
+Implementation is committed on `task/geppetto-bound-connections-001` in the writable sibling checkout `geppetto-bound-connections`. The 64-case regression matrix and recorded validation gate pass. See design 02 for API changes and the precise validation limits.
 
 ## Key Links
 
-- **Related Files**: See frontmatter RelatedFiles field
-- **External Sources**: See frontmatter ExternalSources field
+- [Design 01: original analysis, scoping and pinning](design-doc/01-intern-guide-credential-scoping-in-geppetto-analysis-design-and-implementation.md)
+- [Design 02: bound API connections and implementation results](design-doc/02-bound-connections-atomic-credential-ownership-and-request-execution.md)
+- [Detailed implementation diary](reference/01-diary.md), steps 7–13 for this continuation
+- [Validation evidence](sources/05-bound-connection-validation.txt) and [lint evidence](sources/06-bound-connection-lint.txt)
 
 ## Status
 

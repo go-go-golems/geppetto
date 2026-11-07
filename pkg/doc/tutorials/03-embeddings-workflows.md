@@ -81,12 +81,19 @@ func main() {
 ### Ollama Provider (Local)
 
 ```go
-    // Create Ollama provider (runs locally)
-    provider := embeddings.NewOllamaProvider(
-        "http://localhost:11434",  // Ollama server URL
+    // Bind the explicit local endpoint and network policy first.
+    local, err := connection.New(connection.Config{
+        Provider: "ollama", BaseURL: "http://localhost:11434",
+        Routes: embeddings.OllamaRoutes(),
+        OutboundURL: security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true},
+    })
+    if err != nil { panic(err) }
+    provider, err := embeddings.NewOllamaProvider(
+        local,                    // Bound API connection
         "all-minilm",              // Model name
         384,                       // Dimensions (model-specific)
     )
+    if err != nil { panic(err) }
 ```
 
 **Common models and dimensions:**

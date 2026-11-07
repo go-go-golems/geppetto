@@ -8,6 +8,8 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
+	claudeapi "github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/gemini"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
@@ -50,10 +52,14 @@ type ResolveOptions struct {
 // Resolved is a model ready to run: settings without secrets, plus the
 // credential wiring the engine needs.
 type Resolved struct {
-	Model    Model
-	Settings *settings.InferenceSettings
-	build    func(*settings.InferenceSettings) (engine.Engine, error)
+	Model      Model
+	Settings   *settings.InferenceSettings
+	build      func(*settings.InferenceSettings) (engine.Engine, error)
+	connection *connection.Connection
 }
+
+// Connection returns the opaque provider authority for other API capabilities.
+func (r *Resolved) Connection() *connection.Connection { return r.connection }
 
 // Engine creates an engine. Engines are cheap; create one per call.
 func (r *Resolved) Engine() (engine.Engine, error) { return r.build(r.Settings) }
@@ -103,7 +109,6 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 	if err != nil {
 		return nil, err
 	}
-	s.Client.HTTPClient = security.PinClient(withHeaders(a.opts.httpClient, headers), origin)
 
 	r := &Resolved{Model: m, Settings: s}
 	defer func() {
@@ -125,8 +130,16 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 		if err != nil {
 			return nil, err
 		}
+		c, err := a.bindConnection(m, baseURL, connection.Middleware(rt.HeaderRules, rt.Middlewares...), connection.Routes{"responses": rt.RouteResolver}, headers)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := c.Resolve("responses"); err != nil {
+			return nil, err
+		}
+		r.connection = c
 		r.build = func(s *settings.InferenceSettings) (engine.Engine, error) {
-			return openai_responses.NewEngine(s, openai_responses.WithRequestTransport(rt))
+			return openai_responses.NewEngine(s, openai_responses.WithConnection(c))
 		}
 		return r, nil
 	}
@@ -136,33 +149,44 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 		return nil, err
 	}
 	src = credentials.Scoped(src, origin)
+	var auth connection.Authentication
+	var routes connection.Routes
+	var build func(*settings.InferenceSettings, *connection.Connection) (engine.Engine, error)
 	switch m.API {
 	case APIOpenAICompletions, APIOpenAIResponses:
 		t := types.ApiTypeOpenAI
+		routes = openai.Routes()
+		build = func(s *settings.InferenceSettings, c *connection.Connection) (engine.Engine, error) {
+			return openai.NewOpenAIEngine(s, openai.WithConnection(c))
+		}
 		if m.API == APIOpenAIResponses {
 			t = types.ApiTypeOpenAIResponses
+			routes = openai_responses.Routes()
+			build = func(s *settings.InferenceSettings, c *connection.Connection) (engine.Engine, error) {
+				return openai_responses.NewEngine(s, openai_responses.WithConnection(c))
+			}
 		}
 		s.Chat.ApiType = &t
 		s.API.BaseUrls[string(t)+"-base-url"] = baseURL
-		r.build = func(s *settings.InferenceSettings) (engine.Engine, error) {
-			if t == types.ApiTypeOpenAIResponses {
-				return openai_responses.NewEngine(s, openai_responses.WithBearerTokenSource(src))
-			}
-			return openai.NewOpenAIEngine(s, openai.WithBearerTokenSource(src))
-		}
+		auth = connection.Bearer(src)
 	case APIAnthropicMessages:
 		t := types.ApiTypeClaude
 		s.Chat.ApiType = &t
 		s.API.BaseUrls[string(t)+"-base-url"] = baseURL
+		routes = claudeapi.Routes()
 		if key != "" {
-			// API keys go in x-api-key, as Anthropic-compatible providers expect.
-			// The settings object is private to this Resolved and never serialized.
-			s.API.APIKeys[string(t)+"-api-key"] = key
-			r.build = func(s *settings.InferenceSettings) (engine.Engine, error) { return claude.NewClaudeEngine(s) }
+			auth = connection.Token(src, connection.TokenHeaders{"x-api-key": ""})
 		} else {
-			r.build = func(s *settings.InferenceSettings) (engine.Engine, error) {
-				return claude.NewClaudeEngine(s, claude.WithOAuthBearerTokenSource(src))
+			var identity http.Header
+			auth, identity = claude.Authentication(src, true)
+			for name, values := range identity {
+				if _, ok := headers[name]; !ok {
+					headers[name] = values[0]
+				}
 			}
+		}
+		build = func(s *settings.InferenceSettings, c *connection.Connection) (engine.Engine, error) {
+			return claude.NewClaudeEngine(s, claude.WithConnection(c))
 		}
 	case APIGoogleGenerativeAI:
 		if key == "" {
@@ -170,10 +194,21 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 		}
 		t := types.ApiTypeGemini
 		s.Chat.ApiType = &t
-		s.API.APIKeys[string(t)+"-api-key"] = key
 		s.API.BaseUrls[string(t)+"-base-url"] = baseURL
-		r.build = func(s *settings.InferenceSettings) (engine.Engine, error) { return gemini.NewGeminiEngine(s) }
+		auth = connection.Token(src, connection.TokenHeaders{"x-goog-api-key": ""})
+		build = func(s *settings.InferenceSettings, c *connection.Connection) (engine.Engine, error) {
+			return gemini.NewGeminiEngine(s, gemini.WithConnection(c))
+		}
+	default:
+		return nil, &UnsupportedAPIError{Model: m.Ref(), API: m.API}
 	}
+	c, err := a.bindConnection(m, baseURL, auth, routes, headers)
+	if err != nil {
+		return nil, err
+	}
+	r.connection = c
+	r.build = func(s *settings.InferenceSettings) (engine.Engine, error) { return build(s, c) }
+
 	return r, nil
 }
 
@@ -230,37 +265,19 @@ func (a *AgentDir) headers(ctx context.Context, m Model) (map[string]string, err
 	return out, nil
 }
 
-// withHeaders returns a client that adds headers to every request, without
-// overriding ones the engine set (Authorization, Content-Type).
-func withHeaders(base *http.Client, headers map[string]string) *http.Client {
-	if base == nil {
-		base = &http.Client{}
-	}
-	if len(headers) == 0 {
-		return base
-	}
-	c := *base
-	next := c.Transport
-	if next == nil {
-		next = http.DefaultTransport
-	}
-	c.Transport = headerTransport{next: next, headers: headers}
-	return &c
-}
-
-type headerTransport struct {
-	next    http.RoundTripper
-	headers map[string]string
-}
-
-func (t headerTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	r = r.Clone(r.Context())
-	for k, v := range t.headers {
-		if r.Header.Get(k) == "" && !strings.EqualFold(k, "authorization") {
-			r.Header.Set(k, v)
+// bindConnection captures the provider declaration before protocol routing.
+func (a *AgentDir) bindConnection(m Model, baseURL string, auth connection.Authentication, routes connection.Routes, headers map[string]string) (*connection.Connection, error) {
+	defaults := http.Header{}
+	for name, value := range headers {
+		if !strings.EqualFold(name, "Authorization") {
+			defaults.Set(name, value)
 		}
 	}
-	return t.next.RoundTrip(r)
+	policy := security.OutboundURLOptions{}
+	if a.opts.insecure {
+		policy = security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true}
+	}
+	return connection.New(connection.Config{Provider: m.Provider, BaseURL: baseURL, Auth: auth, Headers: defaults, Routes: routes, HTTPClient: a.opts.httpClient, OutboundURL: policy})
 }
 
 func firstPositive(vals ...int) int {

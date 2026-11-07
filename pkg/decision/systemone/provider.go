@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	providerdefaults "github.com/go-go-golems/geppetto/pkg/steps/ai/providers/defaults"
 	"io"
 	"net/http"
 	"net/url"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/decision"
 	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 )
 
@@ -26,7 +28,7 @@ const (
 	ProviderName = "systemone"
 	// DefaultBaseURL is LunaRoute's API root (the OpenAI-style base URL Pi
 	// stores); the endpoint is DefaultBaseURL + "/systemone".
-	DefaultBaseURL = "https://gw.lunaroute.com/v1"
+	DefaultBaseURL = providerdefaults.LunaRouteBaseURL
 	// DefaultMaxRequestBytes matches the gateway's 8 MiB route cap.
 	DefaultMaxRequestBytes int64 = 8 << 20
 	// DefaultMaxResponseBytes bounds the response body.
@@ -46,6 +48,7 @@ func NormalizeBaseURL(s string) string {
 // Options configure a Provider. Exactly one of APIKey and TokenSource is
 // required.
 type Options struct {
+	Connection  *connection.Connection
 	BaseURL     string
 	APIKey      string
 	TokenSource credentials.BearerTokenSource
@@ -64,9 +67,8 @@ type Options struct {
 type Provider struct {
 	baseURL          string
 	endpoint         string
-	tokens           credentials.BearerTokenSource
+	connection       *connection.Connection
 	model            string
-	client           *http.Client
 	maxRequestBytes  int64
 	maxResponseBytes int64
 	costPerMInput    *float64
@@ -81,22 +83,23 @@ func New(o Options) (*Provider, error) {
 	if model == "" {
 		return nil, invalid("model is required")
 	}
-	tokens := o.TokenSource
-	switch key := strings.TrimSpace(o.APIKey); {
-	case key != "" && tokens != nil:
-		return nil, invalid("takes an API key or a token source, not both")
-	case key != "":
-		src, err := credentials.NewStaticBearerTokenSource(key)
-		if err != nil {
-			return nil, invalid("api key is empty")
-		}
-		tokens = src
-	case tokens == nil:
-		return nil, invalid("api key or token source is required")
-	}
+	c := o.Connection
 	baseURL := NormalizeBaseURL(o.BaseURL)
-	if baseURL == "" {
-		baseURL = DefaultBaseURL
+	if c != nil {
+		if o.APIKey != "" || o.TokenSource != nil || o.BaseURL != "" || o.HTTPClient != nil {
+			return nil, invalid("connection already owns endpoint, authentication and client")
+		}
+		baseURL = c.BaseURL()
+	} else {
+		if baseURL == "" {
+			baseURL = DefaultBaseURL
+		}
+		if o.APIKey != "" && o.TokenSource != nil {
+			return nil, invalid("takes an API key or a token source, not both")
+		}
+		if strings.TrimSpace(o.APIKey) == "" && o.TokenSource == nil {
+			return nil, invalid("api key or token source is required")
+		}
 	}
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
@@ -109,8 +112,10 @@ func New(o Options) (*Provider, error) {
 	if err != nil {
 		return nil, invalid("endpoint construction failed")
 	}
-	if err := security.ValidateOutboundURL(endpoint, o.OutboundURL); err != nil {
-		return nil, fmt.Errorf("systemone endpoint rejected by outbound URL policy: %w: %w", err, decision.ErrInvalidRequest)
+	if c == nil {
+		if err := security.ValidateOutboundURL(endpoint, o.OutboundURL); err != nil {
+			return nil, fmt.Errorf("systemone endpoint rejected by outbound URL policy: %w: %w", err, decision.ErrInvalidRequest)
+		}
 	}
 	maxReq, maxResp := o.MaxRequestBytes, o.MaxResponseBytes
 	if maxReq == 0 {
@@ -122,12 +127,31 @@ func New(o Options) (*Provider, error) {
 	if maxReq < 1 || maxResp < 1 {
 		return nil, invalid("byte limits must be positive")
 	}
+	if c == nil {
+		auth := connection.StaticBearer(o.APIKey)
+		if o.TokenSource != nil {
+			auth = connection.Bearer(o.TokenSource)
+		}
+		client := o.HTTPClient
+		if client == nil {
+			client = &http.Client{Timeout: 60 * time.Second}
+		}
+		c, err = connection.New(connection.Config{
+			Provider: ProviderName, BaseURL: baseURL, Routes: Routes(), Auth: auth,
+			HTTPClient: client, OutboundURL: o.OutboundURL, RejectRedirects: true,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("systemone connection: %w: %w", err, decision.ErrInvalidRequest)
+		}
+	}
+	if _, err := c.Resolve("systemone"); err != nil {
+		return nil, err
+	}
 	return &Provider{
 		baseURL:          baseURL,
 		endpoint:         endpoint,
-		tokens:           tokens,
+		connection:       c,
 		model:            model,
-		client:           rejectRedirects(o.HTTPClient),
 		maxRequestBytes:  maxReq,
 		maxResponseBytes: maxResp,
 		costPerMInput:    o.CostPerMInputTokens,
@@ -177,24 +201,19 @@ func (p *Provider) Decide(ctx context.Context, in decision.Request) (decision.Re
 	if int64(len(body)) > p.maxRequestBytes {
 		return decision.Response{}, fmt.Errorf("systemone request is %d bytes, limit %d: %w", len(body), p.maxRequestBytes, decision.ErrRequestTooLarge)
 	}
-	token, err := p.tokens.BearerToken(ctx, credentials.Request{Provider: ProviderName, BaseURL: p.baseURL})
-	if err != nil {
-		if ctx.Err() != nil {
-			return decision.Response{}, ctx.Err()
-		}
-		return decision.Response{}, fmt.Errorf("systemone credential unavailable: %w", decision.ErrNotGranted)
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.endpoint, bytes.NewReader(body))
+	req, err := p.connection.NewRequest(ctx, http.MethodPost, "systemone", bytes.NewReader(body))
 	if err != nil {
 		return decision.Response{}, fmt.Errorf("systemone could not create the request: %w", decision.ErrUnavailable)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := p.client.Do(req)
+	resp, err := p.connection.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
 			return decision.Response{}, ctx.Err()
+		}
+		if errors.Is(err, connection.ErrAuthentication) {
+			return decision.Response{}, fmt.Errorf("systemone credential unavailable: %w", decision.ErrNotGranted)
 		}
 		// The transport error can carry the URL; report a generic failure.
 		return decision.Response{}, fmt.Errorf("systemone transport failed: %w", decision.ErrUnavailable)
@@ -442,16 +461,6 @@ func decodeOne(raw []byte, v any) error {
 	return nil
 }
 
-func rejectRedirects(c *http.Client) *http.Client {
-	reject := func(*http.Request, []*http.Request) error { return errors.New("systemone rejects redirects") }
-	if c == nil {
-		return &http.Client{CheckRedirect: reject, Timeout: 60 * time.Second}
-	}
-	cloned := *c
-	cloned.CheckRedirect = reject
-	return &cloned
-}
-
 func sortedKeys[V any](m map[string]V) []string {
 	ks := make([]string, 0, len(m))
 	for k := range m {
@@ -459,4 +468,9 @@ func sortedKeys[V any](m map[string]V) []string {
 	}
 	sort.Strings(ks)
 	return ks
+}
+
+// Routes declares the System One operation at the configuration boundary.
+func Routes() connection.Routes {
+	return connection.Routes{"systemone": connection.Relative(endpointPath)}
 }

@@ -71,6 +71,7 @@ func NewEmbeddingsApiKeyValue() (*schema.SectionImpl, error) {
 	return schema.NewSection(EmbeddingsApiKeySlug,
 		"Embeddings API Key Settings",
 		schema.WithFields(
+			fields.New("openai-base-url", fields.TypeString, fields.WithHelp("API root paired with an embedding-local openai-api-key; configure both together")),
 			fields.New(
 				"openai-api-key",
 				fields.TypeString,

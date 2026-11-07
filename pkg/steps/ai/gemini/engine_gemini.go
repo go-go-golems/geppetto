@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"net/http"
 	"reflect"
 	"strings"
 
@@ -12,12 +11,12 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	genai "github.com/google/generative-ai-go/genai"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
-	"google.golang.org/api/option"
 )
 
 // GeminiEngine implements the Engine interface for Google's Gemini API
@@ -25,70 +24,39 @@ type GeminiEngine struct {
 	settings            *settings.InferenceSettings
 	observer            geppettoobs.Observer
 	observabilityConfig geppettoobs.Config
+	connection          *connection.Connection
 }
 
 // EngineOption configures a GeminiEngine.
 type EngineOption func(*GeminiEngine)
 
 // NewGeminiEngine creates a new Gemini inference engine with the given settings.
-func NewGeminiEngine(settings *settings.InferenceSettings, opts ...EngineOption) (*GeminiEngine, error) {
-	ret := &GeminiEngine{settings: settings, observabilityConfig: geppettoobs.DefaultConfig()}
+func NewGeminiEngine(s *settings.InferenceSettings, opts ...EngineOption) (*GeminiEngine, error) {
+	if s == nil || s.Chat == nil {
+		return nil, errors.New("model chat settings are required")
+	}
+	ret := &GeminiEngine{settings: s, observabilityConfig: geppettoobs.DefaultConfig()}
 	for _, opt := range opts {
 		if opt != nil {
 			opt(ret)
 		}
 	}
 	ret.observabilityConfig = ret.observabilityConfig.Normalized()
+	if ret.connection == nil {
+		if s == nil {
+			return nil, errors.New("Gemini settings are required")
+		}
+		var err error
+		ret.connection, err = settings.ResolveAPIConnection(s.API, s.Client, settings.ConnectionSpec{
+			Slot: "gemini", DefaultBaseURL: geminiDefaultBaseURL,
+			TokenHeaders: connection.TokenHeaders{"x-goog-api-key": ""},
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	ret.settings = settings.PayloadSettings(s)
 	return ret, nil
-}
-
-type geminiAPIKeyTransport struct {
-	base   http.RoundTripper
-	apiKey string
-}
-
-func (t *geminiAPIKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	base := t.base
-	if base == nil {
-		base = http.DefaultTransport
-	}
-	req2 := req.Clone(req.Context())
-	urlCopy := *req.URL
-	q := urlCopy.Query()
-	if q.Get("key") == "" {
-		q.Set("key", t.apiKey)
-	}
-	urlCopy.RawQuery = q.Encode()
-	req2.URL = &urlCopy
-	return base.RoundTrip(req2)
-}
-
-func geminiHTTPClientWithAPIKey(httpClient *http.Client, apiKey string) *http.Client {
-	if httpClient == nil {
-		return nil
-	}
-	clientCopy := *httpClient
-	clientCopy.Transport = &geminiAPIKeyTransport{
-		base:   httpClient.Transport,
-		apiKey: apiKey,
-	}
-	return &clientCopy
-}
-
-func geminiClientOptions(apiKey, baseURL string, httpClient *http.Client) []option.ClientOption {
-	opts := []option.ClientOption{option.WithAPIKey(apiKey)}
-	if httpClient != nil && httpClient != http.DefaultClient {
-		// Keep the API key as an explicit client option even when a custom HTTP
-		// client is needed. The upstream SDK strips WithHTTPClient when creating
-		// its cache client, so removing WithAPIKey here can accidentally force an
-		// ADC lookup despite the resolved inference settings containing a Gemini
-		// API key.
-		opts = append(opts, option.WithHTTPClient(geminiHTTPClientWithAPIKey(httpClient, apiKey)))
-	}
-	if baseURL != "" {
-		opts = append(opts, option.WithEndpoint(baseURL))
-	}
-	return opts
 }
 
 // convertJSONSchemaToGenAI converts an invopop jsonschema.Schema to a Gemini Schema (best-effort for common types).
@@ -322,3 +290,7 @@ func (e *GeminiEngine) publishEvent(ctx context.Context, event events.Event) {
 }
 
 var _ engine.Engine = (*GeminiEngine)(nil)
+
+func WithConnection(c *connection.Connection) EngineOption {
+	return func(e *GeminiEngine) { e.connection = c }
+}

@@ -134,9 +134,15 @@ func main() {
 ### Using Ollama for Local Embeddings
 
 ```go
-// Create an Ollama embedding provider
-ollamaProvider := embeddings.NewOllamaProvider(
-    "http://localhost:11434",   // Base URL for Ollama API
+// Declare the local endpoint and its HTTP policy once.
+local, err := connection.New(connection.Config{
+    Provider: "ollama", BaseURL: "http://localhost:11434",
+    Routes: embeddings.OllamaRoutes(),
+    OutboundURL: security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true},
+})
+if err != nil { return err }
+ollamaProvider, err := embeddings.NewOllamaProvider(
+    local,                      // Bound API connection
     "all-minilm",               // Model to use
     384,                        // Vector dimensions for this model
 )
@@ -156,10 +162,14 @@ hosted `https://api.cohere.com/v2/embed` endpoint and supports the Cohere
 input-type optimization for retrieval workloads:
 
 ```go
-// Create a Cohere embedding provider. Construction validates the final
-// outbound endpoint before any text or credential can be sent.
+// Bind the issuer, credential and routes before constructing a payload client.
+cohere, err := connection.New(connection.Config{
+    Provider: "cohere", BaseURL: "https://api.cohere.com",
+    Routes: embeddings.CohereRoutes(), Auth: connection.StaticBearer(apiKey),
+})
+if err != nil { return err }
 cohereProvider, err := embeddings.NewCohereProvider(
-    "your-api-key",             // Cohere API key
+    cohere,                     // Bound API connection
     "embed-v4.0",               // Model to use (embed-v4.0 recommended)
     1024,                       // Vector dimensions (0 = model default, up to 1536)
     embeddings.WithCohereInputType("search_document"), // Optional: input type
@@ -184,7 +194,9 @@ Notes:
   `output_dimension` and the API uses the model's native default.
 - From engine profiles, set `embeddings.type: cohere`, `embeddings.engine`
   (e.g. `embed-v4.0`), and `cohere-api-key` under `api.api_keys` or
-  `embeddings.api_keys`. Direct CLI configuration exposes `--cohere-api-key`
+  `embeddings.api_keys`. An embedding-local key requires the paired
+  `embeddings.base_urls.cohere-base-url`; direct CLI configuration exposes
+  `--cohere-api-key` and `--cohere-base-url`
   alongside `--embeddings-type cohere`.
 - `cohere-base-url` is a shared Cohere API **base** (not a complete endpoint):
   embeddings append `/v2/embed`, while reranking appends `/v2/rerank`. Custom
@@ -378,6 +390,8 @@ profiles:
       api:
         api_keys:
           openai-api-key: <configured in ~/.config/pinocchio/profiles.yaml>
+        base_urls:
+          openai-base-url: https://api.openai.com/v1
 
   openai-embedding-small:
     stack:
@@ -546,6 +560,8 @@ profiles:
       api:
         api_keys:
           openai-api-key: <configured in ~/.config/pinocchio/profiles.yaml>
+        base_urls:
+          openai-base-url: https://api.openai.com/v1
         base_urls:
           openai-base-url: https://api.mycompany.com/v1
       embeddings:
@@ -1023,3 +1039,8 @@ import (
 
 - [Inference Engines](06-inference-engines.md) — Using embeddings with inference
 - Example: `geppetto/cmd/examples/` (check for embedding examples)
+
+
+### Reusing a connection
+
+Direct embedding constructors accept `*connection.Connection` and return a provider and an error. Import `pkg/steps/ai/connection` to declare authority; local endpoints also use `pkg/security.OutboundURLOptions`. OpenAI chat, embeddings and Whisper can share that connection. See the `geppetto-credential-scope` help topic for the complete setup and factory APIs.

@@ -129,10 +129,7 @@ func TestResponsesObservabilityCapturesObjectEventAndMetadataJSON(t *testing.T) 
 
 func TestResponsesObservabilityOffEmitsNoRecords(t *testing.T) {
 	obs := &captureGeppettoObserver{}
-	eng, err := NewEngine(&settings.InferenceSettings{}, WithObserver(obs), WithObservabilityConfig(geppettoobs.DefaultConfig()))
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
+	eng := &Engine{observer: obs, observabilityConfig: geppettoobs.DefaultConfig()}
 	eng.observe(context.Background(), geppettoobs.Record{Stage: geppettoobs.StageProviderRoutedEvent})
 	if got := len(obs.snapshot()); got != 0 {
 		t.Fatalf("expected no records with trace off, got %d", got)

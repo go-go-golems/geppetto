@@ -90,7 +90,7 @@ func (f *SettingsFactory) NewProvider() (rerank.Provider, error) {
 			return nil, err
 		}
 		outbound := f.resolveOutboundURLOptions()
-		httpClient, err := settings.EnsurePinnedHTTPClient(f.client, baseURL)
+		httpClient, err := settings.EnsureHTTPClient(f.client)
 		if err != nil {
 			return nil, fmt.Errorf("rerank http client: %w: %w", err, rerank.ErrInvalidRequest)
 		}
@@ -115,13 +115,7 @@ func (f *SettingsFactory) NewProvider() (rerank.Provider, error) {
 			baseURL = strings.TrimSpace(f.api.BaseUrls["cohere-base-url"])
 		}
 		outbound := f.resolveOutboundURLOptions()
-		// Pin to the endpoint the adapter will use, so the Cohere key cannot
-		// follow a redirect to another origin (GEPPETTO-CREDSCOPE-001).
-		pinTo := baseURL
-		if pinTo == "" {
-			pinTo = cohere.DefaultBaseURL
-		}
-		httpClient, err := settings.EnsurePinnedHTTPClient(f.client, pinTo)
+		httpClient, err := settings.EnsureHTTPClient(f.client)
 		if err != nil {
 			return nil, fmt.Errorf("rerank http client: %w: %w", err, rerank.ErrInvalidRequest)
 		}

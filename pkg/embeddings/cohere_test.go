@@ -9,21 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// localServerOptions allows httptest (HTTP, loopback) endpoints in unit tests.
-func localServerOptions(server *httptest.Server) []func(*CohereProvider) {
-	return []func(*CohereProvider){
-		WithCohereBaseURL(server.URL),
-		WithCohereOutboundURL(security.OutboundURLOptions{
-			AllowHTTP:          true,
-			AllowLocalNetworks: true,
-		}),
-	}
-}
 
 func TestCohereProvider_GenerateEmbedding(t *testing.T) {
 	// Create a mock server
@@ -71,8 +60,7 @@ func TestCohereProvider_GenerateEmbedding(t *testing.T) {
 	// Create provider using mock server. The base URL is the server root; the
 	// provider appends /v2/embed itself (base-URL semantics shared with the
 	// rerank adapter).
-	opts := localServerOptions(server)
-	provider, err := NewCohereProvider("test-api-key", "test-model", 384, opts...)
+	provider, err := NewCohereProvider(testEmbeddingConnection(t, "cohere", "test-api-key", server.URL, nil), "test-model", 384)
 	require.NoError(t, err)
 
 	// Test GenerateEmbedding
@@ -124,8 +112,7 @@ func TestCohereProvider_GenerateBatchEmbeddings(t *testing.T) {
 	defer server.Close()
 
 	// Create provider using mock server
-	opts := append(localServerOptions(server), WithCohereInputType("classification"))
-	provider, err := NewCohereProvider("test-api-key", "test-model", 256, opts...)
+	provider, err := NewCohereProvider(testEmbeddingConnection(t, "cohere", "test-api-key", server.URL, nil), "test-model", 256, WithCohereInputType("classification"))
 	require.NoError(t, err)
 
 	// Test GenerateBatchEmbeddings
@@ -148,7 +135,7 @@ func TestCohereProvider_GenerateBatchEmbeddings(t *testing.T) {
 }
 
 func TestCohereProvider_GetModel(t *testing.T) {
-	provider, err := NewCohereProvider("test-api-key", "embed-v4.0", 1024)
+	provider, err := NewCohereProvider(testEmbeddingConnection(t, "cohere", "test-api-key", defaultCohereBaseURL, nil), "embed-v4.0", 1024)
 	require.NoError(t, err)
 
 	model := provider.GetModel()
@@ -184,7 +171,7 @@ func TestCohereProvider_RejectsCardinalityMismatch(t *testing.T) {
 			}))
 			defer server.Close()
 
-			provider, err := NewCohereProvider("key", "model", 0, localServerOptions(server)...)
+			provider, err := NewCohereProvider(testEmbeddingConnection(t, "cohere", "key", server.URL, nil), "model", 0)
 			require.NoError(t, err)
 
 			texts := make([]string, tc.requested)
@@ -202,20 +189,11 @@ func TestCohereProvider_RejectsCardinalityMismatch(t *testing.T) {
 // construction time: plaintext HTTP and loopback targets are rejected unless
 // explicitly allowed.
 func TestCohereProvider_OutboundURLPolicy(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	defer server.Close()
-
-	// Default policy: HTTP loopback must be rejected at construction time.
-	_, err := NewCohereProvider("key", "model", 0, WithCohereBaseURL(server.URL))
+	_, err := connection.New(connection.Config{Provider: "cohere", BaseURL: "http://127.0.0.1:9999", Auth: connection.StaticBearer("key"), Routes: CohereRoutes()})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "outbound URL policy")
-
-	// Explicit opt-in allows the local test server.
-	_, err = NewCohereProvider("key", "model", 0, localServerOptions(server)...)
+	_, err = NewCohereProvider(testEmbeddingConnection(t, "cohere", "key", "http://127.0.0.1:9999", nil), "model", 0)
 	require.NoError(t, err)
-
-	// HTTPS public default endpoint constructs fine under the default policy.
-	_, err = NewCohereProvider("key", "model", 0)
+	_, err = NewCohereProvider(testEmbeddingConnection(t, "cohere", "key", defaultCohereBaseURL, nil), "model", 0)
 	require.NoError(t, err)
 }
 
@@ -235,7 +213,7 @@ func TestCohereProvider_EndpointDerivedFromBase(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider, err := NewCohereProvider("key", "model", 0, localServerOptions(server)...)
+	provider, err := NewCohereProvider(testEmbeddingConnection(t, "cohere", "key", server.URL, nil), "model", 0)
 	require.NoError(t, err)
 
 	_, err = provider.GenerateEmbedding(context.Background(), "hello")
@@ -253,8 +231,7 @@ func TestCohereProvider_UsesConfiguredHTTPClient(t *testing.T) {
 	defer server.Close()
 
 	client := &http.Client{Timeout: 50 * time.Millisecond}
-	opts := append(localServerOptions(server), WithCohereHTTPClient(client))
-	provider, err := NewCohereProvider("key", "model", 0, opts...)
+	provider, err := NewCohereProvider(testEmbeddingConnection(t, "cohere", "key", server.URL, client), "model", 0)
 	require.NoError(t, err)
 
 	_, err = provider.GenerateEmbedding(context.Background(), "hello")

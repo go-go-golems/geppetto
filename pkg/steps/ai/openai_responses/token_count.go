@@ -7,17 +7,19 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/tokencount"
-	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
 )
 
 type TokenCounter struct {
-	settings *settings.InferenceSettings
+	settings          *settings.InferenceSettings
+	connection        *connection.Connection
+	bearerTokenSource credentials.BearerTokenSource
 }
 
 type inputTokensRequest struct {
@@ -30,8 +32,36 @@ type inputTokensRequest struct {
 	ParallelToolCalls *bool            `json:"parallel_tool_calls,omitempty"`
 }
 
-func NewTokenCounter(s *settings.InferenceSettings) *TokenCounter {
-	return &TokenCounter{settings: s}
+// TokenCounterOption supplies the same bound authority used by an engine.
+type TokenCounterOption func(*TokenCounter)
+
+func WithTokenCountConnection(c *connection.Connection) TokenCounterOption {
+	return func(counter *TokenCounter) { counter.connection = c }
+}
+func WithTokenCountBearerTokenSource(source credentials.BearerTokenSource) TokenCounterOption {
+	return func(counter *TokenCounter) { counter.bearerTokenSource = source }
+}
+func NewTokenCounter(s *settings.InferenceSettings, opts ...TokenCounterOption) (*TokenCounter, error) {
+	if s == nil || s.Chat == nil {
+		return nil, errors.New("token count model settings are required")
+	}
+	var err error
+	counter := &TokenCounter{settings: settings.PayloadSettings(s)}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(counter)
+		}
+	}
+	if counter.connection == nil {
+		counter.connection, err = resolveResponsesConnection(s, counter.bearerTokenSource, nil)
+	} else if counter.bearerTokenSource != nil {
+		return nil, errors.New("connection already owns authentication")
+	}
+	if err != nil {
+		return nil, err
+	}
+	counter.bearerTokenSource = nil
+	return counter, nil
 }
 
 func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencount.Result, error) {
@@ -63,36 +93,16 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 		return nil, err
 	}
 
-	slot, err := resolveResponsesSlot(tc.settings.API, false)
-	if err != nil {
-		return nil, errors.Wrap(err, "responses token count")
-	}
-	apiKey := slot.key
-	if strings.TrimSpace(apiKey) == "" {
-		return nil, errors.New("responses token count: no responses api key configured")
-	}
-
-	url := strings.TrimRight(slot.baseURL, "/") + "/responses/input_tokens"
-	if err := security.ValidateOutboundURL(url, responsesOutboundURLOptions(tc.settings.API)); err != nil {
-		return nil, errors.Wrap(err, "invalid responses token count URL")
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	req, err := tc.connection.NewRequest(ctx, http.MethodPost, "input-tokens", bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	httpClient, err := settings.EnsurePinnedHTTPClient(tc.settings.Client, slot.baseURL)
+	resp, err := tc.connection.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
@@ -115,7 +125,7 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 		Model:       countReq.Model,
 		InputTokens: inputTokens,
 		Source:      tokencount.SourceProviderAPI,
-		Endpoint:    url,
+		Endpoint:    req.URL.String(),
 		RequestKind: "responses_input_tokens",
 	}, nil
 }

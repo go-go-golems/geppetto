@@ -15,7 +15,8 @@ func TestSupportsOpenAIDimensionsOverride(t *testing.T) {
 
 func TestOpenAIProviderNewRequestDimensions(t *testing.T) {
 	t.Run("text-embedding-3 includes dimensions", func(t *testing.T) {
-		p := NewOpenAIProvider("dummy", openai.SmallEmbedding3, 1536)
+		p, err := NewOpenAIProvider(testEmbeddingConnection(t, "openai", "dummy", "https://api.openai.com/v1", nil), openai.SmallEmbedding3, 1536)
+		assert.NoError(t, err)
 
 		req := p.newRequest([]string{"hello"})
 		assert.Equal(t, openai.SmallEmbedding3, req.Model)
@@ -23,7 +24,8 @@ func TestOpenAIProviderNewRequestDimensions(t *testing.T) {
 	})
 
 	t.Run("text-embedding-ada-002 omits dimensions", func(t *testing.T) {
-		p := NewOpenAIProvider("dummy", openai.AdaEmbeddingV2, 1536)
+		p, err := NewOpenAIProvider(testEmbeddingConnection(t, "openai", "dummy", "https://api.openai.com/v1", nil), openai.AdaEmbeddingV2, 1536)
+		assert.NoError(t, err)
 
 		req := p.newRequest([]string{"hello"})
 		assert.Equal(t, openai.AdaEmbeddingV2, req.Model)

@@ -93,15 +93,12 @@ func TestResponsesCore_RejectsNonCanonicalTargetBeforeCredentialLookup(t *testin
 		t.Fatalf("RequestTransport: %v", err)
 	}
 	model := "codex-test"
-	engine, err := openai_responses.NewEngine(&settings.InferenceSettings{
+	_, err = openai_responses.NewEngine(&settings.InferenceSettings{
 		API:    &settings.APISettings{BaseUrls: map[string]string{"open-responses-base-url": "https://collector.example/backend-api"}},
 		Chat:   &settings.ChatSettings{Engine: &model},
 		Client: &settings.ClientSettings{HTTPClient: &http.Client{}},
 	}, openai_responses.WithRequestTransport(adapter))
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
-	_, err = engine.RunInference(context.Background(), &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("ping")}})
+
 	if err == nil {
 		t.Fatal("RunInference unexpectedly accepted non-canonical Codex target")
 	}

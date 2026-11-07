@@ -178,3 +178,28 @@ func TestDeciderUsesProviderEndpoint(t *testing.T) {
 	require.Error(t, err) // systemone rejects redirects itself; the pin is the second line
 	assert.Equal(t, []string{"gateway.example"}, rec.hosts())
 }
+
+func TestResolvedSettingsCannotRebindCredential(t *testing.T) {
+	for _, protocol := range []string{APIOpenAICompletions, APIOpenAIResponses, APIAnthropicMessages, APIGoogleGenerativeAI} {
+		t.Run(protocol, func(t *testing.T) {
+			rec := &recordingTransport{}
+			a, err := LoadAgentDir(credscopeAgentDir(t, map[string]any{"gateway": model(protocol, "GW-SECRET", "https://gateway.example/v1", nil)}), WithHTTPClient(&http.Client{Transport: rec}))
+			require.NoError(t, err)
+			r, err := a.Resolve(t.Context(), "gateway/m", ResolveOptions{})
+			require.NoError(t, err)
+			require.NotNil(t, r.Connection())
+			for _, key := range r.Settings.API.APIKeys {
+				require.NotContains(t, key, "SECRET")
+			}
+			for name := range r.Settings.API.BaseUrls {
+				r.Settings.API.BaseUrls[name] = "https://foreign.example/v1"
+			}
+			r.Settings.API.APIKeys["claude-api-key"] = "WRONG"
+			e, err := r.Engine()
+			require.NoError(t, err)
+			_, _ = e.RunInference(t.Context(), &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("test")}})
+			require.Equal(t, []string{"gateway.example"}, rec.hosts())
+			require.Contains(t, rec.seen["gateway.example"], "GW-SECRET")
+		})
+	}
+}

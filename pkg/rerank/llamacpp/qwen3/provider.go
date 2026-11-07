@@ -15,6 +15,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/rerank"
 	"github.com/go-go-golems/geppetto/pkg/rerank/llamacpp/internal/transport"
 	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -38,6 +39,7 @@ const (
 // explicitly enabled through OutboundURL. CostPerMTokens is optional and can
 // be projected only when every pair response reports token usage.
 type Options struct {
+	Connection       *connection.Connection
 	BaseURL          string
 	Model            string
 	HTTPClient       *http.Client
@@ -53,7 +55,7 @@ type Options struct {
 type Provider struct {
 	endpoint         string
 	model            string
-	client           *http.Client
+	connection       *connection.Connection
 	maxRequestBytes  int64
 	maxResponseBytes int64
 	maxConcurrency   int
@@ -70,7 +72,15 @@ var _ rerank.Provider = (*Provider)(nil)
 
 // New constructs a strict Qwen3 completion rerank provider.
 func New(options Options) (*Provider, error) {
-	baseURL, err := transport.ParseAndValidateBaseURL("qwen3 rerank", options.BaseURL)
+	c := options.Connection
+	if c != nil && (options.BaseURL != "" || options.HTTPClient != nil) {
+		return nil, fmt.Errorf("connection already owns endpoint and client: %w", rerank.ErrInvalidRequest)
+	}
+	declaredURL := options.BaseURL
+	if c != nil {
+		declaredURL = c.BaseURL()
+	}
+	baseURL, err := transport.ParseAndValidateBaseURL("qwen3 rerank", declaredURL)
 	if err != nil {
 		return nil, err
 	}
@@ -104,14 +114,23 @@ func New(options Options) (*Provider, error) {
 		return nil, fmt.Errorf("qwen3 rerank cost_per_m_tokens must be finite and non-negative: %w", rerank.ErrInvalidRequest)
 	}
 
-	endpoint, err := transport.Endpoint("qwen3 rerank", baseURL, completionPath, options.OutboundURL)
+	if c == nil {
+		c, err = connection.New(connection.Config{Provider: ProviderName, BaseURL: baseURL, Routes: Routes(), HTTPClient: options.HTTPClient, OutboundURL: options.OutboundURL, RejectRedirects: true})
+		if err != nil {
+			return nil, fmt.Errorf("qwen3 rerank connection: %w: %w", err, rerank.ErrInvalidRequest)
+		}
+	}
+	routed, err := c.Resolve("rerank")
 	if err != nil {
 		return nil, err
 	}
+	target := routed.URL()
+	endpoint := target.String()
+
 	return &Provider{
 		endpoint:         endpoint,
 		model:            model,
-		client:           transport.CloneClientWithRedirectRejection(options.HTTPClient),
+		connection:       c,
 		maxRequestBytes:  maxRequestBytes,
 		maxResponseBytes: maxResponseBytes,
 		maxConcurrency:   maxConcurrency,
@@ -197,12 +216,12 @@ func (p *Provider) scorePair(ctx context.Context, query, document string) (pairR
 		)
 	}
 
-	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, p.endpoint, bytes.NewReader(payload))
+	httpRequest, err := p.connection.NewRequest(ctx, http.MethodPost, "rerank", bytes.NewReader(payload))
 	if err != nil {
 		return result, fmt.Errorf("qwen3 rerank could not create provider request: %w", rerank.ErrUnavailable)
 	}
 	httpRequest.Header.Set("Content-Type", "application/json")
-	httpResponse, err := p.client.Do(httpRequest)
+	httpResponse, err := p.connection.Do(httpRequest)
 	if err != nil {
 		return result, transport.RedactedTransportError("qwen3 rerank")
 	}
@@ -344,4 +363,8 @@ func computeCost(usage *rerank.Usage, costPerMTokens *float64) *float64 {
 func durationMilliseconds(started time.Time) *int64 {
 	duration := time.Since(started).Milliseconds()
 	return &duration
+}
+
+func Routes() connection.Routes {
+	return connection.Routes{"rerank": connection.Relative(completionPath)}
 }

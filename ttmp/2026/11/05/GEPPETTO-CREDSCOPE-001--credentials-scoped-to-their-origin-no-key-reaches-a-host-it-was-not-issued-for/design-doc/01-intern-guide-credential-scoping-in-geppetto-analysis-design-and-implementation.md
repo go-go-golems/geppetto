@@ -559,3 +559,8 @@ Implemented on `task/geppetto-credscope-001`, stacked on PR #444 (`4ab5c800`):
 
 - The Gemini SDK's cache client (§11): it is not pinned if the SDK builds it itself. Not verified.
 - Path-scoped multi-tenant gateways, and cross-profile stack merges (§11).
+
+
+## 14. Continuation: bound connections
+
+The subsequent implementation is documented in [design 02](02-bound-connections-atomic-credential-ownership-and-request-execution.md) and diary steps 7–13. It replaces repeated key/URL/client assembly with a bound connection, extends the matrix to 64 cases, verifies the modern Gemini cache client, and makes embedding and profile-stack credential overrides atomic. This guide's earlier phase results remain the historical PR #445 checkpoint.
