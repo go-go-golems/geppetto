@@ -1200,3 +1200,23 @@ The final local integration checks pass: repository build, downstream rag-workbe
 
 ### Technical details
 - The parent workspace definition is unchanged. Publishing through the GitHub connector recreates commit IDs but verifies every source tree against its local equivalent.
+
+## Step 20: Complete the example profile migration before review
+
+The final repository-wide alias search found two example registries and one bootstrap fixture still naming the removed settings protocol. Migrated them to canonical `open-responses`; the example registries now declare their own Responses endpoint, and the JavaScript demo includes its explicit demo credential pair. The bootstrap selection test keeps its original purpose with current protocol input.
+
+### Prompt Context
+**User prompt:** See Step 18; this completes the requested migration examples.
+**Assistant interpretation:** Finish all current examples without adding compatibility fallback.
+**Inferred user intent:** A caller can follow shipped examples after the hard API change.
+
+### Evidence and commits
+- `GOWORK=off GOCACHE=/tmp/geppetto-bound-go-cache GOFLAGS=-buildvcs=false GOPROXY=off go test ./pkg/cli/bootstrap -count=1`: pass.
+- `git diff --check`: pass.
+- Cleanup PR: https://github.com/go-go-golems/geppetto/pull/449 (base main).
+
+### Noteworthy decisions or failures
+- Runner example credentials remain host-provided; its YAML documents the canonical key rather than inserting a pretend operational secret. The existing JS demo continues to use an explicitly fake demo key.
+
+### Remaining requirements and next action
+- Publish the final fixture correction, request `@codex review` on #449, and inspect full CI.

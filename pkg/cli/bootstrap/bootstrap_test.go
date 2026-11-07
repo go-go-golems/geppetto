@@ -415,7 +415,7 @@ profiles:
     slug: default
     inference_settings:
       chat:
-        api_type: openai-responses
+        api_type: open-responses
         engine: gpt-5-mini
 `
 	if err := os.WriteFile(registryPath, []byte(registryYAML), 0o644); err != nil {
