@@ -93,10 +93,10 @@ func TestRunInference_StreamingErrorReturnsFailureAndNoFinalEvent(t *testing.T) 
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-4o-mini"),
@@ -273,10 +273,10 @@ func runResponsesSSEForTest(t *testing.T, sse string) (*turns.Turn, []events.Eve
 	})}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-4o-mini"),
@@ -406,13 +406,13 @@ func TestRunInference_UsesConfiguredHTTPClient(t *testing.T) {
 		value:  "responses-proxy",
 	}
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		Client: &settings.ClientSettings{
 			HTTPClient: httpClient,
 		},
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://api.openai.com/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://api.openai.com/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-4o-mini"),
@@ -566,10 +566,10 @@ func TestRunInference_StreamingReasoningTextEventsArePublished(t *testing.T) {
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-5-mini"),
@@ -692,8 +692,8 @@ func TestRunInference_StreamingReasoningTextFromOutputItemDoneContent(t *testing
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
-		API:  &settings.APISettings{APIKeys: map[string]string{"openai-api-key": "test"}, BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"}},
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
+		API:  &settings.APISettings{APIKeys: map[string]string{"open-responses-api-key": "test"}, BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"}},
 		Chat: &settings.ChatSettings{Engine: ptr("gpt-5-mini"), Stream: true},
 	})
 	if err != nil {
@@ -755,8 +755,8 @@ func TestRunInference_StreamingReasoningEncryptedContentDoesNotLeakAcrossItems(t
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
-		API:  &settings.APISettings{APIKeys: map[string]string{"openai-api-key": "test"}, BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"}},
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
+		API:  &settings.APISettings{APIKeys: map[string]string{"open-responses-api-key": "test"}, BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"}},
 		Chat: &settings.ChatSettings{Engine: ptr("gpt-5-mini"), Stream: true},
 	})
 	if err != nil {
@@ -828,10 +828,10 @@ func TestRunInference_StreamingReasoningSummaryPreservesSentenceBoundaries(t *te
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-5-mini"),
@@ -939,10 +939,10 @@ func TestRunInference_StreamingReasoningSummarySourceDoesNotLeakToNextReasoningI
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-5-mini"),
@@ -1014,10 +1014,10 @@ func TestRunInference_StreamingReasoningAliasEventsAreNormalized(t *testing.T) {
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-5-mini"),
@@ -1123,10 +1123,10 @@ func TestRunInference_StreamingReasoningTextDonePreservesAccumulatedThinking(t *
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-5-mini"),
@@ -1211,10 +1211,10 @@ func TestRunInference_StreamingReasoningTextDoneOnlyEmitsThinkingPartial(t *test
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-5-mini"),
@@ -1309,10 +1309,10 @@ func TestRunInference_StreamingReasoningItemsKeepMarkdownBoundaries(t *testing.T
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-5-mini"),
@@ -1403,10 +1403,10 @@ func TestRunInference_StreamingOutputItemDoneDoesNotDuplicateStreamedText(t *tes
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-5-mini"),
@@ -1485,10 +1485,10 @@ func TestRunInference_StreamingOutputItemDoneBackfillsMissingTail(t *testing.T) 
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-5-mini"),
@@ -1576,10 +1576,10 @@ func TestRunInference_StreamingPreservesWhitespaceOnlyDelta(t *testing.T) {
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-5-mini"),
@@ -1648,10 +1648,10 @@ func TestRunInference_ForcesStreamingRequestBody(t *testing.T) {
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-5-mini"),
@@ -1702,10 +1702,10 @@ func TestRunInference_ForcesStreamingUsageIncludesCachedTokens(t *testing.T) {
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-5-mini"),
@@ -1816,10 +1816,10 @@ func TestRunInference_StreamingPersistsCanonicalInferenceResultMetadata(t *testi
 	}
 	defer func() { http.DefaultClient = origClient }()
 
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{
 			Engine: ptr("gpt-4o-mini"),

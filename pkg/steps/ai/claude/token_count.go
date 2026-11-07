@@ -9,58 +9,26 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
 )
 
 type TokenCounter struct {
-	settings          *settings.InferenceSettings
-	bearerTokenSource credentials.BearerTokenSource
-	oauthBearerMode   bool
-	connection        *connection.Connection
+	settings *settings.InferenceSettings
+
+	connection *connection.Connection
 }
 
-// TokenCounterOption configures request-time authentication for token counting.
-type TokenCounterOption func(*TokenCounter)
-
-// WithTokenCountBearerTokenSource supplies a Go-only request-time credential source.
-func WithTokenCountBearerTokenSource(source credentials.BearerTokenSource) TokenCounterOption {
-	return func(counter *TokenCounter) { counter.bearerTokenSource = source }
-}
-
-// WithTokenCountOAuthBearerTokenSource selects Anthropic subscription OAuth
-// header semantics for token counting.
-func WithTokenCountOAuthBearerTokenSource(source credentials.BearerTokenSource) TokenCounterOption {
-	return func(counter *TokenCounter) {
-		counter.bearerTokenSource = source
-		counter.oauthBearerMode = true
+// NewTokenCounter consumes the same complete authority as an inference engine.
+func NewTokenCounter(c *connection.Connection, s *settings.InferenceSettings) (*TokenCounter, error) {
+	if c == nil {
+		return nil, errors.New("API connection is required")
 	}
-}
-
-func NewTokenCounter(s *settings.InferenceSettings, opts ...TokenCounterOption) (*TokenCounter, error) {
 	if s == nil || s.Chat == nil {
 		return nil, errors.New("token count model settings are required")
 	}
-	var err error
-	counter := &TokenCounter{settings: s}
-	for _, opt := range opts {
-		if opt != nil {
-			opt(counter)
-		}
-	}
-	if counter.connection == nil {
-		counter.connection, err = resolveClaudeConnection(s, counter.bearerTokenSource, counter.oauthBearerMode, "")
-	} else if counter.bearerTokenSource != nil {
-		return nil, errors.New("connection already owns authentication")
-	}
-	if err != nil {
-		return nil, err
-	}
-	counter.bearerTokenSource = nil
-	counter.settings = settings.PayloadSettings(s)
-	return counter, nil
+	return &TokenCounter{connection: c, settings: settings.PayloadSettings(s)}, nil
 }
 
 func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencount.Result, error) {
@@ -146,8 +114,4 @@ func (e *ClaudeEngine) MakeCountTokensRequestFromTurn(ctx context.Context, t *tu
 	}
 
 	return req, nil
-}
-
-func WithTokenCountConnection(c *connection.Connection) TokenCounterOption {
-	return func(counter *TokenCounter) { counter.connection = c }
 }

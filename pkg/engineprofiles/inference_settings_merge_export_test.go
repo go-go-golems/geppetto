@@ -14,7 +14,7 @@ func TestMergeInferenceSettings_ExportedHelperMatchesEngineProfileMergeSemantics
 	baseTemp := 0.2
 	base.Chat.Temperature = &baseTemp
 
-	overlay := mustTestInferenceSettings(t, aitypes.ApiTypeOpenAIResponses, "gpt-5-mini")
+	overlay := mustTestInferenceSettings(t, aitypes.ApiTypeOpenResponses, "gpt-5-mini")
 	overlayModel := "gpt-5-mini"
 	overlay.Chat.Engine = &overlayModel
 	overlay.Chat.Temperature = nil

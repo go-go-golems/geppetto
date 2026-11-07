@@ -143,7 +143,7 @@ func toolUseClaudeSSE() string {
 }
 
 func TestClaudeRunInferenceToolUsePreservesMessageDeltaMetadata(t *testing.T) {
-	eng, err := NewClaudeEngine(newObservableClaudeSettings(t, toolUseClaudeSSE()))
+	eng, err := newTestEngineFromSettings(newObservableClaudeSettings(t, toolUseClaudeSSE()))
 	if err != nil {
 		t.Fatalf("NewClaudeEngine: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestClaudeRunInferenceToolUsePreservesMessageDeltaMetadata(t *testing.T) {
 
 func TestClaudeObservabilityOffEmitsNoRecords(t *testing.T) {
 	obs := &captureClaudeObserver{}
-	eng, err := NewClaudeEngine(newObservableClaudeSettings(t, minimalClaudeSSE()), WithObserver(obs), WithObservabilityConfig(geppettoobs.DefaultConfig()))
+	eng, err := newTestEngineFromSettings(newObservableClaudeSettings(t, minimalClaudeSSE()), WithObserver(obs), WithObservabilityConfig(geppettoobs.DefaultConfig()))
 	if err != nil {
 		t.Fatalf("NewClaudeEngine: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestClaudeObservabilityOffEmitsNoRecords(t *testing.T) {
 
 func TestClaudeObservabilityCapturesPublishStartedAndProviderRecords(t *testing.T) {
 	obs := &captureClaudeObserver{}
-	eng, err := NewClaudeEngine(newObservableClaudeSettings(t, minimalClaudeSSE()), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
+	eng, err := newTestEngineFromSettings(newObservableClaudeSettings(t, minimalClaudeSSE()), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
 	if err != nil {
 		t.Fatalf("NewClaudeEngine: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestClaudeObservabilityCapturesPublishStartedAndProviderRecords(t *testing.
 
 func TestClaudeObservabilityEventsLevelSkipsProviderRecords(t *testing.T) {
 	obs := &captureClaudeObserver{}
-	eng, err := NewClaudeEngine(newObservableClaudeSettings(t, minimalClaudeSSE()), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceEvents}))
+	eng, err := newTestEngineFromSettings(newObservableClaudeSettings(t, minimalClaudeSSE()), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceEvents}))
 	if err != nil {
 		t.Fatalf("NewClaudeEngine: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestClaudeObservabilityEventsLevelSkipsProviderRecords(t *testing.T) {
 }
 
 func TestClaudeObservabilityObserverPanicDoesNotFailInference(t *testing.T) {
-	eng, err := NewClaudeEngine(newObservableClaudeSettings(t, minimalClaudeSSE()), WithObserver(panicClaudeObserver{}), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
+	eng, err := newTestEngineFromSettings(newObservableClaudeSettings(t, minimalClaudeSSE()), WithObserver(panicClaudeObserver{}), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
 	if err != nil {
 		t.Fatalf("NewClaudeEngine: %v", err)
 	}

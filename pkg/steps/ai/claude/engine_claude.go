@@ -12,7 +12,6 @@ import (
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -29,39 +28,25 @@ type ClaudeEngine struct {
 	toolAdapter         *tools.ClaudeToolAdapter
 	observer            geppettoobs.Observer
 	observabilityConfig geppettoobs.Config
-	bearerAuthorization string
-	bearerTokenSource   credentials.BearerTokenSource
-	oauthBearerMode     bool
-	connection          *connection.Connection
+
+	connection *connection.Connection
 }
 
 // NewClaudeEngine creates a new Claude inference engine with the given settings and options.
-func NewClaudeEngine(s *settings.InferenceSettings, opts ...EngineOption) (*ClaudeEngine, error) {
+func NewClaudeEngine(c *connection.Connection, s *settings.InferenceSettings, opts ...EngineOption) (*ClaudeEngine, error) {
+	if c == nil {
+		return nil, errors.New("API connection is required")
+	}
 	if s == nil || s.Chat == nil {
 		return nil, errors.New("model chat settings are required")
 	}
-	e := &ClaudeEngine{
-		settings:            s,
-		toolAdapter:         tools.NewClaudeToolAdapter(),
-		observabilityConfig: geppettoobs.DefaultConfig(),
-	}
+	e := &ClaudeEngine{settings: settings.PayloadSettings(s), connection: c, toolAdapter: tools.NewClaudeToolAdapter(), observabilityConfig: geppettoobs.DefaultConfig()}
 	for _, opt := range opts {
 		if opt != nil {
 			opt(e)
 		}
 	}
 	e.observabilityConfig = e.observabilityConfig.Normalized()
-	if e.connection == nil {
-		var err error
-		e.connection, err = resolveClaudeConnection(s, e.bearerTokenSource, e.oauthBearerMode, e.bearerAuthorization)
-		if err != nil {
-			return nil, err
-		}
-	} else if e.bearerTokenSource != nil || e.bearerAuthorization != "" {
-		return nil, errors.New("connection already owns authentication")
-	}
-	e.bearerTokenSource, e.bearerAuthorization = nil, ""
-	e.settings = settings.PayloadSettings(s)
 	return e, nil
 }
 
@@ -382,7 +367,3 @@ func convertToolExamples(examples []engine.ToolExample) []tools.ToolExample {
 }
 
 var _ engine.Engine = (*ClaudeEngine)(nil)
-
-func WithConnection(c *connection.Connection) EngineOption {
-	return func(e *ClaudeEngine) { e.connection = c }
-}

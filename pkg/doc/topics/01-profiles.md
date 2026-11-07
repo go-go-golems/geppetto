@@ -97,8 +97,13 @@ profiles:
         profile_slug: default
     inference_settings:
       chat:
-        api_type: openai-responses
+        api_type: open-responses
         engine: gpt-5-mini
+      api:
+        api_keys:
+          open-responses-api-key: <key for this endpoint>
+        base_urls:
+          open-responses-base-url: https://api.openai.com/v1
 ```
 
 ## Model Metadata

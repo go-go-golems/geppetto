@@ -10,8 +10,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
 	aitransport "github.com/go-go-golems/geppetto/pkg/steps/ai/transport"
 )
 
@@ -62,36 +62,47 @@ func (o Options) normalized() Options {
 	return o
 }
 
-// RequestTransport returns the Codex adapter for openai_responses.NewEngine.
-// It disables the core's ordinary bearer middleware so Codex headers can only
-// be supplied by a typed Codex source.
-func RequestTransport(source Source, options Options) (openai_responses.RequestTransport, error) {
+// Authentication binds typed Codex credential renewal to restricted headers.
+// Routing remains an independent declaration constrained to the canonical origin.
+func Authentication(source Source, options Options) (connection.Authentication, error) {
+	config, err := authenticationMiddleware(source, options)
+	if err != nil {
+		return connection.Authentication{}, err
+	}
+	return connection.Middleware(config.HeaderRules, config.Middlewares...), nil
+}
+
+type authenticationConfig struct {
+	HeaderRules []aitransport.HeaderRule
+	Middlewares []aitransport.Middleware
+}
+
+func authenticationMiddleware(source Source, options Options) (authenticationConfig, error) {
 	if source == nil {
-		return openai_responses.RequestTransport{}, errors.New("codex credential source is required")
+		return authenticationConfig{}, errors.New("codex credential source is required")
 	}
 	options = options.normalized()
 	middleware := &credentialMiddleware{
-		source: source,
-		request: credentials.Request{
-			Provider: Provider,
-			BaseURL:  "https://chatgpt.com/backend-api",
-		},
-		originator: options.Originator,
-		userAgent:  options.UserAgent,
+		source:     source,
+		request:    credentials.Request{Provider: Provider, BaseURL: "https://chatgpt.com/backend-api"},
+		originator: options.Originator, userAgent: options.UserAgent,
 	}
-	return openai_responses.RequestTransport{
-		Provider:             Provider,
-		RouteResolver:        Route{},
-		DisableDefaultBearer: true,
+	return authenticationConfig{
 		HeaderRules: []aitransport.HeaderRule{
-			{Name: "Authorization", Sensitive: true},
-			{Name: "chatgpt-account-id", Sensitive: true},
-			{Name: "originator"},
-			{Name: "OpenAI-Beta"},
-			{Name: "User-Agent"},
+			{Name: "Authorization", Sensitive: true}, {Name: "chatgpt-account-id", Sensitive: true},
+			{Name: "originator"}, {Name: "OpenAI-Beta"}, {Name: "User-Agent"},
 		},
 		Middlewares: []aitransport.Middleware{middleware},
 	}, nil
+}
+
+// NewConnection constructs the canonical Codex binding for direct hosts.
+func NewConnection(source Source, options Options, client *http.Client) (*connection.Connection, error) {
+	auth, err := Authentication(source, options)
+	if err != nil {
+		return nil, err
+	}
+	return connection.New(connection.Config{Provider: Provider, BaseURL: "https://chatgpt.com/backend-api", Routes: connection.Routes{"responses": Route{}}, Auth: auth, HTTPClient: client})
 }
 
 // Route resolves the fixed Codex response path and accepts only the canonical

@@ -7,9 +7,10 @@ import (
 	"strings"
 	"time"
 
-	openairesponses "github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
+	enginefactory "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	openaisettings "github.com/go-go-golems/geppetto/pkg/steps/ai/settings/openai"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 )
 
@@ -29,12 +30,13 @@ func main() {
 		panic(err)
 	}
 
-	eng, err := openairesponses.NewEngine(&settings.InferenceSettings{
+	eng, err := enginefactory.NewEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": key},
-			BaseUrls: map[string]string{"openai-base-url": "https://api.openai.com/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": key},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://api.openai.com/v1"},
 		},
 		Chat: &settings.ChatSettings{
+			ApiType:           p(types.ApiTypeOpenResponses),
 			Engine:            p("gpt-5-nano"),
 			Stream:            false,
 			MaxResponseTokens: p(200),

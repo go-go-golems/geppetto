@@ -3,6 +3,8 @@ package factory
 import (
 	"strings"
 
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connectionfactory"
+
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
@@ -143,48 +145,25 @@ func (f *StandardEngineFactory) CreateEngine(settings *settings.InferenceSetting
 	normalized.Chat.ApiType = &normalizedType
 	settings = &normalized
 
-	// Create engine based on provider
+	c := f.connection
+	if c == nil {
+		var err error
+		c, err = connectionfactory.New(settings, f.bearerTokenSource)
+		if err != nil {
+			return nil, err
+		}
+	}
 	switch provider {
 	case string(types.ApiTypeOpenAI), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
-		opts := append([]openai.EngineOption(nil), f.openAIOptions...)
-		if f.connection != nil {
-			opts = append(opts, openai.WithConnection(f.connection))
-		}
-		if f.bearerTokenSource != nil {
-			opts = append(opts, openai.WithBearerTokenSource(f.bearerTokenSource))
-		}
-		return openai.NewOpenAIEngine(settings, opts...)
-
-	case string(types.ApiTypeOpenResponses), string(types.ApiTypeOpenAIResponses):
-		opts := append([]openai_responses.EngineOption(nil), f.openAIResponsesOptions...)
-		if f.connection != nil {
-			opts = append(opts, openai_responses.WithConnection(f.connection))
-		}
-		if f.bearerTokenSource != nil {
-			opts = append(opts, openai_responses.WithBearerTokenSource(f.bearerTokenSource))
-		}
-		return openai_responses.NewEngine(settings, opts...)
-
+		return openai.NewOpenAIEngine(c, settings, f.openAIOptions...)
+	case string(types.ApiTypeOpenResponses):
+		return openai_responses.NewEngine(c, settings, f.openAIResponsesOptions...)
 	case string(types.ApiTypeClaude), "anthropic":
-		opts := append([]claude.EngineOption(nil), f.claudeOptions...)
-		if f.connection != nil {
-			opts = append(opts, claude.WithConnection(f.connection))
-		}
-		if f.bearerTokenSource != nil {
-			opts = append(opts, claude.WithOAuthBearerTokenSource(f.bearerTokenSource))
-		}
-		return claude.NewClaudeEngine(settings, opts...)
-
+		return claude.NewClaudeEngine(c, settings, f.claudeOptions...)
 	case string(types.ApiTypeGemini):
-		opts := append([]gemini.EngineOption(nil), f.geminiOptions...)
-		if f.connection != nil {
-			opts = append(opts, gemini.WithConnection(f.connection))
-		}
-		return gemini.NewGeminiEngine(settings, opts...)
-
+		return gemini.NewGeminiEngine(c, settings, f.geminiOptions...)
 	default:
-		supported := strings.Join(f.SupportedProviders(), ", ")
-		return nil, errors.Errorf("unsupported provider %s. Supported providers: %s", provider, supported)
+		return nil, errors.Errorf("unsupported provider %s", provider)
 	}
 }
 
@@ -207,7 +186,6 @@ func (f *StandardEngineFactory) SupportedProviders() []string {
 	return []string{
 		string(types.ApiTypeOpenAI),
 		string(types.ApiTypeOpenResponses),
-		string(types.ApiTypeOpenAIResponses),
 		string(types.ApiTypeAnyScale),
 		string(types.ApiTypeFireworks),
 		string(types.ApiTypeClaude),
@@ -228,7 +206,7 @@ func (f *StandardEngineFactory) validateSettings(s *settings.InferenceSettings, 
 		return errors.New("chat settings cannot be nil")
 	}
 	switch provider {
-	case string(types.ApiTypeOpenAI), string(types.ApiTypeOpenResponses), string(types.ApiTypeOpenAIResponses), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
+	case string(types.ApiTypeOpenAI), string(types.ApiTypeOpenResponses), string(types.ApiTypeAnyScale), string(types.ApiTypeFireworks):
 		return nil
 	case string(types.ApiTypeClaude), "anthropic":
 		if s.Claude == nil {

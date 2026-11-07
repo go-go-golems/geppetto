@@ -1,14 +1,15 @@
 package factory
 
 import (
+	"io"
+	"net/http"
+	"strings"
+
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/stretchr/testify/require"
-	"io"
-	"net/http"
-	"strings"
 
 	"testing"
 
@@ -19,7 +20,7 @@ import (
 func TestNewFromSettings_OpenResponsesSupported(t *testing.T) {
 	apiType := types.ApiTypeOpenResponses
 	ss := &settings.InferenceSettings{
-		API: &settings.APISettings{APIKeys: map[string]string{"openai-api-key": "test"}},
+		API: &settings.APISettings{APIKeys: map[string]string{"open-responses-api-key": "test"}, BaseUrls: map[string]string{"open-responses-base-url": "https://responses.example/v1"}},
 		Chat: &settings.ChatSettings{
 			ApiType: &apiType,
 		},
@@ -34,28 +35,18 @@ func TestNewFromSettings_OpenResponsesSupported(t *testing.T) {
 	}
 }
 
-func TestNewFromSettings_OpenAIResponsesSupported(t *testing.T) {
-	apiType := types.ApiTypeOpenAIResponses
-	ss := &settings.InferenceSettings{
-		API: &settings.APISettings{APIKeys: map[string]string{"openai-api-key": "test"}},
-		Chat: &settings.ChatSettings{
-			ApiType: &apiType,
-		},
-	}
-
+func TestNewFromSettings_RejectsLegacyResponsesAlias(t *testing.T) {
+	apiType := types.ApiType("openai-responses")
+	ss := &settings.InferenceSettings{Chat: &settings.ChatSettings{ApiType: &apiType}}
 	counter, err := NewFromSettings(ss)
-	if err != nil {
-		t.Fatalf("NewFromSettings returned error: %v", err)
-	}
-	if counter == nil {
-		t.Fatalf("expected counter, got nil")
-	}
+	require.Error(t, err)
+	require.Nil(t, counter)
 }
 
 func TestNewFromSettings_OpenAINotSupported(t *testing.T) {
 	apiType := types.ApiTypeOpenAI
 	ss := &settings.InferenceSettings{
-		API: &settings.APISettings{APIKeys: map[string]string{"openai-api-key": "test"}},
+		API: &settings.APISettings{APIKeys: map[string]string{"open-responses-api-key": "test"}, BaseUrls: map[string]string{"open-responses-base-url": "https://responses.example/v1"}},
 		Chat: &settings.ChatSettings{
 			ApiType: &apiType,
 		},

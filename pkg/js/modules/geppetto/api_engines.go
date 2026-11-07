@@ -105,7 +105,7 @@ func ensureInferenceSettingsProviderDefaults(ss *aistepssettings.InferenceSettin
 			}
 			ss.Gemini = settings
 		}
-	case aitypes.ApiTypeOpenResponses, aitypes.ApiTypeOpenAIResponses,
+	case aitypes.ApiTypeOpenResponses,
 		aitypes.ApiTypeOllama, aitypes.ApiTypeMistral, aitypes.ApiTypePerplexity, aitypes.ApiTypeCohere:
 		// These API types do not have a provider-specific settings object that
 		// needs materialization here. Unsupported types remain unsupported in

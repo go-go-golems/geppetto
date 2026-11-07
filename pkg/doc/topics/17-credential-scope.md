@@ -73,24 +73,24 @@ Choose the protocol/model options separately from the connection. Each client be
 
 | API | Connection input |
 |---|---|
-| OpenAI chat | `openai.NewOpenAIEngine(s, openai.WithConnection(c))` |
-| OpenAI Responses | `openai_responses.NewEngine(s, openai_responses.WithConnection(c))` |
-| Anthropic | `claude.NewClaudeEngine(s, claude.WithConnection(c))`; low-level `api.NewClient(c)` |
-| Gemini | `gemini.WithConnection(c)`; `geminisdk.NewClient(ctx, c, version)` for Models, Caches, Files, counting and embeddings |
+| OpenAI chat | `openai.NewOpenAIEngine(c, s)` |
+| OpenAI Responses | `openai_responses.NewEngine(c, s)` |
+| Anthropic | `claude.NewClaudeEngine(c, s)`; low-level `api.NewClient(c)` |
+| Gemini | `gemini.NewGeminiEngine(c, s)`; `geminisdk.NewClient(ctx, c, version)` for Models, Caches, Files, counting and embeddings |
 | OpenAI embeddings | `embeddings.NewOpenAIProvider(c, model, dimensions)` |
 | Cohere embeddings | `embeddings.NewCohereProvider(c, model, dimensions)` |
 | Ollama embeddings | `embeddings.NewOllamaProvider(c, model, dimensions)` |
 | Cohere / llama.cpp / Qwen3 rerank | provider `Options{Connection: c, Model: model}` |
 | System One decisions | `systemone.Options{Connection: c, Model: model}` |
 | Whisper transcription | `openai.NewTranscriptionClient(c)` |
-| Token counters | `NewTokenCounter(s, WithTokenCountConnection(c))`, returning a counter and error |
+| Token counters | `NewTokenCounter(c, s)`, returning a counter and error |
 | Generic engine factory | `factory.NewStandardEngineFactory(factory.WithConnection(c))` |
 | Generic counter factory | `factory.NewFromSettings(s, factory.WithConnection(c))` |
 | Pi | `resolved.Engine()` or reuse the opaque `resolved.Connection()` |
 
 Register the routes the chosen native client uses: OpenAI chat provides `openai.Routes()`, Responses `openai_responses.Routes()`, Anthropic `api.Routes()`, embeddings `CohereRoutes()` / `OllamaRoutes()`, and rerank/decision providers their `Routes()`. SDK factories apply the same bound origin to every SDK request. OpenAI's SDK holds no real API key; Gemini receives only an inert constructor placeholder, replaced by the connection's auth before sending.
 
-Settings-based constructors remain configuration entrypoints: they resolve one slot, apply its provider-owned default, and construct the connection once. They copy payload settings without credential maps or host clients. Invalid bindings fail at construction. A supplied connection is authoritative and cannot be combined with separate auth/client/endpoint overrides.
+Settings factories are the configuration entrypoints: `connectionfactory.New(s, source)` resolves one declared slot and its provider-owned defaults. Inference and token-counter constructors require the resulting connection as their first argument and copy only payload settings. They do not accept independent authentication options. Generic factories can resolve settings or accept one complete connection.
 
 ## Keep credential pairs atomic in configuration
 
@@ -109,7 +109,7 @@ inference_settings:
 
 Profile stacks also replace existing authenticated bindings as a pair. A key-only or URL-only change is refused; blank entries preserve the original pair. A model-only profile can inherit a complete provider binding unchanged. A host that supplies already merged raw settings is responsible for preserving that pairing before calling Geppetto.
 
-Responses selects a slot before reading its key and URL. An `open-responses` key requires its own `open-responses-base-url`. The OpenAI-named slots have OpenAI's documented default; arbitrary Open Responses providers have none. OpenAI embeddings use the same `openai-base-url` declaration as chat. Local hosted-compatible servers need explicit HTTP/local-network policy; anonymous local Ollama retains its local provider policy.
+Responses reads only the `open-responses` slot and requires both `open-responses-api-key` and `open-responses-base-url` unless an external source supplies the credential. It does not search the `openai` slot or the removed `openai-responses` alias. Its outbound policy also comes only from the canonical slot. OpenAI embeddings use the same `openai-base-url` declaration as chat. Local hosted-compatible servers need explicit HTTP/local-network policy; anonymous local Ollama retains its local provider policy.
 
 Canonical runtime endpoints live in `providers/defaults`, keyed by issuer/provider rather than protocol. They include OpenAI, Anthropic, Google, Codex, LunaRoute, Cohere and Umans. Pi providers outside that table must name their endpoint. OAuth grant clients bind the configured token endpoint separately from the inference endpoint.
 
@@ -127,6 +127,8 @@ Canonical runtime endpoints live in `providers/defaults`, keyed by issuer/provid
 The binding enforces configured authority. An opaque key does not reveal which host issued it; the configuration source must declare the intended endpoint truthfully. Injected Go transports, credential sources and middleware are trusted code. Origin scope does not enforce tenant path isolation or DNS/proxy trust.
 
 ## See Also
+
+- `migrate-connection-only-inference`: constructor and configuration migration examples.
 
 - `pkg/steps/ai/connection/example_test.go`: compiled request and shared-client examples.
 - `pkg/steps/ai/credscope`: the 64-path recording matrix; add a row for each new authenticated API path.

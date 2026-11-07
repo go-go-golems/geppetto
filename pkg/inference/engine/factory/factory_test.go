@@ -1,10 +1,11 @@
 package factory
 
 import (
+	"testing"
+
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
 	openai_responses "github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
-	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
@@ -19,7 +20,7 @@ func TestStandardEngineFactory_SupportedProviders(t *testing.T) {
 
 	assert.Contains(t, providers, string(types.ApiTypeOpenAI))
 	assert.Contains(t, providers, string(types.ApiTypeOpenResponses))
-	assert.Contains(t, providers, string(types.ApiTypeOpenAIResponses))
+	assert.NotContains(t, providers, string(types.ApiType("openai-responses")))
 	assert.Contains(t, providers, string(types.ApiTypeClaude))
 	assert.Contains(t, providers, "anthropic")
 	assert.NotEmpty(t, providers)
@@ -81,21 +82,20 @@ func TestStandardEngineFactory_CreateEngine_OpenResponses_Success(t *testing.T) 
 	assert.IsType(t, &openai_responses.Engine{}, engine)
 }
 
-func TestStandardEngineFactory_CreateEngine_LegacyOpenAIResponsesAlias_Success(t *testing.T) {
+func TestStandardEngineFactory_CreateEngine_LegacyOpenAIResponsesAlias_Rejected(t *testing.T) {
 	factory := NewStandardEngineFactory()
 
 	settings, err := settings.NewInferenceSettings()
 	require.NoError(t, err)
 
-	apiType := types.ApiTypeOpenAIResponses
+	apiType := types.ApiType("openai-responses")
 	settings.Chat.ApiType = &apiType
 	settings.API.APIKeys["openai-responses-api-key"] = "test-api-key"
 
 	engine, err := factory.CreateEngine(settings)
 
-	require.NoError(t, err)
-	assert.NotNil(t, engine)
-	assert.IsType(t, &openai_responses.Engine{}, engine)
+	require.Error(t, err)
+	assert.Nil(t, engine)
 }
 
 func TestStandardEngineFactory_CreateEngine_UnsupportedProvider(t *testing.T) {

@@ -93,13 +93,13 @@ func boundPath(kind string) func(*testing.T, *http.Client) error {
 		case "claude messages":
 			_, err = claudeapi.NewClient(c).SendMessage(t.Context(), &claudeapi.MessageRequest{Model: "test"})
 		case "claude count":
-			counter, e := claude.NewTokenCounter(newSettings(t, client), claude.WithTokenCountConnection(c))
+			counter, e := claude.NewTokenCounter(c, newSettings(t, client))
 			err = e
 			if err == nil {
 				_, err = counter.CountTurn(t.Context(), userTurn())
 			}
 		case "responses count":
-			counter, e := openai_responses.NewTokenCounter(newSettings(t, client), openai_responses.WithTokenCountConnection(c))
+			counter, e := openai_responses.NewTokenCounter(c, newSettings(t, client))
 			err = e
 			if err == nil {
 				_, err = counter.CountTurn(t.Context(), userTurn())
@@ -140,7 +140,10 @@ func additionalBoundRows() []row {
 		s := newSettings(t, client)
 		s.API.APIKeys["open-responses-api-key"] = secret
 		s.API.BaseUrls["open-responses-base-url"] = gw
-		_, err := openai_responses.NewEngine(s, openai_responses.WithRequestTransport(openai_responses.RequestTransport{Provider: "matrix", RouteResolver: foreignRoute{}}))
+		c, err := connection.New(connection.Config{Provider: "matrix", BaseURL: gw, Routes: connection.Routes{"responses": foreignRoute{}}, Auth: connection.StaticBearer(secret), HTTPClient: client})
+		if err == nil {
+			_, err = c.Resolve("responses")
+		}
 		return err
 	}})
 	rows = append(rows, row{name: "embedding-local key cannot inherit parent URL", run: func(t *testing.T, client *http.Client) error {
