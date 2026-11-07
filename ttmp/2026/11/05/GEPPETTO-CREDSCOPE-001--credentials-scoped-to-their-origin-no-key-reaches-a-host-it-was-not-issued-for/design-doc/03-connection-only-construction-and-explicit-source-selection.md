@@ -11,7 +11,13 @@ DocType: design-doc
 Intent: long-term
 Owners:
     - manuel
-RelatedFiles: []
+RelatedFiles:
+    - Path: repo://pkg/doc/playbooks/09-migrate-connection-only-inference.md
+      Note: Concise caller migration
+    - Path: repo://pkg/inference/engine/factory/factory.go
+      Note: Resolve authority before payload construction
+    - Path: repo://pkg/steps/ai/connectionfactory/settings.go
+      Note: Source-only credential resolution
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-11-06T19:33:59.581040185-05:00
@@ -46,3 +52,11 @@ Use recording transports to assert required connection construction, strict sour
 ## Risks
 
 This intentionally breaks Go callers using old constructor signatures and profiles relying on Responses alias/fallback selection. Update in-repository and available downstream callers; provide migration examples rather than compatibility adapters. Source and connection factories must preserve timeout, outbound policy, carrier, and provider semantics already established in #446.
+
+## Delivered API and migration
+
+The implementation is committed at `f2650a67`. Four inference constructors and two counter constructors now take `(connection, settings, ...)`; the old auth/connection engine options are removed. `connectionfactory.New(settings, source)` selects a source declaration, and generic factories perform that resolution before construction. Codex exposes `Authentication` and canonical `NewConnection` without depending on a Responses adapter type.
+
+`types.ApiTypeOpenAIResponses` and the CLI alias are removed. Responses configuration uses only the `open-responses` key, URL and policy slot. Pi's external catalog protocol string is translated explicitly rather than treated as a settings alias. Current examples and compiled probes have been migrated.
+
+The concise user playbook is `pkg/doc/playbooks/09-migrate-connection-only-inference.md`, help slug `migrate-connection-only-inference`. Recording/source/factory/race checks, all-package compilation, repository/downstream builds and configured golangci analyzers pass. Full socket tests await PR CI due to the recorded sandbox restriction. Receipt: `sources/08-connection-only-validation.txt`.

@@ -246,7 +246,7 @@ type StepSettings struct {
 
 The most important fields for basic usage:
 
-- `Chat.ApiType` — which provider to use: `"openai"`, `"openai-responses"`, `"claude"`, `"gemini"` (see `types.ApiType*` constants)
+- `Chat.ApiType` — which provider to use: `"openai"`, `"open-responses"`, `"claude"`, `"gemini"` (see `types.ApiType*` constants)
 - `Chat.Engine` — the model name, e.g. `"gpt-4o-mini"`, `"claude-sonnet-4-20250514"`, `"gemini-pro"`
 - `Chat.Temperature` — sampling temperature
 - `Chat.APIKeys` — map of static API keys, keyed by provider prefix: `"openai-api-key"`, `"claude-api-key"`, `"gemini-api-key"`
@@ -710,12 +710,13 @@ profiles:
 
 ### OpenAI Responses Engine (Reasoning + Tools)
 
-The OpenAI Responses API is supported via a dedicated engine package and is selected by setting `ai-api-type` to `openai-responses`. This engine streams reasoning summary ("thinking") and tool-call arguments in addition to normal output text deltas. Thinking text is emitted as `EventThinkingPartial` / `partial-thinking`; `Delta` is the latest increment and `Completion` is the accumulated reasoning text.
+The OpenAI Responses API is supported via a dedicated engine package and is selected by setting `ai-api-type` to `open-responses`. This engine streams reasoning summary ("thinking") and tool-call arguments in addition to normal output text deltas. Thinking text is emitted as `EventThinkingPartial` / `partial-thinking`; `Delta` is the latest increment and `Completion` is the accumulated reasoning text.
 
 These examples use direct `--ai-*` flags because this page documents the low-level engine surface. In profile-first applications, prefer registry-backed profiles and bootstrap final runtime settings through the [defaults/config/registries/profile playbook](../playbooks/08-bootstrap-binary-step-settings-from-defaults-config-registries-profile.md).
 
 Key notes:
-- Use `--ai-api-type=openai-responses` and a reasoning-capable model (e.g., `o4-mini`).
+- Configure both `api_keys.open-responses-api-key` and `base_urls.open-responses-base-url`; OpenAI chat settings are not inherited. See the `migrate-connection-only-inference` playbook for a complete YAML example.
+- Use `--ai-api-type=open-responses` and a reasoning-capable model (e.g., `o4-mini`).
 - The engine omits `temperature` and `top_p` for `o3/o4` families (these models reject sampling params).
 - For function tools, the engine omits `tool_choice` (vendor-only values like `file_search` are not applicable).
 - User or system blocks that carry `turns.PayloadKeyImages` are serialized as mixed Responses `content` arrays with `input_text` plus one or more `input_image` parts.
@@ -743,7 +744,7 @@ Example (tools):
 
 ```bash
 go run ./cmd/examples/advanced/openai-tools test-openai-tools \
-  --ai-api-type=openai-responses \
+  --ai-api-type=open-responses \
   --ai-engine=o4-mini \
   --mode=tools \
   --prompt='Please use get_weather to check the weather in San Francisco, in celsius.' \
@@ -754,7 +755,7 @@ Example (thinking only):
 
 ```bash
 go run ./cmd/examples/advanced/openai-tools test-openai-tools \
-  --ai-api-type=openai-responses \
+  --ai-api-type=open-responses \
   --ai-engine=o4-mini \
   --mode=thinking \
   --prompt='Prove the sum of first n odd numbers equals n^2, stream reasoning summary.' \
@@ -814,7 +815,7 @@ Example (OpenAI Responses):
 
 ```bash
 go run ./cmd/examples/advanced/openai-tools test-openai-tools \
-  --ai-api-type=openai-responses \
+  --ai-api-type=open-responses \
   --ai-engine=o4-mini \
   --ai-structured-output-mode=json_schema \
   --ai-structured-output-name=person \

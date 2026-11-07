@@ -1152,3 +1152,51 @@ The scope remains inference/counters and their source integration. Embeddings al
 ### Technical details
 - Generic factories retain their existing settings-based entry point and host source/connection injection. Only they select source declarations; payload constructors never receive those separate credential inputs.
 - Sources are not accessed during construction. Fixed-origin execution, redaction, and invocation-local replay remain in the unchanged connection executor.
+
+## Step 19: Finish the short migration playbook and publish the cleanup
+
+The constructor/source implementation is committed at `f2650a67`. Added the requested short migration playbook with before/after Go calls, canonical Responses YAML, Codex construction, and practical validation steps. Updated current help topics and profile examples rather than leaving users with removed signatures.
+
+The final local integration checks pass: repository build, downstream rag-workbench build, full test compilation, focused recording suites with race detection, full engineprofiles tests, and configured golangci analyzers (`0 issues.`). Full JS execution stops at its existing socket server setup; the same restriction affects factory TLS tests. GitHub CI is the full-suite execution boundary.
+
+### Prompt Context
+**User prompt:** See Step 18, including the request to keep the playbook short.
+**Assistant interpretation:** Publish a reviewable API cleanup and a minimal useful migration guide; avoid repeated broad verification at commit boundaries.
+**Inferred user intent:** Straightforward caller migration and a clean request-construction API.
+**Commit (code):** `f2650a67` — "refactor(ai): require connections and centralize inference source resolution".
+
+### What I did
+- Added embedded Tutorial `migrate-connection-only-inference` with current constructor signatures and canonical source configuration.
+- Updated the credential-scope API table, profile example and inference/tools protocol selection examples.
+- Recorded the final checks and their limits in sources 08, and updated design 03's delivered status.
+- Related the focused source/factory/playbook files to design 03 with docmgr.
+
+### Why
+- A deliberate hard API change needs a short migration path, not compatibility wrappers.
+- Settings-based factory entrypoints remain useful; the playbook distinguishes those from payload constructors requiring a connection.
+
+### What worked
+- All checks listed in sources 08 pass, including configured golangci analyzers with zero issues and downstream build.
+- Embedded help tests parse and load the new playbook.
+
+### What didn't work
+- Full JS package tests stop at `TestDeciderDecide` with `httptest: failed to listen on a port: listen tcp6 [::1]:0: socket: operation not permitted`. `pkg/engineprofiles` passes in that same command. This does not invalidate the focused JS construction tests that execute without sockets.
+- Pinocchio is not present as a sibling checkout in this workspace; the available downstream build is rag-workbench. No claim is made about migrating unavailable external repositories.
+
+### What I learned
+- Canonical protocol naming must reach CLI choices, JavaScript profile fixtures, and current docs as well as constructor code.
+
+### What was tricky to build
+- Keeping source declaration examples explicit while avoiding unnecessary setup details in the migration guide.
+
+### What warrants a second pair of eyes
+- Review source-slot refusal cases and test-only fixture migration. Verify full CI before merging the cleanup.
+
+### What should be done in the future
+- Request `@codex review` on the separate PR and address concrete findings; leave #448 as its own work item.
+
+### Code review instructions
+- Start with the short playbook and design 03, then source factory/constructors. Use sources 08 for exact commands and validation limits.
+
+### Technical details
+- The parent workspace definition is unchanged. Publishing through the GitHub connector recreates commit IDs but verifies every source tree against its local equivalent.

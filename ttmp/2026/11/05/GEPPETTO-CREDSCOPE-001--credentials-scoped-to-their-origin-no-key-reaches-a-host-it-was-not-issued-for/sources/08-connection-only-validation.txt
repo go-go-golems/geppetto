@@ -1,0 +1,24 @@
+Connection-only inference construction validation receipt
+Source implementation commit: f2650a67
+
+All Go commands use:
+GOWORK=off GOCACHE=/tmp/geppetto-bound-go-cache GOFLAGS=-buildvcs=false GOPROXY=off
+
+PASS go test ./pkg/steps/ai/connectionfactory ./pkg/steps/ai/credscope ./pkg/steps/ai/providers/openaicodex ./pkg/inference/tokencount/factory -count=1
+PASS same package set with -race (64-row credential matrix included).
+PASS go test ./pkg/inference/engine/factory -run 'TestStandardEngineFactory_(SupportedProviders|CreateEngine)|TestEngineFactoryWithConnection' -count=1
+PASS go test ./pkg/js/modules/geppetto -run 'TestEnsureInferenceSettingsProviderDefaults|TestNormalizedSparseSettingsReachProviderFactories' -count=1
+PASS go test ./pkg/steps/ai/openai ./pkg/steps/ai/openai_responses ./pkg/steps/ai/claude ./pkg/steps/ai/gemini -run 'TestConstructorRequiresConnection|TestCounterRequiresConnection|TestOpenResponsesStream|TestOpenResponsesRequest|TestResponsesCredential|TestResponsesEndpoint|TestResponsesInferenceProvider|TestResponsesRunInference|TestMakeMessageRequest' -count=1
+PASS go test ./pkg/doc -count=1
+PASS go test ./... -run '^$' (all repository tests compile, including ticket probes).
+PASS go build ./...
+PASS golangci-lint run --timeout=5m ./cmd/... ./pkg/... (GOLANGCI_LINT_CACHE=/tmp/geppetto-bound-lint-cache): 0 issues.
+PASS pkg/engineprofiles full package test (run with JS suite; JS package blocked below).
+PASS downstream rag-workbench go build ./... using GOWORK=/tmp/geppetto-bound-validation.work and the same cache/flags. Parent go.work unchanged.
+
+ENVIRONMENT BLOCKED full factory observability tests and full JS package tests:
+httptest: failed to listen on a port: listen tcp6 [::1]:0: socket: operation not permitted
+Observed in TestStandardEngineFactory_WithClaudeOptionsPassesObservabilityOptions and TestDeciderDecide.
+Recording tests use no listeners or live provider calls. Full execution is delegated to cleanup PR CI; package compilation is not claimed as runtime validation.
+
+This is a concise receipt of commands/results, not a raw terminal transcript.

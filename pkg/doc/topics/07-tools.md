@@ -71,7 +71,7 @@ import (
 - Blocks: `llm_text`, `tool_call`, `tool_use`
 ### OpenAI Responses specifics
 
-When using the OpenAI Responses engine (`ai-api-type=openai-responses`):
+When using the OpenAI Responses engine (`ai-api-type=open-responses`):
 
 - Tools are advertised via the `tools` array on the request. For function tools, schema is top-level: `{type: "function", name, description, parameters}`.
 - The engine streams function_call arguments via SSE and emits a `tool-call` event when the function_call completes.
