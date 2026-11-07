@@ -2,7 +2,6 @@ package gemini
 
 import (
 	"context"
-	providerdefaults "github.com/go-go-golems/geppetto/pkg/steps/ai/providers/defaults"
 	"math"
 	"reflect"
 	"strings"
@@ -21,10 +20,6 @@ import (
 	"github.com/pkg/errors"
 	moderngenai "google.golang.org/genai"
 )
-
-// geminiDefaultBaseURL is the Gemini API endpoint the SDK uses when no base
-// URL is configured.
-const geminiDefaultBaseURL = providerdefaults.GeminiBaseURL
 
 func (e *GeminiEngine) runModernInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
 	client, err := geminisdk.NewClient(ctx, e.connection, modernGeminiAPIVersion(e.settings))

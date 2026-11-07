@@ -3,6 +3,8 @@ package factory
 import (
 	"strings"
 
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connectionfactory"
+
 	"github.com/go-go-golems/geppetto/pkg/inference/tokencount"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
@@ -50,25 +52,19 @@ func NewFromSettings(ss *settings.InferenceSettings, opts ...Option) (tokencount
 		provider = strings.ToLower(strings.TrimSpace(string(*ss.Chat.ApiType)))
 	}
 
+	c := options.connection
+	if c == nil {
+		var err error
+		c, err = connectionfactory.New(ss, options.source)
+		if err != nil {
+			return nil, err
+		}
+	}
 	switch provider {
-	case string(types.ApiTypeOpenResponses), string(types.ApiTypeOpenAIResponses):
-		var opts []openai_responses.TokenCounterOption
-		if options.connection != nil {
-			opts = append(opts, openai_responses.WithTokenCountConnection(options.connection))
-		}
-		if options.source != nil {
-			opts = append(opts, openai_responses.WithTokenCountBearerTokenSource(options.source))
-		}
-		return openai_responses.NewTokenCounter(ss, opts...)
+	case string(types.ApiTypeOpenResponses):
+		return openai_responses.NewTokenCounter(c, ss)
 	case string(types.ApiTypeClaude), "anthropic":
-		var opts []claude.TokenCounterOption
-		if options.connection != nil {
-			opts = append(opts, claude.WithTokenCountConnection(options.connection))
-		}
-		if options.source != nil {
-			opts = append(opts, claude.WithTokenCountOAuthBearerTokenSource(options.source))
-		}
-		return claude.NewTokenCounter(ss, opts...)
+		return claude.NewTokenCounter(c, ss)
 	default:
 		return nil, errors.Errorf("token count: provider %q is not supported", provider)
 	}

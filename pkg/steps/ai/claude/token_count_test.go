@@ -93,7 +93,7 @@ func TestClaudeTokenCounterCountTurn(t *testing.T) {
 		},
 	}
 
-	counter, err := NewTokenCounter(ss)
+	counter, err := newTestCounterFromSettings(ss)
 	if err != nil {
 		t.Fatal(err)
 	}

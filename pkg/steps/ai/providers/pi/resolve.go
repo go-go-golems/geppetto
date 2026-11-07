@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connectionfactory"
+
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
@@ -126,11 +128,11 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 		t := types.ApiTypeOpenResponses
 		s.Chat.ApiType = &t
 		s.API.BaseUrls[string(t)+"-base-url"] = baseURL
-		rt, err := openaicodex.RequestTransport(src, openaicodex.Options{Originator: "pi"})
+		auth, err := openaicodex.Authentication(src, openaicodex.Options{Originator: "pi"})
 		if err != nil {
 			return nil, err
 		}
-		c, err := a.bindConnection(m, baseURL, connection.Middleware(rt.HeaderRules, rt.Middlewares...), connection.Routes{"responses": rt.RouteResolver}, headers)
+		c, err := a.bindConnection(m, baseURL, auth, connection.Routes{"responses": openaicodex.Route{}}, headers)
 		if err != nil {
 			return nil, err
 		}
@@ -139,7 +141,7 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 		}
 		r.connection = c
 		r.build = func(s *settings.InferenceSettings) (engine.Engine, error) {
-			return openai_responses.NewEngine(s, openai_responses.WithConnection(c))
+			return openai_responses.NewEngine(c, s)
 		}
 		return r, nil
 	}
@@ -157,13 +159,13 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 		t := types.ApiTypeOpenAI
 		routes = openai.Routes()
 		build = func(s *settings.InferenceSettings, c *connection.Connection) (engine.Engine, error) {
-			return openai.NewOpenAIEngine(s, openai.WithConnection(c))
+			return openai.NewOpenAIEngine(c, s)
 		}
 		if m.API == APIOpenAIResponses {
-			t = types.ApiTypeOpenAIResponses
+			t = types.ApiTypeOpenResponses
 			routes = openai_responses.Routes()
 			build = func(s *settings.InferenceSettings, c *connection.Connection) (engine.Engine, error) {
-				return openai_responses.NewEngine(s, openai_responses.WithConnection(c))
+				return openai_responses.NewEngine(c, s)
 			}
 		}
 		s.Chat.ApiType = &t
@@ -178,7 +180,7 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 			auth = connection.Token(src, connection.TokenHeaders{"x-api-key": ""})
 		} else {
 			var identity http.Header
-			auth, identity = claude.Authentication(src, true)
+			auth, identity = connectionfactory.AnthropicAuthentication(src, true)
 			for name, values := range identity {
 				if _, ok := headers[name]; !ok {
 					headers[name] = values[0]
@@ -186,7 +188,7 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 			}
 		}
 		build = func(s *settings.InferenceSettings, c *connection.Connection) (engine.Engine, error) {
-			return claude.NewClaudeEngine(s, claude.WithConnection(c))
+			return claude.NewClaudeEngine(c, s)
 		}
 	case APIGoogleGenerativeAI:
 		if key == "" {
@@ -197,7 +199,7 @@ func (a *AgentDir) Resolve(ctx context.Context, ref string, o ResolveOptions) (*
 		s.API.BaseUrls[string(t)+"-base-url"] = baseURL
 		auth = connection.Token(src, connection.TokenHeaders{"x-goog-api-key": ""})
 		build = func(s *settings.InferenceSettings, c *connection.Connection) (engine.Engine, error) {
-			return gemini.NewGeminiEngine(s, gemini.WithConnection(c))
+			return gemini.NewGeminiEngine(c, s)
 		}
 	default:
 		return nil, &UnsupportedAPIError{Model: m.Ref(), API: m.API}

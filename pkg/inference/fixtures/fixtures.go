@@ -15,7 +15,7 @@ import (
 	"github.com/dnaeon/go-vcr/recorder"
 	"github.com/go-go-golems/geppetto/pkg/events"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
+	enginefactory "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/go-go-golems/geppetto/pkg/turns/serde"
@@ -169,7 +169,7 @@ func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Blo
 	}()
 	sink := &fileSink{f: ef, echo: opts.EchoEvents}
 
-	eng, err := openai_responses.NewEngine(st)
+	eng, err := enginefactory.NewEngineFromSettings(st)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +216,7 @@ func ExecuteFixture(ctx context.Context, turn *turns.Turn, followups []turns.Blo
 				}
 			}()
 			sink2 := &fileSink{f: ef2, echo: opts.EchoEvents}
-			eng2, err := openai_responses.NewEngine(st)
+			eng2, err := enginefactory.NewEngineFromSettings(st)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to create engine for follow-up")
 				return

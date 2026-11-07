@@ -10,16 +10,14 @@ import (
 
 	"github.com/go-go-golems/geppetto/pkg/inference/tokencount"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
 	"github.com/pkg/errors"
 )
 
 type TokenCounter struct {
-	settings          *settings.InferenceSettings
-	connection        *connection.Connection
-	bearerTokenSource credentials.BearerTokenSource
+	settings   *settings.InferenceSettings
+	connection *connection.Connection
 }
 
 type inputTokensRequest struct {
@@ -32,36 +30,15 @@ type inputTokensRequest struct {
 	ParallelToolCalls *bool            `json:"parallel_tool_calls,omitempty"`
 }
 
-// TokenCounterOption supplies the same bound authority used by an engine.
-type TokenCounterOption func(*TokenCounter)
-
-func WithTokenCountConnection(c *connection.Connection) TokenCounterOption {
-	return func(counter *TokenCounter) { counter.connection = c }
-}
-func WithTokenCountBearerTokenSource(source credentials.BearerTokenSource) TokenCounterOption {
-	return func(counter *TokenCounter) { counter.bearerTokenSource = source }
-}
-func NewTokenCounter(s *settings.InferenceSettings, opts ...TokenCounterOption) (*TokenCounter, error) {
+// NewTokenCounter consumes the same complete authority as an inference engine.
+func NewTokenCounter(c *connection.Connection, s *settings.InferenceSettings) (*TokenCounter, error) {
+	if c == nil {
+		return nil, errors.New("API connection is required")
+	}
 	if s == nil || s.Chat == nil {
 		return nil, errors.New("token count model settings are required")
 	}
-	var err error
-	counter := &TokenCounter{settings: settings.PayloadSettings(s)}
-	for _, opt := range opts {
-		if opt != nil {
-			opt(counter)
-		}
-	}
-	if counter.connection == nil {
-		counter.connection, err = resolveResponsesConnection(s, counter.bearerTokenSource, nil)
-	} else if counter.bearerTokenSource != nil {
-		return nil, errors.New("connection already owns authentication")
-	}
-	if err != nil {
-		return nil, err
-	}
-	counter.bearerTokenSource = nil
-	return counter, nil
+	return &TokenCounter{connection: c, settings: settings.PayloadSettings(s)}, nil
 }
 
 func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencount.Result, error) {

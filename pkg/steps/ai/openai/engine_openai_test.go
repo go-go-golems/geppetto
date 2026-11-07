@@ -65,7 +65,7 @@ func newStreamingTestEngine(t *testing.T) *OpenAIEngine {
 	t.Helper()
 	engine := "gpt-4o-mini"
 	apiType := ai_types.ApiTypeOpenAI
-	eng, err := NewOpenAIEngine(&aisettings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&aisettings.InferenceSettings{
 		API: &aisettings.APISettings{
 			APIKeys:  map[string]string{"openai-api-key": "test"},
 			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
@@ -129,7 +129,7 @@ func TestRunInferenceUsesRequestTimeBearerTokenSource(t *testing.T) {
 			Request:    request,
 		}, nil
 	})}
-	eng, err := NewOpenAIEngine(&aisettings.InferenceSettings{
+	eng, err := newTestEngineWithSource(&aisettings.InferenceSettings{
 		API: &aisettings.APISettings{
 			APIKeys:  map[string]string{"openai-api-key": "static-token-must-not-be-used"},
 			BaseUrls: map[string]string{"openai-base-url": "https://provider.example.test/v1"},
@@ -137,7 +137,7 @@ func TestRunInferenceUsesRequestTimeBearerTokenSource(t *testing.T) {
 		Client: &aisettings.ClientSettings{HTTPClient: client},
 		OpenAI: &aisettingsopenai.Settings{},
 		Chat:   &aisettings.ChatSettings{ApiType: &apiType, Engine: &engineName},
-	}, WithBearerTokenSource(source))
+	}, source)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,7 +317,7 @@ func TestRunInference_ForcesStreamingRequestBodyEvenWhenProfileStreamDisabled(t 
 
 	engine := "gpt-4o-mini"
 	apiType := ai_types.ApiTypeOpenAI
-	eng, err := NewOpenAIEngine(&aisettings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&aisettings.InferenceSettings{
 		API: &aisettings.APISettings{
 			APIKeys:  map[string]string{"openai-api-key": "test"},
 			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},

@@ -9,7 +9,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	geppettoobs "github.com/go-go-golems/geppetto/pkg/observability"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -23,33 +22,24 @@ type Engine struct {
 	settings            *settings.InferenceSettings
 	observer            geppettoobs.Observer
 	observabilityConfig geppettoobs.Config
-	bearerTokenSource   credentials.BearerTokenSource
-	requestTransport    *RequestTransport
-	connection          *connection.Connection
+
+	connection *connection.Connection
 }
 
-func NewEngine(s *settings.InferenceSettings, opts ...EngineOption) (*Engine, error) {
+func NewEngine(c *connection.Connection, s *settings.InferenceSettings, opts ...EngineOption) (*Engine, error) {
+	if c == nil {
+		return nil, errors.New("API connection is required")
+	}
 	if s == nil || s.Chat == nil {
 		return nil, errors.New("model chat settings are required")
 	}
-	e := &Engine{settings: s, observabilityConfig: geppettoobs.DefaultConfig()}
+	e := &Engine{settings: settings.PayloadSettings(s), connection: c, observabilityConfig: geppettoobs.DefaultConfig()}
 	for _, opt := range opts {
 		if opt != nil {
 			opt(e)
 		}
 	}
 	e.observabilityConfig = e.observabilityConfig.Normalized()
-	if e.connection == nil {
-		var err error
-		e.connection, err = resolveResponsesConnection(s, e.bearerTokenSource, e.requestTransport)
-		if err != nil {
-			return nil, err
-		}
-	} else if e.bearerTokenSource != nil || e.requestTransport != nil {
-		return nil, errors.New("connection already owns authentication and routes")
-	}
-	e.bearerTokenSource, e.requestTransport = nil, nil
-	e.settings = settings.PayloadSettings(s)
 	return e, nil
 }
 

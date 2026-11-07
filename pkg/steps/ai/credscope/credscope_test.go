@@ -13,6 +13,8 @@ import (
 	"sync"
 	"testing"
 
+	enginefactory "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+
 	"github.com/go-go-golems/geppetto/pkg/decision"
 	decisionconfig "github.com/go-go-golems/geppetto/pkg/decision/config"
 	decisionfactory "github.com/go-go-golems/geppetto/pkg/decision/factory"
@@ -21,10 +23,6 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/rerank"
 	rerankconfig "github.com/go-go-golems/geppetto/pkg/rerank/config"
 	rerankfactory "github.com/go-go-golems/geppetto/pkg/rerank/factory"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/gemini"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/providers/pi"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
@@ -131,16 +129,16 @@ func chatRow(apiType types.ApiType, keySlot, urlSlot, baseURL string, build func
 }
 
 func openaiEngine(s *settings.InferenceSettings) (engine.Engine, error) {
-	return openai.NewOpenAIEngine(s)
+	return enginefactory.NewEngineFromSettings(s)
 }
 func claudeEngine(s *settings.InferenceSettings) (engine.Engine, error) {
-	return claude.NewClaudeEngine(s)
+	return enginefactory.NewEngineFromSettings(s)
 }
 func geminiEngine(s *settings.InferenceSettings) (engine.Engine, error) {
-	return gemini.NewGeminiEngine(s)
+	return enginefactory.NewEngineFromSettings(s)
 }
 func responsesEngine(s *settings.InferenceSettings) (engine.Engine, error) {
-	return openai_responses.NewEngine(s)
+	return enginefactory.NewEngineFromSettings(s)
 }
 
 func embedRow(typ, keySlot, urlSlot, baseURL string) func(*testing.T, *http.Client) error {
@@ -256,7 +254,7 @@ func rows() []row {
 		{name: "openai chat", run: chatRow(types.ApiTypeOpenAI, "openai-api-key", "openai-base-url", gw, openaiEngine)},
 		{name: "claude", run: chatRow(types.ApiTypeClaude, "claude-api-key", "claude-base-url", "https://gateway.example", claudeEngine)},
 		{name: "gemini", run: chatRow(types.ApiTypeGemini, "gemini-api-key", "gemini-base-url", "https://gateway.example/", geminiEngine)},
-		{name: "responses openai slot", run: chatRow(types.ApiTypeOpenAIResponses, "openai-api-key", "openai-base-url", gw, responsesEngine)},
+
 		{name: "responses open-responses slot", run: chatRow(types.ApiTypeOpenResponses, "open-responses-api-key", "open-responses-base-url", gw, responsesEngine)},
 		{name: "embeddings openai", run: embedRow("openai", "openai-api-key", "openai-base-url", gw)},
 		{name: "embeddings cohere", run: embedRow("cohere", "cohere-api-key", "cohere-base-url", "https://gateway.example")},
@@ -273,6 +271,8 @@ func rows() []row {
 		r.redirectFrom = "gateway.example"
 		add(r)
 	}
+	add(row{name: "responses legacy protocol refused", run: chatRow(types.ApiType("openai-responses"), "openai-api-key", "openai-base-url", gw, responsesEngine)})
+	add(row{name: "responses cannot inherit OpenAI credentials", run: chatRow(types.ApiTypeOpenResponses, "openai-api-key", "openai-base-url", gw, responsesEngine)})
 	// Configurations that must be refused before anything is sent.
 	for _, u := range []string{" ", "/"} {
 		add(row{name: "openai chat base URL " + quote(u), run: chatRow(types.ApiTypeOpenAI, "openai-api-key", "openai-base-url", u, openaiEngine)})

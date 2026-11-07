@@ -42,7 +42,7 @@ func (rt *rewriteTransport) RoundTrip(req *http.Request) (*http.Response, error)
 
 func TestTokenCounterCountTurn(t *testing.T) {
 	model := "gpt-4o-mini"
-	apiType := types2.ApiTypeOpenAIResponses
+	apiType := types2.ApiTypeOpenResponses
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/responses/input_tokens" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
@@ -81,9 +81,9 @@ func TestTokenCounterCountTurn(t *testing.T) {
 
 	ss := &aisettings.InferenceSettings{
 		API: &aisettings.APISettings{
-			APIKeys: map[string]string{"openai-api-key": "test-key"},
+			APIKeys: map[string]string{"open-responses-api-key": "test-key"},
 			BaseUrls: map[string]string{
-				"openai-base-url": "https://api.openai.com/v1",
+				"open-responses-base-url": "https://api.openai.com/v1",
 			},
 		},
 		Client: &aisettings.ClientSettings{
@@ -97,7 +97,7 @@ func TestTokenCounterCountTurn(t *testing.T) {
 		OpenAI: &openaisettings.Settings{},
 	}
 
-	counter, err := NewTokenCounter(ss)
+	counter, err := newTestCounterFromSettings(ss)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestTokenCounterCountTurn(t *testing.T) {
 
 func TestTokenCounterCountTurn_IncludesImageInputs(t *testing.T) {
 	model := "gpt-4o-mini"
-	apiType := types2.ApiTypeOpenAIResponses
+	apiType := types2.ApiTypeOpenResponses
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -156,9 +156,9 @@ func TestTokenCounterCountTurn_IncludesImageInputs(t *testing.T) {
 
 	ss := &aisettings.InferenceSettings{
 		API: &aisettings.APISettings{
-			APIKeys: map[string]string{"openai-api-key": "test-key"},
+			APIKeys: map[string]string{"open-responses-api-key": "test-key"},
 			BaseUrls: map[string]string{
-				"openai-base-url": "https://api.openai.com/v1",
+				"open-responses-base-url": "https://api.openai.com/v1",
 			},
 		},
 		Client: &aisettings.ClientSettings{
@@ -172,7 +172,7 @@ func TestTokenCounterCountTurn_IncludesImageInputs(t *testing.T) {
 		OpenAI: &openaisettings.Settings{},
 	}
 
-	counter, err := NewTokenCounter(ss)
+	counter, err := newTestCounterFromSettings(ss)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func TestParseOpenAIInputTokensZeroResponse(t *testing.T) {
 
 func TestTokenCounterCountTurn_AttachesTools(t *testing.T) {
 	model := "gpt-4o-mini"
-	apiType := types2.ApiTypeOpenAIResponses
+	apiType := types2.ApiTypeOpenResponses
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -246,9 +246,9 @@ func TestTokenCounterCountTurn_AttachesTools(t *testing.T) {
 
 	ss := &aisettings.InferenceSettings{
 		API: &aisettings.APISettings{
-			APIKeys: map[string]string{"openai-api-key": "test-key"},
+			APIKeys: map[string]string{"open-responses-api-key": "test-key"},
 			BaseUrls: map[string]string{
-				"openai-base-url": "https://api.openai.com/v1",
+				"open-responses-base-url": "https://api.openai.com/v1",
 			},
 		},
 		Client: &aisettings.ClientSettings{
@@ -281,7 +281,7 @@ func TestTokenCounterCountTurn_AttachesTools(t *testing.T) {
 		t.Fatalf("set tool config: %v", err)
 	}
 
-	counter, err := NewTokenCounter(ss)
+	counter, err := newTestCounterFromSettings(ss)
 	if err != nil {
 		t.Fatal(err)
 	}

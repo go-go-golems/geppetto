@@ -78,7 +78,7 @@ func chatCompletionSSE(lines ...string) string {
 
 func TestOpenAIObservabilityOffEmitsNoRecords(t *testing.T) {
 	obs := &captureGeppettoObserver{}
-	eng, err := NewOpenAIEngine(newObservableOpenAITestSettings(""), WithObserver(obs), WithObservabilityConfig(geppettoobs.DefaultConfig()))
+	eng, err := newTestEngineFromSettings(newObservableOpenAITestSettings(""), WithObserver(obs), WithObservabilityConfig(geppettoobs.DefaultConfig()))
 	if err != nil {
 		t.Fatalf("NewOpenAIEngine: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestOpenAIObservabilityCapturesPublishStartedAndProviderRecords(t *testing.
 		``,
 	)
 	obs := &captureGeppettoObserver{}
-	eng, err := NewOpenAIEngine(newObservableOpenAITestSettings(body), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
+	eng, err := newTestEngineFromSettings(newObservableOpenAITestSettings(body), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
 	if err != nil {
 		t.Fatalf("NewOpenAIEngine: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestOpenAIObservabilityEventsLevelEmitsPublishStartedOnly(t *testing.T) {
 		``,
 	)
 	obs := &captureGeppettoObserver{}
-	eng, err := NewOpenAIEngine(newObservableOpenAITestSettings(body), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceEvents}))
+	eng, err := newTestEngineFromSettings(newObservableOpenAITestSettings(body), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceEvents}))
 	if err != nil {
 		t.Fatalf("NewOpenAIEngine: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestOpenAIObservabilityAddsChatCorrelationFields(t *testing.T) {
 		``,
 	)
 	obs := &captureGeppettoObserver{}
-	eng, err := NewOpenAIEngine(newObservableOpenAITestSettings(body), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
+	eng, err := newTestEngineFromSettings(newObservableOpenAITestSettings(body), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
 	if err != nil {
 		t.Fatalf("NewOpenAIEngine: %v", err)
 	}
@@ -216,7 +216,7 @@ func TestOpenAIObservabilityAddsToolCorrelationFields(t *testing.T) {
 		``,
 	)
 	obs := &captureGeppettoObserver{}
-	eng, err := NewOpenAIEngine(newObservableOpenAITestSettings(body), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
+	eng, err := newTestEngineFromSettings(newObservableOpenAITestSettings(body), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
 	if err != nil {
 		t.Fatalf("NewOpenAIEngine: %v", err)
 	}
@@ -262,7 +262,7 @@ func TestOpenAIObservabilityCapturesReasoningNormalization(t *testing.T) {
 		``,
 	)
 	obs := &captureGeppettoObserver{}
-	eng, err := NewOpenAIEngine(newObservableOpenAITestSettings(body), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
+	eng, err := newTestEngineFromSettings(newObservableOpenAITestSettings(body), WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
 	if err != nil {
 		t.Fatalf("NewOpenAIEngine: %v", err)
 	}
@@ -287,7 +287,7 @@ func TestOpenAIObservabilityObserverPanicDoesNotFailInference(t *testing.T) {
 		`data: [DONE]`,
 		``,
 	)
-	eng, err := NewOpenAIEngine(newObservableOpenAITestSettings(body), WithObserver(panicGeppettoObserver{}), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
+	eng, err := newTestEngineFromSettings(newObservableOpenAITestSettings(body), WithObserver(panicGeppettoObserver{}), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))
 	if err != nil {
 		t.Fatalf("NewOpenAIEngine: %v", err)
 	}

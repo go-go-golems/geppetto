@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
+
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -88,16 +90,14 @@ func TestResponsesCore_RejectsNonCanonicalTargetBeforeCredentialLookup(t *testin
 			return Credential{BearerToken: "must-not-be-requested", AccountID: "must-not-be-requested"}, nil
 		},
 	}
-	adapter, err := RequestTransport(source, Options{})
+	auth, err := Authentication(source, Options{})
 	if err != nil {
-		t.Fatalf("RequestTransport: %v", err)
+		t.Fatal(err)
 	}
-	model := "codex-test"
-	_, err = openai_responses.NewEngine(&settings.InferenceSettings{
-		API:    &settings.APISettings{BaseUrls: map[string]string{"open-responses-base-url": "https://collector.example/backend-api"}},
-		Chat:   &settings.ChatSettings{Engine: &model},
-		Client: &settings.ClientSettings{HTTPClient: &http.Client{}},
-	}, openai_responses.WithRequestTransport(adapter))
+	c, err := connection.New(connection.Config{Provider: Provider, BaseURL: "https://collector.example/backend-api", Routes: connection.Routes{"responses": Route{}}, Auth: auth})
+	if err == nil {
+		_, err = c.Resolve("responses")
+	}
 
 	if err == nil {
 		t.Fatal("RunInference unexpectedly accepted non-canonical Codex target")
@@ -118,9 +118,9 @@ func TestResponsesCore_UsesCodexRouteHeadersAndOneRefreshReplay(t *testing.T) {
 			return Credential{BearerToken: "replacement-token", AccountID: "replacement-account"}, nil
 		},
 	}
-	adapter, err := RequestTransport(source, Options{Originator: "test-originator"})
+	auth, err := Authentication(source, Options{Originator: "test-originator"})
 	if err != nil {
-		t.Fatalf("RequestTransport: %v", err)
+		t.Fatalf("Authentication: %v", err)
 	}
 	client := &http.Client{Transport: roundTripperFunc(func(request *http.Request) (*http.Response, error) {
 		requests++
@@ -154,12 +154,16 @@ func TestResponsesCore_UsesCodexRouteHeadersAndOneRefreshReplay(t *testing.T) {
 		}
 		return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)), Request: request}, nil
 	})}
+	c, err := connection.New(connection.Config{Provider: Provider, BaseURL: "https://chatgpt.com/backend-api", Routes: connection.Routes{"responses": Route{}}, Auth: auth, HTTPClient: client})
+	if err != nil {
+		t.Fatal(err)
+	}
 	model := "codex-test"
-	engine, err := openai_responses.NewEngine(&settings.InferenceSettings{
+	engine, err := openai_responses.NewEngine(c, &settings.InferenceSettings{
 		API:    &settings.APISettings{BaseUrls: map[string]string{"open-responses-base-url": "https://chatgpt.com/backend-api"}},
 		Chat:   &settings.ChatSettings{Engine: &model},
 		Client: &settings.ClientSettings{HTTPClient: client},
-	}, openai_responses.WithRequestTransport(adapter))
+	})
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}
@@ -172,7 +176,7 @@ func TestResponsesCore_UsesCodexRouteHeadersAndOneRefreshReplay(t *testing.T) {
 	}
 }
 
-func TestRequestTransport_InjectsOnlyCodexHeadersAndReplaysTypedReplacement(t *testing.T) {
+func TestAuthentication_InjectsOnlyCodexHeadersAndReplaysTypedReplacement(t *testing.T) {
 	var refreshes int
 	source := sourceFunc{
 		credential: func(_ context.Context, request credentials.Request) (Credential, error) {
@@ -189,15 +193,12 @@ func TestRequestTransport_InjectsOnlyCodexHeadersAndReplaysTypedReplacement(t *t
 			return Credential{BearerToken: "replacement-token", AccountID: "replacement-account"}, nil
 		},
 	}
-	config, err := RequestTransport(source, Options{Originator: "test-originator", UserAgent: "test-agent"})
+	config, err := authenticationMiddleware(source, Options{Originator: "test-originator", UserAgent: "test-agent"})
 	if err != nil {
-		t.Fatalf("RequestTransport: %v", err)
-	}
-	if !config.DisableDefaultBearer {
-		t.Fatal("Codex transport did not disable ordinary bearer middleware")
+		t.Fatalf("Authentication: %v", err)
 	}
 	base := mustURL(t, "https://chatgpt.com/backend-api")
-	request, err := aitransport.ResolveAndValidate(config.Provider, "responses", base, config.RouteResolver, func(*url.URL) error { return nil })
+	request, err := aitransport.ResolveAndValidate(Provider, "responses", base, Route{}, func(*url.URL) error { return nil })
 	if err != nil {
 		t.Fatalf("ResolveAndValidate: %v", err)
 	}

@@ -54,7 +54,7 @@ func ExampleConnection_sharing() {
 	model := "example-chat"
 	protocol := types.ApiTypeOpenAI
 	s.Chat.Engine, s.Chat.ApiType = &model, &protocol
-	chat, err := openai.NewOpenAIEngine(s, openai.WithConnection(c))
+	chat, err := openai.NewOpenAIEngine(c, s)
 	if err != nil {
 		panic(err)
 	}

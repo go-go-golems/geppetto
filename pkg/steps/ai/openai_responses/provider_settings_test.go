@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connectionfactory"
+
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
@@ -149,10 +151,10 @@ func TestResponsesRunInferenceDoesNotResolveBearerBeforeInvalidRoute(t *testing.
 		return "must-not-be-requested", nil
 	})
 	model := "test-model"
-	_, err := NewEngine(&settings.InferenceSettings{
+	_, err := newTestEngineWithSource(&settings.InferenceSettings{
 		API:  &settings.APISettings{BaseUrls: map[string]string{"open-responses-base-url": "http://provider.example.test/v1"}},
 		Chat: &settings.ChatSettings{Engine: &model},
-	}, WithBearerTokenSource(source))
+	}, source)
 
 	if err == nil || !strings.Contains(err.Error(), "http scheme is not allowed") {
 		t.Fatalf("RunInference error = %v", err)
@@ -198,7 +200,7 @@ func TestResponsesCredentialCancellationAndSourceErrors(t *testing.T) {
 			return "", sourceErr
 		})
 		api := &settings.APISettings{BaseUrls: map[string]string{"open-responses-base-url": "https://responses.example/v1"}}
-		c, err := resolveResponsesConnection(&settings.InferenceSettings{API: api}, source, nil)
+		c, err := connectionfactory.New(&settings.InferenceSettings{API: api, Chat: settingsWithAPIType("open-responses").Chat}, source)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -217,130 +219,6 @@ func TestResponsesCredentialCancellationAndSourceErrors(t *testing.T) {
 	}
 }
 
-func TestResponsesAPIKeyPrefersOpenResponsesKey(t *testing.T) {
-	api := &settings.APISettings{
-		APIKeys: map[string]string{
-			"openai-api-key":           "openai-key",
-			"openai-responses-api-key": "legacy-key",
-			"open-responses-api-key":   "new-key",
-		},
-		BaseUrls: map[string]string{"open-responses-base-url": "https://responses.example/v1"},
-	}
-
-	slot, err := resolveResponsesSlot(api, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := slot.key
-	if got != "new-key" {
-		t.Fatalf("expected open-responses key, got %q", got)
-	}
-}
-
-// GEPPETTO-CREDSCOPE-001: the key and the URL come from the same slot. An
-// open-responses key without open-responses-base-url used to be paired with
-// openai-base-url (whose flag default is api.openai.com), sending one
-// provider's key to another.
-func TestResponsesSlotPairsKeyWithItsOwnURL(t *testing.T) {
-	leak := &settings.APISettings{
-		APIKeys:  map[string]string{"open-responses-api-key": "vendor-key"},
-		BaseUrls: map[string]string{"openai-base-url": "https://api.openai.com/v1"},
-	}
-	if _, err := resolveResponsesSlot(leak, false); err == nil {
-		t.Fatal("open-responses key without its own URL must be an error")
-	}
-
-	cases := []struct {
-		name      string
-		api       *settings.APISettings
-		sourced   bool
-		wantKey   string
-		wantURL   string
-		wantAPITy types.ApiType
-	}{
-		{"openai slot keeps its URL", &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "k"},
-			BaseUrls: map[string]string{"openai-base-url": "https://gw.example/v1", "open-responses-base-url": "https://other.example/v1"},
-		}, false, "k", "https://gw.example/v1", types.ApiTypeOpenAI},
-		{"openai slot defaults to OpenAI", &settings.APISettings{
-			APIKeys: map[string]string{"openai-api-key": "k"},
-		}, false, "k", openAIDefaultBaseURL, types.ApiTypeOpenAI},
-		{"legacy alias may use openai-base-url", &settings.APISettings{
-			APIKeys:  map[string]string{"openai-responses-api-key": "k"},
-			BaseUrls: map[string]string{"openai-base-url": "https://gw.example/v1"},
-		}, false, "k", "https://gw.example/v1", types.ApiTypeOpenAIResponses},
-		{"token source picks the first slot with a URL", &settings.APISettings{
-			BaseUrls: map[string]string{"openai-responses-base-url": "https://pi.example/v1", "openai-base-url": "https://api.openai.com/v1"},
-		}, true, "", "https://pi.example/v1", types.ApiTypeOpenAIResponses},
-		{"no key anywhere picks the first slot with a URL (Codex)", &settings.APISettings{
-			BaseUrls: map[string]string{"open-responses-base-url": "https://chatgpt.com/backend-api"},
-		}, false, "", "https://chatgpt.com/backend-api", types.ApiTypeOpenResponses},
-	}
-	for _, tc := range cases {
-		got, err := resolveResponsesSlot(tc.api, tc.sourced)
-		if err != nil {
-			t.Fatalf("%s: %v", tc.name, err)
-		}
-		if got.key != tc.wantKey || got.baseURL != tc.wantURL || got.apiType != tc.wantAPITy {
-			t.Fatalf("%s: got %+v", tc.name, got)
-		}
-	}
-}
-
-func TestResponsesAPIKeyFallsBackToLegacyAlias(t *testing.T) {
-	api := &settings.APISettings{
-		APIKeys: map[string]string{
-			"openai-api-key":           "openai-key",
-			"openai-responses-api-key": "legacy-key",
-		},
-	}
-
-	slot, err := resolveResponsesSlot(api, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := slot.key
-	if got != "legacy-key" {
-		t.Fatalf("expected legacy openai-responses key, got %q", got)
-	}
-}
-
-func TestResponsesBaseURLPrefersOpenResponsesBaseURL(t *testing.T) {
-	api := &settings.APISettings{
-		BaseUrls: map[string]string{
-			"openai-base-url":           "https://openai.example/v1",
-			"openai-responses-base-url": "https://legacy.example/v1",
-			"open-responses-base-url":   "https://new.example/v1",
-		},
-	}
-
-	slot, err := resolveResponsesSlot(api, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := slot.baseURL
-	if got != "https://new.example/v1" {
-		t.Fatalf("expected open-responses base URL, got %q", got)
-	}
-}
-
-func TestResponsesBaseURLFallsBackToOpenAIBaseURL(t *testing.T) {
-	api := &settings.APISettings{
-		BaseUrls: map[string]string{
-			"openai-base-url": "https://openai.example/v1",
-		},
-	}
-
-	slot, err := resolveResponsesSlot(api, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := slot.baseURL
-	if got != "https://openai.example/v1" {
-		t.Fatalf("expected openai fallback base URL, got %q", got)
-	}
-}
-
 func TestResponsesEndpointBuildsProviderURL(t *testing.T) {
 	api := &settings.APISettings{
 		BaseUrls: map[string]string{
@@ -349,7 +227,7 @@ func TestResponsesEndpointBuildsProviderURL(t *testing.T) {
 	}
 
 	source, _ := credentials.NewStaticBearerTokenSource("test-key")
-	c, err := resolveResponsesConnection(&settings.InferenceSettings{API: api}, source, nil)
+	c, err := connectionfactory.New(&settings.InferenceSettings{API: api, Chat: settingsWithAPIType("open-responses").Chat}, source)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -364,17 +242,8 @@ func TestResponsesEndpointBuildsProviderURL(t *testing.T) {
 	}
 }
 
-func TestResponsesAPITypeNormalizesLegacyAliases(t *testing.T) {
-	apiType := settingsWithAPIType("openai-responses")
-
-	got := responsesAPIType(apiType)
-	if got != types.ApiTypeOpenResponses {
-		t.Fatalf("expected open-responses api type, got %q", got)
-	}
-}
-
 func TestResponsesInferenceProviderUsesCanonicalUnderscoreName(t *testing.T) {
-	apiType := settingsWithAPIType("openai")
+	apiType := settingsWithAPIType("open-responses")
 
 	got := responsesInferenceProvider(apiType)
 	if got != "open_responses" {
@@ -389,28 +258,4 @@ func settingsWithAPIType(apiType string) *settings.InferenceSettings {
 	v := types.ApiType(apiType)
 	ret.Chat.ApiType = &v
 	return ret
-}
-
-func TestResponsesOutboundURLOptionsPrefersOpenResponsesAlias(t *testing.T) {
-	api := settings.NewAPISettings()
-	api.AllowHTTP["openai"] = false
-	api.AllowHTTP["open-responses"] = true
-	api.AllowLocalNetworks["openai"] = false
-	api.AllowLocalNetworks["open-responses"] = true
-
-	opts := responsesOutboundURLOptions(api)
-	if !opts.AllowHTTP || !opts.AllowLocalNetworks {
-		t.Fatalf("responses outbound options = %#v, want open-responses alias", opts)
-	}
-}
-
-func TestResponsesOutboundURLOptionsFallsBackToOpenAI(t *testing.T) {
-	api := settings.NewAPISettings()
-	api.AllowHTTP["openai"] = true
-	api.AllowLocalNetworks["openai"] = true
-
-	opts := responsesOutboundURLOptions(api)
-	if !opts.AllowHTTP || !opts.AllowLocalNetworks {
-		t.Fatalf("responses outbound options = %#v, want openai fallback", opts)
-	}
 }

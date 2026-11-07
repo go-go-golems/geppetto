@@ -67,10 +67,10 @@ func TestResponsesObservabilityCapturesObjectEventAndMetadataJSON(t *testing.T) 
 	defer func() { http.DefaultClient = origClient }()
 
 	obs := &captureGeppettoObserver{}
-	eng, err := NewEngine(&settings.InferenceSettings{
+	eng, err := newTestEngineFromSettings(&settings.InferenceSettings{
 		API: &settings.APISettings{
-			APIKeys:  map[string]string{"openai-api-key": "test"},
-			BaseUrls: map[string]string{"openai-base-url": "https://example.test/v1"},
+			APIKeys:  map[string]string{"open-responses-api-key": "test"},
+			BaseUrls: map[string]string{"open-responses-base-url": "https://example.test/v1"},
 		},
 		Chat: &settings.ChatSettings{Engine: ptr("gpt-5-mini"), Stream: true},
 	}, WithObserver(obs), WithObservabilityConfig(geppettoobs.Config{Level: geppettoobs.TraceProvider}))

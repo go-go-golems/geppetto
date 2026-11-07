@@ -72,7 +72,7 @@ func TestResponses_E2E_VCR_Simple(t *testing.T) {
 		ReasoningSummary: p("detailed"),
 	}
 
-	eng, err := NewEngine(ss)
+	eng, err := newTestEngineFromSettings(ss)
 	if err != nil {
 		t.Fatal(err)
 	}

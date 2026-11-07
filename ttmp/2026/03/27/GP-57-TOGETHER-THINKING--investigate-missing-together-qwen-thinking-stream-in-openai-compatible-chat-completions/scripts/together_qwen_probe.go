@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connectionfactory"
+
 	"github.com/go-go-golems/geppetto/pkg/events"
 	enginefactory "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
 	stepopenai "github.com/go-go-golems/geppetto/pkg/steps/ai/openai"
@@ -317,7 +319,11 @@ func runGoOpenAI(s *gepsettings.InferenceSettings, prompt string, system string,
 }
 
 func runGeppetto(s *gepsettings.InferenceSettings, prompt string, system string) error {
-	oae, err := stepopenai.NewOpenAIEngine(s)
+	c, err := connectionfactory.New(s, nil)
+	if err != nil {
+		return err
+	}
+	oae, err := stepopenai.NewOpenAIEngine(c, s)
 	if err != nil {
 		return err
 	}

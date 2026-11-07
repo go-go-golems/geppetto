@@ -31,31 +31,20 @@ type GeminiEngine struct {
 type EngineOption func(*GeminiEngine)
 
 // NewGeminiEngine creates a new Gemini inference engine with the given settings.
-func NewGeminiEngine(s *settings.InferenceSettings, opts ...EngineOption) (*GeminiEngine, error) {
+func NewGeminiEngine(c *connection.Connection, s *settings.InferenceSettings, opts ...EngineOption) (*GeminiEngine, error) {
+	if c == nil {
+		return nil, errors.New("API connection is required")
+	}
 	if s == nil || s.Chat == nil {
 		return nil, errors.New("model chat settings are required")
 	}
-	ret := &GeminiEngine{settings: s, observabilityConfig: geppettoobs.DefaultConfig()}
+	ret := &GeminiEngine{settings: settings.PayloadSettings(s), connection: c, observabilityConfig: geppettoobs.DefaultConfig()}
 	for _, opt := range opts {
 		if opt != nil {
 			opt(ret)
 		}
 	}
 	ret.observabilityConfig = ret.observabilityConfig.Normalized()
-	if ret.connection == nil {
-		if s == nil {
-			return nil, errors.New("Gemini settings are required")
-		}
-		var err error
-		ret.connection, err = settings.ResolveAPIConnection(s.API, s.Client, settings.ConnectionSpec{
-			Slot: "gemini", DefaultBaseURL: geminiDefaultBaseURL,
-			TokenHeaders: connection.TokenHeaders{"x-goog-api-key": ""},
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-	ret.settings = settings.PayloadSettings(s)
 	return ret, nil
 }
 
@@ -290,7 +279,3 @@ func (e *GeminiEngine) publishEvent(ctx context.Context, event events.Event) {
 }
 
 var _ engine.Engine = (*GeminiEngine)(nil)
-
-func WithConnection(c *connection.Connection) EngineOption {
-	return func(e *GeminiEngine) { e.connection = c }
-}

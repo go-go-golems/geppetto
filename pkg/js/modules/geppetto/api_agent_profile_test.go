@@ -27,7 +27,7 @@ func TestEnsureInferenceSettingsProviderDefaults(t *testing.T) {
 		{name: "openai", apiType: aitypes.ApiTypeOpenAI, wantOpenAI: true},
 		{name: "anyscale", apiType: aitypes.ApiTypeAnyScale, wantOpenAI: true},
 		{name: "fireworks", apiType: aitypes.ApiTypeFireworks, wantOpenAI: true},
-		{name: "responses", apiType: aitypes.ApiTypeOpenAIResponses},
+		{name: "responses", apiType: aitypes.ApiTypeOpenResponses},
 		{name: "claude", apiType: aitypes.ApiTypeClaude, wantClaude: true, wantClaudeURL: true},
 		{name: "anthropic-alias", apiType: aitypes.ApiType("anthropic"), wantClaude: true, wantClaudeURL: true},
 		{name: "gemini", apiType: aitypes.ApiTypeGemini, wantGemini: true},
@@ -37,6 +37,9 @@ func TestEnsureInferenceSettingsProviderDefaults(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			settings := &aistepssettings.InferenceSettings{Chat: &aistepssettings.ChatSettings{ApiType: &tt.apiType}}
+			if tt.apiType == aitypes.ApiTypeOpenResponses && settings.API != nil {
+				settings.API.BaseUrls = map[string]string{"open-responses-base-url": "https://responses.example/v1"}
+			}
 			if err := ensureInferenceSettingsProviderDefaults(settings); err != nil {
 				t.Fatalf("ensure defaults: %v", err)
 			}
@@ -131,7 +134,7 @@ func TestNormalizedSparseSettingsReachProviderFactories(t *testing.T) {
 		apiKey  string
 	}{
 		{name: "openai", apiType: aitypes.ApiTypeOpenAI, apiKey: "openai-api-key"},
-		{name: "responses", apiType: aitypes.ApiTypeOpenAIResponses, apiKey: "openai-api-key"},
+		{name: "responses", apiType: aitypes.ApiTypeOpenResponses, apiKey: "open-responses-api-key"},
 		{name: "claude", apiType: aitypes.ApiTypeClaude, apiKey: "claude-api-key"},
 		{name: "gemini", apiType: aitypes.ApiTypeGemini, apiKey: "gemini-api-key"},
 	}
@@ -141,6 +144,9 @@ func TestNormalizedSparseSettingsReachProviderFactories(t *testing.T) {
 			settings := &aistepssettings.InferenceSettings{
 				Chat: &aistepssettings.ChatSettings{ApiType: &tt.apiType, Engine: stringPtr("test-model")},
 				API:  &aistepssettings.APISettings{APIKeys: map[string]string{tt.apiKey: "test-key"}},
+			}
+			if tt.apiType == aitypes.ApiTypeOpenResponses && settings.API != nil {
+				settings.API.BaseUrls = map[string]string{"open-responses-base-url": "https://responses.example/v1"}
 			}
 			if err := ensureInferenceSettingsProviderDefaults(settings); err != nil {
 				t.Fatalf("ensure defaults: %v", err)

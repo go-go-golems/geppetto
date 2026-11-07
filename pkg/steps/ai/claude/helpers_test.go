@@ -206,7 +206,7 @@ func TestClaudeEmptySignedThinkingSurvivesToolResultRoundTrip(t *testing.T) {
 		`data: {"type":"message_stop"}`,
 		"",
 	)
-	e, err := NewClaudeEngine(newObservableClaudeSettings(t, stream))
+	e, err := newTestEngineFromSettings(newObservableClaudeSettings(t, stream))
 	require.NoError(t, err)
 	turn, err := e.RunInference(context.Background(), &turns.Turn{Blocks: []turns.Block{turns.NewUserTextBlock("look up")}})
 	require.NoError(t, err)
@@ -307,7 +307,7 @@ func TestClaudeRunInference_ForcesStreamingMessagesRequest(t *testing.T) {
 
 	engine := "claude-sonnet-4-20250514"
 	apiType := ai_types.ApiTypeClaude
-	e, err := NewClaudeEngine(&aisettings.InferenceSettings{
+	e, err := newTestEngineFromSettings(&aisettings.InferenceSettings{
 		Client: &aisettings.ClientSettings{HTTPClient: httpClient},
 		Claude: &claudesettings.Settings{},
 		API: &aisettings.APISettings{
@@ -382,7 +382,7 @@ func TestClaudeRunInference_UsesConfiguredHTTPClient(t *testing.T) {
 
 	engine := "claude-sonnet-4-20250514"
 	apiType := ai_types.ApiTypeClaude
-	e, err := NewClaudeEngine(&aisettings.InferenceSettings{
+	e, err := newTestEngineFromSettings(&aisettings.InferenceSettings{
 		Client: &aisettings.ClientSettings{HTTPClient: httpClient},
 		Claude: &claudesettings.Settings{},
 		API: &aisettings.APISettings{

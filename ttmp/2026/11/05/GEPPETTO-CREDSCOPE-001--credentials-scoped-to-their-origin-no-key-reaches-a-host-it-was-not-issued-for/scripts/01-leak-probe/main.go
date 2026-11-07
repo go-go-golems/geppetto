@@ -22,9 +22,9 @@ import (
 	"strings"
 	"sync"
 
+	enginefactory "github.com/go-go-golems/geppetto/pkg/inference/engine/factory"
+
 	"github.com/go-go-golems/geppetto/pkg/embeddings"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude"
-	"github.com/go-go-golems/geppetto/pkg/steps/ai/openai_responses"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/providers/pi"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/types"
@@ -205,7 +205,7 @@ func main() {
 	s.Chat.Engine = &model
 	s.API.APIKeys["open-responses-api-key"] = "OR-SECRET"
 	s.API.BaseUrls["openai-base-url"] = "https://gateway.example/v1"
-	if e, err2 := openai_responses.NewEngine(s); err2 == nil {
+	if e, err2 := enginefactory.NewEngineFromSettings(s); err2 == nil {
 		_, err = e.RunInference(ctx, userTurn())
 	} else {
 		err = err2
@@ -223,7 +223,7 @@ func main() {
 	s.API.APIKeys["claude-api-key"] = "CL-SECRET"
 	s.API.BaseUrls["claude-base-url"] = "https://gateway.example"
 	rec.redirect["gateway.example"] = "https://other.example/v1/messages"
-	if e, err2 := claude.NewClaudeEngine(s); err2 == nil {
+	if e, err2 := enginefactory.NewEngineFromSettings(s); err2 == nil {
 		_, err = e.RunInference(ctx, userTurn())
 	} else {
 		err = err2

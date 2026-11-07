@@ -1085,3 +1085,70 @@ PR #447 is merged into main at `c76914b7`. Resume the previously agreed source/p
 
 ### Technical details
 - Main merge: `c76914b7deadc1dd4d82d5a2d4e55a851bd3f98f`; integrated stack merge: `6141ebb1baec7805471645a88bc5cb53f12a8953`.
+
+## Step 18: Require bound connections at inference and counter construction
+
+Implemented the constructor boundary described in design 03. OpenAI, Responses, Claude and Gemini inference constructors, plus both token counters, now take a required connection before payload settings. Removed engine/counter authentication setters, optional connection setters, Responses request-transport options and legacy Responses slot selection. The generic factories and Pi construct source bindings before calling payload code.
+
+The scope remains inference/counters and their source integration. Embeddings already use connection arguments; direct rerank/decision convenience constructors are not redesigned here. The migration playbook is intentionally concise, as requested.
+
+### Prompt Context
+**User prompt (verbatim):** "go ahead, and write a aplaybook for migration if necessary."
+**User steering (verbatim):** "no need to go ham on the playbook, straight, clear, some examples, done"
+**Assistant interpretation:** Complete the separate cleanup and provide a brief practical migration guide, then publish a PR and request the previously authorized Codex review.
+**Inferred user intent:** Make source resolution and payload construction unambiguous without compatibility wrappers or an oversized migration document.
+**Previous commit:** `bb4327ec` — planning checkpoint.
+
+### What I did
+- Add `connectionfactory.New(settings, source)`, independent of payload-engine packages, for explicit source-slot selection, provider-owned endpoints and carriers. Centralize subscription/gateway Anthropic auth declarations there.
+- Require connections in four engine constructors and two counter constructors; nil fails before payload execution. Engine options retain observation/payload behavior only.
+- Update generic inference/counter factories, Pi builders, connection-sharing examples and runtime fixtures.
+- Remove the legacy `ApiTypeOpenAIResponses` enum and CLI choice; reject literal `openai-responses` at factory dispatch. Keep Pi's externally defined catalog protocol name and translate it explicitly to internal `open-responses`.
+- Require the canonical Responses key/URL/policy slot, with no OpenAI or legacy alias borrowing. Replace old fallback success tests with strict source-selection regressions.
+- Replace Codex's public Responses request-transport adapter with source-side opaque authentication and a canonical `NewConnection`; preserve fixed routing and typed refresh/replay tests.
+- Migrate repository tests, JavaScript sparse profile fixtures, and historical compiled Go probe programs. Test-only fixtures resolve bindings before constructing payload engines; no equivalent wrapper is exported in production.
+- Draft a short embedded help playbook and update current credential/profile/inference topics to the new signatures and canonical configuration.
+
+### Why
+- An optional `WithConnection` allowed constructors to continue making source decisions. A required argument makes ownership visible at every direct call site.
+- Moving authentication out of engine options means factories cannot unknowingly forward an option that changes request authority.
+- Source selection should not search maps using protocol aliases or grant one slot's outbound exceptions to another.
+
+### What worked
+- Recording tests pass for the new source factory, all 64 credential-matrix cases, Codex source/routing/replay, and counter factories. The same four suites pass with `-race`.
+- Focused generic engine constructor tests and explicit-connection execution pass, including settings without credential/client maps.
+- Focused direct constructor/counter nil-connection checks, Responses auth/replay/redaction/cancellation tests, and Claude payload projection tests pass.
+- JavaScript sparse provider construction/default tests pass.
+- All repository test packages compile after migrating the three compiled historical probes.
+- Downstream rag-workbench builds with `GOWORK=/tmp/geppetto-bound-validation.work GOCACHE=/tmp/geppetto-bound-go-cache GOFLAGS=-buildvcs=false GOPROXY=off go build ./...`.
+- Embedded help/document tests pass.
+
+### What didn't work
+- The first compile audit identified removed API references, including `undefined: WithBearerTokenSource`, `undefined: resolveResponsesSlot`, and historical probes reporting `not enough arguments` for the constructors. Migrated those callers rather than adding compatibility APIs.
+- A full factory test attempt hit the known listener restriction in `TestStandardEngineFactory_WithClaudeOptionsPassesObservabilityOptions`: `httptest: failed to listen on a port: listen tcp6 [::1]:0: socket: operation not permitted`. Recording tests run locally; socket-based suites require CI. No full-suite local success is claimed.
+
+### What I learned
+- Pi's external catalog protocol label and the library's legacy settings alias are separate contracts. Preserve translation of the former while removing the latter.
+- `go test ./... -run '^$'` includes historical ticket probe programs; Go API migrations need to update these compiled callers too.
+
+### What was tricky to build
+- Avoiding a package cycle between source resolution and payload-engine tests: the new source factory depends on settings, connection and low-level protocol routes, not inference engines.
+- Keeping Codex credential authority on its canonical issuer while removing the engine-specific adapter type and retaining its middleware conformance tests.
+- Distinguishing source-policy tests from payload tests so deleted fallback behavior is replaced with refusal coverage, not recreated in test fixtures.
+
+### What warrants a second pair of eyes
+- Canonical-only Responses source and outbound-policy selection, both with static keys and host token sources.
+- Required constructor arguments and removal of runtime auth options; source helpers must not leak back into payload execution.
+- The bounded scope: direct decision/rerank source convenience paths still exist and are explicitly outside this inference/counter cleanup.
+
+### What should be done in the future
+- Run full CI tests/lint on the cleanup PR, request `@codex review`, and fix concrete findings.
+- Embedding cache namespace work remains tracked separately as #448.
+
+### Code review instructions
+- Read design 03, then `connectionfactory/settings.go` and its tests, the now-small engine/counter constructors, and generic factory dispatch.
+- Read the migration playbook for caller and profile edits. It documents the deliberate breaking signatures and no-fallback policy.
+
+### Technical details
+- Generic factories retain their existing settings-based entry point and host source/connection injection. Only they select source declarations; payload constructors never receive those separate credential inputs.
+- Sources are not accessed during construction. Fixed-origin execution, redaction, and invocation-local replay remain in the unchanged connection executor.
