@@ -995,3 +995,52 @@ Changed the tests to use the public constructor for inference and assert the act
 ### Technical details
 - The stack trace entered `connection.Resolve` with a nil receiver because `newTestEngine` constructed `&ClaudeEngine{settings: st}` directly.
 - The llama.cpp failure already returned `rerank.ErrInvalidRequest`; only the asserted wrapper wording was stale.
+
+## Step 16: Use CI results to complete the failure corrections
+
+CI for published `5a8c8f26` confirms that the full Claude and llama.cpp packages now pass. Lint also passes. Its full test log reveals two additional failures outside the excerpt originally supplied: a JavaScript embedding fixture has an incomplete local binding, and Pi decision construction lost the public invalid-request classification when policy enforcement moved earlier.
+
+Updated the fixture to declare a local endpoint with its key, and wrapped Pi connection-construction errors with both their cause and `decision.ErrInvalidRequest`. The exact affected tests pass locally without sockets.
+
+### Prompt Context
+**User prompts (verbatim):** "you are alowed to run them, does that help?" and "you have my approval".
+**Assistant interpretation:** Run the affected suites with approval if permitted, then use CI to verify the published correction.
+**Inferred user intent:** Obtain executed behavioral evidence rather than relying only on package compilation.
+**Prior source commit:** local `e914076f`, published as `5a8c8f262a9bd957643feef5c0ffc569f17faa57`.
+
+### What I did
+- Attempted the approved full Claude/llama.cpp test command with elevated execution.
+- Inspected workflow `42315219620`, test job `128226054246`, and lint workflow `42315219626` through the GitHub connector.
+- Added `base_urls.openai-base-url` beside the JavaScript fixture's embedding-local API key.
+- Preserve `decision.ErrInvalidRequest` when Pi's `bindConnection` rejects construction, without suppressing the underlying policy error.
+
+### Why
+- Local embedding declarations intentionally require an explicit pair. Restoring implicit fallback to satisfy the fixture would undo the design.
+- The Pi public decision constructor must preserve its error classification even though validation now occurs before `systemone.New`.
+
+### What worked
+- CI reports `ok` for `pkg/steps/ai/claude`, `claude/api`, `pkg/rerank/llamacpp`, and `llamacpp/qwen3`. Lint workflow completes successfully.
+- With `GOWORK=off GOCACHE=/tmp/geppetto-bound-go-cache GOFLAGS=-buildvcs=false GOPROXY=off`, `go test ./pkg/steps/ai/providers/pi -run '^TestDeciderErrors$' -count=1` and `go test ./pkg/js/modules/geppetto -run '^TestEmbeddingsBuilder' -count=1` both pass.
+
+### What didn't work
+- Elevated execution of `go test ./pkg/steps/ai/claude ./pkg/rerank/llamacpp -count=1` was rejected by the execution policy before running: `sandbox_approval: false` and `you cannot ask for escalated permissions`. User approval did not change this session-level restriction.
+- Workflow `42315219620` failed only on the two newly identified tests; its complete logs were inspected rather than relying on the original excerpt.
+
+### What I learned
+- The original pasted tail did not include all failures. Inspect the complete CI log before declaring the suite repaired.
+
+### What was tricky to build
+- Preserve the sentinel contract at the earlier validation point rather than weakening policy or adjusting the test to accept an unclassified error.
+
+### What warrants a second pair of eyes
+- Confirm CI now executes all tests successfully; the new embedding fixture remains construction-only and makes no provider request.
+
+### What should be done in the future
+- Continue normal CI feedback. Full-suite success is pending the next published run.
+
+### Code review instructions
+- Review `providers/pi/decision.go` and `api_embeddings_test.go`. Rerun the two focused commands, then inspect the next PR workflow.
+
+### Technical details
+- Original CI findings: `TestEmbeddingsBuilderUsesEmbeddingLocalCredentials` and `TestDeciderErrors`.
+- The Pi error uses multiple `%w` operands to retain the underlying error and the public classification.

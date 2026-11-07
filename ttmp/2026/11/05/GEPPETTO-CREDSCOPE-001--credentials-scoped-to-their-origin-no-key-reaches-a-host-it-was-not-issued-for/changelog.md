@@ -53,3 +53,9 @@ Finish connection-aware factories and atomic profile overlays; publish usage gui
 - Claude inference tests use the public connection-establishing constructor; payload-only tests keep their lightweight fixture.
 - llama.cpp policy refusal assertion follows the actual cause instead of the removed wrapper wording.
 - Focused constructor/payload tests pass and both packages compile; TLS inference execution awaits CI. See diary step 15.
+
+## 2026-11-06 — Remaining full-suite CI failures
+
+- CI confirms the Claude and llama.cpp repairs and successful lint.
+- Complete the JS embedding-local fixture binding and preserve Pi decision invalid-request classification at connection construction.
+- Both affected test groups pass locally; see diary step 16 for CI evidence and the execution-policy rejection.

@@ -57,7 +57,7 @@ func (a *AgentDir) Decider(ctx context.Context, ref string, o DecisionOptions) (
 	}
 	c, err := a.bindConnection(m, baseURL, connection.Bearer(credentials.Scoped(src, origin)), systemone.Routes(), headers)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decision connection: %w: %w", err, decision.ErrInvalidRequest)
 	}
 	return systemone.New(systemone.Options{
 		Connection:       c,
