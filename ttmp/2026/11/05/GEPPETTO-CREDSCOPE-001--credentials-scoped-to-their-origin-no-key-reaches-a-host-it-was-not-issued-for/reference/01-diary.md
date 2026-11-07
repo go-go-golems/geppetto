@@ -1044,3 +1044,44 @@ Updated the fixture to declare a local endpoint with its key, and wrapped Pi con
 ### Technical details
 - Original CI findings: `TestEmbeddingsBuilderUsesEmbeddingLocalCredentials` and `TestDeciderErrors`.
 - The Pi error uses multiple `%w` operands to retain the underlying error and the public classification.
+
+## Step 17: Plan connection-only inference construction after integration
+
+PR #447 is merged into main at `c76914b7`. Resume the previously agreed source/payload simplification on local branch `task/geppetto-connection-only-001`, with design 03 recording the intended hard constructor boundary and strict Responses slot selection. The local source tree equals the integrated code tree, although connector-published commit IDs differ from local history.
+
+### Prompt Context
+**User prompt (verbatim):** "merged 447"
+**Earlier authorization (verbatim):** "ok, and trigger a codex reivew on github with "@codex review""
+**Assistant interpretation:** Proceed with the agreed constructor simplification after stack integration; publish a separate PR and request review.
+**Inferred user intent:** Finish streamlining how API authority reaches payload clients, without legacy setup paths.
+
+### What I did
+- Confirmed #447 merged and created an isolated feature branch.
+- Added design 03 with docmgr; inventoried constructors, source options, Responses aliases and Codex coupling.
+
+### Why
+- Required connection arguments make incomplete runtime objects harder to construct and remove duplicate credential-selection paths.
+
+### What worked
+- The local checkout is clean before design work; the new branch is created.
+
+### What didn't work
+- No new failures observed. Existing session filesystem/network restrictions still apply.
+
+### What I learned
+- The source factory must avoid imports of payload engines to keep package-local tests and source behavior independently testable.
+
+### What was tricky to build
+- Defining a bounded inference/counter cleanup without conflating it with cache identity (#448) or independent rerank/decision construction policy.
+
+### What warrants a second pair of eyes
+- Canonical Responses slot migration and source-specific auth/timeout semantics.
+
+### What should be done in the future
+- Implement and validate the design, update callers, and request GitHub Codex review.
+
+### Code review instructions
+- Start at design 03. No implementation behavior changes in this planning checkpoint.
+
+### Technical details
+- Main merge: `c76914b7deadc1dd4d82d5a2d4e55a851bd3f98f`; integrated stack merge: `6141ebb1baec7805471645a88bc5cb53f12a8953`.
