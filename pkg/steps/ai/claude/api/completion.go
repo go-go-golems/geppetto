@@ -4,11 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
-	"github.com/go-go-golems/geppetto/pkg/security"
+	"context"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 )
 
 // Request represents the completion request payload.
@@ -49,104 +49,51 @@ type ErrorDetail struct {
 
 // Client represents the Claude API client.
 type Client struct {
-	httpClient          *http.Client
-	apiKey              string
-	bearerAuthorization string
-	oauthMode           bool
-	APIVersion          string
-	BaseURL             string
-	outboundURLOptions  security.OutboundURLOptions
+	connection *connection.Connection
+	APIVersion string
 }
 
 const defaultAPIVersion = "2023-06-01"
 
-// NewClient initializes and returns a new API client.
-func NewClient(apiKey string, baseURL string, apiVersion ...string) *Client {
+// Routes declares the Anthropic operations below its API root.
+func Routes() connection.Routes {
+	return connection.Routes{
+		"messages":     connection.Relative("v1/messages"),
+		"count-tokens": connection.Relative("v1/messages/count_tokens"),
+		"complete":     connection.Relative("v1/complete"),
+	}
+}
+
+// NewClient accepts the complete API authority, with no credential or client setters.
+func NewClient(c *connection.Connection, apiVersion ...string) *Client {
 	version := defaultAPIVersion
 	if len(apiVersion) > 0 {
 		version = apiVersion[0]
 	}
-	return &Client{
-		httpClient: &http.Client{},
-		apiKey:     apiKey,
-		BaseURL:    baseURL,
-		APIVersion: version,
-	}
+	return &Client{connection: c, APIVersion: version}
 }
 
-// SetBearerAuthorization adds the verified bearer form for gateways which
-// require it in addition to the Anthropic x-api-key header. It is a Go-only
-// runtime option and is never read from inference settings.
-func (c *Client) SetBearerAuthorization(value string) {
-	if c != nil {
-		c.bearerAuthorization = value
-	}
-}
-
-// SetOAuthBearerAuthorization configures Anthropic subscription OAuth mode:
-// bearer authorization plus the Claude Code identity/beta headers observed in
-// the provider implementation. It deliberately does not send x-api-key.
-func (c *Client) SetOAuthBearerAuthorization(value string) {
-	if c != nil {
-		c.bearerAuthorization = value
-		c.oauthMode = true
-	}
-}
-
-func (c *Client) SetHTTPClient(httpClient *http.Client) {
-	if httpClient == nil {
-		return
-	}
-	c.httpClient = httpClient
-}
-
-func (c *Client) SetOutboundURLOptions(opts security.OutboundURLOptions) {
-	c.outboundURLOptions = opts
-}
-
-func (c *Client) outboundOptions() security.OutboundURLOptions {
-	if c == nil {
-		return security.OutboundURLOptions{}
-	}
-	return c.outboundURLOptions
-}
-
-// Helper function to set necessary headers
 func (c *Client) setHeaders(req *http.Request) {
-	if c.oauthMode {
-		req.Header.Set("Authorization", "Bearer "+c.bearerAuthorization)
-		req.Header.Set("anthropic-beta", "claude-code-20250219,oauth-2025-04-20")
-		req.Header.Set("user-agent", "claude-cli/geppetto")
-		req.Header.Set("x-app", "cli")
-	} else {
-		req.Header.Set("x-api-key", c.apiKey)
-		if c.bearerAuthorization != "" {
-			req.Header.Set("Authorization", "Bearer "+c.bearerAuthorization)
-		}
-	}
 	req.Header.Set("anthropic-version", c.APIVersion)
 	req.Header.Set("Content-Type", "application/json")
 }
 
 // Complete sends a completion request and returns the response.
 func (c *Client) Complete(req *Request) (*SuccessfulResponse, error) {
-	if err := security.ValidateOutboundURL(c.BaseURL, c.outboundOptions()); err != nil {
-		return nil, fmt.Errorf("invalid claude base URL: %w", err)
-	}
 
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 
-	req_, err := http.NewRequest(http.MethodPost, c.BaseURL, bytes.NewBuffer(body))
+	req_, err := c.connection.NewRequest(context.Background(), http.MethodPost, "complete", bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
 	c.setHeaders(req_)
 
 	// #nosec G704 -- URL is validated above with ValidateOutboundURL.
-	resp, err := c.httpClient.Do(req_)
+	resp, err := c.connection.Do(req_)
 	if err != nil {
 		return nil, err
 	}
@@ -188,23 +135,20 @@ type Event struct {
 }
 
 func (c *Client) StreamComplete(req *Request) (<-chan Event, error) {
-	if err := security.ValidateOutboundURL(c.BaseURL, c.outboundOptions()); err != nil {
-		return nil, fmt.Errorf("invalid claude base URL: %w", err)
-	}
 
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 
-	req_, err := http.NewRequest(http.MethodPost, c.BaseURL, bytes.NewBuffer(body))
+	req_, err := c.connection.NewRequest(context.Background(), http.MethodPost, "complete", bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
 	c.setHeaders(req_)
 
 	// #nosec G704 -- URL is validated above with ValidateOutboundURL.
-	resp, err := c.httpClient.Do(req_)
+	resp, err := c.connection.Do(req_)
 	if err != nil {
 		return nil, err
 	}

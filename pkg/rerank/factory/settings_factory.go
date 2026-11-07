@@ -92,7 +92,7 @@ func (f *SettingsFactory) NewProvider() (rerank.Provider, error) {
 		outbound := f.resolveOutboundURLOptions()
 		httpClient, err := settings.EnsureHTTPClient(f.client)
 		if err != nil {
-			return nil, fmt.Errorf("rerank http client: %w", err)
+			return nil, fmt.Errorf("rerank http client: %w: %w", err, rerank.ErrInvalidRequest)
 		}
 		return llamacpp.New(llamacpp.Options{
 			BaseURL:          baseURL,
@@ -117,7 +117,7 @@ func (f *SettingsFactory) NewProvider() (rerank.Provider, error) {
 		outbound := f.resolveOutboundURLOptions()
 		httpClient, err := settings.EnsureHTTPClient(f.client)
 		if err != nil {
-			return nil, fmt.Errorf("rerank http client: %w", err)
+			return nil, fmt.Errorf("rerank http client: %w: %w", err, rerank.ErrInvalidRequest)
 		}
 		return cohere.New(cohere.Options{
 			APIKey:           apiKey,

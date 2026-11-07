@@ -93,7 +93,10 @@ func TestClaudeTokenCounterCountTurn(t *testing.T) {
 		},
 	}
 
-	counter := NewTokenCounter(ss)
+	counter, err := NewTokenCounter(ss)
+	if err != nil {
+		t.Fatal(err)
+	}
 	res, err := counter.CountTurn(context.Background(), &turns.Turn{
 		Blocks: []turns.Block{
 			turns.NewSystemTextBlock("you are helpful"),

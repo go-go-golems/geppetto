@@ -7,9 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
-	"github.com/go-go-golems/geppetto/pkg/security"
 	"github.com/rs/zerolog"
 )
 
@@ -177,17 +175,13 @@ func (u Usage) MarshalZerologObject(e *zerolog.Event) {
 
 // SendMessage sends a message request and returns the response.
 func (c *Client) SendMessage(ctx context.Context, req *MessageRequest) (*MessageResponse, error) {
-	url := strings.TrimSuffix(c.BaseURL, "/") + "/v1/messages"
-	if err := security.ValidateOutboundURL(url, c.outboundOptions()); err != nil {
-		return nil, fmt.Errorf("invalid claude messages URL: %w", err)
-	}
 
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
+	httpReq, err := c.connection.NewRequest(ctx, http.MethodPost, "messages", bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +193,7 @@ func (c *Client) SendMessage(ctx context.Context, req *MessageRequest) (*Message
 	log.Debug().Msgf("Sending message request: %s", truncatedBody)
 
 	// #nosec G704 -- URL is validated above with ValidateOutboundURL.
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.connection.Do(httpReq)
 	if err != nil {
 		return nil, err
 	}
@@ -232,11 +226,7 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 		return nil, err
 	}
 
-	url := strings.TrimSuffix(c.BaseURL, "/") + "/v1/messages"
-	if err := security.ValidateOutboundURL(url, c.outboundOptions()); err != nil {
-		return nil, fmt.Errorf("invalid claude messages URL: %w", err)
-	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
+	httpReq, err := c.connection.NewRequest(ctx, http.MethodPost, "messages", bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
@@ -247,10 +237,10 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 	if len(truncatedBody) > 1000 {
 		truncatedBody = truncatedBody[:500] + "..." + truncatedBody[len(truncatedBody)-500:]
 	}
-	log.Debug().Str("url", url).Str("body", truncatedBody).Msg("Sending streaming message request")
+	log.Debug().Str("url", httpReq.URL.String()).Str("body", truncatedBody).Msg("Sending streaming message request")
 
 	// #nosec G704 -- URL is validated above with ValidateOutboundURL.
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.connection.Do(httpReq)
 	if err != nil {
 		log.Error().Err(err).Interface("resp", resp).Msg("Error sending streaming message request")
 		return nil, err
@@ -288,23 +278,19 @@ func (c *Client) StreamMessage(ctx context.Context, req *MessageRequest) (<-chan
 }
 
 func (c *Client) CountTokens(ctx context.Context, req *MessageCountTokensRequest) (*MessageCountTokensResponse, error) {
-	url := strings.TrimSuffix(c.BaseURL, "/") + "/v1/messages/count_tokens"
-	if err := security.ValidateOutboundURL(url, c.outboundOptions()); err != nil {
-		return nil, fmt.Errorf("invalid claude count tokens URL: %w", err)
-	}
 
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
+	httpReq, err := c.connection.NewRequest(ctx, http.MethodPost, "count-tokens", bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
 	c.setHeaders(httpReq)
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.connection.Do(httpReq)
 	if err != nil {
 		return nil, err
 	}

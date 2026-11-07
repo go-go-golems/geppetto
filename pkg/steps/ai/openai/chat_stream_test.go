@@ -10,9 +10,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-go-golems/geppetto/pkg/security"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
-	ai_types "github.com/go-go-golems/geppetto/pkg/steps/ai/types"
 )
 
 type unauthorizedBearerTokenSourceFunc struct {
@@ -34,15 +35,8 @@ func TestResolveBearerTokenPreservesContextCancellation(t *testing.T) {
 		"deadline": context.DeadlineExceeded,
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := resolveBearerToken(
-				context.Background(),
-				&settings.APISettings{},
-				ai_types.ApiTypeOpenAI,
-				"https://provider.example.test/v1",
-				bearerTokenSourceFunc(func(context.Context, credentials.Request) (string, error) {
-					return "", sourceErr
-				}),
-			)
+			cfg := testChatConfig(t, "https://provider.example.test/v1", &http.Client{}, bearerTokenSourceFunc(func(context.Context, credentials.Request) (string, error) { return "", sourceErr }))
+			_, err := openChatCompletionStream(t.Context(), cfg, map[string]any{})
 			if !errors.Is(err, sourceErr) {
 				t.Fatalf("expected %v to be preserved, got %v", sourceErr, err)
 			}
@@ -79,14 +73,7 @@ func TestOpenChatCompletionStreamRetriesOneProvider401WithReplacementBearer(t *t
 		return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)), Request: request}, nil
 	})}
 
-	stream, err := openChatCompletionStream(context.Background(), chatStreamConfig{
-		baseURL:           "https://provider.example.test/v1",
-		endpoint:          "https://provider.example.test/v1/chat/completions",
-		apiKey:            "stale-token",
-		httpClient:        client,
-		bearerTokenSource: source,
-		credentialRequest: credentials.Request{Provider: "openai", BaseURL: "https://provider.example.test/v1"},
-	}, map[string]any{"model": "test"})
+	stream, err := openChatCompletionStream(context.Background(), testChatConfig(t, "https://provider.example.test/v1", client, source), map[string]any{"model": "test"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,13 +98,7 @@ func TestOpenChatCompletionStreamRedactsUnauthorizedSourceError(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusUnauthorized, Body: io.NopCloser(strings.NewReader(`{"error":"expired"}`)), Request: request}, nil
 	})}
 
-	_, err := openChatCompletionStream(context.Background(), chatStreamConfig{
-		endpoint:          "https://provider.example.test/v1/chat/completions",
-		apiKey:            "stale-token",
-		httpClient:        client,
-		bearerTokenSource: source,
-		credentialRequest: credentials.Request{Provider: "openai", BaseURL: "https://provider.example.test/v1"},
-	}, map[string]any{"model": "test"})
+	_, err := openChatCompletionStream(context.Background(), testChatConfig(t, "https://provider.example.test/v1", client, source), map[string]any{"model": "test"})
 	if err == nil || strings.Contains(err.Error(), "sensitive") || strings.Contains(err.Error(), "replacement-token") {
 		t.Fatalf("expected redacted unauthorized source error, got %v", err)
 	}
@@ -138,13 +119,7 @@ func TestOpenChatCompletionStreamDoesNotRetrySecondProvider401(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusUnauthorized, Body: io.NopCloser(strings.NewReader(`{"error":"still unauthorized"}`)), Request: request}, nil
 	})}
 
-	_, err := openChatCompletionStream(context.Background(), chatStreamConfig{
-		endpoint:          "https://provider.example.test/v1/chat/completions",
-		apiKey:            "stale-token",
-		httpClient:        client,
-		bearerTokenSource: source,
-		credentialRequest: credentials.Request{Provider: "openai", BaseURL: "https://provider.example.test/v1"},
-	}, map[string]any{"model": "test"})
+	_, err := openChatCompletionStream(context.Background(), testChatConfig(t, "https://provider.example.test/v1", client, source), map[string]any{"model": "test"})
 	if err == nil || !strings.Contains(err.Error(), "status=401") {
 		t.Fatalf("expected second 401 error, got %v", err)
 	}
@@ -157,12 +132,7 @@ func TestOpenChatCompletionStream_404HintsWhenBaseURLLooksLikeChatEndpoint(t *te
 	server := httptest.NewServer(http.NotFoundHandler())
 	defer server.Close()
 
-	_, err := openChatCompletionStream(t.Context(), chatStreamConfig{
-		baseURL:    "https://pass.wafer.ai/v1/chat/completions",
-		endpoint:   server.URL + "/v1/chat/completions/chat/completions",
-		apiKey:     "test-key",
-		httpClient: server.Client(),
-	}, map[string]any{"model": "test"})
+	_, err := openChatCompletionStream(t.Context(), testChatConfig(t, server.URL+"/v1/chat/completions", server.Client(), nil), map[string]any{"model": "test"})
 	if err == nil {
 		t.Fatal("expected 404 error")
 	}
@@ -327,7 +297,7 @@ func TestResolveChatStreamConfigRejectsLocalHTTPByDefault(t *testing.T) {
 	apiSettings.APIKeys["openai-api-key"] = "test-key"
 	apiSettings.BaseUrls["openai-base-url"] = "http://127.0.0.1:9999/v1"
 
-	_, err := resolveChatStreamConfig(context.Background(), apiSettings, nil, ai_types.ApiTypeOpenAI, nil)
+	_, err := settings.ResolveAPIConnection(apiSettings, nil, settings.ConnectionSpec{Slot: "openai", Routes: Routes()})
 	if err == nil {
 		t.Fatal("expected local HTTP base URL to be rejected by default")
 	}
@@ -343,11 +313,34 @@ func TestResolveChatStreamConfigAllowsLocalHTTPWhenProfileOptsIn(t *testing.T) {
 	apiSettings.AllowHTTP["openai"] = true
 	apiSettings.AllowLocalNetworks["openai"] = true
 
-	cfg, err := resolveChatStreamConfig(context.Background(), apiSettings, nil, ai_types.ApiTypeOpenAI, nil)
+	cfg, err := settings.ResolveAPIConnection(apiSettings, nil, settings.ConnectionSpec{Slot: "openai", Routes: Routes()})
 	if err != nil {
 		t.Fatalf("resolveChatStreamConfig: %v", err)
 	}
-	if got := cfg.endpoint; got != "http://127.0.0.1:9999/v1/chat/completions" {
+	route, err := cfg.Resolve("chat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := route.URL()
+	if got := target.String(); got != "http://127.0.0.1:9999/v1/chat/completions" {
 		t.Fatalf("endpoint = %q", got)
 	}
+}
+
+func testChatConfig(t *testing.T, baseURL string, client *http.Client, source credentials.BearerTokenSource) chatStreamConfig {
+	t.Helper()
+	auth := connection.StaticBearer("test-key")
+	if source != nil {
+		auth = connection.Bearer(source)
+	}
+	c, err := connection.New(connection.Config{Provider: "openai", BaseURL: baseURL, Routes: Routes(), Auth: auth, HTTPClient: client, OutboundURL: security.OutboundURLOptions{AllowHTTP: true, AllowLocalNetworks: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	route, err := c.Resolve("chat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := route.URL()
+	return chatStreamConfig{baseURL: baseURL, endpoint: target.String(), connection: c}
 }

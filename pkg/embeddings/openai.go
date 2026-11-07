@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/providers/openaisdk"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -16,7 +18,12 @@ type OpenAIProvider struct {
 
 var _ Provider = &OpenAIProvider{}
 
-func NewOpenAIProvider(apiKey string, model openai.EmbeddingModel, dimensions int) *OpenAIProvider {
+// NewOpenAIProvider uses the same bound API connection as chat and audio.
+func NewOpenAIProvider(c *connection.Connection, model openai.EmbeddingModel, dimensions int) (*OpenAIProvider, error) {
+	client, err := openaisdk.NewClient(c)
+	if err != nil {
+		return nil, err
+	}
 	if model == "" {
 		model = openai.SmallEmbedding3
 	}
@@ -25,10 +32,10 @@ func NewOpenAIProvider(apiKey string, model openai.EmbeddingModel, dimensions in
 	}
 
 	return &OpenAIProvider{
-		client:     openai.NewClient(apiKey),
+		client:     client,
 		model:      model,
 		dimensions: dimensions,
-	}
+	}, nil
 }
 
 func (p *OpenAIProvider) GenerateEmbedding(ctx context.Context, text string) ([]float32, error) {

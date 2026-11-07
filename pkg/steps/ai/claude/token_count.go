@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/tokencount"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/claude/api"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/credentials"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -18,6 +19,7 @@ type TokenCounter struct {
 	settings          *settings.InferenceSettings
 	bearerTokenSource credentials.BearerTokenSource
 	oauthBearerMode   bool
+	connection        *connection.Connection
 }
 
 // TokenCounterOption configures request-time authentication for token counting.
@@ -37,14 +39,28 @@ func WithTokenCountOAuthBearerTokenSource(source credentials.BearerTokenSource) 
 	}
 }
 
-func NewTokenCounter(s *settings.InferenceSettings, opts ...TokenCounterOption) *TokenCounter {
+func NewTokenCounter(s *settings.InferenceSettings, opts ...TokenCounterOption) (*TokenCounter, error) {
+	if s == nil || s.Chat == nil {
+		return nil, errors.New("token count model settings are required")
+	}
+	var err error
 	counter := &TokenCounter{settings: s}
 	for _, opt := range opts {
 		if opt != nil {
 			opt(counter)
 		}
 	}
-	return counter
+	if counter.connection == nil {
+		counter.connection, err = resolveClaudeConnection(s, counter.bearerTokenSource, counter.oauthBearerMode, "")
+	} else if counter.bearerTokenSource != nil {
+		return nil, errors.New("connection already owns authentication")
+	}
+	if err != nil {
+		return nil, err
+	}
+	counter.bearerTokenSource = nil
+	counter.settings = settings.PayloadSettings(s)
+	return counter, nil
 }
 
 func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencount.Result, error) {
@@ -62,38 +78,7 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 		apiType = string(*tc.settings.Chat.ApiType)
 	}
 
-	if tc.settings.API == nil {
-		return nil, errors.New("claude token count: api settings are required")
-	}
-	baseURL, ok := tc.settings.API.BaseUrls["claude-base-url"]
-	if !ok || strings.TrimSpace(baseURL) == "" {
-		baseURL = "https://api.anthropic.com"
-	}
-	apiKey := tc.settings.API.APIKeys["claude-api-key"]
-	bearerAuthorization := ""
-	if tc.bearerTokenSource != nil {
-		request := credentials.Request{Provider: apiType, BaseURL: strings.TrimRight(baseURL, "/")}
-		resolved, resolveErr := tc.bearerTokenSource.BearerToken(ctx, request)
-		if resolveErr != nil {
-			return nil, errors.New("claude token count: resolve Anthropic gateway credential")
-		}
-		apiKey = resolved
-		bearerAuthorization = resolved
-	}
-	if strings.TrimSpace(apiKey) == "" {
-		return nil, errors.New("claude token count: no claude api key configured")
-	}
-
-	client := api.NewClient(apiKey, baseURL)
-	if tc.oauthBearerMode {
-		client.SetOAuthBearerAuthorization(bearerAuthorization)
-	} else {
-		client.SetBearerAuthorization(bearerAuthorization)
-	}
-	client.SetOutboundURLOptions(settings.OutboundURLOptions(tc.settings.API, "claude"))
-	if tc.settings.Client != nil && tc.settings.Client.HTTPClient != nil {
-		client.SetHTTPClient(tc.settings.Client.HTTPClient)
-	}
+	client := api.NewClient(tc.connection)
 	res, err := client.CountTokens(ctx, req)
 	if err != nil {
 		return nil, err
@@ -104,7 +89,7 @@ func (tc *TokenCounter) CountTurn(ctx context.Context, t *turns.Turn) (*tokencou
 		Model:       req.Model,
 		InputTokens: res.InputTokens,
 		Source:      tokencount.SourceProviderAPI,
-		Endpoint:    strings.TrimRight(baseURL, "/") + "/v1/messages/count_tokens",
+		Endpoint:    tc.connection.BaseURL() + "/v1/messages/count_tokens",
 		RequestKind: "messages_count_tokens",
 	}, nil
 }
@@ -161,4 +146,8 @@ func (e *ClaudeEngine) MakeCountTokensRequestFromTurn(ctx context.Context, t *tu
 	}
 
 	return req, nil
+}
+
+func WithTokenCountConnection(c *connection.Connection) TokenCounterOption {
+	return func(counter *TokenCounter) { counter.connection = c }
 }

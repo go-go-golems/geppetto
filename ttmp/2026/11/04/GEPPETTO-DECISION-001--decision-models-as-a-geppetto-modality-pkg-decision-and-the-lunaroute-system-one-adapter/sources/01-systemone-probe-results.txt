@@ -1,0 +1,131 @@
+### q1
+200 791 {'x-request-id': '01a1a8e5-1bbc-7da0-a607-c746458a86fc', 'x-cloud-trace-context': '21bb62aad221348111cbb1b8f5cdc7d3', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff'}
+{
+ "answers": {
+  "complexity": {
+   "confidence": 0.9538839186093196,
+   "legend": {
+    "0": "trivial lookup",
+    "1": "single fact",
+    "2": "explanation of one mechanism",
+    "3": "multi-document synthesis"
+   },
+   "probabilities": {
+    "0": 0.0009924911768032245,
+    "1": 0.004472759691601182,
+    "2": 0.9902858263160456,
+    "3": 0.004248922815549978
+   },
+   "score": 1.9977911807703423,
+   "type": "score"
+  },
+  "needs_retrieval": {
+   "noul": 0.9931528802072852,
+   "type": "noul"
+  },
+  "route": {
+   "choice": "semantic",
+   "confidence": 0.9078255394134032,
+   "probabilities": {
+    "keyword": 0.020802036166082068,
+    "none": 9.546785631094866e-06,
+    "semantic": 0.9791884170482869
+   },
+   "type": "choice"
+  }
+ },
+ "model": "djev",
+ "usage": {
+  "input_tokens": 228,
+  "output_tokens": 16
+ }
+}
+### relevance
+200 812 {'x-request-id': '01a1a8e5-1ffe-7601-b7a8-56ce8d717bd9', 'x-cloud-trace-context': '75037f6345eefa56d016c43cc7c97642', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff'}
+{
+ "answers": {
+  "p0": {
+   "noul": 0.9999917075788608,
+   "type": "noul"
+  },
+  "p1": {
+   "noul": 0.0005560932164002463,
+   "type": "noul"
+  },
+  "p10": {
+   "noul": 0.9907298853704416,
+   "type": "noul"
+  },
+  "p11": {
+   "noul": 0.0001603307255508962,
+   "type": "noul"
+  },
+  "p2": {
+   "noul": 0.9998578284647384,
+   "type": "noul"
+  },
+  "p3": {
+   "noul": 0.00023032838382256116,
+   "type": "noul"
+  },
+  "p4": {
+   "noul": 0.017736207385111107,
+   "type": "noul"
+  },
+  "p5": {
+   "noul": 0.0013393414372494044,
+   "type": "noul"
+  },
+  "p6": {
+   "noul": 0.9860193853273416,
+   "type": "noul"
+  },
+  "p7": {
+   "noul": 0.0012379145133743943,
+   "type": "noul"
+  },
+  "p8": {
+   "noul": 0.9888512442507263,
+   "type": "noul"
+  },
+  "p9": {
+   "noul": 0.0017705249135321886,
+   "type": "noul"
+  }
+ },
+ "model": "djev",
+ "usage": {
+  "input_tokens": 659,
+  "output_tokens": 54
+ }
+}
+### e_unknown_field
+400 271 {'x-request-id': '01a1a8e5-2330-7352-a67c-8b46b715aa1e', 'x-cloud-trace-context': 'cd2cb7dd957467259a878dd7ce98b3e2', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff'}
+{"error":{"code":"systemone_invalid_request","message":"unknown parameter \"options\""}}
+### e_chat_model
+400 160 {'x-request-id': '01a1a8e5-245b-7973-aee6-21717fa993bc', 'x-cloud-trace-context': 'af3776962defa90044b1b343de83611b', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff'}
+{"error":{"code":"systemone_invalid_request","message":"the requested model cannot serve System One"}}
+### e_no_model
+404 185 {'x-request-id': '01a1a8e5-259e-7542-bf43-69e746746e5b', 'x-cloud-trace-context': '25d19851649b934abf371400c632bd74', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff'}
+{"error":{"code":"model_not_found","message":"the requested model was not found"}}
+### e_choice_nocrit
+400 376 {'x-request-id': '01a1a8e5-27ab-7f92-b1a6-ec13d180937f', 'x-cloud-trace-context': '0f33ce0beb6dcbdcceaa81a7a3896093', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff'}
+{"error":{"code":"systemone_invalid_request","message":"choice question \"a\" is missing \"criteria\""}}
+### e_empty_q
+400 160 {'x-request-id': '01a1a8e5-2944-7393-8d3a-61b405e93cac', 'x-cloud-trace-context': '6f403e3c932f73877ff21a445607e41f', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff'}
+{"error":{"code":"systemone_invalid_request","message":"\"questions\" must contain at least one question"}}
+### ok_string_state_noul_nocrit
+200 662 {'x-request-id': '01a1a8e5-2bd7-7f71-b601-c9a8a2fbcaf6', 'x-cloud-trace-context': 'efd081ffc73f79515953b6e8b42b8df3', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff'}
+{
+ "answers": {
+  "a": {
+   "noul": 9.55641963658872e-05,
+   "type": "noul"
+  }
+ },
+ "model": "djev",
+ "usage": {
+  "input_tokens": 111,
+  "output_tokens": 8
+ }
+}

@@ -191,6 +191,7 @@ func (m *moduleRuntime) installExports(exports *goja.Object) {
 	m.mustSet(exports, "engine", m.engineBuilder)
 	m.mustSet(exports, "embeddings", m.embeddingsBuilder)
 	m.mustSet(exports, "reranker", m.rerankerBuilder)
+	m.mustSet(exports, "decider", m.deciderBuilder)
 	m.mustSet(exports, "agent", m.agentBuilder)
 	m.installTurnStoresNamespace(exports)
 	m.mustSet(exports, "tool", m.toolBuilder)

@@ -20,7 +20,7 @@ func cloneInferenceSettings(in *aistepssettings.InferenceSettings) *aistepssetti
 // MergeInferenceSettings overlays engine profile inference settings onto a base
 // settings object using the same merge semantics used for engine profile stack
 // resolution. Overlay wins for conflicting scalar values while nested maps merge
-// recursively.
+// recursively, except that credential key/endpoint pairs are atomic.
 func MergeInferenceSettings(base *aistepssettings.InferenceSettings, overlay *aistepssettings.InferenceSettings) (*aistepssettings.InferenceSettings, error) {
 	return mergeInferenceSettings(base, overlay)
 }
@@ -46,7 +46,33 @@ func mergeInferenceSettings(base *aistepssettings.InferenceSettings, overlay *ai
 	if !ok {
 		return nil, fmt.Errorf("merged inference settings must resolve to an object")
 	}
-	return inferenceSettingsFromMap(mergedMap)
+	result, err := inferenceSettingsFromMap(mergedMap)
+	if err != nil {
+		return nil, err
+	}
+	if result.API != nil && overlay.API != nil {
+		prior := aistepssettings.CredentialSlots{}
+		if base.API != nil {
+			prior = aistepssettings.CredentialSlots{APIKeys: base.API.APIKeys, BaseURLs: base.API.BaseUrls}
+		}
+		pairs, err := aistepssettings.OverlayCredentialSlots(prior, aistepssettings.CredentialSlots{APIKeys: overlay.API.APIKeys, BaseURLs: overlay.API.BaseUrls})
+		if err != nil {
+			return nil, err
+		}
+		result.API.APIKeys, result.API.BaseUrls = pairs.APIKeys, pairs.BaseURLs
+	}
+	if result.Embeddings != nil && overlay.Embeddings != nil {
+		prior := aistepssettings.CredentialSlots{}
+		if base.Embeddings != nil {
+			prior = aistepssettings.CredentialSlots{APIKeys: base.Embeddings.APIKeys, BaseURLs: base.Embeddings.BaseURLs}
+		}
+		pairs, err := aistepssettings.OverlayCredentialSlots(prior, aistepssettings.CredentialSlots{APIKeys: overlay.Embeddings.APIKeys, BaseURLs: overlay.Embeddings.BaseURLs})
+		if err != nil {
+			return nil, err
+		}
+		result.Embeddings.APIKeys, result.Embeddings.BaseURLs = pairs.APIKeys, pairs.BaseURLs
+	}
+	return result, nil
 }
 
 func mergeInferenceSettingsMap(base map[string]any, overlay map[string]any) any {

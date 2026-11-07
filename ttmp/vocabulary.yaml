@@ -143,6 +143,8 @@ topics:
       description: Credential lifecycle, storage, and provider authentication
     - slug: javascript
       description: JavaScript runtimes, bindings, APIs, and scripting workflows
+    - slug: decisions
+      description: 'Decision models (classification, choice, scoring): System One / Jev-style typed probability answers'
 docTypes:
     - slug: index
       description: Ticket index

@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"context"
+	providerdefaults "github.com/go-go-golems/geppetto/pkg/steps/ai/providers/defaults"
 	"math"
 	"reflect"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	gepsession "github.com/go-go-golems/geppetto/pkg/inference/session"
 	"github.com/go-go-golems/geppetto/pkg/inference/tools"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/providers/geminisdk"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/runtimeattrib"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
 	"github.com/go-go-golems/geppetto/pkg/turns"
@@ -20,33 +22,14 @@ import (
 	moderngenai "google.golang.org/genai"
 )
 
-func (e *GeminiEngine) runModernInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
-	apiType := e.settings.Chat.ApiType
-	if apiType == nil {
-		return nil, errors.New("no chat api type specified")
-	}
-	apiKey, ok := e.settings.API.APIKeys[string(*apiType)+"-api-key"]
-	if !ok || apiKey == "" {
-		return nil, errors.Errorf("missing API key %s", string(*apiType)+"-api-key")
-	}
-	baseURL := e.settings.API.BaseUrls[string(*apiType)+"-base-url"]
-	httpClient, err := settings.EnsureHTTPClient(e.settings.Client)
-	if err != nil {
-		return nil, errors.Wrap(err, "resolve gemini HTTP client")
-	}
+// geminiDefaultBaseURL is the Gemini API endpoint the SDK uses when no base
+// URL is configured.
+const geminiDefaultBaseURL = providerdefaults.GeminiBaseURL
 
-	clientConfig := &moderngenai.ClientConfig{
-		APIKey:     apiKey,
-		Backend:    moderngenai.BackendGeminiAPI,
-		HTTPClient: httpClient,
-		HTTPOptions: moderngenai.HTTPOptions{
-			BaseURL:    baseURL,
-			APIVersion: modernGeminiAPIVersion(e.settings),
-		},
-	}
-	client, err := moderngenai.NewClient(ctx, clientConfig)
+func (e *GeminiEngine) runModernInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+	client, err := geminisdk.NewClient(ctx, e.connection, modernGeminiAPIVersion(e.settings))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create modern gemini client")
+		return nil, errors.Wrap(err, "create bound Gemini client")
 	}
 
 	modelName := *e.settings.Chat.Engine

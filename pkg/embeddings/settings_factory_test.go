@@ -5,10 +5,14 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
+	"github.com/go-go-golems/geppetto/pkg/steps/ai/connection"
 	"github.com/go-go-golems/geppetto/pkg/steps/ai/settings"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
+	"io"
 )
 
 func TestNewSettingsFactoryFromInferenceSettingsCopiesEmbeddingLocalAPIMaps(t *testing.T) {
@@ -22,7 +26,7 @@ func TestNewSettingsFactoryFromInferenceSettingsCopiesEmbeddingLocalAPIMaps(t *t
 			Engine:     "text-embedding-3-small",
 			Dimensions: 1536,
 			APIKeys:    map[string]string{"openai-api-key": "embedding-key"},
-			BaseURLs:   map[string]string{"ollama-base-url": "http://embedding.example:11434"},
+			BaseURLs:   map[string]string{"ollama-base-url": "http://embedding.example:11434", "openai-base-url": "https://api.openai.com/v1"},
 		},
 	}
 
@@ -42,6 +46,7 @@ func TestNewSettingsFactoryFromInferenceSettingsOpenAIUsesEmbeddingLocalAPIKey(t
 			Engine:     "text-embedding-3-small",
 			Dimensions: 1536,
 			APIKeys:    map[string]string{"openai-api-key": "embedding-key"},
+			BaseURLs:   map[string]string{"openai-base-url": "https://api.openai.com/v1"},
 		},
 	}
 
@@ -72,8 +77,8 @@ func TestNewSettingsFactoryFromInferenceSettingsOllamaUsesEmbeddingLocalBaseURL(
 	if !ok {
 		t.Fatalf("provider = %T, want *OllamaProvider", provider)
 	}
-	if ollamaProvider.baseURL != "http://embedding.example:11434" {
-		t.Fatalf("baseURL = %q, want embedding-local URL", ollamaProvider.baseURL)
+	if ollamaProvider.connection.BaseURL() != "http://embedding.example:11434" {
+		t.Fatalf("baseURL = %q, want embedding-local URL", ollamaProvider.connection.BaseURL())
 	}
 }
 
@@ -152,7 +157,16 @@ inference_settings:
 }
 
 func TestNewSettingsFactoryFromInferenceSettingsSkipsBlankLocalCohereValuesAndInjectsClient(t *testing.T) {
-	client := &http.Client{}
+	sent := false
+	client := &http.Client{Timeout: 7 * time.Second, Transport: embeddingRoundTrip(func(req *http.Request) (*http.Response, error) {
+		sent = true
+		require.Equal(t, "Bearer top-level-key", req.Header.Get("Authorization"))
+		require.Equal(t, "/cohere/v2/embed", req.URL.Path)
+		deadline, ok := req.Context().Deadline()
+		require.True(t, ok)
+		require.WithinDuration(t, time.Now().Add(7*time.Second), deadline, time.Second)
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"embeddings":{"float":[[1,2]]}}`)), Request: req}, nil
+	})}
 	in := &settings.InferenceSettings{
 		API: &settings.APISettings{
 			APIKeys:            map[string]string{"cohere-api-key": "top-level-key"},
@@ -177,18 +191,18 @@ func TestNewSettingsFactoryFromInferenceSettingsSkipsBlankLocalCohereValuesAndIn
 	if !ok {
 		t.Fatalf("provider = %T, want *CohereProvider", provider)
 	}
-	if cohereProvider.apiKey != "top-level-key" {
-		t.Fatalf("api key = %q, want non-blank top-level fallback", cohereProvider.apiKey)
+	if cohereProvider.connection.BaseURL() != "https://proxy.example/cohere" {
+		t.Fatalf("base URL = %q, want non-blank top-level fallback", cohereProvider.connection.BaseURL())
 	}
-	if cohereProvider.baseURL != "https://proxy.example/cohere" {
-		t.Fatalf("base URL = %q, want non-blank top-level fallback", cohereProvider.baseURL)
+	if embeddingEndpoint(t, cohereProvider.connection) != "https://proxy.example/cohere/v2/embed" {
+		t.Fatalf("endpoint = %q, want path appended to shared base", embeddingEndpoint(t, cohereProvider.connection))
 	}
-	if cohereProvider.endpoint != "https://proxy.example/cohere/v2/embed" {
-		t.Fatalf("endpoint = %q, want path appended to shared base", cohereProvider.endpoint)
-	}
-	if cohereProvider.httpClient != client {
-		t.Fatal("provider did not retain the HTTP client injected through InferenceSettings.Client")
-	}
+	values, err := provider.GenerateEmbedding(t.Context(), "test")
+	require.NoError(t, err)
+	require.Equal(t, []float32{1, 2}, values)
+	require.True(t, sent)
+	require.Equal(t, 7*time.Second, client.Timeout)
+
 }
 
 func TestNewSettingsFactoryFromInferenceSettingsConstructsCohereProvider(t *testing.T) {
@@ -197,9 +211,10 @@ func TestNewSettingsFactoryFromInferenceSettingsConstructsCohereProvider(t *test
 			APIKeys: map[string]string{"cohere-api-key": "top-level-key"},
 		},
 		Embeddings: &config.EmbeddingsConfig{
-			Type:    "cohere",
-			Engine:  "embed-v4.0",
-			APIKeys: map[string]string{"cohere-api-key": "embedding-key"},
+			Type:     "cohere",
+			Engine:   "embed-v4.0",
+			APIKeys:  map[string]string{"cohere-api-key": "embedding-key"},
+			BaseURLs: map[string]string{"cohere-base-url": "https://api.cohere.com"},
 		},
 	}
 
@@ -211,15 +226,11 @@ func TestNewSettingsFactoryFromInferenceSettingsConstructsCohereProvider(t *test
 	if !ok {
 		t.Fatalf("provider = %T, want *CohereProvider", provider)
 	}
-	// Embedding-local credentials win over top-level API maps.
-	if cohereProvider.apiKey != "embedding-key" {
-		t.Fatalf("api key = %q, want embedding-local key", cohereProvider.apiKey)
+	if cohereProvider.connection.BaseURL() != "https://api.cohere.com" {
+		t.Fatalf("base URL = %q, want hosted API root", cohereProvider.connection.BaseURL())
 	}
-	if cohereProvider.baseURL != "https://api.cohere.com" {
-		t.Fatalf("base URL = %q, want hosted API root", cohereProvider.baseURL)
-	}
-	if cohereProvider.endpoint != "https://api.cohere.com/v2/embed" {
-		t.Fatalf("endpoint = %q, want hosted embed endpoint", cohereProvider.endpoint)
+	if embeddingEndpoint(t, cohereProvider.connection) != "https://api.cohere.com/v2/embed" {
+		t.Fatalf("endpoint = %q, want hosted embed endpoint", embeddingEndpoint(t, cohereProvider.connection))
 	}
 	model := cohereProvider.GetModel()
 	if model.Name != "embed-v4.0" {
@@ -245,8 +256,8 @@ func TestNewSettingsFactoryFromInferenceSettingsCohereHonorsBaseURLOverride(t *t
 	if !ok {
 		t.Fatalf("provider = %T, want *CohereProvider", provider)
 	}
-	if cohereProvider.baseURL != "https://proxy.example.com/v2/embed" {
-		t.Fatalf("base URL = %q, want override", cohereProvider.baseURL)
+	if cohereProvider.connection.BaseURL() != "https://proxy.example.com/v2/embed" {
+		t.Fatalf("base URL = %q, want override", cohereProvider.connection.BaseURL())
 	}
 }
 
@@ -262,4 +273,12 @@ func TestNewSettingsFactoryFromInferenceSettingsCohereRequiresAPIKey(t *testing.
 	if !strings.Contains(err.Error(), "no API key provided for Cohere") {
 		t.Fatalf("error = %q, want Cohere key diagnostic", err.Error())
 	}
+}
+
+func embeddingEndpoint(t *testing.T, c *connection.Connection) string {
+	t.Helper()
+	route, err := c.Resolve("embed")
+	require.NoError(t, err)
+	target := route.URL()
+	return target.String()
 }

@@ -6,13 +6,10 @@ package transport
 import (
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"github.com/go-go-golems/geppetto/pkg/rerank"
-	"github.com/go-go-golems/geppetto/pkg/security"
 )
 
 // ParseAndValidateBaseURL validates a provider base URL without returning
@@ -47,47 +44,6 @@ func ParseAndValidateBaseURL(label, raw string) (string, error) {
 		}
 	}
 	return baseURL, nil
-}
-
-// routeSegment is one unreserved path segment (RFC 3986).
-var routeSegment = regexp.MustCompile(`^[A-Za-z0-9._~-]+$`)
-
-// Endpoint appends one fixed route and applies Geppetto's outbound URL policy.
-// The route must be plain path segments (unreserved URL characters, no dot
-// segments), so it can only add path elements below the base URL.
-func Endpoint(label, baseURL, route string, options security.OutboundURLOptions) (string, error) {
-	segments := strings.Split(strings.Trim(route, "/"), "/")
-	for _, segment := range segments {
-		if segment == "." || segment == ".." || !routeSegment.MatchString(segment) {
-			return "", fmt.Errorf("%s endpoint route %q is not a plain relative path: %w", label, route, rerank.ErrInvalidRequest)
-		}
-	}
-	u, err := url.Parse(baseURL)
-	if err != nil {
-		return "", fmt.Errorf("%s endpoint construction failed: %w: %w", label, err, rerank.ErrInvalidRequest)
-	}
-	u.Path = strings.TrimRight(u.Path, "/") + "/" + strings.Join(segments, "/")
-	u.RawPath = ""
-	endpoint := u.String()
-	if err := security.ValidateOutboundURL(endpoint, options); err != nil {
-		return "", fmt.Errorf("%s endpoint rejected by outbound URL policy: %w: %w", label, err, rerank.ErrInvalidRequest)
-	}
-	return endpoint, nil
-}
-
-// CloneClientWithRedirectRejection retains caller transport, jar, and timeout
-// while ensuring redirects cannot bypass the validated endpoint. The injected
-// client is never mutated.
-func CloneClientWithRedirectRejection(injected *http.Client) *http.Client {
-	rejectRedirect := func(_ *http.Request, _ []*http.Request) error {
-		return fmt.Errorf("rerank provider rejects redirects")
-	}
-	if injected == nil {
-		return &http.Client{CheckRedirect: rejectRedirect}
-	}
-	cloned := *injected
-	cloned.CheckRedirect = rejectRedirect
-	return &cloned
 }
 
 // RedactedTransportError discards transport details that may contain redirect

@@ -2,6 +2,9 @@ package embeddings
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -59,21 +62,22 @@ func TestProviderBatchImplementations(t *testing.T) {
 	t.Run("OpenAI provider batch processing", func(t *testing.T) {
 		// This is a minimal test that just ensures the method exists and returns expected format
 		// (Not actually calling the API)
-		provider := NewOpenAIProvider("dummy-key", "text-embedding-3-small", 1536)
+		// A recorder supplies the failure; no real API is contacted.
+		client := &http.Client{Transport: embeddingRoundTrip(func(req *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: 400, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"error":{"message":"test"}}`)), Request: req}, nil
+		})}
+		provider, err := NewOpenAIProvider(testEmbeddingConnection(t, "openai", "dummy-key", "https://gateway.example/v1", client), "text-embedding-3-small", 1536)
+		require.NoError(t, err)
 		texts := []string{"one", "two"}
 
-		// Mock the client call so we don't actually make API calls
-		oldClient := provider.client
-		defer func() { provider.client = oldClient }()
-
-		// Just verify method exists and is callable
-		_, err := DefaultGenerateBatchEmbeddings(context.Background(), provider, texts)
+		_, err = DefaultGenerateBatchEmbeddings(context.Background(), provider, texts)
 		assert.Error(t, err) // Will fail because we're not mocking the client response
 	})
 
 	t.Run("Ollama provider batch processing", func(t *testing.T) {
 		// Similar minimal test for Ollama
-		provider := NewOllamaProvider("", "", 0) // Use defaults
+		provider, err := NewOllamaProvider(testEmbeddingConnection(t, "ollama", "", "https://gateway.example", nil), "", 0)
+		require.NoError(t, err)
 		texts := []string{"one", "two"}
 
 		// We expect this to call ParallelGenerateBatchEmbeddings
@@ -82,7 +86,7 @@ func TestProviderBatchImplementations(t *testing.T) {
 		// Without dependency injection for testing
 		testCtx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 		defer cancel()
-		_, err := provider.GenerateBatchEmbeddings(testCtx, texts)
+		_, err = provider.GenerateBatchEmbeddings(testCtx, texts)
 		// Either timeout or connection error is acceptable
 		assert.Error(t, err)
 	})

@@ -1,0 +1,25 @@
+# Glazed/YAML flags section for decision-model provider configuration.
+slug: decision
+name: Decision model settings
+description: Settings for decision models (typed noul/choice/score answers, e.g. LunaRoute System One)
+flags:
+  - name: decision-type
+    type: string
+    help: The decision provider type (systemone)
+  - name: decision-engine
+    type: string
+    help: The decision model (e.g. djev)
+  - name: decision-max-request-bytes
+    type: int
+    help: Maximum encoded request body size in bytes
+    default: 8388608
+  - name: decision-max-response-bytes
+    type: int
+    help: Maximum response body size in bytes
+    default: 1048576
+  - name: systemone-api-key
+    type: string
+    help: API key for the System One endpoint (LunaRoute)
+  - name: systemone-base-url
+    type: string
+    help: API root of the System One endpoint (default https://gw.lunaroute.com/v1)

@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	decisionconfig "github.com/go-go-golems/geppetto/pkg/decision/config"
 	"github.com/go-go-golems/geppetto/pkg/embeddings/config"
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
 	rerankconfig "github.com/go-go-golems/geppetto/pkg/rerank/config"
@@ -86,6 +87,10 @@ type InferenceSettings struct {
 	// optional; chat and embedding-only profiles remain valid without it.
 	Rerank *rerankconfig.RerankConfig `yaml:"rerank,omitempty" glazed:"rerank"`
 
+	// Decision configures a decision-model provider (typed noul/choice/score
+	// answers, e.g. LunaRoute System One). It is optional, like Rerank.
+	Decision *decisionconfig.DecisionConfig `yaml:"decision,omitempty" glazed:"decision"`
+
 	// Inference provides engine-level defaults for per-turn inference parameters
 	// (thinking budget, reasoning effort, temperature overrides, etc.).
 	// These can be further overridden per-turn via Turn.Data KeyInferenceConfig.
@@ -134,6 +139,8 @@ func NewInferenceSettings() (*InferenceSettings, error) {
 		// provider type or engine. This preserves its optional semantics and
 		// keeps unrelated profile YAML free of an empty rerank section.
 		Rerank: nil,
+		// Decision is likewise nil until a type or engine is configured.
+		Decision: nil,
 	}, nil
 }
 
@@ -191,9 +198,10 @@ func (ss *InferenceSettings) GetMetadata() map[string]interface{} {
 		if ss.Chat.ApiType != nil {
 			metadata["ai-api-type"] = *ss.Chat.ApiType
 
-			baseUrl, ok := ss.API.BaseUrls[string(*ss.Chat.ApiType)]
-			if ok {
-				metadata["ai-base-url"] = baseUrl
+			if ss.API != nil {
+				if baseURL, ok := ss.API.BaseUrls[string(*ss.Chat.ApiType)]; ok {
+					metadata["ai-base-url"] = baseURL
+				}
 			}
 		}
 		if ss.Chat.MaxResponseTokens != nil {
@@ -363,6 +371,21 @@ func (ss *InferenceSettings) GetMetadata() map[string]interface{} {
 		}
 	}
 
+	if ss.Decision != nil {
+		if ss.Decision.Engine != "" {
+			metadata["decision-engine"] = ss.Decision.Engine
+		}
+		if ss.Decision.Type != "" {
+			metadata["decision-type"] = ss.Decision.Type
+		}
+		if ss.Decision.MaxRequestBytes != 0 {
+			metadata["decision-max-request-bytes"] = ss.Decision.MaxRequestBytes
+		}
+		if ss.Decision.MaxResponseBytes != 0 {
+			metadata["decision-max-response-bytes"] = ss.Decision.MaxResponseBytes
+		}
+	}
+
 	return metadata
 }
 
@@ -397,6 +420,9 @@ func (s *InferenceSettings) Clone() *InferenceSettings {
 	}
 	if s.Rerank != nil {
 		ret.Rerank = s.Rerank.Clone()
+	}
+	if s.Decision != nil {
+		ret.Decision = s.Decision.Clone()
 	}
 	if s.Inference != nil {
 		ret.Inference = clone.Clone(s.Inference).(*engine.InferenceConfig)
@@ -452,12 +478,31 @@ func (ss *InferenceSettings) UpdateFromParsedValues(parsedValues *values.Values)
 		ss.Rerank = nil
 	}
 
+	// Decision is optional in the same way as rerank. Hosts that assemble
+	// their own section list may not register it; its absence means "not
+	// configured" rather than an error.
+	_, hasDecision := parsedValues.Get(decisionconfig.DecisionSlug)
+	ss.Decision = nil
+	if hasDecision {
+		decisionSettings := &decisionconfig.DecisionConfig{}
+		err = parsedValues.DecodeSectionInto(decisionconfig.DecisionSlug, decisionSettings)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(decisionSettings.Type) != "" || strings.TrimSpace(decisionSettings.Engine) != "" {
+			ss.Decision = decisionSettings
+		}
+	}
+
 	apiSlugs := []string{
 		openai.OpenAiChatSlug,
 		claude.ClaudeChatSlug,
 		gemini.GeminiChatSlug,
 		config.EmbeddingsSlug,
 		rerankconfig.RerankSlug,
+	}
+	if hasDecision {
+		apiSlugs = append(apiSlugs, decisionconfig.DecisionSlug)
 	}
 	for _, slug := range apiSlugs {
 		err = parsedValues.DecodeSectionInto(slug, ss.API)
