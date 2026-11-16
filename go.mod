@@ -2,7 +2,7 @@ module github.com/go-go-golems/geppetto
 
 go 1.26.6
 
-toolchain go1.26.10
+toolchain go1.26.11
 
 require (
 	github.com/ThreeDotsLabs/watermill v1.5.1
