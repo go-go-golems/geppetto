@@ -16,7 +16,10 @@ func (e *Engine) attachToolsToResponsesRequest(ctx context.Context, t *turns.Tur
 
 	engineTools := tools.AdvertisedToolDefinitionsFromContext(ctx)
 
-	var toolCfg engine.ToolConfig
+	// Advertised tools are sent unless the turn's tool config turns them off,
+	// as the other engines do. A turn without a tool config used to drop them
+	// silently here, and the model then wrote its calls as text.
+	toolCfg := engine.ToolConfig{Enabled: true}
 	if cfg, ok, err := engine.KeyToolConfig.Get(t.Data); err != nil {
 		return errors.Wrap(err, "get tool config")
 	} else if ok {
