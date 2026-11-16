@@ -78,6 +78,9 @@ type responsesInput struct {
 type responsesContentPart struct {
 	Type string `json:"type"`
 	Text string `json:"text,omitempty"`
+	// Annotations is set on output_text parts of replayed output items; the
+	// schema requires the field there (an empty list when there are none).
+	Annotations *[]any `json:"annotations,omitempty"`
 	// For input_image content type
 	ImageURL string `json:"image_url,omitempty"`
 	FileID   string `json:"file_id,omitempty"`
@@ -533,12 +536,7 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 						if ri, ok := reasoningItem(b); ok {
 							items = append(items, ri)
 						}
-						items = append(items, responsesInput{
-							Type:    "message",
-							Role:    "assistant",
-							ID:      msgID,
-							Content: []responsesContentPart{{Type: "output_text", Text: s}},
-						})
+						items = append(items, assistantMessageItem(msgID, s))
 						i = nextIdx
 						continue
 					}
@@ -582,6 +580,56 @@ func buildInputItemsFromTurn(t *turns.Turn) []responsesInput {
 	}
 
 	return items
+}
+
+// assistantMessageItem replays assistant text. With the provider's item id it
+// is an output item, which the Responses schema requires to carry a status and
+// annotations on its output_text parts; strict providers reject it otherwise.
+// Without an id, MarshalJSON sends it in the input-message form.
+func assistantMessageItem(itemID, text string) responsesInput {
+	part := responsesContentPart{Type: "output_text", Text: text}
+	ri := responsesInput{Type: "message", Role: "assistant", ID: itemID, Content: []responsesContentPart{part}}
+	if itemID != "" {
+		ri.Status = "completed"
+		ri.Content[0].Annotations = &[]any{}
+	}
+	return ri
+}
+
+// MarshalJSON sends assistant history that has no provider item id as
+// {"role":"assistant","content":"…"}. An output_text part is only valid inside
+// an output item, which needs an id and a status; a caller-supplied transcript
+// has neither, and strict providers (schema-validating gateways) reject the
+// list form with "Input should be 'input_text'". OpenAI documents the string
+// form for passing earlier assistant turns back.
+func (r responsesInput) MarshalJSON() ([]byte, error) {
+	type wire responsesInput
+	if r.Role == "assistant" && r.ID == "" {
+		if text, ok := outputTextOnly(r.Content); ok {
+			return json.Marshal(struct {
+				Type    string `json:"type,omitempty"`
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			}{r.Type, r.Role, text})
+		}
+	}
+	return json.Marshal(wire(r))
+}
+
+// outputTextOnly joins parts that are all output_text; ok is false for an empty
+// list or any other part type.
+func outputTextOnly(parts []responsesContentPart) (string, bool) {
+	if len(parts) == 0 {
+		return "", false
+	}
+	var b strings.Builder
+	for _, p := range parts {
+		if p.Type != "output_text" {
+			return "", false
+		}
+		b.WriteString(p.Text)
+	}
+	return b.String(), true
 }
 
 func buildResponsesMessageParts(role string, payload map[string]any) []responsesContentPart {
