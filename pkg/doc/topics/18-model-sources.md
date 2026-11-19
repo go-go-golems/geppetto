@@ -47,7 +47,7 @@ r, err := set.Resolve(ctx, "pi:lunaroute/deepseek-4.1-flash", modelsource.Option
 eng, err := r.Engine()
 ```
 
-`Load` reads engine profiles first (`LoadOptions.ProfileSources`, default `<UserConfigDir>/<AppName>/profiles.yaml` with `AppName` defaulting to `pinocchio`), then Pi (`LoadOptions.PiDir`, default `$PI_CODING_AGENT_DIR` or `~/.pi/agent`). A source whose files do not exist is skipped and named in `notes`. A source that exists but cannot be parsed is an error.
+`Load` reads engine profiles first (`LoadOptions.ProfileSources`, default `<UserConfigDir>/<AppName>/profiles.yaml` with `AppName` defaulting to `pinocchio`), then Pi (`LoadOptions.PiDir`, default `~/.pi/agent`; the package does not read the environment, so a host that honours `$PI_CODING_AGENT_DIR` passes its value as `PiDir`). A source whose files do not exist is skipped and named in `notes`. A source that exists but cannot be parsed is an error.
 
 To build a set by hand, use `modelsource.Chain(modelsource.FromProfiles(registry), modelsource.FromPi(agentDir))`.
 

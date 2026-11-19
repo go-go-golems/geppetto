@@ -94,7 +94,9 @@ func (s *Set) Close() error {
 
 // LoadOptions selects the default sources.
 type LoadOptions struct {
-	// PiDir is Pi's agent directory; "" uses $PI_CODING_AGENT_DIR or ~/.pi/agent.
+	// PiDir is Pi's agent directory; "" uses ~/.pi/agent. Hosts that honour
+	// Pi's environment variable pass its value (pi.EnvAgentDir) here; this
+	// package does not read the environment.
 	PiDir string
 	// SkipPi disables the Pi source.
 	SkipPi bool
@@ -144,11 +146,8 @@ func Load(ctx context.Context, o LoadOptions) (*Set, []string, error) {
 		}
 	}
 	if !o.SkipPi {
-		piDir := o.PiDir
-		if piDir == "" {
-			piDir = os.Getenv(pi.EnvAgentDir)
-		}
-		dir := pi.DefaultDir(piDir)
+		dir := pi.DefaultDir(o.PiDir)
+		// #nosec G703 -- the directory is chosen by the operator (option or flag); only its existence is checked here.
 		if st, err := os.Stat(dir); err == nil && st.IsDir() {
 			a, err := pi.LoadAgentDir(dir, o.PiOptions...)
 			if err != nil {

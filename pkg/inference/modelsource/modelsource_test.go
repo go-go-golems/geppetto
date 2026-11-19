@@ -192,7 +192,6 @@ func TestSetRoutesByPrefixAndFallsThrough(t *testing.T) {
 
 func TestLoadSkipsMissingSources(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	t.Setenv(pi.EnvAgentDir, "")
 	set, notes, err := Load(context.Background(), LoadOptions{PiDir: filepath.Join(t.TempDir(), "absent"), AppName: "nothing-here"})
 	require.NoError(t, err)
 	assert.Empty(t, set.Sources())
