@@ -61,9 +61,14 @@ func (p *profileSource) Models(ctx context.Context) ([]Model, error) {
 		if err != nil || res.InferenceSettings == nil || res.InferenceSettings.Chat == nil || res.InferenceSettings.Chat.Engine == nil {
 			continue // a base layer or an incomplete profile, not a runnable model
 		}
-		name := string(e.prof.Slug)
-		if count[e.prof.Slug] > 1 {
-			name = string(e.reg) + "/" + name
+		// Shorten to profile:<slug> only when an unqualified lookup finds this
+		// same profile: a StoreRegistry resolves unqualified slugs against its
+		// default registry only, a ChainedRegistry by precedence.
+		name := string(e.reg) + "/" + string(e.prof.Slug)
+		if count[e.prof.Slug] == 1 {
+			if short, err := p.reg.ResolveEngineProfile(ctx, engineprofiles.ResolveInput{EngineProfileSlug: e.prof.Slug}); err == nil && short.RegistrySlug == res.RegistrySlug {
+				name = string(e.prof.Slug)
+			}
 		}
 		out = append(out, profileModel(ProfilePrefix+":"+name, e.prof.DisplayName, res.InferenceSettings))
 	}
@@ -146,8 +151,14 @@ func (p *profileSource) Resolve(ctx context.Context, ref string, o Options) (*Re
 		return nil, fmt.Errorf("modelsource: profile %s: %w", full, err)
 	}
 	if o.MaxTokens > 0 {
-		n := o.MaxTokens
+		// Provider request builders apply Inference.MaxResponseTokens after the
+		// chat setting, so set both for the option to take precedence over a profile.
+		n, m := o.MaxTokens, o.MaxTokens
 		s.Chat.MaxResponseTokens = &n
+		if s.Inference == nil {
+			s.Inference = &engine.InferenceConfig{}
+		}
+		s.Inference.MaxResponseTokens = &m
 	}
 	display := ""
 	if prof, err := p.reg.GetEngineProfile(ctx, res.RegistrySlug, res.EngineProfileSlug); err == nil && prof != nil {
