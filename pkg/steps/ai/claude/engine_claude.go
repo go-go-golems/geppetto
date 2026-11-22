@@ -76,27 +76,7 @@ func (e *ClaudeEngine) RunInference(
 	// message_start event.
 	req.Stream = true
 
-	// Add tools from context if present (no Turn.Data registry).
-	if reg, ok := tools.RegistryFrom(ctx); ok && reg != nil {
-		var claudeTools []api.Tool
-		for _, tool := range reg.ListTools() {
-			claudeTool := api.Tool{
-				Name:        tool.Name,
-				Description: tool.Description,
-				InputSchema: tool.Parameters,
-			}
-			claudeTools = append(claudeTools, claudeTool)
-			log.Trace().
-				Str("tool_name", claudeTool.Name).
-				Str("tool_description", claudeTool.Description).
-				Interface("tool_input_schema", claudeTool.InputSchema).
-				Msg("Converted tool to Claude format")
-		}
-		req.Tools = claudeTools
-		log.Debug().
-			Int("claude_tool_count", len(claudeTools)).
-			Msg("Tools added to Claude request from context")
-	}
+	attachToolsToClaudeRequest(ctx, t, req)
 	// Do not force defaults for Temperature/TopP; omit when at API defaults (1.0)
 
 	// Setup metadata and event publishing
@@ -299,12 +279,48 @@ func (e *ClaudeEngine) publishEvent(ctx context.Context, event events.Event) {
 	events.PublishEventToContext(ctx, event)
 }
 
+// attachToolsToClaudeRequest adds the context registry's tools to the request
+// (no Turn.Data registry). Tool choice "none" from the turn's tool config is
+// sent as tool_choice {type: none}: the tools stay listed, because the
+// Messages API requires tool definitions when the history holds tool_use or
+// tool_result blocks, but the model may not call one. Other choices keep the
+// API default (auto).
+func attachToolsToClaudeRequest(ctx context.Context, t *turns.Turn, req *api.MessageRequest) {
+	reg, ok := tools.RegistryFrom(ctx)
+	if !ok || reg == nil {
+		return
+	}
+	var claudeTools []api.Tool
+	for _, tool := range reg.ListTools() {
+		claudeTool := api.Tool{
+			Name:        tool.Name,
+			Description: tool.Description,
+			InputSchema: tool.Parameters,
+		}
+		claudeTools = append(claudeTools, claudeTool)
+		log.Trace().
+			Str("tool_name", claudeTool.Name).
+			Str("tool_description", claudeTool.Description).
+			Interface("tool_input_schema", claudeTool.InputSchema).
+			Msg("Converted tool to Claude format")
+	}
+	req.Tools = claudeTools
+	if len(claudeTools) > 0 && t != nil {
+		if cfg, ok, err := engine.KeyToolConfig.Get(t.Data); err == nil && ok && cfg.ToolChoice == engine.ToolChoiceNone {
+			req.ToolChoice = &api.ToolChoice{Type: "none"}
+		}
+	}
+	log.Debug().
+		Int("claude_tool_count", len(claudeTools)).
+		Msg("Tools added to Claude request from context")
+}
+
 // GetSupportedToolFeatures returns the tool features supported by Claude
 func (e *ClaudeEngine) GetSupportedToolFeatures() engine.ToolFeatures {
 	limits := e.toolAdapter.GetProviderLimits()
 	return engine.ToolFeatures{
 		SupportsParallelCalls: false, // Claude currently doesn't support parallel tool calls
-		SupportsToolChoice:    false, // Claude doesn't have explicit tool choice like OpenAI
+		SupportsToolChoice:    true,  // auto (default) and none
 		SupportsSystemTools:   false,
 		SupportsStreaming:     true,
 		Limits: engine.ProviderLimits{
@@ -315,6 +331,7 @@ func (e *ClaudeEngine) GetSupportedToolFeatures() engine.ToolFeatures {
 		},
 		SupportedChoiceTypes: []engine.ToolChoice{
 			engine.ToolChoiceAuto, // Claude automatically decides when to use tools
+			engine.ToolChoiceNone, // tool_choice {type: none}
 		},
 	}
 }

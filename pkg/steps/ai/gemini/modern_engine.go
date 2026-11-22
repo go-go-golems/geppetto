@@ -178,7 +178,14 @@ func (e *GeminiEngine) buildModernGenerateContentConfig(ctx context.Context, t *
 		}
 		if len(decls) > 0 {
 			config.Tools = []*moderngenai.Tool{{FunctionDeclarations: decls}}
-			config.ToolConfig = &moderngenai.ToolConfig{FunctionCallingConfig: &moderngenai.FunctionCallingConfig{Mode: moderngenai.FunctionCallingConfigModeAuto}}
+			mode := moderngenai.FunctionCallingConfigModeAuto
+			if t != nil {
+				// Tool choice "none": the declarations stay, function calling is off.
+				if cfg, ok, err := engine.KeyToolConfig.Get(t.Data); err == nil && ok && cfg.ToolChoice == engine.ToolChoiceNone {
+					mode = moderngenai.FunctionCallingConfigModeNone
+				}
+			}
+			config.ToolConfig = &moderngenai.ToolConfig{FunctionCallingConfig: &moderngenai.FunctionCallingConfig{Mode: mode}}
 		}
 	}
 	return config, nil
