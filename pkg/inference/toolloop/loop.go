@@ -29,6 +29,7 @@ type Loop struct {
 	pauseTimeout time.Duration
 
 	snapshotHook SnapshotHook
+	roundGuard   RoundGuard
 }
 
 type Option func(*Loop)
@@ -79,6 +80,18 @@ func WithSnapshotHook(h SnapshotHook) Option {
 	return func(l *Loop) { l.snapshotHook = h }
 }
 
+// WithRoundGuard installs a guard that runs before every model call; see RoundGuard.
+func WithRoundGuard(g RoundGuard) Option {
+	return func(l *Loop) { l.roundGuard = g }
+}
+
+func (l *Loop) guard(ctx context.Context, t *turns.Turn, round int) error {
+	if l.roundGuard == nil {
+		return nil
+	}
+	return l.roundGuard(ctx, t, round)
+}
+
 func (l *Loop) snapshot(ctx context.Context, t *turns.Turn, phase string) {
 	if l.snapshotHook != nil {
 		l.snapshotHook(ctx, t, phase)
@@ -91,6 +104,11 @@ func (l *Loop) snapshot(ctx context.Context, t *turns.Turn, phase string) {
 
 // RunLoop runs the tool calling workflow with iteration until no pending tools remain
 // or the max iteration safety cap is hit.
+//
+// At the cap it returns the turn so far and a *MaxIterationsError (errors.Is
+// ErrMaxIterations); with LoopConfig.FinalAnswer it first asks the model for
+// one more response without tools. A RoundGuard error stops the loop before
+// the next model call and is returned with the turn so far.
 func (l *Loop) RunLoop(ctx context.Context, initialTurn *turns.Turn) (*turns.Turn, error) {
 	if l == nil {
 		return nil, errors.New("tool loop is nil")
@@ -127,6 +145,9 @@ func (l *Loop) RunLoop(ctx context.Context, initialTurn *turns.Turn) (*turns.Tur
 	for i := 0; i < maxIterations; i++ {
 		log.Debug().Int("iteration", i+1).Msg("toolloop: engine inference step")
 
+		if err := l.guard(ctx, t, i); err != nil {
+			return t, err
+		}
 		l.snapshot(ctx, t, "pre_inference")
 		iterationCtx := gepsession.WithProviderCallIndex(ctx, i)
 		updated, err := l.eng.RunInference(iterationCtx, t)
@@ -170,7 +191,62 @@ func (l *Loop) RunLoop(ctx context.Context, initialTurn *turns.Turn) (*turns.Tur
 	}
 
 	log.Warn().Int("max_iterations", maxIterations).Msg("toolloop: maximum iterations reached")
-	return t, fmt.Errorf("max iterations (%d) reached", maxIterations)
+	lim := &MaxIterationsError{MaxIterations: maxIterations}
+	if l.loopCfg.FinalAnswer == nil {
+		return t, lim
+	}
+	return l.finalAnswer(ctx, t, maxIterations, lim)
+}
+
+// finalAnswer asks for one more response with tool choice "none" after the
+// loop used all its iterations. Tool calls the model makes anyway are not
+// executed; they get an error result so the turn stays well-formed (every call
+// answered) for the next inference.
+func (l *Loop) finalAnswer(ctx context.Context, t *turns.Turn, maxIterations int, lim *MaxIterationsError) (*turns.Turn, error) {
+	fa := l.loopCfg.FinalAnswer
+	failed := func(err error) error { return fmt.Errorf("%w; final answer: %w", lim, err) }
+	if err := ctx.Err(); err != nil {
+		return t, failed(err)
+	}
+	if err := l.guard(ctx, t, maxIterations); err != nil {
+		return t, failed(err)
+	}
+	if fa.Prompt != nil {
+		turns.AppendBlock(t, fa.Prompt(maxIterations))
+	}
+	loopToolCfg, hadToolCfg, _ := engine.KeyToolConfig.Get(t.Data)
+	finalCfg := engineToolConfig(maxIterations, l.toolCfg)
+	finalCfg.ToolChoice = engine.ToolChoiceNone
+	if err := engine.KeyToolConfig.Set(&t.Data, finalCfg); err != nil {
+		return t, failed(errors.Wrap(err, "set final tool config"))
+	}
+	restore := func(x *turns.Turn) {
+		if hadToolCfg && x != nil {
+			_ = engine.KeyToolConfig.Set(&x.Data, loopToolCfg)
+		}
+	}
+
+	l.snapshot(ctx, t, "pre_inference")
+	updated, err := l.eng.RunInference(gepsession.WithProviderCallIndex(ctx, maxIterations), t)
+	if err != nil {
+		restore(t)
+		return t, failed(err)
+	}
+	l.snapshot(ctx, updated, "post_inference")
+	if calls := toolblocks.ExtractPendingToolCalls(updated); len(calls) > 0 {
+		text := fa.RefusedToolResult
+		if text == "" {
+			text = DefaultRefusedToolResult
+		}
+		refused := make([]toolblocks.ToolResult, 0, len(calls))
+		for _, c := range calls {
+			refused = append(refused, toolblocks.ToolResult{ID: c.ID, Error: text})
+		}
+		toolblocks.AppendToolResultsBlocks(updated, refused)
+	}
+	restore(updated)
+	lim.Answered = true
+	return updated, lim
 }
 
 func engineToolConfig(maxIterations int, cfg tools.ToolConfig) engine.ToolConfig {

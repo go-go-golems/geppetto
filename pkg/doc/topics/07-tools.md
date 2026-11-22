@@ -140,6 +140,51 @@ runner, _ := enginebuilder.New(
 updated, _ := runner.RunInference(ctx, seed)
 ```
 
+### Limits: the iteration cap, a final answer, and round guards
+
+At `MaxIterations` with tool calls still pending, `RunLoop` returns the turn so far and a
+`*toolloop.MaxIterationsError`; test for it with `errors.Is(err, toolloop.ErrMaxIterations)`, not by
+matching the message.
+
+A run that stops at the cap leaves the person without an answer. `WithFinalAnswer` asks the model for one
+more response with tool choice `none`, after an optional prompt block the caller builds (and owns, ID
+included). Tool calls the model makes anyway are not run; each gets an error result, so the turn stays
+well-formed. The error is then a `MaxIterationsError` with `Answered: true`. If the final call fails, the
+error wraps both: `errors.Is(err, toolloop.ErrMaxIterations)` and `errors.Is(err, <cause>)` hold, and
+`Answered` is false.
+
+A `RoundGuard` runs before every model call, including the final answer, and stops the loop by returning
+an error, which `RunLoop` returns with the turn so far. Use it for budgets and other stop rules that need
+to act between rounds:
+
+```go
+loopCfg := toolloop.NewLoopConfig().
+    WithMaxIterations(40).
+    WithFinalAnswer(toolloop.FinalAnswer{Prompt: func(n int) turns.Block {
+        return turns.NewUserTextBlock(fmt.Sprintf("You used all %d tool rounds. Answer now, without tools.", n))
+    }})
+
+runner, _ := enginebuilder.New(
+    enginebuilder.WithBase(e),
+    enginebuilder.WithToolRegistry(reg),
+    enginebuilder.WithLoopConfig(loopCfg),
+    enginebuilder.WithRoundGuard(func(ctx context.Context, t *turns.Turn, round int) error {
+        if spent() >= budget {
+            return ErrBudget // returned by RunInference unchanged
+        }
+        return nil
+    }),
+).Build(ctx, "demo-session")
+
+_, err := runner.RunInference(ctx, seed)
+var lim *toolloop.MaxIterationsError
+switch {
+case errors.Is(err, ErrBudget): // stopped between rounds
+case errors.As(err, &lim) && lim.Answered: // used all rounds, answered without tools
+case err != nil: // failed (including a failed final answer)
+}
+```
+
 ## How to wire tools end-to-end
 
 This is the minimal “wire it up and run” pattern. It assumes you already have an `engine.Engine` (via `factory.NewEngineFromParsedValues(...)` or your own builder) and a populated `tools.ToolRegistry`:

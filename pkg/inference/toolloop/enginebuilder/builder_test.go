@@ -2,6 +2,7 @@ package enginebuilder
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/go-go-golems/geppetto/pkg/inference/engine"
@@ -60,4 +61,19 @@ func TestBuilder_RunsToolLoopAndPersists(t *testing.T) {
 
 	// Tool loop calls snapshot hook at least pre/post inference on the first iteration.
 	require.GreaterOrEqual(t, snapshotCalls, 2)
+}
+
+func TestBuilder_RoundGuardStopsTheToolLoop(t *testing.T) {
+	stop := errors.New("budget used up")
+	rounds := 0
+	b := New(
+		WithBase(passthroughEngine{}),
+		WithToolRegistry(tools.NewInMemoryToolRegistry()),
+		WithRoundGuard(func(context.Context, *turns.Turn, int) error { rounds++; return stop }),
+	)
+	runner, err := b.Build(context.Background(), "sess-guard")
+	require.NoError(t, err)
+	_, err = runner.RunInference(context.Background(), &turns.Turn{ID: "turn-in"})
+	require.ErrorIs(t, err, stop)
+	require.Equal(t, 1, rounds)
 }

@@ -69,6 +69,10 @@ type Builder struct {
 	// If zero, the loop default is used.
 	StepPauseTimeout time.Duration
 
+	// RoundGuard, when set, runs before every model call of the tool loop and
+	// can stop it (e.g. a token budget); see toolloop.RoundGuard.
+	RoundGuard toolloop.RoundGuard
+
 	// Persister is invoked on successful completion (when err == nil and an updated turn exists).
 	Persister TurnPersister
 }
@@ -107,6 +111,7 @@ func (b *Builder) Build(ctx context.Context, sessionID string) (session.Inferenc
 		snapshotHook:     b.SnapshotHook,
 		stepController:   b.StepController,
 		stepPauseTimeout: b.StepPauseTimeout,
+		roundGuard:       b.RoundGuard,
 		persister:        b.Persister,
 	}, nil
 }
@@ -127,6 +132,7 @@ type runner struct {
 
 	stepController   *toolloop.StepController
 	stepPauseTimeout time.Duration
+	roundGuard       toolloop.RoundGuard
 
 	persister TurnPersister
 }
@@ -203,6 +209,9 @@ func (r *runner) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 		}
 		if r.stepPauseTimeout > 0 {
 			opts = append(opts, toolloop.WithPauseTimeout(r.stepPauseTimeout))
+		}
+		if r.roundGuard != nil {
+			opts = append(opts, toolloop.WithRoundGuard(r.roundGuard))
 		}
 		loop := toolloop.New(opts...)
 		updated, err = loop.RunLoop(runCtx, t)
