@@ -25,10 +25,17 @@ type MessageRequest struct {
 	Temperature   *float64       `json:"temperature,omitempty"`
 	Thinking      *ThinkingParam `json:"thinking,omitempty"`
 	Tools         []Tool         `json:"tools,omitempty"`
+	ToolChoice    *ToolChoice    `json:"tool_choice,omitempty"`
 	TopK          *int           `json:"top_k,omitempty"`
 	TopP          *float64       `json:"top_p,omitempty"`
 	OutputFormat  *OutputFormat  `json:"output_format,omitempty"`
 	OutputConfig  *OutputConfig  `json:"output_config,omitempty"`
+}
+
+// ToolChoice is the Messages API tool_choice ("auto", "any", "tool" or "none").
+type ToolChoice struct {
+	Type string `json:"type"`
+	Name string `json:"name,omitempty"`
 }
 
 // OutputConfig contains Claude's output controls, independent of thinking budgets.

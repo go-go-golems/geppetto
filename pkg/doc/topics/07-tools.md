@@ -148,8 +148,10 @@ matching the message.
 
 A run that stops at the cap leaves the person without an answer. `WithFinalAnswer` asks the model for one
 more response with tool choice `none`, after an optional prompt block the caller builds (and owns, ID
-included). Tool calls the model makes anyway are not run; each gets an error result, so the turn stays
-well-formed. The error is then a `MaxIterationsError` with `Answered: true`. If the final call fails, the
+included). The engines send that choice in each API's form, with the tools still listed because the history
+holds their calls: OpenAI Chat and Responses `tool_choice: "none"`, Claude `tool_choice: {"type": "none"}`,
+Gemini function calling mode `NONE`. Tool calls the model makes anyway are not run; each gets an error result,
+so the turn stays well-formed. The error is then a `MaxIterationsError` with `Answered: true`. If the final call fails, the
 error wraps both: `errors.Is(err, toolloop.ErrMaxIterations)` and `errors.Is(err, <cause>)` hold, and
 `Answered` is false.
 

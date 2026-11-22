@@ -33,8 +33,13 @@ func (e *Engine) attachToolsToResponsesRequest(ctx context.Context, t *turns.Tur
 		}
 		if arr, ok := converted.([]any); ok && len(arr) > 0 {
 			reqBody.Tools = arr
-			// Responses API: omit tool_choice for function tools to allow model selection
+			// Responses API: omit tool_choice for function tools to allow model
+			// selection, except "none" (the tools stay listed because the
+			// history may contain their calls, but the model must not call one).
 			reqBody.ToolChoice = nil
+			if toolCfg.ToolChoice == engine.ToolChoiceNone {
+				reqBody.ToolChoice = "none"
+			}
 			if toolCfg.MaxParallelTools > 1 {
 				b := true
 				reqBody.ParallelToolCalls = &b

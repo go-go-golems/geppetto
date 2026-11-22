@@ -159,3 +159,26 @@ func TestAttachToolsToResponsesRequest_RespectsDisabledToolConfig(t *testing.T) 
 		t.Fatalf("expected no tools with Enabled: false, got %#v", reqBody.Tools)
 	}
 }
+
+// Tool choice "none" (a tool loop's final answer) keeps the tools listed and
+// sends tool_choice "none"; other choices keep omitting it.
+func TestAttachToolsToResponsesRequest_ToolChoiceNone(t *testing.T) {
+	eng := &Engine{}
+	ctx := inferencetools.WithRegistry(context.Background(), echoRegistry(t))
+	for _, tc := range []struct {
+		choice engine.ToolChoice
+		want   any
+	}{{engine.ToolChoiceNone, "none"}, {engine.ToolChoiceAuto, nil}} {
+		turn := &turns.Turn{}
+		if err := engine.KeyToolConfig.Set(&turn.Data, engine.ToolConfig{Enabled: true, ToolChoice: tc.choice}); err != nil {
+			t.Fatalf("set tool config: %v", err)
+		}
+		reqBody := &responsesRequest{}
+		if err := eng.attachToolsToResponsesRequest(ctx, turn, reqBody); err != nil {
+			t.Fatalf("attachToolsToResponsesRequest: %v", err)
+		}
+		if len(reqBody.Tools) != 1 || reqBody.ToolChoice != tc.want {
+			t.Fatalf("choice %q: want 1 tool and tool_choice %v, got %d tools and %#v", tc.choice, tc.want, len(reqBody.Tools), reqBody.ToolChoice)
+		}
+	}
+}
