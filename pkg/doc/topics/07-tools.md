@@ -157,7 +157,8 @@ error wraps both: `errors.Is(err, toolloop.ErrMaxIterations)` and `errors.Is(err
 
 A `RoundGuard` runs before every model call, including the final answer, and stops the loop by returning
 an error, which `RunLoop` returns with the turn so far. Use it for budgets and other stop rules that need
-to act between rounds:
+to act between rounds. An `enginebuilder` runner without a tool registry makes a single model call; the
+guard runs before it as well, as round 0, so a budget holds whether or not a session has tools:
 
 ```go
 loopCfg := toolloop.NewLoopConfig().

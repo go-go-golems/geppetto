@@ -63,6 +63,47 @@ func TestBuilder_RunsToolLoopAndPersists(t *testing.T) {
 	require.GreaterOrEqual(t, snapshotCalls, 2)
 }
 
+type countingEngine struct{ calls *int }
+
+func (e countingEngine) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, error) {
+	*e.calls++
+	out := *t
+	return &out, nil
+}
+
+// Without a registry the runner makes one plain model call; the guard runs
+// before it too (round 0), and a stop means the engine is not called.
+func TestBuilder_RoundGuardRunsWithoutARegistry(t *testing.T) {
+	stop := errors.New("budget used up")
+	calls := 0
+	var rounds []int
+	allow := true
+	b := New(
+		WithBase(countingEngine{calls: &calls}),
+		WithRoundGuard(func(_ context.Context, _ *turns.Turn, round int) error {
+			rounds = append(rounds, round)
+			if !allow {
+				return stop
+			}
+			return nil
+		}),
+	)
+	runner, err := b.Build(context.Background(), "sess-guard-plain")
+	require.NoError(t, err)
+
+	_, err = runner.RunInference(context.Background(), &turns.Turn{ID: "turn-1"})
+	require.NoError(t, err)
+	require.Equal(t, 1, calls)
+
+	allow = false
+	in := &turns.Turn{ID: "turn-2"}
+	out, err := runner.RunInference(context.Background(), in)
+	require.ErrorIs(t, err, stop)
+	require.Equal(t, 1, calls, "a stopped call never reaches the engine")
+	require.NotNil(t, out, "the turn so far is returned with the guard's error, as the tool loop does")
+	require.Equal(t, []int{0, 0}, rounds)
+}
+
 func TestBuilder_RoundGuardStopsTheToolLoop(t *testing.T) {
 	stop := errors.New("budget used up")
 	rounds := 0

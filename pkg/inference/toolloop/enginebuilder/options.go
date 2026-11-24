@@ -88,7 +88,8 @@ func WithPersister(persister TurnPersister) Option {
 	}
 }
 
-// WithRoundGuard installs a guard that runs before every model call of the tool loop.
+// WithRoundGuard installs a guard that runs before every model call: each
+// call of the tool loop, or the single call when there is no registry.
 func WithRoundGuard(g toolloop.RoundGuard) Option {
 	return func(b *Builder) {
 		b.RoundGuard = g

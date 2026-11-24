@@ -69,8 +69,9 @@ type Builder struct {
 	// If zero, the loop default is used.
 	StepPauseTimeout time.Duration
 
-	// RoundGuard, when set, runs before every model call of the tool loop and
-	// can stop it (e.g. a token budget); see toolloop.RoundGuard.
+	// RoundGuard, when set, runs before every model call and can stop it
+	// (e.g. a token budget): each call of the tool loop, or the single call
+	// (round 0) when there is no Registry; see toolloop.RoundGuard.
 	RoundGuard toolloop.RoundGuard
 
 	// Persister is invoked on successful completion (when err == nil and an updated turn exists).
@@ -195,7 +196,16 @@ func (r *runner) RunInference(ctx context.Context, t *turns.Turn) (*turns.Turn, 
 	)
 	preInferenceBlockCount := len(t.Blocks)
 	if r.registry == nil {
-		updated, _, err = engine.RunInferenceWithResult(runCtx, r.eng, t)
+		// A single model call is round 0; the guard runs before it as it
+		// does before each of the tool loop's calls.
+		if r.roundGuard != nil {
+			err = r.roundGuard(runCtx, t, 0)
+		}
+		if err != nil {
+			updated = t
+		} else {
+			updated, _, err = engine.RunInferenceWithResult(runCtx, r.eng, t)
+		}
 	} else {
 		opts := []toolloop.Option{
 			toolloop.WithEngine(r.eng),
